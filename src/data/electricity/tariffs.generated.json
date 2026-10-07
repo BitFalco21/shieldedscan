@@ -1,0 +1,1018 @@
+{
+  "source": "GlobalPetrolPrices.com",
+  "sourceUrls": [
+    "https://www.globalpetrolprices.com/map/electricity_average/",
+    "https://www.globalpetrolprices.com/map/electricity_industrial/",
+    "https://www.globalpetrolprices.com/electricity_prices/"
+  ],
+  "licence": "CC BY-NC-ND 3.0",
+  "bands": {
+    "household": "average annual household consumption, all taxes included",
+    "business": "1,000,000 kWh per year, all taxes included"
+  },
+  "quarter": "Q2 2026",
+  "readOn": "2026-09-05",
+  "rows": [
+    {
+      "iso2": "AW",
+      "iso3": "ABW",
+      "name": "Aruba",
+      "householdUsdKwh": 0.205,
+      "businessUsdKwh": 0.303
+    },
+    {
+      "iso2": "AF",
+      "iso3": "AFG",
+      "name": "Afghanistan",
+      "householdUsdKwh": 0.058,
+      "businessUsdKwh": 0.104
+    },
+    {
+      "iso2": "AO",
+      "iso3": "AGO",
+      "name": "Angola",
+      "householdUsdKwh": 0.017,
+      "businessUsdKwh": 0.014
+    },
+    {
+      "iso2": "AL",
+      "iso3": "ALB",
+      "name": "Albania",
+      "householdUsdKwh": 0.128,
+      "businessUsdKwh": 0.159
+    },
+    {
+      "iso2": "AD",
+      "iso3": "AND",
+      "name": "Andorra",
+      "householdUsdKwh": 0.194,
+      "businessUsdKwh": 0.175
+    },
+    {
+      "iso2": "AE",
+      "iso3": "ARE",
+      "name": "United Arab Emirates",
+      "householdUsdKwh": 0.08,
+      "businessUsdKwh": 0.11
+    },
+    {
+      "iso2": "AR",
+      "iso3": "ARG",
+      "name": "Argentina",
+      "householdUsdKwh": 0.102,
+      "businessUsdKwh": 0.092
+    },
+    {
+      "iso2": "AM",
+      "iso3": "ARM",
+      "name": "Armenia",
+      "householdUsdKwh": 0.119,
+      "businessUsdKwh": 0.117
+    },
+    {
+      "iso2": "AU",
+      "iso3": "AUS",
+      "name": "Australia",
+      "householdUsdKwh": 0.286,
+      "businessUsdKwh": 0.249
+    },
+    {
+      "iso2": "AT",
+      "iso3": "AUT",
+      "name": "Austria",
+      "householdUsdKwh": 0.412,
+      "businessUsdKwh": 0.303
+    },
+    {
+      "iso2": "AZ",
+      "iso3": "AZE",
+      "name": "Azerbaijan",
+      "householdUsdKwh": 0.049,
+      "businessUsdKwh": 0.062
+    },
+    {
+      "iso2": "BE",
+      "iso3": "BEL",
+      "name": "Belgium",
+      "householdUsdKwh": 0.415,
+      "businessUsdKwh": 0.252
+    },
+    {
+      "iso2": "BF",
+      "iso3": "BFA",
+      "name": "Burkina Faso",
+      "householdUsdKwh": 0.218,
+      "businessUsdKwh": 0.232
+    },
+    {
+      "iso2": "BD",
+      "iso3": "BGD",
+      "name": "Bangladesh",
+      "householdUsdKwh": 0.063,
+      "businessUsdKwh": 0.101
+    },
+    {
+      "iso2": "BG",
+      "iso3": "BGR",
+      "name": "Bulgaria",
+      "householdUsdKwh": 0.34,
+      "businessUsdKwh": 0.395
+    },
+    {
+      "iso2": "BH",
+      "iso3": "BHR",
+      "name": "Bahrain",
+      "householdUsdKwh": 0.048,
+      "businessUsdKwh": 0.077
+    },
+    {
+      "iso2": "BS",
+      "iso3": "BHS",
+      "name": "Bahamas",
+      "householdUsdKwh": 0.317,
+      "businessUsdKwh": 0.345
+    },
+    {
+      "iso2": "BA",
+      "iso3": "BIH",
+      "name": "Bosnia and Herzegovina",
+      "householdUsdKwh": 0.133,
+      "businessUsdKwh": 0.135
+    },
+    {
+      "iso2": "BY",
+      "iso3": "BLR",
+      "name": "Belarus",
+      "householdUsdKwh": 0.092,
+      "businessUsdKwh": 0.119
+    },
+    {
+      "iso2": "BZ",
+      "iso3": "BLZ",
+      "name": "Belize",
+      "householdUsdKwh": 0.217,
+      "businessUsdKwh": 0.174
+    },
+    {
+      "iso2": "BM",
+      "iso3": "BMU",
+      "name": "Bermuda",
+      "householdUsdKwh": 0.487,
+      "businessUsdKwh": 0.253
+    },
+    {
+      "iso2": "BR",
+      "iso3": "BRA",
+      "name": "Brazil",
+      "householdUsdKwh": 0.177,
+      "businessUsdKwh": 0.156
+    },
+    {
+      "iso2": "BB",
+      "iso3": "BRB",
+      "name": "Barbados",
+      "householdUsdKwh": 0.329,
+      "businessUsdKwh": 0.328
+    },
+    {
+      "iso2": "BT",
+      "iso3": "BTN",
+      "name": "Bhutan",
+      "householdUsdKwh": 0.013,
+      "businessUsdKwh": 0.017
+    },
+    {
+      "iso2": "BW",
+      "iso3": "BWA",
+      "name": "Botswana",
+      "householdUsdKwh": 0.094,
+      "businessUsdKwh": 0.164
+    },
+    {
+      "iso2": "CA",
+      "iso3": "CAN",
+      "name": "Canada",
+      "householdUsdKwh": 0.122,
+      "businessUsdKwh": 0.115
+    },
+    {
+      "iso2": "CH",
+      "iso3": "CHE",
+      "name": "Switzerland",
+      "householdUsdKwh": 0.382,
+      "businessUsdKwh": 0.292
+    },
+    {
+      "iso2": "CL",
+      "iso3": "CHL",
+      "name": "Chile",
+      "householdUsdKwh": 0.292,
+      "businessUsdKwh": 0.207
+    },
+    {
+      "iso2": "CN",
+      "iso3": "CHN",
+      "name": "China",
+      "householdUsdKwh": 0.079,
+      "businessUsdKwh": 0.116
+    },
+    {
+      "iso2": "CI",
+      "iso3": "CIV",
+      "name": "Ivory Coast",
+      "householdUsdKwh": 0.141,
+      "businessUsdKwh": 0.251
+    },
+    {
+      "iso2": "CM",
+      "iso3": "CMR",
+      "name": "Cameroon",
+      "householdUsdKwh": 0.088,
+      "businessUsdKwh": 0.187
+    },
+    {
+      "iso2": "CD",
+      "iso3": "COD",
+      "name": "Democratic Republic of the Congo",
+      "householdUsdKwh": 0.073,
+      "businessUsdKwh": 0.086
+    },
+    {
+      "iso2": "CO",
+      "iso3": "COL",
+      "name": "Colombia",
+      "householdUsdKwh": 0.265,
+      "businessUsdKwh": 0.261
+    },
+    {
+      "iso2": "CV",
+      "iso3": "CPV",
+      "name": "Cape Verde",
+      "householdUsdKwh": 0.333,
+      "businessUsdKwh": 0.213
+    },
+    {
+      "iso2": "CR",
+      "iso3": "CRI",
+      "name": "Costa Rica",
+      "householdUsdKwh": 0.19,
+      "businessUsdKwh": 0.256
+    },
+    {
+      "iso2": "CU",
+      "iso3": "CUB",
+      "name": "Cuba",
+      "householdUsdKwh": 0.006,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "KY",
+      "iso3": "CYM",
+      "name": "Cayman Islands",
+      "householdUsdKwh": 0.427,
+      "businessUsdKwh": 0.375
+    },
+    {
+      "iso2": "CY",
+      "iso3": "CYP",
+      "name": "Cyprus",
+      "householdUsdKwh": 0.359,
+      "businessUsdKwh": 0.307
+    },
+    {
+      "iso2": "CZ",
+      "iso3": "CZE",
+      "name": "Czech Republic",
+      "householdUsdKwh": 0.359,
+      "businessUsdKwh": 0.225
+    },
+    {
+      "iso2": "DE",
+      "iso3": "DEU",
+      "name": "Germany",
+      "householdUsdKwh": 0.401,
+      "businessUsdKwh": 0.268
+    },
+    {
+      "iso2": "DK",
+      "iso3": "DNK",
+      "name": "Denmark",
+      "householdUsdKwh": 0.434,
+      "businessUsdKwh": 0.286
+    },
+    {
+      "iso2": "DO",
+      "iso3": "DOM",
+      "name": "Dominican Republic",
+      "householdUsdKwh": 0.116,
+      "businessUsdKwh": 0.172
+    },
+    {
+      "iso2": "DZ",
+      "iso3": "DZA",
+      "name": "Algeria",
+      "householdUsdKwh": 0.042,
+      "businessUsdKwh": 0.035
+    },
+    {
+      "iso2": "EC",
+      "iso3": "ECU",
+      "name": "Ecuador",
+      "householdUsdKwh": 0.097,
+      "businessUsdKwh": 0.095
+    },
+    {
+      "iso2": "EG",
+      "iso3": "EGY",
+      "name": "Egypt",
+      "householdUsdKwh": 0.021,
+      "businessUsdKwh": 0.038
+    },
+    {
+      "iso2": "ES",
+      "iso3": "ESP",
+      "name": "Spain",
+      "householdUsdKwh": 0.294,
+      "businessUsdKwh": 0.134
+    },
+    {
+      "iso2": "EE",
+      "iso3": "EST",
+      "name": "Estonia",
+      "householdUsdKwh": 0.297,
+      "businessUsdKwh": 0.167
+    },
+    {
+      "iso2": "ET",
+      "iso3": "ETH",
+      "name": "Ethiopia",
+      "householdUsdKwh": 0.006,
+      "businessUsdKwh": 0.015
+    },
+    {
+      "iso2": "FI",
+      "iso3": "FIN",
+      "name": "Finland",
+      "householdUsdKwh": 0.088,
+      "businessUsdKwh": 0.105
+    },
+    {
+      "iso2": "FR",
+      "iso3": "FRA",
+      "name": "France",
+      "householdUsdKwh": 0.271,
+      "businessUsdKwh": 0.173
+    },
+    {
+      "iso2": "GA",
+      "iso3": "GAB",
+      "name": "Gabon",
+      "householdUsdKwh": 0.217,
+      "businessUsdKwh": 0.178
+    },
+    {
+      "iso2": "GB",
+      "iso3": "GBR",
+      "name": "United Kingdom",
+      "householdUsdKwh": 0.43,
+      "businessUsdKwh": 0.453
+    },
+    {
+      "iso2": "GE",
+      "iso3": "GEO",
+      "name": "Georgia",
+      "householdUsdKwh": 0.065,
+      "businessUsdKwh": 0.105
+    },
+    {
+      "iso2": "GH",
+      "iso3": "GHA",
+      "name": "Ghana",
+      "householdUsdKwh": 0.189,
+      "businessUsdKwh": 0.175
+    },
+    {
+      "iso2": "GR",
+      "iso3": "GRC",
+      "name": "Greece",
+      "householdUsdKwh": 0.274,
+      "businessUsdKwh": 0.221
+    },
+    {
+      "iso2": "GT",
+      "iso3": "GTM",
+      "name": "Guatemala",
+      "householdUsdKwh": 0.295,
+      "businessUsdKwh": 0.198
+    },
+    {
+      "iso2": "HK",
+      "iso3": "HKG",
+      "name": "Hong Kong",
+      "householdUsdKwh": 0.175,
+      "businessUsdKwh": 0.168
+    },
+    {
+      "iso2": "HN",
+      "iso3": "HND",
+      "name": "Honduras",
+      "householdUsdKwh": 0.186,
+      "businessUsdKwh": 0.186
+    },
+    {
+      "iso2": "HR",
+      "iso3": "HRV",
+      "name": "Croatia",
+      "householdUsdKwh": 0.209,
+      "businessUsdKwh": 0.184
+    },
+    {
+      "iso2": "HU",
+      "iso3": "HUN",
+      "name": "Hungary",
+      "householdUsdKwh": 0.123,
+      "businessUsdKwh": 0.359
+    },
+    {
+      "iso2": "ID",
+      "iso3": "IDN",
+      "name": "Indonesia",
+      "householdUsdKwh": 0.081,
+      "businessUsdKwh": 0.063
+    },
+    {
+      "iso2": "IN",
+      "iso3": "IND",
+      "name": "India",
+      "householdUsdKwh": 0.071,
+      "businessUsdKwh": 0.109
+    },
+    {
+      "iso2": "IE",
+      "iso3": "IRL",
+      "name": "Ireland",
+      "householdUsdKwh": 0.456,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "IQ",
+      "iso3": "IRQ",
+      "name": "Iraq",
+      "householdUsdKwh": 0.015,
+      "businessUsdKwh": 0.046
+    },
+    {
+      "iso2": "IS",
+      "iso3": "ISL",
+      "name": "Iceland",
+      "householdUsdKwh": 0.216,
+      "businessUsdKwh": 0.106
+    },
+    {
+      "iso2": "IL",
+      "iso3": "ISR",
+      "name": "Israel",
+      "householdUsdKwh": 0.22,
+      "businessUsdKwh": 0.117
+    },
+    {
+      "iso2": "IT",
+      "iso3": "ITA",
+      "name": "Italy",
+      "householdUsdKwh": 0.387,
+      "businessUsdKwh": 0.323
+    },
+    {
+      "iso2": "JM",
+      "iso3": "JAM",
+      "name": "Jamaica",
+      "householdUsdKwh": 0.291,
+      "businessUsdKwh": 0.238
+    },
+    {
+      "iso2": "JO",
+      "iso3": "JOR",
+      "name": "Jordan",
+      "householdUsdKwh": 0.09,
+      "businessUsdKwh": 0.169
+    },
+    {
+      "iso2": "JP",
+      "iso3": "JPN",
+      "name": "Japan",
+      "householdUsdKwh": 0.217,
+      "businessUsdKwh": 0.178
+    },
+    {
+      "iso2": "KZ",
+      "iso3": "KAZ",
+      "name": "Kazakhstan",
+      "householdUsdKwh": 0.068,
+      "businessUsdKwh": 0.09
+    },
+    {
+      "iso2": "KE",
+      "iso3": "KEN",
+      "name": "Kenya",
+      "householdUsdKwh": 0.216,
+      "businessUsdKwh": 0.171
+    },
+    {
+      "iso2": "KG",
+      "iso3": "KGZ",
+      "name": "Kyrgyzstan",
+      "householdUsdKwh": 0.017,
+      "businessUsdKwh": 0.043
+    },
+    {
+      "iso2": "KH",
+      "iso3": "KHM",
+      "name": "Cambodia",
+      "householdUsdKwh": 0.151,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "KR",
+      "iso3": "KOR",
+      "name": "South Korea",
+      "householdUsdKwh": 0.13,
+      "businessUsdKwh": 0.118
+    },
+    {
+      "iso2": "KW",
+      "iso3": "KWT",
+      "name": "Kuwait",
+      "householdUsdKwh": 0.045,
+      "businessUsdKwh": 0.081
+    },
+    {
+      "iso2": "LA",
+      "iso3": "LAO",
+      "name": "Laos",
+      "householdUsdKwh": 0.04,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "LI",
+      "iso3": "LIE",
+      "name": "Liechtenstein",
+      "householdUsdKwh": 0.371,
+      "businessUsdKwh": 0.254
+    },
+    {
+      "iso2": "LK",
+      "iso3": "LKA",
+      "name": "Sri Lanka",
+      "householdUsdKwh": 0.08,
+      "businessUsdKwh": 0.058
+    },
+    {
+      "iso2": "LS",
+      "iso3": "LSO",
+      "name": "Lesotho",
+      "householdUsdKwh": 0.129,
+      "businessUsdKwh": 0.027
+    },
+    {
+      "iso2": "LT",
+      "iso3": "LTU",
+      "name": "Lithuania",
+      "householdUsdKwh": 0.319,
+      "businessUsdKwh": 0.199
+    },
+    {
+      "iso2": "LU",
+      "iso3": "LUX",
+      "name": "Luxembourg",
+      "householdUsdKwh": 0.29,
+      "businessUsdKwh": 0.256
+    },
+    {
+      "iso2": "LV",
+      "iso3": "LVA",
+      "name": "Latvia",
+      "householdUsdKwh": 0.275,
+      "businessUsdKwh": 0.177
+    },
+    {
+      "iso2": "MO",
+      "iso3": "MAC",
+      "name": "Macao",
+      "householdUsdKwh": 0.146,
+      "businessUsdKwh": 0.152
+    },
+    {
+      "iso2": "MA",
+      "iso3": "MAR",
+      "name": "Morocco",
+      "householdUsdKwh": 0.126,
+      "businessUsdKwh": 0.115
+    },
+    {
+      "iso2": "MD",
+      "iso3": "MDA",
+      "name": "Moldova",
+      "householdUsdKwh": 0.209,
+      "businessUsdKwh": 0.209
+    },
+    {
+      "iso2": "MG",
+      "iso3": "MDG",
+      "name": "Madagascar",
+      "householdUsdKwh": 0.135,
+      "businessUsdKwh": 0.298
+    },
+    {
+      "iso2": "MV",
+      "iso3": "MDV",
+      "name": "Maldives",
+      "householdUsdKwh": 0.091,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "MX",
+      "iso3": "MEX",
+      "name": "Mexico",
+      "householdUsdKwh": 0.123,
+      "businessUsdKwh": 0.241
+    },
+    {
+      "iso2": "MK",
+      "iso3": "MKD",
+      "name": "Macedonia",
+      "householdUsdKwh": 0.138,
+      "businessUsdKwh": 0.303
+    },
+    {
+      "iso2": "ML",
+      "iso3": "MLI",
+      "name": "Mali",
+      "householdUsdKwh": 0.232,
+      "businessUsdKwh": 0.168
+    },
+    {
+      "iso2": "MT",
+      "iso3": "MLT",
+      "name": "Malta",
+      "householdUsdKwh": 0.155,
+      "businessUsdKwh": 0.173
+    },
+    {
+      "iso2": "MM",
+      "iso3": "MMR",
+      "name": "Burma (Myanmar)",
+      "householdUsdKwh": 0.023,
+      "businessUsdKwh": 0.144
+    },
+    {
+      "iso2": "MZ",
+      "iso3": "MOZ",
+      "name": "Mozambique",
+      "householdUsdKwh": 0.127,
+      "businessUsdKwh": 0.08
+    },
+    {
+      "iso2": "MU",
+      "iso3": "MUS",
+      "name": "Mauritius",
+      "householdUsdKwh": 0.13,
+      "businessUsdKwh": 0.137
+    },
+    {
+      "iso2": "MW",
+      "iso3": "MWI",
+      "name": "Malawi",
+      "householdUsdKwh": 0.087,
+      "businessUsdKwh": 0.169
+    },
+    {
+      "iso2": "MY",
+      "iso3": "MYS",
+      "name": "Malaysia",
+      "householdUsdKwh": 0.055,
+      "businessUsdKwh": 0.141
+    },
+    {
+      "iso2": "NA",
+      "iso3": "NAM",
+      "name": "Namibia",
+      "householdUsdKwh": 0.169,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "NG",
+      "iso3": "NGA",
+      "name": "Nigeria",
+      "householdUsdKwh": 0.038,
+      "businessUsdKwh": 0.049
+    },
+    {
+      "iso2": "NI",
+      "iso3": "NIC",
+      "name": "Nicaragua",
+      "householdUsdKwh": 0.176,
+      "businessUsdKwh": 0.211
+    },
+    {
+      "iso2": "NL",
+      "iso3": "NLD",
+      "name": "Netherlands",
+      "householdUsdKwh": 0.267,
+      "businessUsdKwh": 0.179
+    },
+    {
+      "iso2": "NO",
+      "iso3": "NOR",
+      "name": "Norway",
+      "householdUsdKwh": 0.212,
+      "businessUsdKwh": 0.126
+    },
+    {
+      "iso2": "NP",
+      "iso3": "NPL",
+      "name": "Nepal",
+      "householdUsdKwh": 0.038,
+      "businessUsdKwh": 0.061
+    },
+    {
+      "iso2": "NZ",
+      "iso3": "NZL",
+      "name": "New Zealand",
+      "householdUsdKwh": 0.224,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "OM",
+      "iso3": "OMN",
+      "name": "Oman",
+      "householdUsdKwh": 0.036,
+      "businessUsdKwh": 0.156
+    },
+    {
+      "iso2": "PK",
+      "iso3": "PAK",
+      "name": "Pakistan",
+      "householdUsdKwh": 0.058,
+      "businessUsdKwh": 0.148
+    },
+    {
+      "iso2": "PA",
+      "iso3": "PAN",
+      "name": "Panama",
+      "householdUsdKwh": 0.204,
+      "businessUsdKwh": 0.222
+    },
+    {
+      "iso2": "PE",
+      "iso3": "PER",
+      "name": "Peru",
+      "householdUsdKwh": 0.191,
+      "businessUsdKwh": 0.167
+    },
+    {
+      "iso2": "PH",
+      "iso3": "PHL",
+      "name": "Philippines",
+      "householdUsdKwh": 0.213,
+      "businessUsdKwh": 0.157
+    },
+    {
+      "iso2": "PL",
+      "iso3": "POL",
+      "name": "Poland",
+      "householdUsdKwh": 0.244,
+      "businessUsdKwh": 0.176
+    },
+    {
+      "iso2": "PT",
+      "iso3": "PRT",
+      "name": "Portugal",
+      "householdUsdKwh": 0.253,
+      "businessUsdKwh": 0.176
+    },
+    {
+      "iso2": "PY",
+      "iso3": "PRY",
+      "name": "Paraguay",
+      "householdUsdKwh": 0.068,
+      "businessUsdKwh": 0.057
+    },
+    {
+      "iso2": "QA",
+      "iso3": "QAT",
+      "name": "Qatar",
+      "householdUsdKwh": 0.031,
+      "businessUsdKwh": 0.036
+    },
+    {
+      "iso2": "RO",
+      "iso3": "ROU",
+      "name": "Romania",
+      "householdUsdKwh": 0.348,
+      "businessUsdKwh": 0.285
+    },
+    {
+      "iso2": "RU",
+      "iso3": "RUS",
+      "name": "Russia",
+      "householdUsdKwh": 0.076,
+      "businessUsdKwh": 0.12
+    },
+    {
+      "iso2": "RW",
+      "iso3": "RWA",
+      "name": "Rwanda",
+      "householdUsdKwh": 0.245,
+      "businessUsdKwh": 0.089
+    },
+    {
+      "iso2": "SA",
+      "iso3": "SAU",
+      "name": "Saudi Arabia",
+      "householdUsdKwh": 0.053,
+      "businessUsdKwh": 0.074
+    },
+    {
+      "iso2": "SD",
+      "iso3": "SDN",
+      "name": "Sudan",
+      "householdUsdKwh": 0.044,
+      "businessUsdKwh": 0.056
+    },
+    {
+      "iso2": "SN",
+      "iso3": "SEN",
+      "name": "Senegal",
+      "householdUsdKwh": 0.193,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "SG",
+      "iso3": "SGP",
+      "name": "Singapore",
+      "householdUsdKwh": 0.236,
+      "businessUsdKwh": 0.213
+    },
+    {
+      "iso2": "SL",
+      "iso3": "SLE",
+      "name": "Sierra Leone",
+      "householdUsdKwh": 0.253,
+      "businessUsdKwh": 0.342
+    },
+    {
+      "iso2": "SV",
+      "iso3": "SLV",
+      "name": "El Salvador",
+      "householdUsdKwh": 0.272,
+      "businessUsdKwh": 0.24
+    },
+    {
+      "iso2": "RS",
+      "iso3": "SRB",
+      "name": "Serbia",
+      "householdUsdKwh": 0.138,
+      "businessUsdKwh": 0.154
+    },
+    {
+      "iso2": "SR",
+      "iso3": "SUR",
+      "name": "Suriname",
+      "householdUsdKwh": 0.06,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "SK",
+      "iso3": "SVK",
+      "name": "Slovakia",
+      "householdUsdKwh": 0.221,
+      "businessUsdKwh": 0.19
+    },
+    {
+      "iso2": "SI",
+      "iso3": "SVN",
+      "name": "Slovenia",
+      "householdUsdKwh": 0.238,
+      "businessUsdKwh": 0.192
+    },
+    {
+      "iso2": "SE",
+      "iso3": "SWE",
+      "name": "Sweden",
+      "householdUsdKwh": 0.261,
+      "businessUsdKwh": null
+    },
+    {
+      "iso2": "SZ",
+      "iso3": "SWZ",
+      "name": "Swaziland",
+      "householdUsdKwh": 0.154,
+      "businessUsdKwh": 0.11
+    },
+    {
+      "iso2": "TG",
+      "iso3": "TGO",
+      "name": "Togo",
+      "householdUsdKwh": 0.217,
+      "businessUsdKwh": 0.191
+    },
+    {
+      "iso2": "TH",
+      "iso3": "THA",
+      "name": "Thailand",
+      "householdUsdKwh": 0.121,
+      "businessUsdKwh": 0.121
+    },
+    {
+      "iso2": "TT",
+      "iso3": "TTO",
+      "name": "Trinidad and Tobago",
+      "householdUsdKwh": 0.062,
+      "businessUsdKwh": 0.053
+    },
+    {
+      "iso2": "TN",
+      "iso3": "TUN",
+      "name": "Tunisia",
+      "householdUsdKwh": 0.068,
+      "businessUsdKwh": 0.12
+    },
+    {
+      "iso2": "TR",
+      "iso3": "TUR",
+      "name": "Turkey",
+      "householdUsdKwh": 0.058,
+      "businessUsdKwh": 0.099
+    },
+    {
+      "iso2": "TW",
+      "iso3": "TWN",
+      "name": "Taiwan",
+      "householdUsdKwh": 0.102,
+      "businessUsdKwh": 0.213
+    },
+    {
+      "iso2": "TZ",
+      "iso3": "TZA",
+      "name": "Tanzania",
+      "householdUsdKwh": 0.087,
+      "businessUsdKwh": 0.09
+    },
+    {
+      "iso2": "UG",
+      "iso3": "UGA",
+      "name": "Uganda",
+      "householdUsdKwh": 0.162,
+      "businessUsdKwh": 0.102
+    },
+    {
+      "iso2": "UA",
+      "iso3": "UKR",
+      "name": "Ukraine",
+      "householdUsdKwh": 0.097,
+      "businessUsdKwh": 0.182
+    },
+    {
+      "iso2": "UY",
+      "iso3": "URY",
+      "name": "Uruguay",
+      "householdUsdKwh": 0.257,
+      "businessUsdKwh": 0.128
+    },
+    {
+      "iso2": "US",
+      "iso3": "USA",
+      "name": "USA",
+      "householdUsdKwh": 0.203,
+      "businessUsdKwh": 0.145
+    },
+    {
+      "iso2": "UZ",
+      "iso3": "UZB",
+      "name": "Uzbekistan",
+      "householdUsdKwh": 0.05,
+      "businessUsdKwh": 0.076
+    },
+    {
+      "iso2": "VN",
+      "iso3": "VNM",
+      "name": "Vietnam",
+      "householdUsdKwh": 0.079,
+      "businessUsdKwh": 0.08
+    },
+    {
+      "iso2": "ZA",
+      "iso3": "ZAF",
+      "name": "South Africa",
+      "householdUsdKwh": 0.28,
+      "businessUsdKwh": 0.142
+    },
+    {
+      "iso2": "ZM",
+      "iso3": "ZMB",
+      "name": "Zambia",
+      "householdUsdKwh": 0.028,
+      "businessUsdKwh": 0.056
+    }
+  ]
+}

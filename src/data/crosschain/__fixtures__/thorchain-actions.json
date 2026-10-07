@@ -1,0 +1,374 @@
+{
+  "actions": [
+    {
+      "date": "1790937638836412102",
+      "height": "28069984",
+      "in": [
+        {
+          "address": "t1QxjPm5KvAqZsJgpY4ZQpoJUMZ3zFu7hTt",
+          "coins": [
+            {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "txID": "E03DB858C6F07A9FB758B58E6BD9105286710C14C3EB74E12DDA13872E5668C9"
+        }
+      ],
+      "metadata": {
+        "swap": {
+          "affiliateAddress": "ns/ej",
+          "affiliateFee": "0",
+          "inPriceUSD": "1393.2871326710747",
+          "isStreamingSwap": true,
+          "liquidityFee": "17343",
+          "memo": "=:r:thor1xp3q07akccpd7dukns8l9wy6e4ty47az7cseg6:172357854/0/68:ns/ej:20/1",
+          "networkFees": [],
+          "outPriceUSD": "0.7989305071510033",
+          "streamingSwapMeta": {
+            "count": "68",
+            "depositedCoin": {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            },
+            "inCoin": {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            },
+            "interval": "0",
+            "lastHeight": "28070051",
+            "outCoin": {
+              "amount": "172835235",
+              "asset": "THOR.RUNE"
+            },
+            "outEstimation": "174442848",
+            "quantity": "68"
+          },
+          "swapSlip": "1",
+          "swapTarget": "2535384",
+          "txType": "swap"
+        }
+      },
+      "out": [
+        {
+          "address": "thor1dz5le8q2gytyn5gkfgcma4wueat4y655meyvnx",
+          "affiliate": true,
+          "coins": [
+            {
+              "amount": "345670",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070051",
+          "txID": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "address": "thor1lx3fzpensrze4k30xpg7x5tfd3g7jgp6kaga6v",
+          "coins": [
+            {
+              "amount": "17284",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070051",
+          "txID": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "address": "thor1xp3q07akccpd7dukns8l9wy6e4ty47az7cseg6",
+          "coins": [
+            {
+              "amount": "172472281",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070051",
+          "txID": ""
+        }
+      ],
+      "pools": ["ZEC.ZEC"],
+      "status": "success",
+      "type": "swap"
+    },
+    {
+      "date": "1790937519925320563",
+      "height": "28069965",
+      "in": [
+        {
+          "address": "t1QxjPm5KvAqZsJgpY4ZQpoJUMZ3zFu7hTt",
+          "coins": [
+            {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "txID": "A73B827EE819B0432C76286DD5D48B0B7CA2EF3954749EA9864BA6662F34B4ED"
+        }
+      ],
+      "metadata": {
+        "swap": {
+          "affiliateAddress": "ns/ej",
+          "affiliateFee": "0",
+          "inPriceUSD": "1393.4995835494012",
+          "isStreamingSwap": true,
+          "liquidityFee": "17179",
+          "memo": "=:r:thor1xp3q07akccpd7dukns8l9wy6e4ty47az7cseg6:165494207/3/0:ns/ej:20/1",
+          "networkFees": [],
+          "outPriceUSD": "0.7979228273656542",
+          "streamingSwapMeta": {
+            "count": "68",
+            "depositedCoin": {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            },
+            "inCoin": {
+              "amount": "100000",
+              "asset": "ZEC.ZEC"
+            },
+            "interval": "3",
+            "lastHeight": "28070166",
+            "outCoin": {
+              "amount": "171746340",
+              "asset": "THOR.RUNE"
+            },
+            "outEstimation": "174689756",
+            "quantity": "68"
+          },
+          "swapSlip": "1",
+          "swapTarget": "2434420",
+          "txType": "swap"
+        }
+      },
+      "out": [
+        {
+          "address": "thor1dz5le8q2gytyn5gkfgcma4wueat4y655meyvnx",
+          "affiliate": true,
+          "coins": [
+            {
+              "amount": "343493",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070166",
+          "txID": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "address": "thor1lx3fzpensrze4k30xpg7x5tfd3g7jgp6kaga6v",
+          "coins": [
+            {
+              "amount": "17175",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070166",
+          "txID": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "address": "thor1xp3q07akccpd7dukns8l9wy6e4ty47az7cseg6",
+          "coins": [
+            {
+              "amount": "171385672",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "height": "28070166",
+          "txID": ""
+        }
+      ],
+      "pools": ["ZEC.ZEC"],
+      "status": "success",
+      "type": "swap"
+    },
+    {
+      "date": "1790937258028167949",
+      "height": "28069922",
+      "in": [
+        {
+          "address": "bc1qa4ptgy5z6yqf82a888fxyqhqy3s55g4yxncfmu",
+          "coins": [
+            {
+              "amount": "9537",
+              "asset": "BTC.BTC"
+            }
+          ],
+          "txID": "9459476D39DEFCE224CE1854CF5E3B7FDFD25D5B149A7CA20C98B31232A307B6"
+        }
+      ],
+      "metadata": {
+        "swap": {
+          "affiliateAddress": "",
+          "affiliateFee": "0",
+          "inPriceUSD": "86555.87323390957",
+          "isStreamingSwap": true,
+          "liquidityFee": "9675339",
+          "memo": "=:z:t1TcUwWriUbS4ddDXruXd7ma9yvqTqj3qNt:548399/1/5",
+          "networkFees": [
+            {
+              "amount": "45001",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "outPriceUSD": "1314.0054095067135",
+          "streamingSwapMeta": {
+            "count": "5",
+            "depositedCoin": {
+              "amount": "9537",
+              "asset": "BTC.BTC"
+            },
+            "inCoin": {
+              "amount": "9537",
+              "asset": "BTC.BTC"
+            },
+            "interval": "1",
+            "lastHeight": "28069926",
+            "outCoin": {
+              "amount": "609594",
+              "asset": "ZEC.ZEC"
+            },
+            "outEstimation": "629970",
+            "quantity": "5"
+          },
+          "swapSlip": "94",
+          "swapTarget": "109714",
+          "txType": "swap"
+        }
+      },
+      "out": [],
+      "pools": ["BTC.BTC", "ZEC.ZEC"],
+      "status": "pending",
+      "type": "swap"
+    },
+    {
+      "date": "1790935289318892774",
+      "height": "28069599",
+      "in": [
+        {
+          "address": "thor187q486vpn34p05nfc3cwydy0nquec0hgg83ty9",
+          "coins": [
+            {
+              "amount": "12700000000",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "txID": "4334923E10CFC73741F69E7C5FCFE44FE3E5FBE2EBD13978D2B7CD50F8D10B84"
+        },
+        {
+          "address": "t1TcUwWriUbS4ddDXruXd7ma9yvqTqj3qNt",
+          "coins": [
+            {
+              "amount": "7334017",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "txID": "0FE982F3C8E4288A462DB3A685A9BE9986A3F6B5AAF5C412209FC5731F10ED6B"
+        }
+      ],
+      "metadata": {
+        "addLiquidity": {
+          "affiliateAddress": "",
+          "affiliateFee": "0",
+          "liquidityUnits": "12807326913",
+          "memo": "+:ZEC.ZEC:thor187q486vpn34p05nfc3cwydy0nquec0hgg83ty9"
+        }
+      },
+      "out": [],
+      "pools": ["ZEC.ZEC"],
+      "status": "success",
+      "type": "addLiquidity"
+    },
+    {
+      "date": "1790933358862478315",
+      "height": "28069284",
+      "in": [
+        {
+          "address": "t1TcUwWriUbS4ddDXruXd7ma9yvqTqj3qNt",
+          "coins": [
+            {
+              "amount": "1000000",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "txID": "D35549CA7CB5FA7974BB1C07BA4206C9F808EC43B9AAD6DB896B6D3BCB168A7C"
+        }
+      ],
+      "metadata": {
+        "swap": {
+          "affiliateAddress": "",
+          "affiliateFee": "0",
+          "inPriceUSD": "1078.4684262475346",
+          "isStreamingSwap": false,
+          "liquidityFee": "190233980",
+          "memo": "=:e:0x5f9Ee08962C216941B2aa25d7295D5EB0089aBc5:377179/1/1",
+          "networkFees": [
+            {
+              "amount": "9098",
+              "asset": "ETH.ETH"
+            }
+          ],
+          "outPriceUSD": "2754.545574460293",
+          "swapSlip": "1229",
+          "swapTarget": "377179",
+          "txType": "swap"
+        }
+      },
+      "out": [
+        {
+          "address": "0x5f9ee08962c216941b2aa25d7295d5eb0089abc5",
+          "coins": [
+            {
+              "amount": "380983",
+              "asset": "ETH.ETH"
+            }
+          ],
+          "height": "28069289",
+          "txID": "6A8ABE8BB3B5FB0D5E66A674CAD6B0A2382CA58273FFE879DE08A244072D4FFB"
+        }
+      ],
+      "pools": ["ZEC.ZEC", "ETH.ETH"],
+      "status": "success",
+      "type": "swap"
+    },
+    {
+      "date": "1790932103445706714",
+      "height": "28069080",
+      "in": [
+        {
+          "address": "thor187q486vpn34p05nfc3cwydy0nquec0hgg83ty9",
+          "coins": [
+            {
+              "amount": "12700000000",
+              "asset": "THOR.RUNE"
+            }
+          ],
+          "txID": "F6241BEF3DB1EB7BDDF4A5D36A4CBC29DDC1F08498B303049E650DE493D53A5F"
+        },
+        {
+          "address": "t1TcUwWriUbS4ddDXruXd7ma9yvqTqj3qNt",
+          "coins": [
+            {
+              "amount": "7199999",
+              "asset": "ZEC.ZEC"
+            }
+          ],
+          "txID": "96B4D640155B787054CCA6E13E655C134082F003249E1F8924CE32064BF08C76"
+        }
+      ],
+      "metadata": {
+        "addLiquidity": {
+          "affiliateAddress": "",
+          "affiliateFee": "0",
+          "liquidityUnits": "12700000000",
+          "memo": "+:ZEC.ZEC:t1TcUwWriUbS4ddDXruXd7ma9yvqTqj3qNt"
+        }
+      },
+      "out": [],
+      "pools": ["ZEC.ZEC"],
+      "status": "success",
+      "type": "addLiquidity"
+    }
+  ],
+  "meta": {
+    "nextPageToken": "280690801000020013",
+    "prevPageToken": "280699849000000016"
+  },
+  "count": "6"
+}

@@ -1,0 +1,27 @@
+# Caddy with the rate-limit module: the TLS front door for the read-only API.
+#
+# Standard Caddy has no rate limiter, hence the custom build. This image does not receive
+# security fixes from a `caddy:2` pull: rebuild it when Caddy publishes a security release
+# (the builder tag tracks upstream, so a rebuild is the whole upgrade).
+#
+#   docker build -f server/Dockerfile.caddy -t caddy-ratelimit:latest .
+#
+# Validate the Caddyfile with `caddy validate --adapter caddyfile` before recreating the
+# container: a bad config takes the API offline. Recreate rather than `docker restart`, which
+# keeps the old image. Keep certificates in a persistent `/data` volume so a recreate does not
+# re-issue them against Let's Encrypt's rate limits.
+
+FROM caddy:2-builder AS builder
+
+# `xcaddy` compiles the module (by Caddy's author) into the binary; there is no runtime
+# plugin mechanism.
+RUN xcaddy build --with github.com/mholt/caddy-ratelimit@5625512f24f6f59d6f64fb3aafe5eecff0b286db
+
+FROM caddy:2
+
+# Only the binary is replaced; entrypoint, XDG paths and the /config and /data volume
+# conventions stay as the official image defines them, so this is a drop-in for `caddy:2`.
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+# Fail the build if the module is missing, rather than discovering it in production.
+RUN caddy list-modules | grep -q '^http.handlers.rate_limit$'

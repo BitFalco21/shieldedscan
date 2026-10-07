@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "synced_height": 3492901,
+    "admin_pubkey": "zobrGyAwpM3mtC0Vo4UOk0bc9Ygg0gdDeD8dCQAOXI4=",
+    "uivk": "uivk1gl26qy0xjja7lqhyg3pf0x4j4j66kqwewrjkdcg28eqq4wgtzjmujpee7x9cs2ec9xhnlgrm8ptlw8z80j2aryw8nqtssser2ys778a0s00uvgkdjnfr58sndhfvc3f4zqjs6ywva6",
+    "address": "u1k0evt0ahj5qdt6y9ftsxndl8lrkm4ff6rp00u04cjpmqj6hxl9t8hfsxftmn3ht34e03lljh89czn2h8qn67rwrs8x0hm3lsxsucp9q9",
+    "registered": 69,
+    "listed": 5,
+    "pricing": {
+      "nonce": 1,
+      "height": 3290650,
+      "tiers": [6000000, 4250000, 3000000, 1500000, 750000, 500000, 250000]
+    }
+  }
+}

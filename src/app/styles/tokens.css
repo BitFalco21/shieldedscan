@@ -1,0 +1,176 @@
+/* Design tokens — "Phosphor". Green-on-black terminal; dark only.
+
+   - Green is the accent (links, prompts, panel titles), never body text.
+   - Body text is --ink: near-white with a green cast.
+   - Glow is budgeted: redaction bars, the shielded shield, the logo cursor and a few
+     named readouts. Panel borders carry --glow-border as part of the panel chrome.
+   - Roles, not colours: --series is what a chart line is drawn in, --warn what a
+     warning is drawn in. Both are amber by default and remapped under the amber
+     theme; nothing else reads --amber directly. Red is for negative deltas only.
+   - --green-faint fails AA (1.9:1) and is decorative only, never content. */
+:root {
+  /* The theme hue. Every colour below is oklch(L C var(--h)) with L and C fixed, so a theme
+     sets this one number. Hex fallbacks for browsers without oklch() are in the @supports block
+     below; `src/lib/theme.ts` holds the recipes and tests keep the two in sync. */
+  --h: 146;
+  --bg: oklch(0.128 0.011 var(--h));
+  --panel: oklch(0.171 0.02 var(--h));
+  /* Opaque background for surfaces that must not let rows scroll through them
+     (a stuck table header). Matches --panel, not --bg, because it floats over
+     panel interiors. */
+  --bg-solid: oklch(0.171 0.02 var(--h));
+
+  --green: oklch(0.874 0.252 calc(var(--h) + 0.6));
+  --green-dim: oklch(0.626 0.175 calc(var(--h) + 2));
+  --green-faint: oklch(0.371 0.092 calc(var(--h) + 4));
+
+  --ink: oklch(0.966 0.053 calc(var(--h) + 5));
+  --ink-bright: oklch(0.988 0.019 var(--h));
+  --ink-dim: oklch(0.749 0.091 calc(var(--h) + 6));
+  --ink-faint: oklch(0.607 0.07 calc(var(--h) + 7));
+
+  --amber: #ffb020;
+  --amber-dim: #8a5f14;
+  /* Chart chrome only — the gauge frame and its wash. Decorative, exempt from AA. */
+  --amber-edge: rgba(255, 176, 32, 0.35);
+  --amber-wash: rgba(255, 176, 32, 0.06);
+  /* The two roles amber plays. Charts read --series; the testnet banner, "unavailable" and
+     other attention marks read --warn. The amber theme remaps both away from the accent, so a
+     series line never matches a link and a warning never matches the chrome. */
+  --series: var(--amber);
+  --series-edge: var(--amber-edge);
+  --series-wash: var(--amber-wash);
+  --warn: var(--amber);
+  --warn-edge: var(--amber-edge);
+  --warn-wash: var(--amber-wash);
+  --red: #ff5252;
+
+  /* Flow palette — categorical, for charts. Jewel tones on near-black: gold, azure, magenta,
+     emerald, violet, cyan, lime, coral. Not the brand colours the marks use: a chart needs
+     ribbons that are easy to tell apart, with even weight and spacing around the wheel.
+     Assigned deterministically per chain by `flowPaletteClass`, so a chain keeps its colour on
+     both sides of a diagram and between visits. */
+  /* Third parties' published mark colours, for `.brand-*` and the /network client tints.
+     Literal hex on purpose: a brand colour is theirs and does not follow --h. */
+  --brand-zakura: #fd6798;
+  --brand-zcashd: #f4b728;
+  /* /network's reliability and latency tiers: the accent stepped down, `.cost-tier-*`'s
+     ladder. Tokens rather than per-class colours because a bar reads them as `color` and a
+     map cell as `fill`, and one tier must be one colour in both. */
+  --net-tier-1: var(--green);
+  --net-tier-2: var(--green-dim);
+  --net-tier-3: oklch(0.49 0.13 calc(var(--h) + 3));
+  --flow-1: #e3b341;
+  --flow-2: #4c8dff;
+  --flow-3: #e0459a;
+  --flow-4: #21c08b;
+  --flow-5: #9d7bff;
+  --flow-6: #2ad4d4;
+  --flow-7: #b6e04a;
+  --flow-8: #ff7a6b;
+  /* A ninth category colour for /ecosystem's map only (nine categories round one circle). Sky,
+     because its neighbours there are coral and gold; chains still use the eight above. */
+  --flow-9: #79c7ff;
+  /* The folded tail is not a chain; a quiet slate keeps it from competing with one. */
+  --flow-rest: #94a3b8;
+
+  --edge: oklch(0.874 0.252 var(--h) / 0.28);
+  --edge-strong: oklch(0.874 0.252 var(--h) / 0.45);
+  --edge-faint: oklch(0.874 0.252 var(--h) / 0.14);
+  --hairline: oklch(0.874 0.252 var(--h) / 0.09);
+
+  /* A track behind a share bar (/network's bars): present, but quieter than any rule. */
+  --edge-ghost: oklch(0.874 0.252 var(--h) / 0.06);
+
+  /* The accent as a fill, at two strengths: a resting wash and a selected/hover one. */
+  --green-wash: oklch(0.874 0.252 var(--h) / 0.06);
+  --green-wash-strong: oklch(0.874 0.252 var(--h) / 0.12);
+
+  --row-hover: oklch(0.874 0.252 var(--h) / 0.05);
+  --hatch-a: oklch(0.874 0.252 var(--h) / 0.05);
+  /* The panel bloom, kept faint so a page of panels does not read as glowing. */
+  --glow-border: 0 0 8px oklch(0.874 0.252 var(--h) / 0.09);
+  --glow-text: 0 0 8px oklch(0.874 0.252 var(--h) / 0.7);
+
+  /* Dims page content behind the command palette. */
+  --scrim: rgba(0, 0, 0, 0.7);
+
+  --font-term:
+    var(--font-jetbrains, ui-monospace), ui-monospace, "JetBrains Mono", "Fira Code",
+    "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+/* Browsers without oklch() get Phosphor green whatever the theme. A separate block because
+   Next's minifier folds duplicate custom-property declarations to the last one, so a hex
+   line above each oklch() line would be dropped from the built CSS. */
+@supports not (color: oklch(0% 0 0)) {
+  :root {
+    --bg: #050805;
+    --panel: #0a120a;
+    --green: #2bff64;
+    --green-dim: #17a344;
+    --green-faint: #0f4d24;
+    --ink: #d9ffe4;
+    --ink-bright: #f2fff5;
+    --ink-dim: #7fbf93;
+    --ink-faint: #5f8f70;
+  }
+}
+
+/* Expose the tokens to Tailwind: `text-ink-dim`, `border border-edge`, … */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-bright: var(--ink-bright);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-faint: var(--ink-faint);
+  --color-green: var(--green);
+  --color-green-dim: var(--green-dim);
+  --color-green-faint: var(--green-faint);
+  --color-amber: var(--amber);
+  /* For the testnet banner, amber's second sanctioned use. */
+  --color-amber-edge: var(--amber-edge);
+  --color-amber-wash: var(--amber-wash);
+  --color-series: var(--series);
+  --color-warn: var(--warn);
+  --color-warn-edge: var(--warn-edge);
+  --color-warn-wash: var(--warn-wash);
+  --color-red: var(--red);
+  --color-edge: var(--edge);
+  --color-edge-strong: var(--edge-strong);
+  --color-edge-faint: var(--edge-faint);
+  /* Needed for `border-hairline`; a colour utility without a token compiles to nothing and
+     falls back to `currentColor`. colour-tokens.test.ts checks every colour utility has one. */
+  --color-hairline: var(--hairline);
+  --color-green-wash: var(--green-wash);
+  --color-green-wash-strong: var(--green-wash-strong);
+  --color-panel: var(--panel);
+  /* Without this, `bg-bg` compiles to nothing. Prettier's Tailwind plugin sorts unknown
+     classes to the front of the list, which is a quick tell that a utility does not exist. */
+  --color-bg: var(--bg);
+  /* One mono face everywhere — font-sans and font-mono resolve identically, so
+     no component can accidentally leave the terminal voice. */
+  --font-sans: var(--font-term);
+  --font-mono: var(--font-term);
+}
+
+/* Themes. No attribute means green, so the default needs no theme CSS. One line per theme;
+   theme-contrast.test.ts checks the contrast of every one. */
+:root[data-theme="violet"] {
+  --h: 305;
+}
+:root[data-theme="ice"] {
+  --h: 230;
+}
+/* Amber: the accent takes amber's hue, so the two amber roles move away from it — series
+   to cyan (a chart line must not match a link), warn to red-orange (a warning must not match
+   the chrome). Plain oklch literals, so semantic-tokens.test.ts can measure their contrast
+   against this theme's panel. */
+:root[data-theme="amber"] {
+  --h: 78;
+  --series: oklch(0.85 0.13 200);
+  --series-edge: oklch(0.85 0.13 200 / 0.35);
+  --series-wash: oklch(0.85 0.13 200 / 0.06);
+  --warn: oklch(0.74 0.19 40);
+  --warn-edge: oklch(0.74 0.19 40 / 0.35);
+  --warn-wash: oklch(0.74 0.19 40 / 0.06);
+}

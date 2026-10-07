@@ -1,0 +1,41 @@
+{
+  "checkedOn": "2026-09-06",
+  "gppQuarter": "Q2 2026",
+  "eurostat": {
+    "period": "2025-S2",
+    "usdPerEur": 1.1658,
+    "business": {
+      "countries": 34,
+      "medianPct": 11.6,
+      "p90Pct": 35.7,
+      "maxPct": 99.9,
+      "signedMedianPct": -8.1
+    },
+    "household": {
+      "countries": 36,
+      "medianPct": 8.1,
+      "p90Pct": 23.2,
+      "maxPct": 115.2,
+      "signedMedianPct": -2.9
+    }
+  },
+  "eia": {
+    "months": [
+      "2026-04",
+      "2026-05",
+      "2026-06"
+    ],
+    "business": {
+      "gppUsdKwh": 0.145,
+      "commercialUsdKwh": 0.1375,
+      "pct": 5.5,
+      "industrialUsdKwh": 0.0885,
+      "industrialPct": 63.9
+    },
+    "household": {
+      "gppUsdKwh": 0.203,
+      "residentialUsdKwh": 0.1854,
+      "pct": 9.5
+    }
+  }
+}

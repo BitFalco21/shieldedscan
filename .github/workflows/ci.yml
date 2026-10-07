@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Read-only token: CI only checks out code and never writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks (checksum-verified)
+        run: |
+          V=8.30.1
+          base=https://github.com/gitleaks/gitleaks/releases/download/v$V
+          curl -sSfLO "$base/gitleaks_${V}_linux_x64.tar.gz"
+          curl -sSfLO "$base/gitleaks_${V}_checksums.txt"
+          grep "gitleaks_${V}_linux_x64.tar.gz" "gitleaks_${V}_checksums.txt" | sha256sum -c -
+          tar -xzf "gitleaks_${V}_linux_x64.tar.gz" gitleaks
+      - name: Scan the files
+        run: ./gitleaks dir --redact --no-banner --config .gitleaks.toml .
+      - name: Scan the commits this push or pull request adds
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then range="$BASE..$HEAD"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ]; then range="$HEAD"
+          else range="$BEFORE..$HEAD"; fi
+          ./gitleaks git --redact --no-banner --config .gitleaks.toml --log-opts="$range" .
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format
+        run: npm run format:check
+      - name: Typecheck and lint
+        run: npm run check
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  # The server images copy only what their build needs, so a build script that starts reading a
+  # new file breaks the image and nothing else. Build each one; nothing is pushed.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: API
+        run: docker build -q -f server/Dockerfile -t ci-api .
+      - name: Follower
+        run: docker build -q -f server/Dockerfile.follower -t ci-follower .
+      - name: Crawler
+        run: docker build -q -f server/Dockerfile.crawler -t ci-crawler .
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: verify
+    # The agent page is flag-gated; the flag adds /ai-agent to `e2e/surface.ts` and un-skips
+    # `e2e/agent.spec.ts`, so the page is covered by the same sweeps as production.
+    env:
+      NEXT_PUBLIC_AGENT_ENABLED: "1"
+      # The crawl guard's per-address throttle would 429 the suite's own sweeps; see
+      # `clientId` in `src/proxy.ts`. The agent block stays on.
+      CRAWL_GUARD_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

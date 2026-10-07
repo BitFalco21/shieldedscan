@@ -1,0 +1,53 @@
+/* No `background` on html. With html painted, body's background stops propagating to the
+   canvas and paints as a block background, which stacks above negative-z-index children —
+   over the homepage's fixed `-z-10` photograph. Leaving the canvas to body keeps the page
+   colour beneath that layer. */
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-term);
+}
+
+/* Terminal caret in every input. */
+input,
+textarea {
+  caret-color: var(--green);
+}
+
+::selection {
+  background: oklch(0.874 0.252 var(--h) / 0.25);
+  color: var(--ink-bright);
+}
+
+a:focus-visible,
+input:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* The prompt's children carry no ring of their own; the panel takes it (.prompt-focus
+   below). This must stay unlayered: the rule above is unlayered, and unlayered CSS beats
+   every Tailwind utility layer, so a `focus-visible:outline-none` utility would not apply. */
+.prompt-focus :focus-visible {
+  outline: none;
+}
+
+/* No native chrome inside a terminal prompt, such as the UA's search cancel button; Escape
+   clears the field. `appearance: none` on the input strips whatever decoration a UA adds to
+   type=search rather than enumerating them. */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}

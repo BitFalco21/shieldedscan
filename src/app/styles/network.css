@@ -1,0 +1,467 @@
+@layer components {
+  /* /network
+     The node map. Every colour that means something here is a class, never an attribute or a
+     style, so an SVG cell carries all four lens families and the `<svg>`'s `data-lens` picks
+     which one paints — the map recolours with no re-render. Client tints are the clients' own
+     marks' colours (a zebra is black and white, so Zebra is the brightest ink and its bars are
+     stripes); hosting networks take the flow palette's first five slots; reliability and
+     latency step the accent's lightness like the tariff map's tiers. Land is a matrix of dots
+     in faint ink; a never-answered address is a hollow square. No glow: a lit cell is read,
+     not caught. */
+  .net-h1 {
+    font-weight: 300;
+    font-size: clamp(30px, 4vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--ink-bright);
+    text-wrap: balance;
+  }
+  .net-h1 b {
+    font-weight: 300;
+    color: var(--green);
+  }
+  .net-figure {
+    font-size: 28px;
+    font-weight: 300;
+    line-height: 1.1;
+    color: var(--ink-bright);
+    font-variant-numeric: tabular-nums;
+  }
+  .net-found {
+    font-size: 20px;
+    font-weight: 300;
+    color: var(--ink-bright);
+  }
+  .net-found b {
+    font-weight: 300;
+    color: var(--green);
+  }
+  /* The stat strip: five tiles separated by hairlines, the OURS tile marked at its left edge. */
+  /* The hairline separators are 1px gaps showing the background; `overflow: hidden` lets the
+     corner tiles follow the panel radius. */
+  .net-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    background: var(--edge-faint);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    box-shadow: var(--glow-border);
+  }
+  @media (min-width: 900px) {
+    .net-stats {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    /* The upgrade tab's four figures: five columns would leave an empty cell beside them. */
+    .net-stats-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .net-stat {
+    background: var(--panel);
+    padding: 16px 18px 14px;
+    min-width: 0;
+    position: relative;
+  }
+  .net-stat-ours::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--green-dim);
+  }
+  /* The tab row is <Tabs>, the site's one tab style — see `.tabs a` above. */
+  /* Bars: an SVG whose WIDTH attribute is the share, inside a faint track. The fill is
+     `currentColor`, so the wrapper's colour class paints it; Zebra's is a dashed stroke. */
+  .net-track {
+    display: block;
+    height: 8px;
+    background: var(--edge-ghost);
+    min-width: 0;
+  }
+  .net-track-thin {
+    height: 3px;
+  }
+  .net-track-mid {
+    height: 6px;
+  }
+  .net-bar {
+    display: block;
+    height: 100%;
+  }
+  .net-bar-fill {
+    fill: currentColor;
+    opacity: 0.9;
+  }
+  .net-bar-stripe {
+    stroke: var(--ink-bright);
+    stroke-dasharray: 5 4;
+  }
+  .net-bar-stripe-bed {
+    fill: var(--panel);
+  }
+  /* The software stack: one row of shares with a hairline gap. */
+  .net-stack {
+    display: flex;
+    height: 26px;
+    gap: 2px;
+  }
+  .net-stack svg {
+    display: block;
+    height: 100%;
+  }
+  /* A legend swatch that takes its colour from the same class the bar does. */
+  .net-sw {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    flex: none;
+  }
+  .net-sw-hollow {
+    background: none;
+    border: 1px solid var(--ink-faint);
+  }
+  /* Client tints — the marks' own colours. */
+  .net-client-zebra {
+    color: var(--ink-bright);
+  }
+  .net-client-zakura {
+    color: var(--brand-zakura);
+  }
+  .net-client-zcashd {
+    color: var(--brand-zcashd);
+  }
+  .net-client-other {
+    color: var(--ink-faint);
+  }
+  /* Hosting networks: the five largest take the flow palette, the rest faint ink. */
+  .net-asn-1 {
+    color: var(--flow-1);
+  }
+  .net-asn-2 {
+    color: var(--flow-2);
+  }
+  .net-asn-3 {
+    color: var(--flow-3);
+  }
+  .net-asn-4 {
+    color: var(--flow-4);
+  }
+  .net-asn-5 {
+    color: var(--flow-5);
+  }
+  .net-asn-other {
+    color: var(--ink-faint);
+  }
+  /* Reliability and latency tiers: the accent stepped in lightness, like `.cost-tier-*`. */
+  .net-tier-1 {
+    color: var(--net-tier-1);
+  }
+  .net-tier-2 {
+    color: var(--net-tier-2);
+  }
+  .net-tier-3 {
+    color: var(--net-tier-3);
+  }
+  .net-tier-none {
+    color: var(--ink-faint);
+  }
+  /* The map. Cells carry every family; the svg's data-lens says which paints. */
+  .net-map {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    box-shadow: var(--glow-border);
+    background: var(--panel);
+    touch-action: none;
+    cursor: grab;
+  }
+  .net-map.is-dragging {
+    cursor: grabbing;
+  }
+  .net-map svg {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1000 / 520;
+  }
+  .net-land {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-opacity: 0.42;
+    stroke-linecap: round;
+  }
+  .net-ghost {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-opacity: 0.55;
+  }
+  .net-cell {
+    fill: var(--ink-faint);
+    stroke: none;
+    /* Picking is nearest-cell on the svg, so a covered cell is still reachable. */
+    pointer-events: none;
+  }
+  .net-cell:focus-visible {
+    outline: 0;
+  }
+  .net-cell-ring {
+    fill: none;
+    stroke: var(--ink);
+    pointer-events: none;
+  }
+  /* A cell carries one class from each of the three families; the svg's data-lens decides
+     which family paints. A few selectors per lens, no re-render to switch. */
+  /* Under the software lens the cell is its client's real mark (`CellMark`), drawn over a
+     transparent rect that keeps the focus ring, the label and the nearest-cell picking. */
+  .net-map[data-lens="client"] .net-cell {
+    fill: transparent;
+  }
+  .net-cell-mark {
+    display: none;
+    pointer-events: none;
+  }
+  .net-map[data-lens="client"] .net-cell-mark {
+    display: inline;
+  }
+  .net-cell-mark-other {
+    fill: var(--ink-faint);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-1 {
+    fill: var(--flow-1);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-2 {
+    fill: var(--flow-2);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-3 {
+    fill: var(--flow-3);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-4 {
+    fill: var(--flow-4);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-5 {
+    fill: var(--flow-5);
+  }
+  .net-map[data-lens="asn"] .net-cell.net-asn-other {
+    fill: var(--ink-faint);
+  }
+  .net-map[data-lens="uptime"] .net-cell.net-up-1 {
+    fill: var(--net-tier-1);
+  }
+  .net-map[data-lens="uptime"] .net-cell.net-up-2 {
+    fill: var(--net-tier-2);
+  }
+  .net-map[data-lens="uptime"] .net-cell.net-up-3 {
+    fill: var(--net-tier-3);
+  }
+  .net-map[data-lens="uptime"] .net-cell.net-up-none {
+    fill: var(--ink-faint);
+  }
+  .net-cell-label {
+    fill: var(--ink-dim);
+    pointer-events: none;
+  }
+  .net-map-note {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .net-zoom {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--edge-faint);
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+  }
+  /* The corners are rounded on the outer buttons rather than clipped with `overflow: hidden`
+     on the column: a clip would cut away the focus ring, which sits 2px outside each button
+     (WCAG 2.4.7). */
+  .net-zoom button {
+    width: 30px;
+    height: 30px;
+    background: var(--panel);
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+  .net-zoom button:first-child {
+    border-radius: 3px 3px 0 0;
+  }
+  .net-zoom button:last-child {
+    border-radius: 0 0 3px 3px;
+  }
+  .net-zoom button:hover:not(:disabled) {
+    color: var(--green);
+  }
+  .net-zoom button:disabled {
+    color: var(--ink-faint);
+    cursor: default;
+  }
+  /* The fixed readout beside the map and the sky. */
+  .net-readout {
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    box-shadow: var(--glow-border);
+    background: var(--panel);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .net-kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    font-size: 12.5px;
+  }
+  .net-kv dt {
+    color: var(--ink-faint);
+  }
+  .net-kv dd {
+    margin: 0;
+    text-align: right;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Ranked rows: name · bar · count. */
+  .net-rows {
+    display: grid;
+    gap: 6px;
+  }
+  .net-row {
+    display: grid;
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    font-size: 12.5px;
+    min-width: 0;
+  }
+  .net-row-wide {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+  }
+  /* The upgrade tab's release rows: name, declared protocol, bar, count. The bar is the first
+     thing a phone gives up — the count beside it says the same thing. */
+  .net-row-release {
+    grid-template-columns: minmax(0, 13rem) auto minmax(0, 1fr) auto;
+  }
+  @media (max-width: 560px) {
+    /* Fixed protocol and count columns so the protocols line up down the list; the bar and the
+       percentage go, the count and "N behind" stay. */
+    .net-row-release {
+      grid-template-columns: minmax(0, 1fr) 6.5ch 12ch;
+    }
+    .net-row-release .net-track,
+    .net-row-release .net-row-pct {
+      display: none;
+    }
+  }
+  .net-row-name {
+    color: var(--ink-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .net-row-count {
+    text-align: right;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .net-row-count small {
+    color: var(--ink-faint);
+  }
+  /* Histograms: bars anchored to the floor of a fixed-height SVG. */
+  .net-hist rect {
+    fill: var(--green-dim);
+  }
+  .net-hist .is-hi {
+    fill: var(--green);
+  }
+  .net-hist .is-zero {
+    fill: var(--green-faint);
+  }
+  .net-hist text {
+    fill: var(--ink);
+    font-size: 12px;
+    text-anchor: middle;
+  }
+  .net-histx {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+  /* The sky: the codebase's one canvas, square, inside a bordered box. */
+  .net-sky {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    box-shadow: var(--glow-border);
+    background: var(--panel);
+    min-width: 0;
+    touch-action: none;
+  }
+  .net-sky canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    cursor: grab;
+  }
+  .net-sky.is-dragging canvas {
+    cursor: grabbing;
+  }
+  /* Over the still-empty canvas until the full sky arrives; the canvas keeps its size, so the
+     picture appears in place instead of shifting the page. */
+  .net-sky-wait {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    font-size: 12px;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .net-sparkline {
+    display: block;
+    width: 100%;
+    height: 80px;
+  }
+  .net-sparkline .net-spark-line {
+    fill: none;
+    stroke: var(--green-dim);
+    stroke-width: 1.5;
+    /* The SVG stretches to its box (preserveAspectRatio="none"); a non-scaling stroke keeps the
+       line one weight at any width instead of fattening where the stretch is widest. */
+    vector-effect: non-scaling-stroke;
+  }
+  .net-sparkline .net-spark-area {
+    fill: var(--green);
+    fill-opacity: 0.07;
+  }
+  .net-sparkline .net-spark-base {
+    stroke: var(--green-faint);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  /* An empty state, not a panel: dashed and unlit, but on the container radius. */
+}

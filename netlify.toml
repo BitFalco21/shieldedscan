@@ -1,0 +1,72 @@
+[build]
+  command = "npm run build"
+  # Stated explicitly: an omitted value falls through to the Netlify UI, which cannot be
+  # reviewed in a diff. The plugin requires `.next` containing `BUILD_ID` and `standalone/`.
+  # `standalone` is absent from a plain local build because the plugin sets
+  # NEXT_PRIVATE_STANDALONE itself, so do not add `output: "standalone"` to next.config.ts.
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Stated explicitly for the same reason as `publish`. Holds `warm-cache.mjs`, the scheduled
+# function that keeps prerendered pages fresh.
+[functions]
+  directory = "netlify/functions"
+
+# --- Deploy contexts ----------------------------------------------------------
+# Context variables live here, not in the Netlify UI: a UI variable applies to every
+# context unless scoped, so one `NEXT_PUBLIC_STAGE=public` there would make every branch
+# deploy and preview indexable (`robots.ts` and the noindex header both key off it). File
+# config also outranks the dashboard.
+#
+# Without NEXT_PUBLIC_SITE_URL the sitemap and robots.txt fall back to localhost URLs.
+# Previews take theirs from `$DEPLOY_PRIME_URL` via the build command, because Netlify does
+# not interpolate variables inside `[context.*.environment]` and `NEXT_PUBLIC_*` is read at
+# build time.
+#
+# NEXT_PUBLIC_AGENT_ENABLED: absent means off (`src/lib/agent.ts`). `isAgentEnabled` also
+# requires mainnet, because the testnet site builds in this same production context. The API
+# host has its own independent `AGENT_ENABLED`.
+
+[context.production.environment]
+  NEXT_PUBLIC_STAGE = "public"
+  # Apex, not www: www 301s here, so this is the canonical origin.
+  NEXT_PUBLIC_SITE_URL = "https://shieldedscan.xyz"
+  NEXT_PUBLIC_AGENT_ENABLED = "1"
+
+[context.deploy-preview]
+  command = "NEXT_PUBLIC_SITE_URL=$DEPLOY_PRIME_URL npm run build"
+  [context.deploy-preview.environment]
+    NEXT_PUBLIC_STAGE = "preview"
+    NEXT_PUBLIC_AGENT_ENABLED = "1"
+
+[context.branch-deploy]
+  command = "NEXT_PUBLIC_SITE_URL=$DEPLOY_PRIME_URL npm run build"
+  [context.branch-deploy.environment]
+    NEXT_PUBLIC_STAGE = "preview"
+    NEXT_PUBLIC_AGENT_ENABLED = "1"
+
+# Declared explicitly: auto-detection did not fire on this site, and without the runtime
+# every route served Netlify's static 404. Do not revert to auto-detection.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# --- Headers: a mirror, not the source of truth -------------------------------
+# `src/lib/security-headers.ts` is the source of truth and `next.config.ts` emits it. With
+# @netlify/plugin-nextjs, responses come from the Next runtime, where toml [[headers]] do
+# not reliably apply; this block covers paths the CDN serves without invoking Next.
+# `security-headers.test.ts` asserts the two match — edit both together.
+#
+# X-Robots-Tag is absent on purpose: it is conditional on the deploy stage, which TOML
+# cannot express, so `next.config.ts` adds it.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.shieldedscan.xyz; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"

@@ -1,0 +1,21 @@
+# Secret scanning for this repo. Run by the git hooks in .githooks/ and by CI.
+# Extends gitleaks' default rules; the allowlist below covers public blockchain data
+# that is shaped like a key. Allow specific fields, never whole directories, so a real
+# secret dropped into a fixture folder is still caught.
+title = "shieldedscan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Zcash transaction fields in captured node responses"
+regexTarget = "line"
+regexes = ['''"(ephemeralKey|spendAuthSig|authdigest)"\s*:''']
+
+[[allowlists]]
+description = "Public swap-venue deposit addresses (EVM addresses) in API examples and tests"
+regexTarget = "line"
+regexes = [
+  '''"venueRecordKey"\s*:\s*"0x[0-9a-fA-F]{40}"''',
+  '''const (deadKey|workingKey) = "0x[0-9a-fA-F]{40,64}"''',
+]

@@ -1,0 +1,59 @@
+# The chain follower: node RPC -> parse -> Postgres.
+#
+# A separate image from the API so the two restart independently: a deploy of the API never
+# interrupts ingestion.
+#
+# The one-shot backfill and repair jobs ship in this image as extra entrypoints. They share
+# the parser, schema and store with the follower, and one image keeps them in version lockstep,
+# so a job never runs against the database with a different build's arithmetic.
+
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+COPY server ./server
+# One bundle per entrypoint, each self-contained, all from one esbuild run:
+#
+#   node follower.mjs                                  the follower (the default command)
+#   node backfill.mjs                                  one-shot backfiller
+#   node repair-fees.mjs                               fee repair
+#   node repair-difficulty.mjs                         difficulty repair
+#   node repair-direction.mjs                          direction repair (Postgres only)
+#   node bootstrap-rich-list.mjs                       rich-list bootstrap (Postgres only; a full
+#                                                      scan, so run it supervised, never on a timer)
+#   node repair-tx-count.mjs                           transaction counts (safe beside the follower)
+#   REPAIR_PHASE=stage node repair-value-extremes.mjs  value-extremes walk
+#   REPAIR_PHASE=verify node repair-miner.mjs          miner-field repair
+#   node repair-reorg-addresses.mjs                    reorg-address repair (dry run unless
+#                                                      REPAIR_COMMIT=1)
+RUN npx esbuild \
+      follower=server/follow-main.ts \
+      backfill=server/backfill-main.ts \
+      repair-fees=server/repair-fees-main.ts \
+      repair-difficulty=server/repair-difficulty-main.ts \
+      repair-direction=server/repair-direction-main.ts \
+      bootstrap-rich-list=server/bootstrap-rich-list-main.ts \
+      repair-tx-count=server/repair-tx-count-main.ts \
+      repair-value-extremes=server/repair-value-extremes-main.ts \
+      repair-miner=server/repair-miner-main.ts \
+      repair-reorg-addresses=server/repair-reorg-addresses-main.ts \
+      --bundle --platform=node --target=node22 --format=esm \
+      --outdir=dist --out-extension:.js=.mjs \
+      --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist/*.mjs ./
+# Applied idempotently on boot, so a fresh database needs no manual migration step.
+COPY --from=build /app/server/schema-chain.sql ./schema-chain.sql
+
+# Never run as root; the process needs Postgres and the node's RPC port, both on the
+# private Docker network, and nothing else.
+USER node
+
+# No HEALTHCHECK and no exposed port: this process serves nothing. Liveness is its per-batch
+# log line; the reconciliation gate stops the follower rather than write unverified data.
+CMD ["node", "follower.mjs"]

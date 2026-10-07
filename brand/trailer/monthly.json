@@ -1,0 +1,1541 @@
+{
+  "interval": "month",
+  "balanceBasis": "period-closing-at-top-height",
+  "coinbase": "excluded",
+  "range": { "from": 1475280000, "to": 1782864000 },
+  "points": [
+    {
+      "periodStart": 1475280000,
+      "topHeight": 2409,
+      "txs": { "transparent": 14255, "mixed": 4466, "shielded": 79 },
+      "balances": { "sprout": 13621234985, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 13621234985,
+      "fullyShieldedShare": { "pct": 0.42, "numerator": 79, "denominator": 18800 },
+      "poolTouchingShare": { "pct": 24.18, "numerator": 4545, "denominator": 18800 }
+    },
+    {
+      "periodStart": 1477958400,
+      "topHeight": 19661,
+      "txs": { "transparent": 67251, "mixed": 27419, "shielded": 103 },
+      "balances": { "sprout": 57893874890, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 44272639905,
+      "fullyShieldedShare": { "pct": 0.11, "numerator": 103, "denominator": 94773 },
+      "poolTouchingShare": { "pct": 29.04, "numerator": 27522, "denominator": 94773 }
+    },
+    {
+      "periodStart": 1480550400,
+      "topHeight": 37421,
+      "txs": { "transparent": 32033, "mixed": 23984, "shielded": 105 },
+      "balances": { "sprout": 275778410262, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 217884535372,
+      "fullyShieldedShare": { "pct": 0.19, "numerator": 105, "denominator": 56122 },
+      "poolTouchingShare": { "pct": 42.92, "numerator": 24089, "denominator": 56122 }
+    },
+    {
+      "periodStart": 1483228800,
+      "topHeight": 55161,
+      "txs": { "transparent": 29313, "mixed": 21131, "shielded": 941 },
+      "balances": { "sprout": 2333016631427, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 2057238221165,
+      "fullyShieldedShare": { "pct": 1.83, "numerator": 941, "denominator": 51385 },
+      "poolTouchingShare": { "pct": 42.95, "numerator": 22072, "denominator": 51385 }
+    },
+    {
+      "periodStart": 1485907200,
+      "topHeight": 71198,
+      "txs": { "transparent": 27419, "mixed": 20304, "shielded": 754 },
+      "balances": { "sprout": 9748920913296, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 7415904281869,
+      "fullyShieldedShare": { "pct": 1.56, "numerator": 754, "denominator": 48477 },
+      "poolTouchingShare": { "pct": 43.44, "numerator": 21058, "denominator": 48477 }
+    },
+    {
+      "periodStart": 1488326400,
+      "topHeight": 88965,
+      "txs": { "transparent": 54837, "mixed": 23741, "shielded": 466 },
+      "balances": { "sprout": 3412254079743, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -6336666833553,
+      "fullyShieldedShare": { "pct": 0.59, "numerator": 466, "denominator": 79044 },
+      "poolTouchingShare": { "pct": 30.62, "numerator": 24207, "denominator": 79044 }
+    },
+    {
+      "periodStart": 1491004800,
+      "topHeight": 106177,
+      "txs": { "transparent": 44145, "mixed": 22981, "shielded": 129 },
+      "balances": { "sprout": 2480723585083, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -931530494660,
+      "fullyShieldedShare": { "pct": 0.19, "numerator": 129, "denominator": 67255 },
+      "poolTouchingShare": { "pct": 34.36, "numerator": 23110, "denominator": 67255 }
+    },
+    {
+      "periodStart": 1493596800,
+      "topHeight": 123970,
+      "txs": { "transparent": 97532, "mixed": 22805, "shielded": 287 },
+      "balances": { "sprout": 2102049578668, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -378674006415,
+      "fullyShieldedShare": { "pct": 0.24, "numerator": 287, "denominator": 120624 },
+      "poolTouchingShare": { "pct": 19.14, "numerator": 23092, "denominator": 120624 }
+    },
+    {
+      "periodStart": 1496275200,
+      "topHeight": 141194,
+      "txs": { "transparent": 102745, "mixed": 23813, "shielded": 296 },
+      "balances": { "sprout": 5933914448062, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 3831864869394,
+      "fullyShieldedShare": { "pct": 0.23, "numerator": 296, "denominator": 126854 },
+      "poolTouchingShare": { "pct": 19.01, "numerator": 24109, "denominator": 126854 }
+    },
+    {
+      "periodStart": 1498867200,
+      "topHeight": 158960,
+      "txs": { "transparent": 101793, "mixed": 21229, "shielded": 401 },
+      "balances": { "sprout": 7643829994485, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 1709915546423,
+      "fullyShieldedShare": { "pct": 0.32, "numerator": 401, "denominator": 123423 },
+      "poolTouchingShare": { "pct": 17.53, "numerator": 21630, "denominator": 123423 }
+    },
+    {
+      "periodStart": 1501545600,
+      "topHeight": 176736,
+      "txs": { "transparent": 132883, "mixed": 20554, "shielded": 447 },
+      "balances": { "sprout": 10162506731706, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 2518676737221,
+      "fullyShieldedShare": { "pct": 0.29, "numerator": 447, "denominator": 153884 },
+      "poolTouchingShare": { "pct": 13.65, "numerator": 21001, "denominator": 153884 }
+    },
+    {
+      "periodStart": 1504224000,
+      "topHeight": 193936,
+      "txs": { "transparent": 146477, "mixed": 19785, "shielded": 415 },
+      "balances": { "sprout": 8934527160344, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -1227979571362,
+      "fullyShieldedShare": { "pct": 0.25, "numerator": 415, "denominator": 166677 },
+      "poolTouchingShare": { "pct": 12.12, "numerator": 20200, "denominator": 166677 }
+    },
+    {
+      "periodStart": 1506816000,
+      "topHeight": 211677,
+      "txs": { "transparent": 142074, "mixed": 16735, "shielded": 394 },
+      "balances": { "sprout": 10532246092404, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 1597718932060,
+      "fullyShieldedShare": { "pct": 0.25, "numerator": 394, "denominator": 159203 },
+      "poolTouchingShare": { "pct": 10.76, "numerator": 17129, "denominator": 159203 }
+    },
+    {
+      "periodStart": 1509494400,
+      "topHeight": 228868,
+      "txs": { "transparent": 164142, "mixed": 18799, "shielded": 592 },
+      "balances": { "sprout": 13558349877952, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 3026103785548,
+      "fullyShieldedShare": { "pct": 0.32, "numerator": 592, "denominator": 183533 },
+      "poolTouchingShare": { "pct": 10.57, "numerator": 19391, "denominator": 183533 }
+    },
+    {
+      "periodStart": 1512086400,
+      "topHeight": 246628,
+      "txs": { "transparent": 289419, "mixed": 22856, "shielded": 874 },
+      "balances": { "sprout": 12074469528769, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -1483880349183,
+      "fullyShieldedShare": { "pct": 0.28, "numerator": 874, "denominator": 313149 },
+      "poolTouchingShare": { "pct": 7.58, "numerator": 23730, "denominator": 313149 }
+    },
+    {
+      "periodStart": 1514764800,
+      "topHeight": 264384,
+      "txs": { "transparent": 272706, "mixed": 27325, "shielded": 1017 },
+      "balances": { "sprout": 17375761608142, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 5301292079373,
+      "fullyShieldedShare": { "pct": 0.34, "numerator": 1017, "denominator": 301048 },
+      "poolTouchingShare": { "pct": 9.41, "numerator": 28342, "denominator": 301048 }
+    },
+    {
+      "periodStart": 1517443200,
+      "topHeight": 280445,
+      "txs": { "transparent": 188045, "mixed": 24707, "shielded": 574 },
+      "balances": { "sprout": 22306150519305, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 4930388911163,
+      "fullyShieldedShare": { "pct": 0.27, "numerator": 574, "denominator": 213326 },
+      "poolTouchingShare": { "pct": 11.85, "numerator": 25281, "denominator": 213326 }
+    },
+    {
+      "periodStart": 1519862400,
+      "topHeight": 298191,
+      "txs": { "transparent": 157453, "mixed": 28709, "shielded": 589 },
+      "balances": { "sprout": 23908204724057, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 1602054204752,
+      "fullyShieldedShare": { "pct": 0.32, "numerator": 589, "denominator": 186751 },
+      "poolTouchingShare": { "pct": 15.69, "numerator": 29298, "denominator": 186751 }
+    },
+    {
+      "periodStart": 1522540800,
+      "topHeight": 315379,
+      "txs": { "transparent": 141054, "mixed": 26687, "shielded": 988 },
+      "balances": { "sprout": 25218549047213, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 1310344323156,
+      "fullyShieldedShare": { "pct": 0.59, "numerator": 988, "denominator": 168729 },
+      "poolTouchingShare": { "pct": 16.4, "numerator": 27675, "denominator": 168729 }
+    },
+    {
+      "periodStart": 1525132800,
+      "topHeight": 333134,
+      "txs": { "transparent": 214647, "mixed": 28986, "shielded": 1173 },
+      "balances": { "sprout": 23399059425192, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -1819489622021,
+      "fullyShieldedShare": { "pct": 0.48, "numerator": 1173, "denominator": 244806 },
+      "poolTouchingShare": { "pct": 12.32, "numerator": 30159, "denominator": 244806 }
+    },
+    {
+      "periodStart": 1527811200,
+      "topHeight": 350345,
+      "txs": { "transparent": 235182, "mixed": 18673, "shielded": 673 },
+      "balances": { "sprout": 23746378608825, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 347319183633,
+      "fullyShieldedShare": { "pct": 0.26, "numerator": 673, "denominator": 254528 },
+      "poolTouchingShare": { "pct": 7.6, "numerator": 19346, "denominator": 254528 }
+    },
+    {
+      "periodStart": 1530403200,
+      "topHeight": 368111,
+      "txs": { "transparent": 157628, "mixed": 16277, "shielded": 1961 },
+      "balances": { "sprout": 24296363310914, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 549984702089,
+      "fullyShieldedShare": { "pct": 1.12, "numerator": 1961, "denominator": 175866 },
+      "poolTouchingShare": { "pct": 10.37, "numerator": 18238, "denominator": 175866 }
+    },
+    {
+      "periodStart": 1533081600,
+      "topHeight": 385887,
+      "txs": { "transparent": 82040, "mixed": 14177, "shielded": 340 },
+      "balances": { "sprout": 32064132788991, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": 7767769478077,
+      "fullyShieldedShare": { "pct": 0.35, "numerator": 340, "denominator": 96557 },
+      "poolTouchingShare": { "pct": 15.03, "numerator": 14517, "denominator": 96557 }
+    },
+    {
+      "periodStart": 1535760000,
+      "topHeight": 403105,
+      "txs": { "transparent": 86179, "mixed": 13701, "shielded": 462 },
+      "balances": { "sprout": 31276685220694, "sapling": 0, "orchard": 0, "ironwood": 0 },
+      "netFlowZat": -787447568297,
+      "fullyShieldedShare": { "pct": 0.46, "numerator": 462, "denominator": 100342 },
+      "poolTouchingShare": { "pct": 14.11, "numerator": 14163, "denominator": 100342 }
+    },
+    {
+      "periodStart": 1538352000,
+      "topHeight": 420879,
+      "txs": { "transparent": 81125, "mixed": 14957, "shielded": 572 },
+      "balances": {
+        "sprout": 32714560887722,
+        "sapling": 1767530288906,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 3205405955934,
+      "fullyShieldedShare": { "pct": 0.59, "numerator": 572, "denominator": 96654 },
+      "poolTouchingShare": { "pct": 16.07, "numerator": 15529, "denominator": 96654 }
+    },
+    {
+      "periodStart": 1541030400,
+      "topHeight": 438079,
+      "txs": { "transparent": 73136, "mixed": 16294, "shielded": 669 },
+      "balances": {
+        "sprout": 34492709424164,
+        "sapling": 2604150344242,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 2614768591778,
+      "fullyShieldedShare": { "pct": 0.74, "numerator": 669, "denominator": 90099 },
+      "poolTouchingShare": { "pct": 18.83, "numerator": 16963, "denominator": 90099 }
+    },
+    {
+      "periodStart": 1543622400,
+      "topHeight": 455852,
+      "txs": { "transparent": 62845, "mixed": 19596, "shielded": 1716 },
+      "balances": {
+        "sprout": 32878244099554,
+        "sapling": 4134282294365,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -84333374487,
+      "fullyShieldedShare": { "pct": 2.04, "numerator": 1716, "denominator": 84157 },
+      "poolTouchingShare": { "pct": 25.32, "numerator": 21312, "denominator": 84157 }
+    },
+    {
+      "periodStart": 1546300800,
+      "topHeight": 473623,
+      "txs": { "transparent": 60309, "mixed": 18391, "shielded": 1303 },
+      "balances": {
+        "sprout": 27075576638483,
+        "sapling": 7040863797304,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -2896085958132,
+      "fullyShieldedShare": { "pct": 1.63, "numerator": 1303, "denominator": 80003 },
+      "poolTouchingShare": { "pct": 24.62, "numerator": 19694, "denominator": 80003 }
+    },
+    {
+      "periodStart": 1548979200,
+      "topHeight": 489670,
+      "txs": { "transparent": 59310, "mixed": 16072, "shielded": 1496 },
+      "balances": {
+        "sprout": 19998934558885,
+        "sapling": 12594572799161,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -1522933077741,
+      "fullyShieldedShare": { "pct": 1.95, "numerator": 1496, "denominator": 76878 },
+      "poolTouchingShare": { "pct": 22.85, "numerator": 17568, "denominator": 76878 }
+    },
+    {
+      "periodStart": 1551398400,
+      "topHeight": 507442,
+      "txs": { "transparent": 68850, "mixed": 16042, "shielded": 1164 },
+      "balances": {
+        "sprout": 22220279065562,
+        "sapling": 12104489090655,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 1731260798171,
+      "fullyShieldedShare": { "pct": 1.35, "numerator": 1164, "denominator": 86056 },
+      "poolTouchingShare": { "pct": 19.99, "numerator": 17206, "denominator": 86056 }
+    },
+    {
+      "periodStart": 1554076800,
+      "topHeight": 524659,
+      "txs": { "transparent": 88542, "mixed": 16310, "shielded": 1267 },
+      "balances": {
+        "sprout": 18972122446832,
+        "sapling": 12651163743814,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -2701481965571,
+      "fullyShieldedShare": { "pct": 1.19, "numerator": 1267, "denominator": 106119 },
+      "poolTouchingShare": { "pct": 16.56, "numerator": 17577, "denominator": 106119 }
+    },
+    {
+      "periodStart": 1556668800,
+      "topHeight": 542420,
+      "txs": { "transparent": 99141, "mixed": 14938, "shielded": 1624 },
+      "balances": {
+        "sprout": 18679012737798,
+        "sapling": 12590766334401,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -353507118447,
+      "fullyShieldedShare": { "pct": 1.4, "numerator": 1624, "denominator": 115703 },
+      "poolTouchingShare": { "pct": 14.31, "numerator": 16562, "denominator": 115703 }
+    },
+    {
+      "periodStart": 1559347200,
+      "topHeight": 559617,
+      "txs": { "transparent": 95134, "mixed": 14043, "shielded": 1611 },
+      "balances": {
+        "sprout": 15425370656086,
+        "sapling": 20670100639895,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 4825692223782,
+      "fullyShieldedShare": { "pct": 1.45, "numerator": 1611, "denominator": 110788 },
+      "poolTouchingShare": { "pct": 14.13, "numerator": 15654, "denominator": 110788 }
+    },
+    {
+      "periodStart": 1561939200,
+      "topHeight": 577389,
+      "txs": { "transparent": 105749, "mixed": 16467, "shielded": 1751 },
+      "balances": {
+        "sprout": 17523987914955,
+        "sapling": 21592018299662,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 3020534918636,
+      "fullyShieldedShare": { "pct": 1.41, "numerator": 1751, "denominator": 123967 },
+      "poolTouchingShare": { "pct": 14.7, "numerator": 18218, "denominator": 123967 }
+    },
+    {
+      "periodStart": 1564617600,
+      "topHeight": 595173,
+      "txs": { "transparent": 160635, "mixed": 15658, "shielded": 1625 },
+      "balances": {
+        "sprout": 16700225659254,
+        "sapling": 20275182153263,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -2140598402100,
+      "fullyShieldedShare": { "pct": 0.91, "numerator": 1625, "denominator": 177918 },
+      "poolTouchingShare": { "pct": 9.71, "numerator": 17283, "denominator": 177918 }
+    },
+    {
+      "periodStart": 1567296000,
+      "topHeight": 612372,
+      "txs": { "transparent": 79495, "mixed": 14970, "shielded": 1578 },
+      "balances": {
+        "sprout": 14140320531919,
+        "sapling": 21520621109331,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -1314466171267,
+      "fullyShieldedShare": { "pct": 1.64, "numerator": 1578, "denominator": 96043 },
+      "poolTouchingShare": { "pct": 17.23, "numerator": 16548, "denominator": 96043 }
+    },
+    {
+      "periodStart": 1569888000,
+      "topHeight": 630135,
+      "txs": { "transparent": 74151, "mixed": 13723, "shielded": 1923 },
+      "balances": {
+        "sprout": 14843913044524,
+        "sapling": 19737008951525,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -1080019645201,
+      "fullyShieldedShare": { "pct": 2.14, "numerator": 1923, "denominator": 89797 },
+      "poolTouchingShare": { "pct": 17.42, "numerator": 15646, "denominator": 89797 }
+    },
+    {
+      "periodStart": 1572566400,
+      "topHeight": 647340,
+      "txs": { "transparent": 71147, "mixed": 12533, "shielded": 2199 },
+      "balances": {
+        "sprout": 15534597829327,
+        "sapling": 17774027031109,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -1272297135613,
+      "fullyShieldedShare": { "pct": 2.56, "numerator": 2199, "denominator": 85879 },
+      "poolTouchingShare": { "pct": 17.15, "numerator": 14732, "denominator": 85879 }
+    },
+    {
+      "periodStart": 1575158400,
+      "topHeight": 676615,
+      "txs": { "transparent": 72662, "mixed": 15118, "shielded": 2552 },
+      "balances": {
+        "sprout": 14245954790447,
+        "sapling": 25858636028906,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 6795965958917,
+      "fullyShieldedShare": { "pct": 2.83, "numerator": 2552, "denominator": 90332 },
+      "poolTouchingShare": { "pct": 19.56, "numerator": 17670, "denominator": 90332 }
+    },
+    {
+      "periodStart": 1577836800,
+      "topHeight": 712167,
+      "txs": { "transparent": 87104, "mixed": 16457, "shielded": 2104 },
+      "balances": {
+        "sprout": 13921826764626,
+        "sapling": 25059354817378,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -1123409237349,
+      "fullyShieldedShare": { "pct": 1.99, "numerator": 2104, "denominator": 105665 },
+      "poolTouchingShare": { "pct": 17.57, "numerator": 18561, "denominator": 105665 }
+    },
+    {
+      "periodStart": 1580515200,
+      "topHeight": 745411,
+      "txs": { "transparent": 77757, "mixed": 14851, "shielded": 2463 },
+      "balances": {
+        "sprout": 13523642407783,
+        "sapling": 26246572278766,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 789033104545,
+      "fullyShieldedShare": { "pct": 2.59, "numerator": 2463, "denominator": 95071 },
+      "poolTouchingShare": { "pct": 18.21, "numerator": 17314, "denominator": 95071 }
+    },
+    {
+      "periodStart": 1583020800,
+      "topHeight": 780959,
+      "txs": { "transparent": 88599, "mixed": 18074, "shielded": 5491 },
+      "balances": {
+        "sprout": 13059054937409,
+        "sapling": 28526689307463,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 1815529558323,
+      "fullyShieldedShare": { "pct": 4.9, "numerator": 5491, "denominator": 112164 },
+      "poolTouchingShare": { "pct": 21.01, "numerator": 23565, "denominator": 112164 }
+    },
+    {
+      "periodStart": 1585699200,
+      "topHeight": 815360,
+      "txs": { "transparent": 99664, "mixed": 14947, "shielded": 8707 },
+      "balances": {
+        "sprout": 12833227747014,
+        "sapling": 31498116728585,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 2745600230727,
+      "fullyShieldedShare": { "pct": 7.06, "numerator": 8707, "denominator": 123318 },
+      "poolTouchingShare": { "pct": 19.18, "numerator": 23654, "denominator": 123318 }
+    },
+    {
+      "periodStart": 1588291200,
+      "topHeight": 850898,
+      "txs": { "transparent": 110362, "mixed": 15400, "shielded": 11435 },
+      "balances": {
+        "sprout": 12229894769119,
+        "sapling": 32939036609657,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 837586903177,
+      "fullyShieldedShare": { "pct": 8.33, "numerator": 11435, "denominator": 137197 },
+      "poolTouchingShare": { "pct": 19.56, "numerator": 26835, "denominator": 137197 }
+    },
+    {
+      "periodStart": 1590969600,
+      "topHeight": 885292,
+      "txs": { "transparent": 113712, "mixed": 17782, "shielded": 12007 },
+      "balances": {
+        "sprout": 11690363931798,
+        "sapling": 39033747226094,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 5555179779116,
+      "fullyShieldedShare": { "pct": 8.37, "numerator": 12007, "denominator": 143501 },
+      "poolTouchingShare": { "pct": 20.76, "numerator": 29789, "denominator": 143501 }
+    },
+    {
+      "periodStart": 1593561600,
+      "topHeight": 920827,
+      "txs": { "transparent": 118090, "mixed": 14416, "shielded": 3931 },
+      "balances": {
+        "sprout": 11503634774441,
+        "sapling": 32229439975347,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -6991036408104,
+      "fullyShieldedShare": { "pct": 2.88, "numerator": 3931, "denominator": 136437 },
+      "poolTouchingShare": { "pct": 13.45, "numerator": 18347, "denominator": 136437 }
+    },
+    {
+      "periodStart": 1596240000,
+      "topHeight": 956364,
+      "txs": { "transparent": 137702, "mixed": 15880, "shielded": 2912 },
+      "balances": {
+        "sprout": 11488392686143,
+        "sapling": 32513260623078,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 268578559433,
+      "fullyShieldedShare": { "pct": 1.86, "numerator": 2912, "denominator": 156494 },
+      "poolTouchingShare": { "pct": 12.01, "numerator": 18792, "denominator": 156494 }
+    },
+    {
+      "periodStart": 1598918400,
+      "topHeight": 990763,
+      "txs": { "transparent": 105229, "mixed": 17093, "shielded": 18723 },
+      "balances": {
+        "sprout": 11252304851236,
+        "sapling": 45108584678659,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 12359236220674,
+      "fullyShieldedShare": { "pct": 13.27, "numerator": 18723, "denominator": 141045 },
+      "poolTouchingShare": { "pct": 25.39, "numerator": 35816, "denominator": 141045 }
+    },
+    {
+      "periodStart": 1601510400,
+      "topHeight": 1026295,
+      "txs": { "transparent": 101571, "mixed": 17071, "shielded": 13874 },
+      "balances": {
+        "sprout": 11064288451897,
+        "sapling": 49144673551215,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 3848072473217,
+      "fullyShieldedShare": { "pct": 10.47, "numerator": 13874, "denominator": 132516 },
+      "poolTouchingShare": { "pct": 23.35, "numerator": 30945, "denominator": 132516 }
+    },
+    {
+      "periodStart": 1604188800,
+      "topHeight": 1060687,
+      "txs": { "transparent": 107348, "mixed": 15793, "shielded": 4415 },
+      "balances": {
+        "sprout": 10997949484202,
+        "sapling": 56242866571102,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 7031854052192,
+      "fullyShieldedShare": { "pct": 3.46, "numerator": 4415, "denominator": 127556 },
+      "poolTouchingShare": { "pct": 15.84, "numerator": 20208, "denominator": 127556 }
+    },
+    {
+      "periodStart": 1606780800,
+      "topHeight": 1096213,
+      "txs": { "transparent": 97203, "mixed": 16062, "shielded": 12319 },
+      "balances": {
+        "sprout": 10939958743765,
+        "sapling": 62058539294177,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 5757681982638,
+      "fullyShieldedShare": { "pct": 9.81, "numerator": 12319, "denominator": 125584 },
+      "poolTouchingShare": { "pct": 22.6, "numerator": 28381, "denominator": 125584 }
+    },
+    {
+      "periodStart": 1609459200,
+      "topHeight": 1131714,
+      "txs": { "transparent": 136616, "mixed": 14153, "shielded": 17808 },
+      "balances": {
+        "sprout": 3090480061099,
+        "sapling": 62215761390874,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -7692256585969,
+      "fullyShieldedShare": { "pct": 10.56, "numerator": 17808, "denominator": 168577 },
+      "poolTouchingShare": { "pct": 18.96, "numerator": 31961, "denominator": 168577 }
+    },
+    {
+      "periodStart": 1612137600,
+      "topHeight": 1163804,
+      "txs": { "transparent": 147927, "mixed": 13283, "shielded": 4909 },
+      "balances": {
+        "sprout": 3052964239017,
+        "sapling": 58464746758323,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -3788530454633,
+      "fullyShieldedShare": { "pct": 2.96, "numerator": 4909, "denominator": 166119 },
+      "poolTouchingShare": { "pct": 10.95, "numerator": 18192, "denominator": 166119 }
+    },
+    {
+      "periodStart": 1614556800,
+      "topHeight": 1199329,
+      "txs": { "transparent": 119748, "mixed": 12510, "shielded": 6256 },
+      "balances": {
+        "sprout": 3048727521812,
+        "sapling": 59796504304262,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 1327520828734,
+      "fullyShieldedShare": { "pct": 4.52, "numerator": 6256, "denominator": 138514 },
+      "poolTouchingShare": { "pct": 13.55, "numerator": 18766, "denominator": 138514 }
+    },
+    {
+      "periodStart": 1617235200,
+      "topHeight": 1233699,
+      "txs": { "transparent": 139499, "mixed": 12493, "shielded": 5871 },
+      "balances": {
+        "sprout": 3042472835656,
+        "sapling": 55949864395342,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -3852894595076,
+      "fullyShieldedShare": { "pct": 3.72, "numerator": 5871, "denominator": 157863 },
+      "poolTouchingShare": { "pct": 11.63, "numerator": 18364, "denominator": 157863 }
+    },
+    {
+      "periodStart": 1619827200,
+      "topHeight": 1269194,
+      "txs": { "transparent": 135747, "mixed": 13895, "shielded": 3489 },
+      "balances": {
+        "sprout": 2939746208343,
+        "sapling": 57348582120764,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 1295991098109,
+      "fullyShieldedShare": { "pct": 2.28, "numerator": 3489, "denominator": 153131 },
+      "poolTouchingShare": { "pct": 11.35, "numerator": 17384, "denominator": 153131 }
+    },
+    {
+      "periodStart": 1622505600,
+      "topHeight": 1303556,
+      "txs": { "transparent": 93343, "mixed": 12116, "shielded": 3485 },
+      "balances": {
+        "sprout": 2938715735873,
+        "sapling": 65687904512892,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 8338291919658,
+      "fullyShieldedShare": { "pct": 3.2, "numerator": 3485, "denominator": 108944 },
+      "poolTouchingShare": { "pct": 14.32, "numerator": 15601, "denominator": 108944 }
+    },
+    {
+      "periodStart": 1625097600,
+      "topHeight": 1339075,
+      "txs": { "transparent": 94282, "mixed": 12885, "shielded": 2910 },
+      "balances": {
+        "sprout": 2937590691323,
+        "sapling": 68040633117430,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 2351603559988,
+      "fullyShieldedShare": { "pct": 2.64, "numerator": 2910, "denominator": 110077 },
+      "poolTouchingShare": { "pct": 14.35, "numerator": 15795, "denominator": 110077 }
+    },
+    {
+      "periodStart": 1627776000,
+      "topHeight": 1374584,
+      "txs": { "transparent": 102868, "mixed": 14034, "shielded": 3088 },
+      "balances": {
+        "sprout": 2934793332747,
+        "sapling": 84570059456902,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 16526628980896,
+      "fullyShieldedShare": { "pct": 2.57, "numerator": 3088, "denominator": 119990 },
+      "poolTouchingShare": { "pct": 14.27, "numerator": 17122, "denominator": 119990 }
+    },
+    {
+      "periodStart": 1630454400,
+      "topHeight": 1408930,
+      "txs": { "transparent": 101142, "mixed": 13143, "shielded": 6310 },
+      "balances": {
+        "sprout": 2932164379001,
+        "sapling": 86903550086215,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 2330861675567,
+      "fullyShieldedShare": { "pct": 5.23, "numerator": 6310, "denominator": 120595 },
+      "poolTouchingShare": { "pct": 16.13, "numerator": 19453, "denominator": 120595 }
+    },
+    {
+      "periodStart": 1633046400,
+      "topHeight": 1444458,
+      "txs": { "transparent": 107916, "mixed": 14669, "shielded": 52928 },
+      "balances": {
+        "sprout": 2931700179500,
+        "sapling": 88309430725811,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 1405416440095,
+      "fullyShieldedShare": { "pct": 30.16, "numerator": 52928, "denominator": 175513 },
+      "poolTouchingShare": { "pct": 38.51, "numerator": 67597, "denominator": 175513 }
+    },
+    {
+      "periodStart": 1635724800,
+      "topHeight": 1478815,
+      "txs": { "transparent": 118953, "mixed": 16342, "shielded": 45726 },
+      "balances": {
+        "sprout": 2930235366955,
+        "sapling": 78159565949259,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -10151329589097,
+      "fullyShieldedShare": { "pct": 25.26, "numerator": 45726, "denominator": 181021 },
+      "poolTouchingShare": { "pct": 34.29, "numerator": 62068, "denominator": 181021 }
+    },
+    {
+      "periodStart": 1638316800,
+      "topHeight": 1514348,
+      "txs": { "transparent": 103502, "mixed": 16241, "shielded": 3228 },
+      "balances": {
+        "sprout": 2928041778832,
+        "sapling": 83845072504482,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 5683312967100,
+      "fullyShieldedShare": { "pct": 2.63, "numerator": 3228, "denominator": 122971 },
+      "poolTouchingShare": { "pct": 15.83, "numerator": 19469, "denominator": 122971 }
+    },
+    {
+      "periodStart": 1640995200,
+      "topHeight": 1549883,
+      "txs": { "transparent": 82815, "mixed": 14395, "shielded": 4043 },
+      "balances": {
+        "sprout": 2891573188128,
+        "sapling": 68472068982696,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": -15409472112490,
+      "fullyShieldedShare": { "pct": 3.99, "numerator": 4043, "denominator": 101253 },
+      "poolTouchingShare": { "pct": 18.21, "numerator": 18438, "denominator": 101253 }
+    },
+    {
+      "periodStart": 1643673600,
+      "topHeight": 1581970,
+      "txs": { "transparent": 75606, "mixed": 13862, "shielded": 4960 },
+      "balances": {
+        "sprout": 2874782742878,
+        "sapling": 71355976206595,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 2867116778649,
+      "fullyShieldedShare": { "pct": 5.25, "numerator": 4960, "denominator": 94428 },
+      "poolTouchingShare": { "pct": 19.93, "numerator": 18822, "denominator": 94428 }
+    },
+    {
+      "periodStart": 1646092800,
+      "topHeight": 1617506,
+      "txs": { "transparent": 104433, "mixed": 16013, "shielded": 4262 },
+      "balances": {
+        "sprout": 2851536628127,
+        "sapling": 71668337179948,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 289114858602,
+      "fullyShieldedShare": { "pct": 3.42, "numerator": 4262, "denominator": 124708 },
+      "poolTouchingShare": { "pct": 16.26, "numerator": 20275, "denominator": 124708 }
+    },
+    {
+      "periodStart": 1648771200,
+      "topHeight": 1651889,
+      "txs": { "transparent": 73094, "mixed": 12818, "shielded": 3904 },
+      "balances": {
+        "sprout": 2820285123855,
+        "sapling": 76048939580813,
+        "orchard": 0,
+        "ironwood": 0
+      },
+      "netFlowZat": 4349350896593,
+      "fullyShieldedShare": { "pct": 4.35, "numerator": 3904, "denominator": 89816 },
+      "poolTouchingShare": { "pct": 18.62, "numerator": 16722, "denominator": 89816 }
+    },
+    {
+      "periodStart": 1651363200,
+      "topHeight": 1687394,
+      "txs": { "transparent": 176697, "mixed": 13112, "shielded": 6985 },
+      "balances": {
+        "sprout": 2820285123855,
+        "sapling": 80705926574414,
+        "orchard": 15621576696,
+        "ironwood": 0
+      },
+      "netFlowZat": 4672608570297,
+      "fullyShieldedShare": { "pct": 3.55, "numerator": 6985, "denominator": 196794 },
+      "poolTouchingShare": { "pct": 10.21, "numerator": 20097, "denominator": 196794 }
+    },
+    {
+      "periodStart": 1654041600,
+      "topHeight": 1721777,
+      "txs": { "transparent": 100516, "mixed": 9983, "shielded": 218559 },
+      "balances": {
+        "sprout": 2816527842336,
+        "sapling": 80052077887378,
+        "orchard": 953072000943,
+        "ironwood": 0
+      },
+      "netFlowZat": 279844455692,
+      "fullyShieldedShare": { "pct": 66.42, "numerator": 218559, "denominator": 329058 },
+      "poolTouchingShare": { "pct": 69.45, "numerator": 228542, "denominator": 329058 }
+    },
+    {
+      "periodStart": 1656633600,
+      "topHeight": 1757282,
+      "txs": { "transparent": 46577, "mixed": 8509, "shielded": 240454 },
+      "balances": {
+        "sprout": 2806527842336,
+        "sapling": 78623482130926,
+        "orchard": 1017179575152,
+        "ironwood": 0
+      },
+      "netFlowZat": -1374488182243,
+      "fullyShieldedShare": { "pct": 81.36, "numerator": 240454, "denominator": 295540 },
+      "poolTouchingShare": { "pct": 84.24, "numerator": 248963, "denominator": 295540 }
+    },
+    {
+      "periodStart": 1659312000,
+      "topHeight": 1792834,
+      "txs": { "transparent": 62075, "mixed": 9852, "shielded": 133487 },
+      "balances": {
+        "sprout": 2806527842336,
+        "sapling": 81545940496307,
+        "orchard": 1170066530913,
+        "ironwood": 0
+      },
+      "netFlowZat": 3075345321142,
+      "fullyShieldedShare": { "pct": 64.98, "numerator": 133487, "denominator": 205414 },
+      "poolTouchingShare": { "pct": 69.78, "numerator": 143339, "denominator": 205414 }
+    },
+    {
+      "periodStart": 1661990400,
+      "topHeight": 1827229,
+      "txs": { "transparent": 57924, "mixed": 9932, "shielded": 37822 },
+      "balances": {
+        "sprout": 2706526883336,
+        "sapling": 85197664551100,
+        "orchard": 1729398595479,
+        "ironwood": 0
+      },
+      "netFlowZat": 4111055160359,
+      "fullyShieldedShare": { "pct": 35.79, "numerator": 37822, "denominator": 105678 },
+      "poolTouchingShare": { "pct": 45.19, "numerator": 47754, "denominator": 105678 }
+    },
+    {
+      "periodStart": 1664582400,
+      "topHeight": 1862760,
+      "txs": { "transparent": 66584, "mixed": 9702, "shielded": 20728 },
+      "balances": {
+        "sprout": 2682554224683,
+        "sapling": 91083092254085,
+        "orchard": 1540186488200,
+        "ironwood": 0
+      },
+      "netFlowZat": 5672242937053,
+      "fullyShieldedShare": { "pct": 21.37, "numerator": 20728, "denominator": 97014 },
+      "poolTouchingShare": { "pct": 31.37, "numerator": 30430, "denominator": 97014 }
+    },
+    {
+      "periodStart": 1667260800,
+      "topHeight": 1897183,
+      "txs": { "transparent": 102369, "mixed": 9583, "shielded": 17268 },
+      "balances": {
+        "sprout": 2682323807277,
+        "sapling": 92151417497668,
+        "orchard": 2006336068868,
+        "ironwood": 0
+      },
+      "netFlowZat": 1534244406845,
+      "fullyShieldedShare": { "pct": 13.36, "numerator": 17268, "denominator": 129220 },
+      "poolTouchingShare": { "pct": 20.78, "numerator": 26851, "denominator": 129220 }
+    },
+    {
+      "periodStart": 1669852800,
+      "topHeight": 1932711,
+      "txs": { "transparent": 71679, "mixed": 9683, "shielded": 19386 },
+      "balances": {
+        "sprout": 2677463534004,
+        "sapling": 97592343735663,
+        "orchard": 2690275308670,
+        "ironwood": 0
+      },
+      "netFlowZat": 6120005204524,
+      "fullyShieldedShare": { "pct": 19.24, "numerator": 19386, "denominator": 100748 },
+      "poolTouchingShare": { "pct": 28.85, "numerator": 29069, "denominator": 100748 }
+    },
+    {
+      "periodStart": 1672531200,
+      "topHeight": 1968235,
+      "txs": { "transparent": 70338, "mixed": 14006, "shielded": 20604 },
+      "balances": {
+        "sprout": 2677429534004,
+        "sapling": 101785499385640,
+        "orchard": 2565143105193,
+        "ironwood": 0
+      },
+      "netFlowZat": 4067989446500,
+      "fullyShieldedShare": { "pct": 19.63, "numerator": 20604, "denominator": 104948 },
+      "poolTouchingShare": { "pct": 32.98, "numerator": 34610, "denominator": 104948 }
+    },
+    {
+      "periodStart": 1675209600,
+      "topHeight": 2000346,
+      "txs": { "transparent": 62292, "mixed": 60103, "shielded": 12390 },
+      "balances": {
+        "sprout": 2677241532004,
+        "sapling": 98331061900650,
+        "orchard": 3949387066441,
+        "ironwood": 0
+      },
+      "netFlowZat": -2070381525742,
+      "fullyShieldedShare": { "pct": 9.19, "numerator": 12390, "denominator": 134785 },
+      "poolTouchingShare": { "pct": 53.78, "numerator": 72493, "denominator": 134785 }
+    },
+    {
+      "periodStart": 1677628800,
+      "topHeight": 2035875,
+      "txs": { "transparent": 75723, "mixed": 76119, "shielded": 14323 },
+      "balances": {
+        "sprout": 2676958010004,
+        "sapling": 101523100441052,
+        "orchard": 5416861600396,
+        "ironwood": 0
+      },
+      "netFlowZat": 4659229552357,
+      "fullyShieldedShare": { "pct": 8.62, "numerator": 14323, "denominator": 166165 },
+      "poolTouchingShare": { "pct": 54.43, "numerator": 90442, "denominator": 166165 }
+    },
+    {
+      "periodStart": 1680307200,
+      "topHeight": 2070254,
+      "txs": { "transparent": 68657, "mixed": 55670, "shielded": 13288 },
+      "balances": {
+        "sprout": 2676573008004,
+        "sapling": 121436525744143,
+        "orchard": 6993873481553,
+        "ironwood": 0
+      },
+      "netFlowZat": 21490052182248,
+      "fullyShieldedShare": { "pct": 9.66, "numerator": 13288, "denominator": 137615 },
+      "poolTouchingShare": { "pct": 50.11, "numerator": 68958, "denominator": 137615 }
+    },
+    {
+      "periodStart": 1682899200,
+      "topHeight": 2105785,
+      "txs": { "transparent": 59600, "mixed": 52437, "shielded": 38538 },
+      "balances": {
+        "sprout": 2676573008004,
+        "sapling": 115526303634040,
+        "orchard": 8570182871924,
+        "ironwood": 0
+      },
+      "netFlowZat": -4333912719732,
+      "fullyShieldedShare": { "pct": 25.59, "numerator": 38538, "denominator": 150575 },
+      "poolTouchingShare": { "pct": 60.42, "numerator": 90975, "denominator": 150575 }
+    },
+    {
+      "periodStart": 1685577600,
+      "topHeight": 2140171,
+      "txs": { "transparent": 53703, "mixed": 13014, "shielded": 25911 },
+      "balances": {
+        "sprout": 2676281007004,
+        "sapling": 119960888976479,
+        "orchard": 8636563946345,
+        "ironwood": 0
+      },
+      "netFlowZat": 4500674415860,
+      "fullyShieldedShare": { "pct": 27.97, "numerator": 25911, "denominator": 92628 },
+      "poolTouchingShare": { "pct": 42.02, "numerator": 38925, "denominator": 92628 }
+    },
+    {
+      "periodStart": 1688169600,
+      "topHeight": 2175701,
+      "txs": { "transparent": 52648, "mixed": 43072, "shielded": 24715 },
+      "balances": {
+        "sprout": 2676263007004,
+        "sapling": 115819156005382,
+        "orchard": 9149104527768,
+        "ironwood": 0
+      },
+      "netFlowZat": -3629210389674,
+      "fullyShieldedShare": { "pct": 20.52, "numerator": 24715, "denominator": 120435 },
+      "poolTouchingShare": { "pct": 56.29, "numerator": 67787, "denominator": 120435 }
+    },
+    {
+      "periodStart": 1690848000,
+      "topHeight": 2211221,
+      "txs": { "transparent": 46984, "mixed": 43015, "shielded": 4442 },
+      "balances": {
+        "sprout": 2676263007004,
+        "sapling": 114574205593522,
+        "orchard": 11369520089240,
+        "ironwood": 0
+      },
+      "netFlowZat": 975465149612,
+      "fullyShieldedShare": { "pct": 4.7, "numerator": 4442, "denominator": 94441 },
+      "poolTouchingShare": { "pct": 50.25, "numerator": 47457, "denominator": 94441 }
+    },
+    {
+      "periodStart": 1693526400,
+      "topHeight": 2245596,
+      "txs": { "transparent": 42653, "mixed": 40351, "shielded": 3296 },
+      "balances": {
+        "sprout": 2676263007004,
+        "sapling": 112847913197847,
+        "orchard": 15520167910100,
+        "ironwood": 0
+      },
+      "netFlowZat": 2424355425185,
+      "fullyShieldedShare": { "pct": 3.82, "numerator": 3296, "denominator": 86300 },
+      "poolTouchingShare": { "pct": 50.58, "numerator": 43647, "denominator": 86300 }
+    },
+    {
+      "periodStart": 1696118400,
+      "topHeight": 2281119,
+      "txs": { "transparent": 40563, "mixed": 40370, "shielded": 3027 },
+      "balances": {
+        "sprout": 2676263007004,
+        "sapling": 113712645706461,
+        "orchard": 15994147674761,
+        "ironwood": 0
+      },
+      "netFlowZat": 1338712273275,
+      "fullyShieldedShare": { "pct": 3.61, "numerator": 3027, "denominator": 83960 },
+      "poolTouchingShare": { "pct": 51.69, "numerator": 43397, "denominator": 83960 }
+    },
+    {
+      "periodStart": 1698796800,
+      "topHeight": 2315508,
+      "txs": { "transparent": 45155, "mixed": 23761, "shielded": 3344 },
+      "balances": {
+        "sprout": 2676163047004,
+        "sapling": 112556310639096,
+        "orchard": 16168445957159,
+        "ironwood": 0
+      },
+      "netFlowZat": -982136744967,
+      "fullyShieldedShare": { "pct": 4.63, "numerator": 3344, "denominator": 72260 },
+      "poolTouchingShare": { "pct": 37.51, "numerator": 27105, "denominator": 72260 }
+    },
+    {
+      "periodStart": 1701388800,
+      "topHeight": 2351031,
+      "txs": { "transparent": 48318, "mixed": 7887, "shielded": 3684 },
+      "balances": {
+        "sprout": 2656162546026,
+        "sapling": 108692749935655,
+        "orchard": 16410014235949,
+        "ironwood": 0
+      },
+      "netFlowZat": -3641992925629,
+      "fullyShieldedShare": { "pct": 6.15, "numerator": 3684, "denominator": 59889 },
+      "poolTouchingShare": { "pct": 19.32, "numerator": 11571, "denominator": 59889 }
+    },
+    {
+      "periodStart": 1704067200,
+      "topHeight": 2386575,
+      "txs": { "transparent": 52091, "mixed": 7995, "shielded": 2975 },
+      "balances": {
+        "sprout": 2656162546026,
+        "sapling": 109470749759919,
+        "orchard": 13885042352929,
+        "ironwood": 0
+      },
+      "netFlowZat": -1746972058756,
+      "fullyShieldedShare": { "pct": 4.72, "numerator": 2975, "denominator": 63061 },
+      "poolTouchingShare": { "pct": 17.4, "numerator": 10970, "denominator": 63061 }
+    },
+    {
+      "periodStart": 1706745600,
+      "topHeight": 2419815,
+      "txs": { "transparent": 45917, "mixed": 7662, "shielded": 3254 },
+      "balances": {
+        "sprout": 2656162546026,
+        "sapling": 102302134164021,
+        "orchard": 14102166327161,
+        "ironwood": 0
+      },
+      "netFlowZat": -6951491621666,
+      "fullyShieldedShare": { "pct": 5.73, "numerator": 3254, "denominator": 56833 },
+      "poolTouchingShare": { "pct": 19.21, "numerator": 10916, "denominator": 56833 }
+    },
+    {
+      "periodStart": 1709251200,
+      "topHeight": 2455336,
+      "txs": { "transparent": 57572, "mixed": 8750, "shielded": 4451 },
+      "balances": {
+        "sprout": 2649868531026,
+        "sapling": 108556244872716,
+        "orchard": 20812249049234,
+        "ironwood": 0
+      },
+      "netFlowZat": 12957899415768,
+      "fullyShieldedShare": { "pct": 6.29, "numerator": 4451, "denominator": 70773 },
+      "poolTouchingShare": { "pct": 18.65, "numerator": 13201, "denominator": 70773 }
+    },
+    {
+      "periodStart": 1711929600,
+      "topHeight": 2489715,
+      "txs": { "transparent": 46107, "mixed": 7732, "shielded": 3379 },
+      "balances": {
+        "sprout": 2636249531026,
+        "sapling": 106829046092166,
+        "orchard": 19658059042242,
+        "ironwood": 0
+      },
+      "netFlowZat": -2895007787542,
+      "fullyShieldedShare": { "pct": 5.91, "numerator": 3379, "denominator": 57218 },
+      "poolTouchingShare": { "pct": 19.42, "numerator": 11111, "denominator": 57218 }
+    },
+    {
+      "periodStart": 1714521600,
+      "topHeight": 2525243,
+      "txs": { "transparent": 51656, "mixed": 38933, "shielded": 35453 },
+      "balances": {
+        "sprout": 2630523820761,
+        "sapling": 107027762507066,
+        "orchard": 34367457328761,
+        "ironwood": 0
+      },
+      "netFlowZat": 14902388991154,
+      "fullyShieldedShare": { "pct": 28.13, "numerator": 35453, "denominator": 126042 },
+      "poolTouchingShare": { "pct": 59.02, "numerator": 74386, "denominator": 126042 }
+    },
+    {
+      "periodStart": 1717200000,
+      "topHeight": 2559633,
+      "txs": { "transparent": 42693, "mixed": 34393, "shielded": 6938 },
+      "balances": {
+        "sprout": 2610518353761,
+        "sapling": 104133399786740,
+        "orchard": 40190898437890,
+        "ironwood": 0
+      },
+      "netFlowZat": 2909072921803,
+      "fullyShieldedShare": { "pct": 8.26, "numerator": 6938, "denominator": 84024 },
+      "poolTouchingShare": { "pct": 49.19, "numerator": 41331, "denominator": 84024 }
+    },
+    {
+      "periodStart": 1719792000,
+      "topHeight": 2595159,
+      "txs": { "transparent": 43266, "mixed": 41280, "shielded": 3948 },
+      "balances": {
+        "sprout": 2610518353761,
+        "sapling": 100695462991138,
+        "orchard": 57079069232818,
+        "ironwood": 0
+      },
+      "netFlowZat": 13450233999326,
+      "fullyShieldedShare": { "pct": 4.46, "numerator": 3948, "denominator": 88494 },
+      "poolTouchingShare": { "pct": 51.11, "numerator": 45228, "denominator": 88494 }
+    },
+    {
+      "periodStart": 1722470400,
+      "topHeight": 2630701,
+      "txs": { "transparent": 48441, "mixed": 41322, "shielded": 3100 },
+      "balances": {
+        "sprout": 2610128233761,
+        "sapling": 94419930427786,
+        "orchard": 49004767857577,
+        "ironwood": 0
+      },
+      "netFlowZat": -14350224058593,
+      "fullyShieldedShare": { "pct": 3.34, "numerator": 3100, "denominator": 92863 },
+      "poolTouchingShare": { "pct": 47.84, "numerator": 44422, "denominator": 92863 }
+    },
+    {
+      "periodStart": 1725148800,
+      "topHeight": 2665102,
+      "txs": { "transparent": 27653, "mixed": 38328, "shielded": 3961 },
+      "balances": {
+        "sprout": 2608296233761,
+        "sapling": 94864480400328,
+        "orchard": 55354524100069,
+        "ironwood": 0
+      },
+      "netFlowZat": 6792474215034,
+      "fullyShieldedShare": { "pct": 5.66, "numerator": 3961, "denominator": 69942 },
+      "poolTouchingShare": { "pct": 60.46, "numerator": 42289, "denominator": 69942 }
+    },
+    {
+      "periodStart": 1727740800,
+      "topHeight": 2700641,
+      "txs": { "transparent": 28915, "mixed": 36763, "shielded": 2966 },
+      "balances": {
+        "sprout": 2608296233761,
+        "sapling": 102276570006920,
+        "orchard": 67771333746610,
+        "ironwood": 0
+      },
+      "netFlowZat": 19828899253133,
+      "fullyShieldedShare": { "pct": 4.32, "numerator": 2966, "denominator": 68644 },
+      "poolTouchingShare": { "pct": 57.88, "numerator": 39729, "denominator": 68644 }
+    },
+    {
+      "periodStart": 1730419200,
+      "topHeight": 2735019,
+      "txs": { "transparent": 29100, "mixed": 11519, "shielded": 3367 },
+      "balances": {
+        "sprout": 2605536175709,
+        "sapling": 103475543444511,
+        "orchard": 70394058642331,
+        "ironwood": 0
+      },
+      "netFlowZat": 3818938275260,
+      "fullyShieldedShare": { "pct": 7.65, "numerator": 3367, "denominator": 43986 },
+      "poolTouchingShare": { "pct": 33.84, "numerator": 14886, "denominator": 43986 }
+    },
+    {
+      "periodStart": 1733011200,
+      "topHeight": 2770556,
+      "txs": { "transparent": 29075, "mixed": 8355, "shielded": 3135 },
+      "balances": {
+        "sprout": 2584657183768,
+        "sapling": 97982702274269,
+        "orchard": 93859289665059,
+        "ironwood": 0
+      },
+      "netFlowZat": 17951510860545,
+      "fullyShieldedShare": { "pct": 7.73, "numerator": 3135, "denominator": 40565 },
+      "poolTouchingShare": { "pct": 28.32, "numerator": 11490, "denominator": 40565 }
+    },
+    {
+      "periodStart": 1735689600,
+      "topHeight": 2806077,
+      "txs": { "transparent": 23433, "mixed": 8201, "shielded": 3826 },
+      "balances": {
+        "sprout": 2582436162510,
+        "sapling": 85060116920429,
+        "orchard": 102188163184249,
+        "ironwood": 0
+      },
+      "netFlowZat": -4595932855908,
+      "fullyShieldedShare": { "pct": 10.79, "numerator": 3826, "denominator": 35460 },
+      "poolTouchingShare": { "pct": 33.92, "numerator": 12027, "denominator": 35460 }
+    },
+    {
+      "periodStart": 1738368000,
+      "topHeight": 2838188,
+      "txs": { "transparent": 20502, "mixed": 7360, "shielded": 2651 },
+      "balances": {
+        "sprout": 2582436162510,
+        "sapling": 87374151203175,
+        "orchard": 118113485673806,
+        "ironwood": 0
+      },
+      "netFlowZat": 18239356772303,
+      "fullyShieldedShare": { "pct": 8.69, "numerator": 2651, "denominator": 30513 },
+      "poolTouchingShare": { "pct": 32.81, "numerator": 10011, "denominator": 30513 }
+    },
+    {
+      "periodStart": 1740787200,
+      "topHeight": 2873733,
+      "txs": { "transparent": 22715, "mixed": 8335, "shielded": 3256 },
+      "balances": {
+        "sprout": 2582436162510,
+        "sapling": 87612210965093,
+        "orchard": 180825690003442,
+        "ironwood": 0
+      },
+      "netFlowZat": 62950264091554,
+      "fullyShieldedShare": { "pct": 9.49, "numerator": 3256, "denominator": 34306 },
+      "poolTouchingShare": { "pct": 33.79, "numerator": 11591, "denominator": 34306 }
+    },
+    {
+      "periodStart": 1743465600,
+      "topHeight": 2908109,
+      "txs": { "transparent": 22360, "mixed": 8196, "shielded": 2436 },
+      "balances": {
+        "sprout": 2582436162510,
+        "sapling": 84626938421883,
+        "orchard": 190473460028662,
+        "ironwood": 0
+      },
+      "netFlowZat": 6662497482010,
+      "fullyShieldedShare": { "pct": 7.38, "numerator": 2436, "denominator": 32992 },
+      "poolTouchingShare": { "pct": 32.23, "numerator": 10632, "denominator": 32992 }
+    },
+    {
+      "periodStart": 1746057600,
+      "topHeight": 2943650,
+      "txs": { "transparent": 23832, "mixed": 8289, "shielded": 7242 },
+      "balances": {
+        "sprout": 2578978169510,
+        "sapling": 82916687548085,
+        "orchard": 225792785844138,
+        "ironwood": 0
+      },
+      "netFlowZat": 33605616948678,
+      "fullyShieldedShare": { "pct": 18.4, "numerator": 7242, "denominator": 39363 },
+      "poolTouchingShare": { "pct": 39.46, "numerator": 15531, "denominator": 39363 }
+    },
+    {
+      "periodStart": 1748736000,
+      "topHeight": 2978029,
+      "txs": { "transparent": 18752, "mixed": 7694, "shielded": 6627 },
+      "balances": {
+        "sprout": 2578978169510,
+        "sapling": 83922567818147,
+        "orchard": 229097533650361,
+        "ironwood": 0
+      },
+      "netFlowZat": 4310628076285,
+      "fullyShieldedShare": { "pct": 20.04, "numerator": 6627, "denominator": 33073 },
+      "poolTouchingShare": { "pct": 43.3, "numerator": 14321, "denominator": 33073 }
+    },
+    {
+      "periodStart": 1751328000,
+      "topHeight": 3013573,
+      "txs": { "transparent": 21318, "mixed": 8206, "shielded": 4683 },
+      "balances": {
+        "sprout": 2578978169510,
+        "sapling": 87471111179670,
+        "orchard": 231163998311814,
+        "ironwood": 0
+      },
+      "netFlowZat": 5615008022976,
+      "fullyShieldedShare": { "pct": 13.69, "numerator": 4683, "denominator": 34207 },
+      "poolTouchingShare": { "pct": 37.68, "numerator": 12889, "denominator": 34207 }
+    },
+    {
+      "periodStart": 1754006400,
+      "topHeight": 3049112,
+      "txs": { "transparent": 23246, "mixed": 10148, "shielded": 7706 },
+      "balances": {
+        "sprout": 2578178169510,
+        "sapling": 85722134332879,
+        "orchard": 285844266971941,
+        "ironwood": 0
+      },
+      "netFlowZat": 52930491813336,
+      "fullyShieldedShare": { "pct": 18.75, "numerator": 7706, "denominator": 41100 },
+      "poolTouchingShare": { "pct": 43.44, "numerator": 17854, "denominator": 41100 }
+    },
+    {
+      "periodStart": 1756684800,
+      "topHeight": 3083518,
+      "txs": { "transparent": 30066, "mixed": 11766, "shielded": 5685 },
+      "balances": {
+        "sprout": 2578178169510,
+        "sapling": 82820251460551,
+        "orchard": 295862349912914,
+        "ironwood": 0
+      },
+      "netFlowZat": 7116200068645,
+      "fullyShieldedShare": { "pct": 11.96, "numerator": 5685, "denominator": 47517 },
+      "poolTouchingShare": { "pct": 36.73, "numerator": 17451, "denominator": 47517 }
+    },
+    {
+      "periodStart": 1759276800,
+      "topHeight": 3119071,
+      "txs": { "transparent": 136657, "mixed": 40600, "shielded": 12575 },
+      "balances": {
+        "sprout": 2577843840273,
+        "sapling": 74757321309226,
+        "orchard": 416450672631657,
+        "ironwood": 0
+      },
+      "netFlowZat": 112525058238181,
+      "fullyShieldedShare": { "pct": 6.62, "numerator": 12575, "denominator": 189832 },
+      "poolTouchingShare": { "pct": 28.01, "numerator": 53175, "denominator": 189832 }
+    },
+    {
+      "periodStart": 1761955200,
+      "topHeight": 3153473,
+      "txs": { "transparent": 410477, "mixed": 53699, "shielded": 9401 },
+      "balances": {
+        "sprout": 2561494744028,
+        "sapling": 64563185971564,
+        "orchard": 414384288399013,
+        "ironwood": 0
+      },
+      "netFlowZat": -12276868666551,
+      "fullyShieldedShare": { "pct": 1.99, "numerator": 9401, "denominator": 473577 },
+      "poolTouchingShare": { "pct": 13.32, "numerator": 63100, "denominator": 473577 }
+    },
+    {
+      "periodStart": 1764547200,
+      "topHeight": 3189007,
+      "txs": { "transparent": 124364, "mixed": 33227, "shielded": 6795 },
+      "balances": {
+        "sprout": 2548174273822,
+        "sapling": 62910782041747,
+        "orchard": 441294210313716,
+        "ironwood": 0
+      },
+      "netFlowZat": 25244197514680,
+      "fullyShieldedShare": { "pct": 4.13, "numerator": 6795, "denominator": 164386 },
+      "poolTouchingShare": { "pct": 24.35, "numerator": 40022, "denominator": 164386 }
+    },
+    {
+      "periodStart": 1767225600,
+      "topHeight": 3224540,
+      "txs": { "transparent": 132143, "mixed": 31749, "shielded": 6666 },
+      "balances": {
+        "sprout": 2548104009822,
+        "sapling": 61855460145909,
+        "orchard": 439800342005093,
+        "ironwood": 0
+      },
+      "netFlowZat": -2549260468461,
+      "fullyShieldedShare": { "pct": 3.91, "numerator": 6666, "denominator": 170558 },
+      "poolTouchingShare": { "pct": 22.52, "numerator": 38415, "denominator": 170558 }
+    },
+    {
+      "periodStart": 1769904000,
+      "topHeight": 3256651,
+      "txs": { "transparent": 101465, "mixed": 26274, "shielded": 15381 },
+      "balances": {
+        "sprout": 2548074009822,
+        "sapling": 61950318703102,
+        "orchard": 440145818033129,
+        "ironwood": 0
+      },
+      "netFlowZat": 440304585229,
+      "fullyShieldedShare": { "pct": 10.75, "numerator": 15381, "denominator": 143120 },
+      "poolTouchingShare": { "pct": 29.1, "numerator": 41655, "denominator": 143120 }
+    },
+    {
+      "periodStart": 1772323200,
+      "topHeight": 3292200,
+      "txs": { "transparent": 104318, "mixed": 31517, "shielded": 6934 },
+      "balances": {
+        "sprout": 2542447009822,
+        "sapling": 61263087327018,
+        "orchard": 452607956319937,
+        "ironwood": 0
+      },
+      "netFlowZat": 11769279910724,
+      "fullyShieldedShare": { "pct": 4.86, "numerator": 6934, "denominator": 142769 },
+      "poolTouchingShare": { "pct": 26.93, "numerator": 38451, "denominator": 142769 }
+    },
+    {
+      "periodStart": 1775001600,
+      "topHeight": 3326581,
+      "txs": { "transparent": 103293, "mixed": 30651, "shielded": 7505 },
+      "balances": {
+        "sprout": 2540941766914,
+        "sapling": 59931882084869,
+        "orchard": 455586410612505,
+        "ironwood": 0
+      },
+      "netFlowZat": 1645743807511,
+      "fullyShieldedShare": { "pct": 5.31, "numerator": 7505, "denominator": 141449 },
+      "poolTouchingShare": { "pct": 26.98, "numerator": 38156, "denominator": 141449 }
+    },
+    {
+      "periodStart": 1777593600,
+      "topHeight": 3362123,
+      "txs": { "transparent": 180966, "mixed": 39172, "shielded": 11878 },
+      "balances": {
+        "sprout": 2540941766914,
+        "sapling": 59183576322369,
+        "orchard": 450140173434951,
+        "ironwood": 0
+      },
+      "netFlowZat": -6194542940054,
+      "fullyShieldedShare": { "pct": 5.12, "numerator": 11878, "denominator": 232016 },
+      "poolTouchingShare": { "pct": 22, "numerator": 51050, "denominator": 232016 }
+    },
+    {
+      "periodStart": 1780272000,
+      "topHeight": 3396508,
+      "txs": { "transparent": 64967, "mixed": 34549, "shielded": 7820 },
+      "balances": {
+        "sprout": 2540941766914,
+        "sapling": 62102684037615,
+        "orchard": 377313767196780,
+        "ironwood": 0
+      },
+      "netFlowZat": -69907298522925,
+      "fullyShieldedShare": { "pct": 7.29, "numerator": 7820, "denominator": 107336 },
+      "poolTouchingShare": { "pct": 39.47, "numerator": 42369, "denominator": 107336 }
+    },
+    {
+      "periodStart": 1782864000,
+      "topHeight": 3430686,
+      "txs": { "transparent": 56150, "mixed": 29711, "shielded": 10939 },
+      "balances": {
+        "sprout": 2263726786698,
+        "sapling": 57087787429406,
+        "orchard": 319689286375388,
+        "ironwood": 51030789865066
+      },
+      "netFlowZat": -11885802544751,
+      "fullyShieldedShare": { "pct": 11.3, "numerator": 10939, "denominator": 96800 },
+      "poolTouchingShare": { "pct": 41.99, "numerator": 40650, "denominator": 96800 }
+    }
+  ],
+  "asOf": 1785439627
+}

@@ -1,0 +1,14 @@
+::
+
+  ZIP: 317
+  Title: Proportional Transfer Fee Mechanism
+  Owners: Daira-Emma Hopwood <daira@jacaranda.org>
+          Kris Nuttycombe <kris@nutty.land>
+          Jack Grigg <thestr4d@gmail.com>
+  Original-Authors: Aditya Bharadwaj
+  Credits: Madars Virza
+           Francisco Gindre
+  Status: [Revision 0] Active, [Revision 1: NU6.3] Draft, [Revision 2] Draft
+  Category: Standards / Wallet
+  Obsoletes: ZIP 313
+  Created: 2022-08-15

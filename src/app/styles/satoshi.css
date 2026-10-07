@@ -1,0 +1,665 @@
+/* /satoshi — the slot cabinet.
+   A cabinet drawn in the panel's own gunmetal, every colour an oklch() of --h so it follows
+   the hue themes. The marquee reuses .crt-title (a hero readout) and nothing else here
+   glows; the LEDs and a landed reel change colour only. Landing is one fixed transform,
+   because the band renders its final glyph last; the stagger is the nth-child block at the
+   end, never an inline style. */
+@layer components {
+  .slot-stage {
+    position: relative;
+  }
+  @media (min-width: 1024px) {
+    .slot-stage {
+      padding-right: 72px;
+    }
+  }
+  .slot-cabinet {
+    border-radius: 22px 22px 10px 10px;
+    background: linear-gradient(
+      180deg,
+      oklch(0.24 0.022 var(--h)),
+      oklch(0.13 0.012 var(--h)) 30%,
+      oklch(0.17 0.02 var(--h)) 100%
+    );
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.06),
+      inset 0 -2px 0 oklch(0 0 0 / 0.6),
+      0 30px 80px oklch(0 0 0 / 0.7),
+      0 0 60px oklch(0.874 0.252 var(--h) / 0.08);
+  }
+  .slot-topper {
+    position: relative;
+    padding: 28px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid oklch(0.32 0.03 var(--h));
+    border-radius: 22px 22px 0 0;
+    overflow: hidden;
+    background: radial-gradient(
+      ellipse 80% 120% at 50% 100%,
+      oklch(0.874 0.252 var(--h) / 0.14),
+      transparent 70%
+    );
+  }
+  .slot-marquee {
+    display: inline-block;
+    margin: 0;
+    font-size: clamp(2rem, 6.2vw, 4.4rem);
+    font-weight: 200;
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+  }
+  .slot-marquee-sub {
+    margin-top: 10px;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .slot-marquee-sub b {
+    color: var(--green-dim);
+    font-weight: 500;
+  }
+  .slot-body {
+    position: static;
+  }
+
+  /* LEDs: every third lit at rest, all chasing while the reels spin. */
+  .slot-leds {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14px, 1fr));
+    padding: 7px 24px;
+    background: oklch(0.13 0.012 var(--h));
+    border-bottom: 1px solid oklch(0.32 0.03 var(--h));
+  }
+  .slot-leds i {
+    display: block;
+    width: 6px;
+    height: 6px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: var(--green-faint);
+  }
+  .slot-leds i:nth-child(3n + 1) {
+    background: var(--green);
+  }
+  .is-spinning .slot-leds i {
+    animation: slot-chase 1.2s linear infinite;
+  }
+  .is-spinning .slot-leds i:nth-child(3n + 2) {
+    animation-delay: 400ms;
+  }
+  .is-spinning .slot-leds i:nth-child(3n) {
+    animation-delay: 800ms;
+  }
+  @keyframes slot-chase {
+    0%,
+    60%,
+    100% {
+      background: var(--green-faint);
+    }
+    20% {
+      background: var(--green);
+    }
+  }
+
+  .slot-displays {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 16px 24px 0;
+  }
+  .slot-lcd {
+    background: oklch(0.09 0.01 var(--h));
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-shadow: inset 0 3px 12px oklch(0 0 0 / 0.9);
+  }
+  .slot-lcd-label {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .slot-lcd-value {
+    margin-top: 2px;
+    font-size: 1.5rem;
+    font-weight: 300;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    color: var(--green);
+  }
+  .slot-lcd-value small {
+    margin-left: 6px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--green-dim);
+  }
+  .slot-lcd-value sup {
+    font-size: 12px;
+  }
+
+  /* The window. --reel-h is the one geometry every reel rule reads. */
+  .slot-window {
+    --reel-h: 3.6rem;
+    margin: 16px 24px 0;
+    padding: 14px 12px 12px;
+    background: oklch(0.08 0.008 var(--h));
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    border-radius: 8px;
+    box-shadow: inset 0 0 40px oklch(0 0 0 / 0.9);
+  }
+  .slot-row-label {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 12px;
+    margin-bottom: 6px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .slot-row-label b {
+    color: var(--green-dim);
+    font-weight: 500;
+    word-break: break-all;
+  }
+  .slot-strip {
+    display: grid;
+    grid-template-columns: repeat(34, 1fr);
+    gap: 3px;
+  }
+  .slot-target-cell {
+    height: 2rem;
+    line-height: 2rem;
+    text-align: center;
+    font-size: 15px;
+    color: var(--ink-dim);
+    border-bottom: 1px dashed var(--edge-faint);
+  }
+  .slot-payline {
+    position: relative;
+    height: 0;
+    margin: 8px 0 10px;
+    border-top: 1px solid var(--green-dim);
+  }
+  .slot-payline span {
+    position: absolute;
+    top: -9px;
+    right: 0;
+    padding: 0 6px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--green-dim);
+    background: oklch(0.08 0.008 var(--h));
+  }
+  .slot-reel {
+    position: relative;
+    height: var(--reel-h);
+    overflow: hidden;
+    border: 1px solid var(--edge-faint);
+    border-radius: 3px;
+    background: linear-gradient(
+      180deg,
+      oklch(0.05 0.005 var(--h)),
+      oklch(0.171 0.02 var(--h)) 45%,
+      oklch(0.171 0.02 var(--h)) 55%,
+      oklch(0.05 0.005 var(--h))
+    );
+  }
+  .slot-reel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      oklch(0 0 0 / 0.9),
+      transparent 35%,
+      transparent 65%,
+      oklch(0 0 0 / 0.9)
+    );
+  }
+  .slot-reel-band {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    will-change: transform;
+    transition: transform 900ms cubic-bezier(0.12, 0.75, 0.15, 1);
+    transition-delay: var(--reel-delay, 0ms);
+  }
+  .is-spun .slot-reel-band {
+    transform: translateY(calc(-100% + var(--reel-h)));
+  }
+  /* Reduced motion collapses transition DURATION globally but not delay: without this the
+     last reel would show its result 1.5 s late with nothing moving in between. */
+  .is-still .slot-reel-band {
+    transition-delay: 0ms;
+  }
+  .slot-reel-band span {
+    height: var(--reel-h);
+    line-height: var(--reel-h);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .slot-reel-hit {
+    border-color: var(--green);
+  }
+  .slot-reel-hit .slot-reel-band span {
+    color: var(--green);
+  }
+  .slot-body[data-phase="landed"] .slot-reel:not(.slot-reel-hit) .slot-reel-band span {
+    color: var(--ink-faint);
+  }
+
+  .slot-ticker {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 14px;
+    align-items: center;
+    margin: 12px 24px 0;
+    padding: 8px 14px;
+    overflow: hidden;
+    background: oklch(0.09 0.01 var(--h));
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    border-radius: 6px;
+    box-shadow: inset 0 3px 12px oklch(0 0 0 / 0.9);
+  }
+  .slot-ticker-label {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-dim);
+  }
+  .slot-ticker-key {
+    overflow: hidden;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--green-dim);
+  }
+  .slot-ticker-key.is-live {
+    color: var(--green);
+  }
+
+  .slot-plate {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 20px;
+    align-items: center;
+    padding: 18px 24px 22px;
+  }
+  .slot-plate-note {
+    font-size: 11px;
+    line-height: 1.7;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .slot-plate-note b {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .slot-plate-note-right {
+    text-align: right;
+  }
+  .slot-button {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(0.15 0.03 var(--h));
+    background: radial-gradient(
+      ellipse at 50% 30%,
+      oklch(0.93 0.14 var(--h)),
+      var(--green) 55%,
+      var(--green-dim)
+    );
+    border: 0;
+    border-radius: 999px;
+    padding: 16px 38px;
+    cursor: pointer;
+    box-shadow:
+      0 0 0 4px oklch(0.171 0.02 var(--h)),
+      0 0 0 5px oklch(0.32 0.03 var(--h)),
+      0 8px 0 oklch(0.45 0.13 var(--h)),
+      0 14px 30px oklch(0 0 0 / 0.7);
+    transition:
+      transform 80ms,
+      box-shadow 80ms;
+  }
+  .slot-button:hover {
+    filter: brightness(1.06);
+  }
+  .slot-button:active,
+  .is-spinning .slot-button {
+    transform: translateY(6px);
+    box-shadow:
+      0 0 0 4px oklch(0.171 0.02 var(--h)),
+      0 0 0 5px oklch(0.32 0.03 var(--h)),
+      0 2px 0 oklch(0.45 0.13 var(--h)),
+      0 6px 14px oklch(0 0 0 / 0.7);
+  }
+  .slot-button:disabled {
+    cursor: default;
+  }
+  .slot-verdict {
+    grid-column: 1 / -1;
+    min-height: 1.6em;
+    margin: 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--ink-dim);
+  }
+
+  /* The lever: decoration on wide screens, forwarding a click to the button. */
+  .slot-lever {
+    position: absolute;
+    top: 150px;
+    right: 0;
+    display: none;
+    width: 72px;
+    height: 300px;
+  }
+  @media (min-width: 1024px) {
+    .slot-lever {
+      display: block;
+    }
+  }
+  .slot-lever-mount {
+    position: absolute;
+    top: 130px;
+    left: 0;
+    width: 28px;
+    height: 60px;
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    border-left: 0;
+    border-radius: 0 8px 8px 0;
+    background: linear-gradient(180deg, oklch(0.24 0.022 var(--h)), oklch(0.13 0.012 var(--h)));
+  }
+  .slot-lever-arm {
+    position: absolute;
+    top: 160px;
+    left: 1px;
+    width: 34px;
+    height: 166px;
+    cursor: pointer;
+    transform-origin: 50% 0;
+    transform: rotate(180deg);
+    background: linear-gradient(
+      90deg,
+      transparent 13px,
+      oklch(0.32 0.03 var(--h)) 13px,
+      oklch(0.5 0.04 var(--h)) 16px,
+      oklch(0.24 0.022 var(--h)) 21px,
+      transparent 21px
+    );
+    transition: transform 350ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .slot-lever-arm::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 35% 30%,
+      oklch(0.93 0.14 var(--h)),
+      var(--green) 45%,
+      oklch(0.45 0.13 var(--h))
+    );
+    box-shadow: inset 0 -4px 8px oklch(0 0 0 / 0.5);
+  }
+  .is-spinning .slot-lever-arm {
+    transform: rotate(0deg);
+  }
+
+  /* The ticket: the one paper-coloured object on the site, printed from the cabinet's slot. */
+  .slot-ticket-slot {
+    width: min(680px, 100%);
+    height: 14px;
+    margin: 0 auto;
+    border: 1px solid oklch(0.32 0.03 var(--h));
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    background: oklch(0.08 0.008 var(--h));
+    box-shadow: inset 0 6px 10px oklch(0 0 0 / 0.9);
+  }
+  .slot-ticket {
+    width: min(640px, 100%);
+    margin: -2px auto 0;
+    padding: 20px 24px 22px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: oklch(0.2 0.03 var(--h));
+    background: oklch(0.95 0.015 var(--h));
+    border-bottom: 4px dashed oklch(0.2 0.03 var(--h) / 0.5);
+    box-shadow: 0 20px 50px oklch(0 0 0 / 0.6);
+    transform-origin: 50% 0;
+    transform: scaleY(0);
+    opacity: 0;
+    transition:
+      transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 300ms;
+  }
+  .slot-ticket.is-out {
+    transform: none;
+    opacity: 1;
+  }
+  .slot-ticket-head {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed oklch(0.2 0.03 var(--h));
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .slot-ticket-rows {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 0 12px;
+    margin: 0;
+  }
+  .slot-ticket-rows dt {
+    padding: 6px 0 4px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: oklch(0.35 0.04 var(--h));
+    border-bottom: 1px dotted oklch(0.2 0.03 var(--h) / 0.3);
+  }
+  .slot-ticket-rows dd {
+    margin: 0;
+    padding: 4px 0;
+    font-weight: 500;
+    word-break: break-all;
+    border-bottom: 1px dotted oklch(0.2 0.03 var(--h) / 0.3);
+  }
+  .slot-hit-char {
+    padding: 0 1px;
+    color: var(--green);
+    background: oklch(0.2 0.03 var(--h));
+  }
+  .slot-ticket-result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: baseline;
+    margin-top: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+  .slot-ticket-result b {
+    font-weight: 700;
+    letter-spacing: 0.14em;
+  }
+  .slot-ticket-note {
+    margin: 12px 0 0;
+    padding-top: 10px;
+    font-size: 11.5px;
+    color: oklch(0.35 0.04 var(--h));
+    border-top: 1px dashed oklch(0.2 0.03 var(--h));
+  }
+
+  @media (max-width: 860px) {
+    .slot-strip {
+      grid-template-columns: repeat(17, 1fr);
+    }
+    .slot-window {
+      --reel-h: 2.6rem;
+      margin: 14px 12px 0;
+    }
+    .slot-reel-band span {
+      font-size: 1rem;
+    }
+    .slot-target-cell {
+      height: 1.6rem;
+      line-height: 1.6rem;
+      font-size: 12px;
+    }
+    .slot-displays {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 12px 12px 0;
+    }
+    .slot-lcd-value {
+      font-size: 1.15rem;
+    }
+    .slot-ticker {
+      margin: 12px 12px 0;
+    }
+    .slot-plate {
+      grid-template-columns: 1fr;
+      padding: 16px 12px 20px;
+      text-align: center;
+    }
+    .slot-plate-note-right {
+      text-align: center;
+    }
+    .slot-ticket-rows {
+      grid-template-columns: 1fr;
+    }
+    .slot-ticket-rows dt {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+  }
+}
+
+/* Thirty-four reels, one stagger each: (k − 1) × 45 ms, so the strip lands left to right
+   the way a mechanical machine stops. Written out because the inline-style gate forbids a
+   per-element delay prop, and a CSS custom property set from markup is still an inline style. */
+.slot-reel:nth-child(1) {
+  --reel-delay: 0ms;
+}
+.slot-reel:nth-child(2) {
+  --reel-delay: 45ms;
+}
+.slot-reel:nth-child(3) {
+  --reel-delay: 90ms;
+}
+.slot-reel:nth-child(4) {
+  --reel-delay: 135ms;
+}
+.slot-reel:nth-child(5) {
+  --reel-delay: 180ms;
+}
+.slot-reel:nth-child(6) {
+  --reel-delay: 225ms;
+}
+.slot-reel:nth-child(7) {
+  --reel-delay: 270ms;
+}
+.slot-reel:nth-child(8) {
+  --reel-delay: 315ms;
+}
+.slot-reel:nth-child(9) {
+  --reel-delay: 360ms;
+}
+.slot-reel:nth-child(10) {
+  --reel-delay: 405ms;
+}
+.slot-reel:nth-child(11) {
+  --reel-delay: 450ms;
+}
+.slot-reel:nth-child(12) {
+  --reel-delay: 495ms;
+}
+.slot-reel:nth-child(13) {
+  --reel-delay: 540ms;
+}
+.slot-reel:nth-child(14) {
+  --reel-delay: 585ms;
+}
+.slot-reel:nth-child(15) {
+  --reel-delay: 630ms;
+}
+.slot-reel:nth-child(16) {
+  --reel-delay: 675ms;
+}
+.slot-reel:nth-child(17) {
+  --reel-delay: 720ms;
+}
+.slot-reel:nth-child(18) {
+  --reel-delay: 765ms;
+}
+.slot-reel:nth-child(19) {
+  --reel-delay: 810ms;
+}
+.slot-reel:nth-child(20) {
+  --reel-delay: 855ms;
+}
+.slot-reel:nth-child(21) {
+  --reel-delay: 900ms;
+}
+.slot-reel:nth-child(22) {
+  --reel-delay: 945ms;
+}
+.slot-reel:nth-child(23) {
+  --reel-delay: 990ms;
+}
+.slot-reel:nth-child(24) {
+  --reel-delay: 1035ms;
+}
+.slot-reel:nth-child(25) {
+  --reel-delay: 1080ms;
+}
+.slot-reel:nth-child(26) {
+  --reel-delay: 1125ms;
+}
+.slot-reel:nth-child(27) {
+  --reel-delay: 1170ms;
+}
+.slot-reel:nth-child(28) {
+  --reel-delay: 1215ms;
+}
+.slot-reel:nth-child(29) {
+  --reel-delay: 1260ms;
+}
+.slot-reel:nth-child(30) {
+  --reel-delay: 1305ms;
+}
+.slot-reel:nth-child(31) {
+  --reel-delay: 1350ms;
+}
+.slot-reel:nth-child(32) {
+  --reel-delay: 1395ms;
+}
+.slot-reel:nth-child(33) {
+  --reel-delay: 1440ms;
+}
+.slot-reel:nth-child(34) {
+  --reel-delay: 1485ms;
+}

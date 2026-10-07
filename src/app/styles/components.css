@@ -1,0 +1,1238 @@
+/* Component classes live in @layer components so page-level Tailwind utilities win
+   over them (e.g. `panel rounded-none` really is square; `hairline-b last:border-0`
+   really drops the final divider). Do not move these out of the layer — unlayered
+   CSS would silently beat every utility. */
+@layer components {
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    box-shadow: var(--glow-border);
+  }
+
+  /* The Veil, panel form: dashed hatched frame for data hidden by design. */
+  .veil {
+    background: repeating-linear-gradient(135deg, var(--hatch-a) 0 8px, transparent 8px 16px);
+    border: 1px dashed oklch(0.874 0.252 var(--h) / 0.35);
+    border-radius: 6px;
+  }
+
+  /* The Veil, inline form: a glowing redaction bar standing in for a value
+     that is encrypted on-chain. One of the three budgeted glow sites. */
+  .redact {
+    color: var(--green);
+    background: linear-gradient(
+      90deg,
+      oklch(0.874 0.252 var(--h) / 0.22),
+      oklch(0.874 0.252 var(--h) / 0.12)
+    );
+    border: 1px solid oklch(0.874 0.252 var(--h) / 0.3);
+    border-radius: 3px;
+    padding: 0 6px;
+    letter-spacing: 1px;
+    text-shadow: var(--glow-text);
+    cursor: help;
+  }
+
+  .microlabel {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--green-dim);
+  }
+
+  .hairline-b {
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  /* Overlay backdrop for the command palette. */
+  .scrim {
+    background: var(--scrim);
+  }
+
+  /* Faint phosphor wash behind a page's hero block. A background, not a glow —
+     it sits outside the glow budget. */
+  .hero-wash {
+    background: radial-gradient(
+      ellipse 60% 50% at 50% 0%,
+      oklch(0.874 0.252 var(--h) / 0.07),
+      transparent
+    );
+  }
+
+  /* The grade over the homepage's photographic backdrop (`HeroCityBackdrop`), for text that
+     sits directly on the image rather than on a panel:
+
+     - a near-black pool where the statement lands. `.crt-title` cuts dark scanlines between
+       its glyphs, so over a lit building it would read as a striped panel;
+     - a take-down toward the bottom, where only panel gutters show the image.
+
+     Kept restrained so the photograph keeps its detail; a grade strong enough to guarantee AA
+     anywhere would flatten it. Content stays on opaque `--panel`, where contrast was measured. */
+  /* The theme menu's dots, painted in their own theme's accent whatever the current theme.
+     The fill uses --green-dim's recipe with --swatch-h in place of --h. This is the one place a
+     theme's hue is written twice (here and on :root[data-theme]); globals-literals.test.ts pins
+     both. One line per theme. */
+  .theme-swatch {
+    /* A lit phosphor pixel rather than a paint chip: a dim body in --green-dim's recipe, a hot
+       1px edge in the accent's, and a faint bloom in the theme's own hue (a sanctioned glow
+       site). Never the hot accent as the fill; it reads as a warning light beside the word. */
+    background: oklch(0.626 0.175 calc(var(--swatch-h) + 2));
+    border: 1px solid oklch(0.874 0.252 calc(var(--swatch-h) + 0.6));
+    box-shadow:
+      0 0 6px oklch(0.874 0.252 calc(var(--swatch-h) + 0.6) / 0.55),
+      inset 0 0 2px oklch(0.988 0.019 var(--swatch-h) / 0.5);
+  }
+  .theme-swatch[data-theme="green"] {
+    --swatch-h: 146;
+  }
+  .theme-swatch[data-theme="violet"] {
+    --swatch-h: 305;
+  }
+  .theme-swatch[data-theme="ice"] {
+    --swatch-h: 230;
+  }
+  .theme-swatch[data-theme="amber"] {
+    --swatch-h: 78;
+  }
+
+  /* The homepage photograph follows the theme. The plate is monochrome green, so a rotation
+     relative to the default hue is an exact recolour — one class, no second asset. */
+  .hero-city-plate {
+    filter: hue-rotate(calc((var(--h) - 146) * 1deg));
+  }
+
+  .hero-city-grade {
+    background:
+      radial-gradient(
+        60% 36% at 50% 20%,
+        oklch(0.128 0.011 var(--h) / 0.8) 0 34%,
+        oklch(0.128 0.011 var(--h) / 0.44) 64%,
+        oklch(0.128 0.011 var(--h) / 0) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        oklch(0.128 0.011 var(--h) / 0.22) 0%,
+        oklch(0.128 0.011 var(--h) / 0.08) 36%,
+        oklch(0.128 0.011 var(--h) / 0.4) 70%,
+        oklch(0.128 0.011 var(--h) / 0.62) 100%
+      );
+  }
+
+  /* The homepage statement, rendered as a phosphor tube: a bloom around the glyphs and the
+     scanlines of a display. Scanlines are reserved for a few hero readouts; over data they
+     would be texture over numbers people came to read.
+
+     Contrast: --green on --bg is 14.1:1, and the raster leaves the blend near 8:1, far past the
+     3:1 AA asks of text this large. Static on purpose: motion would pull the eye away from the
+     search field. */
+  .crt-title {
+    position: relative;
+    color: var(--green);
+    /* Hot core first, then two bloom radii — a phosphor dot is brightest at its centre
+       and falls away, which is what keeps this from reading as a flat drop shadow. */
+    text-shadow:
+      0 0 1px oklch(0.988 0.019 calc(var(--h) + 6) / 0.4),
+      0 0 14px oklch(0.874 0.252 var(--h) / 0.55),
+      0 0 42px oklch(0.874 0.252 var(--h) / 0.26);
+  }
+
+  .crt-title::after {
+    content: "";
+    position: absolute;
+    inset: -0.06em 0;
+    pointer-events: none;
+    /* Pitch in em, not px: the raster has to scale with the type, or the hero turns into
+       a fine grey haze on a phone and a coarse louvre on a wide screen. */
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 0.055em,
+      oklch(0.128 0.011 var(--h) / 0.45) 0.055em 0.1em
+    );
+  }
+
+  /* ── /stats ─────────────────────────────────────────────────────────────────────
+     A scanline surface like the homepage hero and the halving countdown: a hero figure, not
+     a table. */
+  .stat-figure {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 0.1em;
+    white-space: nowrap;
+    /* 300, not 200: this figure runs about twice their size, and an em-relative raster band at
+       200 was as wide as the stroke and ate the thin joins on 8 and 9. */
+    font-weight: 300;
+    font-size: clamp(2.9rem, 10.5vw, 8rem);
+    line-height: 0.95;
+    letter-spacing: -0.015em;
+    color: var(--ink-bright);
+    font-variant-numeric: tabular-nums;
+    /* The bloom does the phosphor work the raster used to: light coming OFF the glyph, which
+       is also the more accurate model of a tube. */
+    text-shadow:
+      0 0 2px oklch(0.874 0.252 var(--h) / 0.32),
+      0 0 28px oklch(0.874 0.252 var(--h) / 0.2);
+  }
+
+  .stat-figure::after {
+    content: "";
+    position: absolute;
+    inset: -0.06em -0.02em;
+    pointer-events: none;
+    /* A third of the pitch, fainter than .crt-title's. The raster rides on top and the glyph
+       keeps its own token colour: `background-clip: text` would need `color: transparent`, which
+       e2e/a11y.spec.ts reads as black on near-black. */
+    background: repeating-linear-gradient(
+      to bottom,
+      oklch(0.128 0.011 var(--h) / 0.3) 0 0.018em,
+      transparent 0.018em 0.055em
+    );
+  }
+
+  /* ── /compare ───────────────────────────────────────────────────────────────────
+     A scanline surface: the implied ZEC price, a hero readout. `.stat-figure`'s finer raster
+     and 300 weight rather than `.crt-title`'s, since a near-half band eats the thin joins on 8
+     and 9 at this size. Green, as the page's one accent; the size comes from the caller. */
+  .compare-figure {
+    position: relative;
+    display: inline-block;
+    white-space: nowrap;
+    font-weight: 300;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+    text-shadow:
+      0 0 1px oklch(0.988 0.019 calc(var(--h) + 6) / 0.4),
+      0 0 14px oklch(0.874 0.252 var(--h) / 0.55),
+      0 0 42px oklch(0.874 0.252 var(--h) / 0.26);
+  }
+
+  .compare-figure::after {
+    content: "";
+    position: absolute;
+    /* No horizontal bleed: a negative inline inset on an inline-block adds to the parent's
+       scrollWidth. */
+    inset: -0.06em 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      oklch(0.128 0.011 var(--h) / 0.3) 0 0.018em,
+      transparent 0.018em 0.055em
+    );
+  }
+
+  .stat-figure-affix {
+    font-size: 0.38em;
+    align-self: center;
+    color: var(--ink-dim);
+    text-shadow: none;
+  }
+
+  .stat-figure-unit {
+    font-size: 0.22em;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+  }
+
+  /* ── /mining-cost ────────────────────────────────────────────────────────────────
+     The world map's five cost tiers: ONE hue, the accent's, stepped in lightness from the
+     hot green (cheap) down to a deep one (dear) — a sequential scale, never a rainbow, and
+     it follows the theme like every other colour here. Land with no published tariff is a
+     fixed neutral a step above the panel: an absence drawn as one, not a sixth tier.
+     Fills are CLASSES so the SVG carries no colour attribute and no style. */
+  .cost-tier-1 {
+    fill: oklch(0.874 0.252 calc(var(--h) + 0.6));
+  }
+  .cost-tier-2 {
+    fill: oklch(0.76 0.22 calc(var(--h) + 1.5));
+  }
+  .cost-tier-3 {
+    fill: oklch(0.626 0.175 calc(var(--h) + 2));
+  }
+  .cost-tier-4 {
+    fill: oklch(0.49 0.13 calc(var(--h) + 3));
+  }
+  .cost-tier-5 {
+    fill: oklch(0.371 0.092 calc(var(--h) + 4));
+  }
+  .cost-tier-none {
+    fill: oklch(0.215 0.018 var(--h));
+  }
+  .cost-land {
+    stroke: var(--bg);
+    cursor: default;
+  }
+  .cost-land:hover,
+  .cost-land:focus-visible {
+    stroke: var(--ink-bright);
+    outline: 0;
+  }
+  .cost-dot {
+    stroke: var(--bg);
+  }
+  .cost-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+  .cost-swatch.cost-tier-1 {
+    background: oklch(0.874 0.252 calc(var(--h) + 0.6));
+  }
+  .cost-swatch.cost-tier-2 {
+    background: oklch(0.76 0.22 calc(var(--h) + 1.5));
+  }
+  .cost-swatch.cost-tier-3 {
+    background: oklch(0.626 0.175 calc(var(--h) + 2));
+  }
+  .cost-swatch.cost-tier-4 {
+    background: oklch(0.49 0.13 calc(var(--h) + 3));
+  }
+  .cost-swatch.cost-tier-5 {
+    background: oklch(0.371 0.092 calc(var(--h) + 4));
+  }
+  .cost-swatch.cost-tier-none {
+    background: oklch(0.215 0.018 var(--h));
+    border: 1px dashed var(--edge);
+  }
+  .cost-map {
+    position: relative;
+    /* `min-width: 0`, or the SVG's 1000-unit viewBox sets the grid track's min-content width
+       and the page scrolls sideways on a phone. */
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--edge-faint);
+    border-radius: 6px;
+    background: var(--bg);
+    touch-action: none;
+    cursor: grab;
+  }
+  .cost-map.is-dragging {
+    cursor: grabbing;
+  }
+  .cost-map svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .cost-zoom {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .cost-zoom button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--green);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .cost-zoom button:hover {
+    background: oklch(0.874 0.252 var(--h) / 0.08);
+  }
+  .cost-zoom button:disabled {
+    color: var(--ink-faint);
+    cursor: default;
+  }
+  .cost-prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    background: var(--bg);
+  }
+  .cost-figure {
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+  }
+  .cost-figure-unit {
+    font-size: 0.4em;
+    color: var(--ink-dim);
+    letter-spacing: 0.06em;
+  }
+
+  /* Corner ticks drawn with borders, not box-drawing glyphs, which JetBrains Mono does not
+     fully cover (U+25D0 is missing). */
+  .stats-panel {
+    position: relative;
+  }
+
+  .stats-panel::before,
+  .stats-panel::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    border: 1px solid var(--green-dim);
+    opacity: 0.55;
+  }
+
+  .stats-panel::before {
+    top: 6px;
+    left: 6px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .stats-panel::after {
+    bottom: 6px;
+    right: 6px;
+    border-left: 0;
+    border-top: 0;
+  }
+
+  .stats-range {
+    padding: 0.26rem 0.62rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+
+  .stats-range:hover {
+    color: var(--ink-dim);
+    border-color: var(--edge-faint);
+  }
+
+  .stats-range[aria-pressed="true"] {
+    color: var(--green);
+    border-color: var(--edge);
+    background: var(--green-wash);
+  }
+
+  .stats-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.34rem 0.8rem;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    background: var(--green-wash);
+    font-size: 0.76rem;
+    letter-spacing: 0.05em;
+    color: var(--green);
+    white-space: nowrap;
+  }
+
+  /* Red is reserved for negative deltas site-wide, and this is one. */
+  .stats-pill-neg {
+    color: var(--red);
+    border-color: color-mix(in oklch, var(--red) 30%, transparent);
+    background: color-mix(in oklch, var(--red) 5%, transparent);
+  }
+
+  .stats-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: stats-pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes stats-pulse {
+    50% {
+      opacity: 0.28;
+    }
+  }
+
+  .stats-stamp-rule {
+    flex: 1;
+    min-width: 1.5rem;
+    height: 1px;
+    background: var(--edge-faint);
+  }
+
+  .stats-pools {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--edge-faint);
+    border: 1px solid var(--edge-faint);
+  }
+
+  .stats-pool {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.85rem 0.95rem;
+    background: var(--panel);
+  }
+
+  /* A native <details> summary as a terminal toggle. No JavaScript: the disclosure keeps
+     working with scripting off, which is the same standard the ⌘K palette is held to. */
+  .disclosure {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .disclosure::-webkit-details-marker {
+    display: none;
+  }
+
+  .disclosure::before {
+    content: "▸ ";
+    color: var(--green);
+  }
+
+  details[open] > .disclosure::before {
+    content: "▾ ";
+  }
+
+  /* CRT corner brackets: four 10px ticks overlaying a panel's own border, framing it like an
+     instrument's target. Chrome, not glow, and rationed to one framed control per view (the
+     agent composer), or it stops meaning "this is the live control".
+
+     An element has only two pseudo-elements, so the bottom pair lives on an aria-hidden child
+     (`.corner-frame-ends`). Offsets are -1px from the padding box — the outer edge of a 1px
+     border — so the ticks sit on the border line and never add scrollable overflow. Pair with
+     `rounded-none`: a square tick over a rounded corner misses the curve. */
+  .corner-frame {
+    position: relative;
+  }
+
+  .corner-frame::before,
+  .corner-frame::after,
+  .corner-frame > .corner-frame-ends::before,
+  .corner-frame > .corner-frame-ends::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 0 solid var(--green-dim);
+    pointer-events: none;
+  }
+
+  .corner-frame::before {
+    top: -1px;
+    left: -1px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+
+  .corner-frame::after {
+    top: -1px;
+    right: -1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+  }
+
+  .corner-frame > .corner-frame-ends::before {
+    bottom: -1px;
+    left: -1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+  }
+
+  .corner-frame > .corner-frame-ends::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+
+  /* Blinking block cursor. Glow only in the logo (see .logo-cursor). */
+  .cursor-block {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.05em;
+    background: var(--green);
+    vertical-align: text-bottom;
+    animation: cursor-blink 1.1s steps(1) infinite;
+  }
+
+  /* Zeno's prompt cursor, on the /ai-agent empty state: the same blink as the block cursor, on
+     an SVG rect rather than an inline box, and no glow (that budget is the logo's). The global
+     reduced-motion rule below stops it like every other animation. */
+  .zeno-cursor {
+    animation: cursor-blink 1.1s steps(1) infinite;
+  }
+
+  /* The trail's live working line ends in a thin caret: the model is mid-sentence. Same blink
+     as the block cursor, no glow (that budget is the logo's). */
+  .working-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    background: var(--green-dim);
+    vertical-align: text-bottom;
+    animation: cursor-blink 1.1s steps(1) infinite;
+  }
+
+  .logo-cursor {
+    box-shadow: 0 0 10px oklch(0.874 0.252 var(--h) / 0.6);
+  }
+
+  /* A textarea that grows with its own value, in CSS alone.
+
+     The wrapper is a one-cell grid sized by a hidden mirror of the value (`::after` reading
+     `data-value`), and the textarea is stretched into the same cell, so it needs no
+     measurement and no runtime `style` prop. `field-sizing: content` is not yet supported
+     widely enough to rely on.
+
+     The cap is on the mirror, not the wrapper: capping the wrapper leaves the grid row at full
+     height and the textarea overflows instead of scrolling inside it.
+
+     The trailing space in `content` matters: a value ending in a newline would otherwise
+     measure one line short. */
+  .autogrow {
+    display: grid;
+  }
+
+  .autogrow::after {
+    content: attr(data-value) " ";
+    max-height: 10rem;
+    overflow: hidden;
+    visibility: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
+  /* Both items occupy the one cell, and must wrap identically — same font (Tailwind's
+     preflight already inherits it into the textarea), same width, same breaking rules. */
+  .autogrow > textarea,
+  .autogrow::after {
+    grid-area: 1 / 1 / 2 / 2;
+    overflow-wrap: break-word;
+  }
+
+  .autogrow > textarea {
+    overflow-y: auto;
+    resize: none;
+  }
+
+  /* ---------------------------------------------------------------- halving hero
+
+     A phosphor readout like the homepage's .crt-title. These classes need multi-stop
+     gradients that Tailwind utilities cannot express.
+
+     `.halving-bed` keeps a near-black ground under the figures: rastered glyphs over a lit
+     background read as a striped panel, so the scene lives in the top band, where the clock
+     is, and is taken to near-black under the figures. */
+  .halving-bed {
+    background:
+      radial-gradient(
+        120% 78% at 50% 46%,
+        oklch(0.128 0.011 var(--h) / 0.94) 0 38%,
+        oklch(0.128 0.011 var(--h) / 0.72) 58%,
+        oklch(0.128 0.011 var(--h) / 0.15) 100%
+      ),
+      linear-gradient(
+        180deg,
+        oklch(0.128 0.011 var(--h) / 0.7) 0 12%,
+        oklch(0.128 0.011 var(--h) / 0) 40% 72%,
+        oklch(0.128 0.011 var(--h) / 0.85) 100%
+      );
+  }
+
+  /* A digit cell: lit at the top edge, near-black at the bottom, so the glyph always has a
+     dark ground under it however bright the scene behind is. */
+  .halving-cell {
+    background: linear-gradient(
+      180deg,
+      oklch(0.874 0.252 var(--h) / 0.05),
+      oklch(0.128 0.011 var(--h) / 0.55)
+    );
+  }
+
+  /* A leader of real dots. A 1px dotted BORDER at this opacity renders as a hairline on
+     most engines and stops reading as a leader at all. */
+  .dot-leader {
+    height: 1px;
+    background-image: radial-gradient(
+      circle,
+      oklch(0.874 0.252 var(--h) / 0.32) 0.5px,
+      transparent 0.6px
+    );
+    background-size: 5px 1px;
+    background-repeat: repeat-x;
+  }
+
+  /* The readout treatment: bloom, plus a raster laid over the glyphs.
+
+     Built like .crt-title — a real colour plus an ::after overlay — not with
+     `background-clip: text`, which needs `color: transparent`; e2e/a11y.spec.ts computes
+     contrast from each text element's `color`, so a transparent foreground fails it.
+
+     Pitch is in `em` so it scales with the type, and it is finer and softer than the
+     homepage hero's, because cut that deep the digits read as damaged rather than lit. Static:
+     a flicker on a clock would pull the eye off the number. */
+  .crt-digit {
+    position: relative;
+    color: var(--ink-bright);
+    text-shadow:
+      0 0 1px oklch(0.988 0.019 calc(var(--h) + 6) / 0.35),
+      0 0 22px oklch(0.874 0.252 var(--h) / 0.32);
+  }
+
+  .crt-digit::after {
+    content: "";
+    position: absolute;
+    inset: -0.04em 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 0.045em,
+      oklch(0.128 0.011 var(--h) / 0.5) 0.045em 0.075em
+    );
+  }
+
+  /* Focus on the whole prompt rather than on the field inside it: the global :focus-visible
+     outline would nest a second rectangle inside the panel's glowing border. The input
+     suppresses its ring (see HeroSearch) and the panel takes it — brighter edge, stronger
+     bloom — so a focus indicator remains (WCAG 2.4.7). */
+  .prompt-focus:focus-within {
+    border-color: var(--green);
+    box-shadow:
+      0 0 0 1px var(--green),
+      0 0 18px oklch(0.874 0.252 var(--h) / 0.28);
+  }
+
+  /* Privacy encoded in ink — the shield grammar. A shield at three fill levels (full / half /
+     outline) gives a transaction's privacy state with the protocol's own word. Green intensity
+     is a redundant second channel: green already means privacy here, so a transparent
+     transaction gets none. Drawn as SVG paths by <PrivacyShield /> — no glyphs (U+25D0 is
+     missing from most mono fonts) and no clipPath (duplicate SVG ids across table rows are
+     invalid markup). The shielded shield is one of the budgeted glow sites. */
+  .shield-shielded {
+    color: var(--green);
+    filter: drop-shadow(0 0 5px oklch(0.874 0.252 var(--h) / 0.85));
+  }
+
+  .shield-mixed {
+    color: var(--green-dim);
+  }
+
+  .shield-transparent {
+    color: var(--ink-dim);
+  }
+
+  .flow-1 {
+    color: var(--flow-1);
+  }
+  .flow-2 {
+    color: var(--flow-2);
+  }
+  .flow-3 {
+    color: var(--flow-3);
+  }
+  .flow-4 {
+    color: var(--flow-4);
+  }
+  .flow-5 {
+    color: var(--flow-5);
+  }
+  .flow-6 {
+    color: var(--flow-6);
+  }
+  .flow-7 {
+    color: var(--flow-7);
+  }
+  .flow-8 {
+    color: var(--flow-8);
+  }
+  .flow-9 {
+    color: var(--flow-9);
+  }
+  .flow-rest {
+    color: var(--flow-rest);
+  }
+
+  /* Analytics charts. Bands take their colour from the flow palette through
+     `currentColor`, like the Sankey — one categorical system for every chart. */
+  .chart-band {
+    opacity: 0.82;
+  }
+
+  .chart-grid {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+
+  /* No font-size here: a CSS rule beats a presentation attribute, and the tick size is a
+     `fontSize` attribute derived from the same number as the gutter width (`chart-axes.tsx`),
+     so glyphs and reserved space cannot disagree. `ink-dim`, not `ink-faint`: axis labels are
+     the smallest text on the site. */
+  .chart-tick {
+    fill: var(--ink-dim);
+  }
+
+  .chart-marker line {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  /* Sized by attribute, like .chart-tick above. */
+  .chart-marker-label {
+    fill: var(--ink-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* Privacy kinds keep the ink grammar rather than the flow palette: green intensity is
+     already this site's language for how shielded something is, and a categorical hue here
+     would say "these are unrelated categories" when they are a spectrum. */
+  .band-transparent {
+    color: var(--ink-faint);
+  }
+  .band-mixed {
+    color: var(--green-dim);
+  }
+  .band-shielded {
+    color: var(--green);
+  }
+
+  /* The cross-chain Sankey. Ribbons are gradients from a chain's brand colour to Zcash
+     green, resolved through `currentColor` inside each branded group — colour stays in the
+     token layer, as it does for every mark on the site. */
+  .sankey-ribbon {
+    opacity: 0.9;
+    transition: opacity 160ms ease;
+  }
+
+  .sankey-flow:hover .sankey-ribbon,
+  .sankey-flow:focus-within .sankey-ribbon {
+    opacity: 1;
+  }
+
+  /* Rows dim rather than the hovered ribbon brightening alone: with ribbons this saturated,
+     lifting one is less legible than quieting the rest. */
+  svg:hover .sankey-flow:not(:hover) .sankey-ribbon {
+    opacity: 0.18;
+  }
+
+  .sankey-rule {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+
+  .sankey-name {
+    fill: var(--ink);
+    font-size: 15px;
+  }
+
+  .sankey-value {
+    fill: var(--ink-dim);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sankey-flow:hover .sankey-name,
+  .sankey-flow:hover .sankey-value {
+    fill: var(--ink-bright);
+  }
+
+  /* Zcash, as a node whose height is that direction's total. Its two instances — one per
+     diagram — are the comparison, so it is the one green element and reads as the constant
+     both charts are measured against. */
+  .sankey-zcash {
+    fill: var(--green);
+    opacity: 0.85;
+  }
+
+  .sankey-zcash-label {
+    fill: var(--green);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+  }
+
+  /* The ecosystem stage. Each category's arc, label, plates and initials carry a `flow-N`
+     class and resolve through `currentColor` — one categorical palette for every chart on the
+     site, and no colour literal outside :root. Names are ink, not the category hue: ninety-five
+     labels in eight saturated colours is a legend, not a map. */
+  .eco-explorer[data-mode="map"] .eco-list-view,
+  .eco-explorer[data-mode="list"] .eco-map-view {
+    display: none;
+  }
+  @media (max-width: 767px) {
+    .eco-explorer[data-mode="auto"] .eco-map-view {
+      display: none;
+    }
+  }
+  @media (min-width: 768px) {
+    .eco-explorer[data-mode="auto"] .eco-list-view {
+      display: none;
+    }
+  }
+  .eco-stage {
+    height: clamp(460px, calc(100vh - 230px), 1000px);
+    background: var(--bg);
+    cursor: grab;
+    /* The stage takes every touch gesture itself: a finger pans and two pinch the MAP. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .eco-stage.is-dragging {
+    cursor: grabbing;
+  }
+  .eco-arc {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+    opacity: 0.85;
+  }
+  .eco-category-label {
+    fill: currentColor;
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .eco-category-count {
+    fill: var(--ink-faint);
+    font-weight: 400;
+  }
+  .eco-node {
+    cursor: pointer;
+    transition: opacity 180ms ease;
+  }
+  .eco-plate {
+    fill: var(--panel);
+    stroke: currentColor;
+    stroke-width: 2;
+    transition: stroke-width 120ms ease;
+  }
+  .eco-initial {
+    fill: currentColor;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .eco-name {
+    fill: var(--ink-dim);
+    font-size: 13.5px;
+    /* A halo in the page colour, painted under the glyphs, so a name stays readable where it
+       crosses an arc, a line of another name or a disc — which a tilted 3D view makes common. */
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+  }
+  .eco-node:hover .eco-name,
+  .eco-node:focus-visible .eco-name,
+  .eco-node.is-lit .eco-name {
+    fill: var(--ink-bright);
+  }
+  .eco-node:focus-visible {
+    outline: none;
+  }
+  .eco-node:hover .eco-plate,
+  .eco-node:focus-visible .eco-plate,
+  .eco-node.is-lit .eco-plate {
+    stroke-width: 4;
+  }
+  .eco-node.is-dim {
+    opacity: 0.28;
+  }
+  .eco-card {
+    pointer-events: none;
+  }
+  .eco-card-box {
+    fill: var(--panel);
+    stroke: var(--edge);
+    stroke-width: 1;
+  }
+  .eco-card-name {
+    fill: var(--ink-bright);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .eco-card-kind {
+    fill: currentColor;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .eco-card-host {
+    fill: var(--ink);
+    font-size: 12px;
+  }
+  .eco-card-source {
+    fill: var(--ink-faint);
+    font-size: 11px;
+  }
+  .eco-tool {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition:
+      color 120ms ease,
+      border-color 120ms ease;
+  }
+  .eco-tool svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .eco-tool:hover,
+  .eco-tool:focus-visible {
+    color: var(--green);
+    border-color: var(--edge-strong);
+  }
+  .eco-tool:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+  .eco-tool-mode {
+    width: 38px;
+    height: 32px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: color 120ms ease;
+  }
+  .eco-tool-mode.is-on {
+    color: var(--bg);
+    background: var(--green);
+  }
+  .eco-tool-mode:not(.is-on):hover {
+    color: var(--ink);
+  }
+  .eco-search {
+    overflow: hidden;
+    border: 1px solid var(--edge-strong);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: 0 12px 40px -12px var(--bg);
+  }
+
+  /* Dense-table affordances. Kept in the layer so a utility can still override. */
+  .row-hover:hover {
+    background: var(--row-hover);
+  }
+
+  .table-head-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-solid);
+  }
+
+  /* Column gutters: without them a right-aligned cell runs into the left-aligned cell beside
+     it. Edge columns stay flush so the table aligns with the panel's own padding. */
+  .data-table th,
+  .data-table td {
+    padding-inline: 0.75rem;
+  }
+
+  .data-table th:first-child,
+  .data-table td:first-child {
+    padding-inline-start: 0;
+  }
+
+  .data-table th:last-child,
+  .data-table td:last-child {
+    padding-inline-end: 0;
+  }
+
+  /* Narrower gutters on a phone (12px between columns, not 24px), so a table inside a panel
+     fits at 375px without hiding its key column behind a sideways swipe. Still twice a
+     character width, so a right-aligned figure never runs into the text beside it. */
+  @media (max-width: 639.98px) {
+    .data-table th,
+    .data-table td {
+      padding-inline: 0.375rem;
+    }
+  }
+
+  /* Row height, set once. Regular is the list default; compact (DataTable's
+     `density="compact"`) is for dense secondary tables. A page utility can still override. */
+  .data-table tbody td,
+  .data-table tbody th {
+    padding-block: 0.625rem;
+  }
+
+  .data-table-compact tbody td,
+  .data-table-compact tbody th {
+    padding-block: 0.375rem;
+  }
+
+  /* ── Stat cards ────────────────────────────────────────────────────────────────────────
+     Classes rather than utilities on purpose: a utility beats this layer, so the phone form
+     below could not restyle a card whose padding and type sizes were written as utilities. */
+  .stat-card {
+    flex: 1 1 0%;
+    padding: 0.75rem 1rem;
+  }
+  .stat-card-value {
+    margin-top: 0.375rem;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--ink-bright);
+  }
+  .stat-card-sub {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--ink-dim);
+  }
+
+  /* A row of stat cards (StatGrid). From `sm` up the column count is the component's own
+     `sm:`/`lg:` grid utilities; the gap lives here, not in a `gap-*` utility, because the
+     phone form must be able to take it away. */
+  .stat-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  /* Below `sm` the cards become the rows of one panel, so a stack of cards does not fill a
+     phone screen before the list begins. Label and sub-line on the left, the value on the
+     right and never broken mid-number, a hairline between rows. 639.98px is `sm`'s exact
+     complement, so there is no width at which both forms apply. */
+  @media (max-width: 639.98px) {
+    .stat-grid {
+      gap: 0;
+      padding-inline: 1rem;
+      background: var(--panel);
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      box-shadow: var(--glow-border);
+    }
+    .stat-grid > .stat-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 0.75rem;
+      align-items: center;
+      padding: 0.5rem 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .stat-grid > .stat-card + .stat-card {
+      border-top: 1px solid var(--hairline);
+    }
+    /* Only the label shares a row with the value; the sub-line takes the full width beneath,
+       or both get squeezed beside a wide value and break mid-phrase. */
+    .stat-grid > .stat-card > .stat-card-label {
+      grid-column: 1;
+      grid-row: 1;
+      text-wrap: balance;
+    }
+    .stat-grid > .stat-card > .stat-card-sub {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      margin-top: 0.125rem;
+      text-wrap: balance;
+    }
+    .stat-grid > .stat-card > .stat-card-value {
+      grid-column: 2;
+      grid-row: 1;
+      margin-top: 0;
+      font-size: 1rem;
+      line-height: 1.5rem;
+      white-space: nowrap;
+      text-align: right;
+    }
+  }
+
+  /* ── Buttons ───────────────────────────────────────────────────────────────────────────
+     Two treatments for every button and button-shaped link: primary — the one thing to do
+     next, the accent on its wash — and secondary — neutral ink on the standard edge, lit green
+     on hover. Classes in this layer so a page can still size one (`text-sm`, `w-24`, `px-4`)
+     with a utility; never a colour. Disabled reads the same in both: the faint edge and the
+     faintest ink, never the accent on a control that cannot act. */
+  /* Inline-block, and free to wrap: a button's label is text, and /learn's long ones wrap on a
+     phone. A button pairing an icon with its label adds `inline-flex items-center gap-*`; one
+     whose label must hold one line adds `whitespace-nowrap`. */
+  .btn {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    cursor: pointer;
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+  .btn-primary {
+    border-color: var(--green-dim);
+    background: var(--green-wash);
+    color: var(--green);
+  }
+  .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
+    background: var(--green-wash-strong);
+    color: var(--ink-bright);
+  }
+  .btn-secondary {
+    border-color: var(--edge);
+    background: transparent;
+    color: var(--ink-dim);
+  }
+  .btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
+    border-color: var(--edge-strong);
+    color: var(--green);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    border-color: var(--edge-faint);
+    background: transparent;
+    color: var(--ink-faint);
+  }
+
+  /* ── Tabs ──────────────────────────────────────────────────────────────────────────────
+     One look for every row of link tabs (<Tabs>): micro-label type, the current tab lit and
+     underlined in the accent. The underline overlaps the row's own bottom rule (`margin-bottom: -1px`). */
+  .tabs a {
+    margin-bottom: -1px;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid transparent;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    transition: color 150ms ease;
+  }
+  .tabs a:hover {
+    color: var(--ink-dim);
+  }
+  .tabs a[aria-current="page"] {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+}

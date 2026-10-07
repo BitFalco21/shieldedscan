@@ -1,0 +1,1042 @@
+<meta charset="utf-8" />
+<title>shieldedscan — the agent</title>
+<style>
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-ExtraBold.woff2") format("woff2");
+    font-weight: 800;
+    font-display: block;
+  }
+  html,
+  body {
+    margin: 0;
+    background: #000;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="film.js"></script>
+<script src="chain-marks.js"></script>
+<script>
+  "use strict";
+  /* ---------------------------------------------------------------------------
+   shieldedscan — the answering agent. Deterministic canvas renderer, same
+   pipeline as trailer.html and crosschain.html (render.mjs steps __frame(i)).
+
+   Every figure on screen is an answer the DEPLOYED agent actually gave, read
+   from https://api.shieldedscan.xyz/agent/ask on 2026-08-21 and pinned in AG
+   below with the tool that produced it. The questions shown are the questions
+   that were asked, verbatim — a tool description is the routing table, so a
+   paraphrase is a routing claim nobody verified.
+
+   Nothing here is illustrative. There is no invented series and no invented
+   quantity; where a figure is trimmed for the frame the trim is declared.
+   --------------------------------------------------------------------------- */
+
+  const AG = {
+    readOn: "2026-08-21",
+
+    /* Q: "which chain sends the most zec to zcash?"
+       tool: crosschain · aggregate · in · by chain
+       The answer has a crossover in it, which is why it opens the film: Bitcoin
+       leads by ZEC and Ethereum by dollars, so the honest answer is two answers.
+       Both figures are shown on BOTH cards — showing only each chain's winning
+       metric would read as the other one being unknown. */
+    crosschain: {
+      q: "which chain sends the most zec to zcash?",
+      tool: "crosschain · aggregate · in · by chain",
+      /* the record this explorer indexes, as the agent stated it */
+      from: "2025-05-22",
+      leaders: [
+        /* ticker, inbound ZEC, transfers, USD at swap, which metric leads */
+        ["BTC", 421395.32267317, 7485, 122679327.18, "zec"],
+        ["ETH", 411474.78, 12925, 149325780.18, "usd"],
+      ],
+    },
+
+    /* Q: "which day this year had the most shielding transactions?"
+       tool: chain_activity · window, groupBy day, ranked */
+    busiest: {
+      q: "which day this year had the most shielding transactions?",
+      tool: "chain_activity · window · by day · ranked",
+      day: "2026-02-16",
+      shieldedTx: 3896,
+      transparentTx: 3156,
+      mixedTx: 925,
+      totalTx: 7977,
+      blocks: 1142,
+      /* The ranking's own scope, as the agent stated it. 232 is 2026-01-01 through
+         2026-08-20 inclusive — year-to-date MINUS today, because today is a partial
+         day: ranking a day that is not over either robs it or lets it win on
+         incomplete data. Verified arithmetically (2026 is not a leap year), not
+         taken on trust from the sentence it came in. */
+      daysConsidered: 232,
+      from: "2026-01-01",
+      to: "2026-08-20",
+      /* 2026-02-16 is the 47th day of that range — 31 in January, then the 16th —
+         so its zero-based tick index is 46. A real position, so the lit tick sits
+         where the day actually falls rather than somewhere convenient. */
+      winnerIndex: 46,
+      tiedAtTop: 1,
+    },
+
+    /* Q: "where did ironwood's ZEC come from?"
+       tool: explorer_insights · ironwood-inflow */
+    ironwood: {
+      q: "where did ironwood's ZEC come from?",
+      tool: "explorer_insights · ironwood-inflow",
+      activationHeight: 3428143,
+      activatedOn: "2026-07-28",
+      balanceZec: 3114611.99468193,
+      /* Each counterparty pool's own declared net movement, summed across the
+         transactions that touched Ironwood. Nothing is apportioned. Shares are
+         of the CURRENT BALANCE — the denominator is named on screen, and the
+         migration total below is a different quantity kept in its own row. */
+      sources: [
+        ["ORCHARD", 2926086.00751183, 93.9, "turnstile migration"],
+        ["TRANSPARENT", 122298.29214674, 3.9, "fresh shielding"],
+        ["SAPLING", 65303.97727248, 2.1, "migration"],
+        ["COINBASE", 931.05546088, 0.03, "ZIP-213, mined in"],
+        /* a measured zero, not an absence: Sprout is shielded and moved nothing */
+        ["SPROUT", 0, 0, "no movement"],
+      ],
+      migrations: 14231,
+      migratedZec: 2990812.3338503,
+      migratedUsd: 1472218758.34,
+      /* activation 2026-07-28 → read 2026-08-21 */
+      days: 24,
+    },
+
+    /* Q: "How many txns between each pool in the last week with volume in ZEC and $"
+       tool: explorer_insights · ironwood-inflow (trailing 7 days) */
+    week: {
+      q: "how many txns between each pool in the last week with volume in ZEC and $",
+      tool: "explorer_insights · ironwood-inflow · last 7 days",
+      windowFrom: "2026-08-14 12:55 UTC",
+      rows: [
+        ["ORCHARD", "IRONWOOD", 3320, 184018.66846433, 92026018.75],
+        ["SAPLING", "IRONWOOD", 51, 2628.57918846, 1311868.13],
+        ["IRONWOOD", "SAPLING", 36, 355.53609119, 184882.71],
+        ["MULTI", "IRONWOOD", 3, 6.73529716, 3340.19],
+        ["ORCHARD", "SAPLING", 2, 0.409442, 199.0],
+      ],
+      totalTx: 3412,
+      totalZec: 187009.92848314,
+      totalUsd: 93526308.78,
+    },
+
+    /* Other questions put to the same deployed agent in the same session and
+       answered. They appear only as the end card's ghost column — no answer is
+       shown for them, and none is implied beyond "this was asked and answered". */
+    ghosts: [
+      "what is the median fee for a fully shielded transaction versus a transparent one?",
+      "what was the zec price on the day sapling activated?",
+      "in the last 46 days, how many cross chain transfers from bitcoin to zcash were worth more than $10k?",
+      "how much ZEC has migrated into Ironwood since it activated, and where did it come from?",
+      "what is the shielded share of circulating supply right now?",
+    ],
+  };
+
+  /* --------------------------------------------------------------- format --- */
+
+  /* The site's own rule (formatZecBalance): whole coins at or above 1 ZEC, real
+     precision below it. Rounding 0.409442 to "0 ZEC" is the bug that rule exists
+     for; rounding a 184,018-ZEC aggregate to eight decimals defeats a table whose
+     job is that its rows add up. The rounding is declared on screen. */
+  function zec(n) {
+    if (n === 0) return "0";
+    if (Math.abs(n) < 1) return n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+    return commas(n);
+  }
+  const usd = (n) => "$" + commas(n);
+  const pct = (n) => (n < 0.1 && n > 0 ? "<0.1%" : n.toFixed(1) + "%");
+
+  /* ------------------------------------------------------------- timeline --- */
+
+  const SC = { A: 0, B: 2.3, C: 6.8, D: 10.8, E: 15.1, F: 21.6, G: 25.8, END: 30.8 };
+  const GLITCHES = [
+    [SC.B - 0.16, 0.3],
+    [SC.C - 0.13, 0.26],
+    [SC.D - 0.13, 0.26],
+    [SC.E - 0.14, 0.3],
+    [SC.F - 0.13, 0.28],
+    [SC.G - 0.14, 0.34],
+  ];
+
+  /* The faint terminal grid every act sits on. */
+  function grid(g, a) {
+    g.save();
+    g.globalAlpha = a;
+    g.strokeStyle = rgba(C.green, 0.045);
+    g.lineWidth = 1;
+    for (let x = 0; x < W; x += 60) {
+      g.beginPath();
+      g.moveTo(x + 0.5, 0);
+      g.lineTo(x + 0.5, H);
+      g.stroke();
+    }
+    for (let y = 0; y < H; y += 60) {
+      g.beginPath();
+      g.moveTo(0, y + 0.5);
+      g.lineTo(W, y + 0.5);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  /* The asked question, kept on screen as the act's header. This is the motif:
+     four different answers, one conversation. */
+  function askedLine(g, q, t, t0) {
+    const a = p(t, t0, t0 + 0.3);
+    if (a <= 0) return;
+    g.save();
+    g.globalAlpha = a;
+    g.font = font(26, 700);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillStyle = C.green;
+    g.fillText("you>", 150, 108);
+    g.font = font(26, 400);
+    g.fillStyle = C.ink;
+    g.fillText(q, 150 + g.measureText("you> ").width, 108);
+    g.fillStyle = rgba(C.green, 0.18);
+    g.fillRect(150, 130, 1620, 1);
+    g.restore();
+  }
+
+  /* One trail row — our own execution, never the model's reasoning. The tool
+     names are the ones the deployed agent actually called. */
+  function trail(g, tool, t, t0) {
+    const a = p(t, t0, t0 + 0.26);
+    if (a <= 0) return;
+    g.save();
+    g.globalAlpha = a * 0.92;
+    const dot = 0.55 + 0.45 * Math.sin(t * 7);
+    g.fillStyle = rgba(C.green, dot);
+    g.fillRect(150, 168, 8, 8);
+    microlabel(g, "looking up", 172, 177, 15, C.inkFaint, 1);
+    microlabel(g, tool, 172 + 128, 177, 15, C.green, 1);
+    g.restore();
+  }
+
+  /* --- A. the ask ----------------------------------------------------------- */
+  function sceneA(g, t) {
+    const open = eOutExpo(p(t, 0.2, 0.72));
+    if (open <= 0) return;
+    const hh = Math.max(3, H * open);
+    g.save();
+    g.beginPath();
+    g.rect(0, H / 2 - hh / 2, W, hh);
+    g.clip();
+    g.fillStyle = C.bg;
+    g.fillRect(0, 0, W, H);
+    grid(g, 1);
+
+    const q = AG.crosschain.q;
+    /* lands at ~1.2s, so the finished question sits on screen for over a second
+       before the cut: the hook is the question LANDING, not arriving */
+    const shown = typed(q, t, 0.5, 58);
+    /* 60px, not 66: at 66 a 45-character line leaves 69px of margin, which is
+       inside the frame but well inside a broadcast-safe area too. */
+    const size = 60,
+      y = 546;
+
+    g.font = font(size, 800);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    const promptW = g.measureText("you> ").width;
+    const x0 = (W - (promptW + g.measureText(q).width)) / 2;
+
+    withBloom(
+      (bg) => {
+        bg.font = font(size, 800);
+        bg.textAlign = "left";
+        bg.textBaseline = "alphabetic";
+        bg.fillStyle = C.green;
+        bg.fillText("you>", x0, y);
+        bg.fillStyle = C.inkBright;
+        bg.fillText(shown, x0 + promptW, y);
+        const blink = shown.length === q.length ? Math.floor(t * 2.6) % 2 === 0 : true;
+        if (blink) {
+          bg.fillStyle = C.green;
+          bg.fillRect(x0 + promptW + bg.measureText(shown).width + 8, y - 52, 27, 62);
+        }
+      },
+      24,
+      0.52,
+    );
+
+    /* Brands the cold open without competing with the question: a 14-character
+       mark reads at a glance where a sentence would not in the time available. */
+    microlabel(g, "./shieldedscan", W / 2, y + 104, 20, C.greenDim, p(t, 1.35, 1.7), "center");
+    g.restore();
+  }
+
+  /* --- B. two rankings, one question --------------------------------------- */
+  function sceneB(g, t) {
+    const X = AG.crosschain;
+    askedLine(g, X.q, t, SC.B + 0.05);
+    trail(g, X.tool, t, SC.B + 0.35);
+
+    /* Both figures on both cards, with the LEADING one large and the other
+       small: the finding is that they CROSS OVER, which is invisible if each
+       chain only shows the metric it wins. */
+    X.leaders.forEach(([ticker, zecIn, transfers, usdIn, leads], i) => {
+      const t0 = SC.B + 0.85 + i * 0.26;
+      const a = p(t, t0, t0 + 0.34);
+      if (a <= 0) return;
+      const x = i === 0 ? 236 : 1006;
+      const k = eOutExpo(p(t, t0, t0 + 0.7));
+      g.save();
+      g.globalAlpha = a;
+      g.translate(0, (1 - k) * 20);
+
+      /* the real silhouette, in the published brand hex — identification, which
+         is the one job brand colour is for (charts still use the flow palette) */
+      chainMark(g, ticker, x + 20, 296, 40, 1);
+      g.font = font(30, 800);
+      g.textAlign = "left";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.inkBright;
+      g.fillText(ticker, x + 52, 307);
+
+      const rows = [
+        ["zec volume", commas(zecIn) + " ZEC", leads === "zec"],
+        ["value at swap", "≥ " + usd(usdIn), leads === "usd"],
+      ];
+      let y = 372;
+      rows.forEach(([label, value, isLead], r) => {
+        const ra = p(t, t0 + 0.2 + r * 0.14, t0 + 0.5 + r * 0.14);
+        if (ra <= 0) return;
+        g.save();
+        g.globalAlpha = ra;
+        microlabel(g, label, x, y, 17, isLead ? C.green : C.inkFaint, 1);
+        if (isLead) {
+          const lw = 60;
+          g.strokeStyle = rgba(C.green, 0.45);
+          g.lineWidth = 1;
+          g.strokeRect(x + 200.5, y - 15.5, lw, 22);
+          microlabel(g, "leads", x + 230, y + 1, 13, C.green, 1, "center");
+        }
+        if (isLead) {
+          withBloom(
+            (bg) => {
+              bg.font = font(56, 800);
+              bg.textAlign = "left";
+              bg.textBaseline = "alphabetic";
+              bg.fillStyle = C.inkBright;
+              bg.fillText(value, x, y + 62);
+            },
+            18,
+            0.4,
+          );
+        } else {
+          g.font = font(32, 400);
+          g.textAlign = "left";
+          g.textBaseline = "alphabetic";
+          g.fillStyle = C.inkDim;
+          g.fillText(value, x, y + 54);
+        }
+        g.restore();
+        y += isLead ? 104 : 92;
+      });
+
+      microlabel(
+        g,
+        commas(transfers) + " inbound crossings",
+        x,
+        y + 10,
+        18,
+        C.inkFaint,
+        p(t, t0 + 0.55, t0 + 0.85),
+      );
+      g.restore();
+    });
+
+    headline(g, "BITCOIN BY VOLUME. ETHEREUM BY DOLLARS.", t, SC.B + 1.6, SC.C - 0.2, 906);
+    subline(
+      g,
+      "public swap venues only, since " + X.from + " · a floor, never a total",
+      t,
+      SC.B + 1.95,
+      SC.C - 0.2,
+      942,
+    );
+  }
+
+  /* --- C. it ranks every day ------------------------------------------------ */
+  function sceneC(g, t) {
+    const B = AG.busiest;
+    askedLine(g, B.q, t, SC.C + 0.05);
+    trail(g, B.tool, t, SC.C + 0.3);
+
+    /* One tick per day considered — a TALLY, deliberately uniform in height.
+       Giving them varying heights would draw a daily series we do not hold, and
+       a plausible chart on a surface nobody can check is the fabricated-$38.42
+       class. The sweep is the ranking; the lit tick is the answer's position. */
+    const n = B.daysConsidered;
+    const pitch = 6.5,
+      tw = 4,
+      x0 = (W - n * pitch) / 2,
+      ty = 300,
+      th = 74;
+    const sweep = eOutCubic(p(t, SC.C + 0.55, SC.C + 1.45)) * n;
+    const settle = p(t, SC.C + 1.5, SC.C + 1.85);
+    for (let i = 0; i < n; i++) {
+      if (i > sweep) break;
+      const isWin = i === B.winnerIndex;
+      /* every tick lights in the sweep, then all but the winner fall back */
+      const lit = isWin ? 1 : 1 - settle * 0.78;
+      g.fillStyle = rgba(isWin ? C.green : C.greenDim, isWin ? 0.95 : 0.5 * lit);
+      const hh = isWin ? th * (1 + 0.42 * settle) : th;
+      g.fillRect(x0 + i * pitch, ty + (th - hh), tw, hh);
+    }
+    if (settle > 0) {
+      withBloom(
+        (bg) => {
+          bg.fillStyle = rgba(C.green, 0.9 * settle);
+          bg.fillRect(x0 + B.winnerIndex * pitch, ty - th * 0.42, tw, th * 1.42);
+        },
+        16,
+        0.6 * settle,
+      );
+    }
+    microlabel(
+      g,
+      n + " days ranked · " + B.from + " → " + B.to,
+      W / 2,
+      ty + th + 44,
+      18,
+      C.inkFaint,
+      p(t, SC.C + 1.0, SC.C + 1.4),
+      "center",
+    );
+
+    /* the answer */
+    const aa = p(t, SC.C + 1.75, SC.C + 2.1);
+    if (aa > 0) {
+      g.save();
+      g.globalAlpha = aa;
+      const k = eOutExpo(p(t, SC.C + 1.75, SC.C + 2.4));
+      g.translate(0, (1 - k) * 18);
+      withBloom(
+        (bg) => {
+          bg.textAlign = "center";
+          bg.textBaseline = "alphabetic";
+          rasterText(bg, B.day, W / 2, 556, 96, 800, C.green, "center");
+        },
+        24,
+        0.5,
+      );
+      g.font = font(40, 700);
+      g.textAlign = "center";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.inkBright;
+      g.fillText(commas(B.shieldedTx) + " fully shielded transactions", W / 2, 624);
+      microlabel(
+        g,
+        "unique record · no other day ties it",
+        W / 2,
+        664,
+        18,
+        C.inkDim,
+        p(t, SC.C + 2.1, SC.C + 2.4),
+        "center",
+      );
+      /* the composition, so the figure carries its denominator */
+      microlabel(
+        g,
+        commas(B.shieldedTx) +
+          " shielded · " +
+          commas(B.transparentTx) +
+          " transparent · " +
+          commas(B.mixedTx) +
+          " mixed  of  " +
+          commas(B.totalTx) +
+          " that day",
+        W / 2,
+        706,
+        18,
+        C.inkFaint,
+        p(t, SC.C + 2.3, SC.C + 2.6),
+        "center",
+      );
+      g.restore();
+    }
+
+    headline(g, "IT RANKS EVERY DAY TO ANSWER.", t, SC.C + 1.05, SC.D - 0.2, 906);
+    subline(
+      g,
+      /* Not "232 days ordered" again: the strip's own label two rows up already
+         carries the count and the range, and this line said "ordered" where that
+         one says "ranked" — two words for one thing. What it says instead is the
+         part a viewer cannot see, which is why the range stops short of today. */
+      "every day ranked, not sampled · today excluded, it is not over",
+      t,
+      SC.C + 1.4,
+      SC.D - 0.2,
+      942,
+    );
+  }
+
+  /* --- D. where Ironwood's ZEC came from ------------------------------------ */
+  function sceneD(g, t) {
+    const I = AG.ironwood;
+    askedLine(g, I.q, t, SC.D + 0.05);
+    trail(g, I.tool, t, SC.D + 0.3);
+
+    /* the balance — the quantity the shares below are shares OF */
+    const ba = p(t, SC.D + 0.5, SC.D + 0.85);
+    if (ba > 0) {
+      g.save();
+      g.globalAlpha = ba;
+      microlabel(g, "ironwood pool balance", 150, 268, 19, C.inkDim, 1);
+      withBloom(
+        (bg) => {
+          bg.font = font(92, 800);
+          bg.textAlign = "left";
+          bg.textBaseline = "alphabetic";
+          bg.fillStyle = C.inkBright;
+          bg.fillText(zec(I.balanceZec) + " ZEC", 150, 356);
+        },
+        22,
+        0.44,
+      );
+      microlabel(
+        g,
+        "activated at block " + commas(I.activationHeight) + " · " + I.activatedOn + " · NU6.3",
+        150,
+        396,
+        18,
+        C.inkFaint,
+        1,
+      );
+      g.restore();
+    }
+
+    /* where it came from — each pool's own declared net movement */
+    const rowY = 466,
+      rowH = 62,
+      barX = 700,
+      barW = 780;
+    const maxShare = I.sources[0][2];
+    I.sources.forEach(([name, amt, share, note], i) => {
+      const t0 = SC.D + 0.95 + i * 0.14;
+      const a = p(t, t0, t0 + 0.3);
+      if (a <= 0) return;
+      const y = rowY + i * rowH;
+      const dead = share === 0;
+      g.save();
+      g.globalAlpha = a * (dead ? 0.5 : 1);
+      g.translate((1 - eOutCubic(p(t, t0, t0 + 0.5))) * 16, 0);
+
+      microlabel(g, name, 150, y + 22, 20, dead ? C.inkFaint : C.green, 1);
+      microlabel(g, note, 150, y + 46, 15, C.inkFaint, 0.8);
+
+      g.font = font(26, 700);
+      g.textAlign = "right";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = dead ? C.inkFaint : C.ink;
+      g.fillText(zec(amt) + " ZEC", barX - 40, y + 30);
+
+      /* bar: share of the balance. A zero row draws no bar and says so in words. */
+      const bw = barW * (share / maxShare) * eOutExpo(p(t, t0 + 0.1, t0 + 0.8));
+      if (share > 0) {
+        g.fillStyle = rgba(C.green, i === 0 ? 0.46 : 0.26);
+        g.fillRect(barX, y + 10, Math.max(bw, 2), 24);
+      }
+      g.strokeStyle = rgba(C.green, 0.14);
+      g.lineWidth = 1;
+      g.strokeRect(barX + 0.5, y + 10.5, barW, 23);
+      g.font = font(23, 700);
+      g.textAlign = "left";
+      g.fillStyle = dead ? C.inkFaint : C.inkBright;
+      g.fillText(pct(share), barX + barW + 20, y + 30);
+      g.restore();
+    });
+
+    microlabel(
+      g,
+      "share of the current balance · each pool's own declared net movement, never apportioned",
+      150,
+      rowY + 5 * rowH + 26,
+      17,
+      C.inkFaint,
+      p(t, SC.D + 1.8, SC.D + 2.1),
+    );
+
+    /* the migration total — a DIFFERENT quantity, in its own row with its own
+       label, so no share above can be read as a share of these dollars */
+    const ma = p(t, SC.D + 2.15, SC.D + 2.5);
+    if (ma > 0) {
+      g.save();
+      g.globalAlpha = ma;
+      g.fillStyle = rgba(C.green, 0.22);
+      g.fillRect(150, 838, 1620, 1);
+      microlabel(g, "migrations since activation", 150, 880, 18, C.inkDim, 1);
+      g.font = font(32, 700);
+      g.textAlign = "right";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.inkBright;
+      g.fillText(
+        commas(I.migrations) +
+          " txns   ·   " +
+          zec(I.migratedZec) +
+          " ZEC   ·   ≈ " +
+          usd(I.migratedUsd),
+        1770,
+        882,
+      );
+      g.restore();
+    }
+
+    headline(g, "$1.47 BILLION MOVED IN " + I.days + " DAYS.", t, SC.D + 2.5, SC.E - 0.2, 986);
+    subline(g, "valued at each transaction's own day's close", t, SC.D + 2.75, SC.E - 0.2, 1022);
+  }
+
+  /* --- E. the whole week, priced -------------------------------------------- */
+  function sceneE(g, t) {
+    const K = AG.week;
+    askedLine(g, K.q, t, SC.E + 0.05);
+    trail(g, K.tool, t, SC.E + 0.3);
+
+    const X = 150,
+      Y = 226,
+      PW = 1620,
+      PH = 592;
+    const k = eOutExpo(p(t, SC.E + 0.4, SC.E + 1.0));
+    const pa = p(t, SC.E + 0.4, SC.E + 0.7);
+    if (pa <= 0) return;
+    g.save();
+    g.globalAlpha = pa;
+    g.translate(W / 2, H / 2);
+    g.scale(mix(0.965, 1, k), mix(0.965, 1, k));
+    g.translate(-W / 2, -H / 2);
+    panel(g, X, Y, PW, PH, 1);
+
+    const cFrom = X + 40,
+      cTx = X + 700,
+      cZec = X + 1080,
+      cUsd = X + 1560;
+
+    /* header */
+    microlabel(g, "from → to", cFrom, Y + 60, 17, C.inkDim, 1);
+    microlabel(g, "txns", cTx, Y + 60, 17, C.inkDim, 1, "right");
+    microlabel(g, "volume (zec)", cZec, Y + 60, 17, C.inkDim, 1, "right");
+    microlabel(g, "value (usd)", cUsd, Y + 60, 17, C.inkDim, 1, "right");
+    g.fillStyle = rgba(C.green, 0.22);
+    g.fillRect(X + 40, Y + 80, PW - 80, 1);
+
+    const rowH = 76;
+    K.rows.forEach(([from, to, tx, z, u], i) => {
+      const t0 = SC.E + 0.95 + i * 0.3;
+      const a = p(t, t0, t0 + 0.3);
+      if (a <= 0) return;
+      const y = Y + 138 + i * rowH;
+      g.save();
+      g.globalAlpha = a;
+      g.translate((1 - eOutCubic(p(t, t0, t0 + 0.5))) * 18, 0);
+
+      /* the arrow is the direction the value moved — TxTypeBadges' own grammar */
+      g.font = font(27, 700);
+      g.textAlign = "left";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.green;
+      g.fillText(from, cFrom, y);
+      const fw = g.measureText(from).width;
+      g.fillStyle = C.inkFaint;
+      g.fillText(" → ", cFrom + fw, y);
+      const aw = g.measureText(" → ").width;
+      g.fillStyle = C.green;
+      g.fillText(to, cFrom + fw + aw, y);
+
+      g.textAlign = "right";
+      g.font = font(30, 700);
+      g.fillStyle = C.inkBright;
+      g.fillText(commas(tx), cTx, y);
+      g.font = font(28, 400);
+      g.fillStyle = C.ink;
+      g.fillText(zec(z), cZec, y);
+      g.fillStyle = C.inkDim;
+      g.fillText("≈ " + usd(u), cUsd, y);
+      g.restore();
+    });
+
+    /* total */
+    const ta = p(t, SC.E + 2.75, SC.E + 3.1);
+    if (ta > 0) {
+      const y = Y + 138 + 5 * rowH + 34;
+      g.save();
+      g.globalAlpha = ta;
+      g.fillStyle = rgba(C.green, 0.34);
+      g.fillRect(X + 40, y - 44, PW - 80, 1);
+      g.font = font(28, 800);
+      g.textAlign = "left";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.green;
+      g.fillText("TOTAL", cFrom, y);
+      g.textAlign = "right";
+      withBloom(
+        (bg) => {
+          bg.font = font(32, 800);
+          bg.textAlign = "right";
+          bg.textBaseline = "alphabetic";
+          bg.fillStyle = C.inkBright;
+          bg.fillText(commas(K.totalTx), cTx, y);
+          bg.fillText(zec(K.totalZec), cZec, y);
+          bg.fillText("≈ " + usd(K.totalUsd), cUsd, y);
+        },
+        18,
+        0.4,
+      );
+      g.restore();
+    }
+
+    /* what the table does not silently do */
+    /* Two lines, because one ran off the right edge of the frame — the overflow
+       e2e/overflow.spec.ts exists for, in a medium with no scrollbar to reveal it. */
+    const ca = p(t, SC.E + 3.2, SC.E + 3.5);
+    microlabel(g, "last 7 days · from " + K.windowFrom, X + 40, Y + PH + 40, 17, C.inkFaint, ca);
+    microlabel(
+      g,
+      "a pair absent from this table is a measured zero · zec rounded to whole coins above 1",
+      X + 40,
+      Y + PH + 68,
+      17,
+      C.inkFaint,
+      ca,
+    );
+    g.restore();
+
+    headline(g, "ONE QUESTION. THE WHOLE WEEK, PRICED.", t, SC.E + 3.6, SC.F - 0.2, 1002);
+  }
+
+  /* --- F. the interface ---------------------------------------------------- */
+  /* The pull-back: four acts of poster-scale answers, and then the box they all
+     came out of. Every string here is the console's OWN copy, read from
+     features/agent/{AgentPage,AgentConsole,AgentTrail}.tsx rather than written
+     for the film — a trailer that invents a product's UI is showing a product
+     that does not exist. The exchange in the panel is act B's question and the
+     first three sentences of the answer the deployed agent actually gave, and
+     "worked for 14.1s" is that turn's real measured duration.
+
+     `[ send ⏎ ]` uses U+23CE, not U+21B5. The console's own comment says ↵ is
+     absent from the self-hosted woff2, and a probe of the file confirms it —
+     the same missing-glyph trap this codebase already hit with ◐. */
+  const IFACE_ANSWER = [
+    [
+      ["Bitcoin sends the most ZEC to Zcash by volume", 1],
+      [": 421,395.32267317 ZEC across 7,485 inbound crossings.", 0],
+    ],
+    [
+      ["By dollar value at swap time, ", 0],
+      ["Ethereum leads", 1],
+      [": its inbound crossings were worth $149,325,780.18,", 0],
+    ],
+    /* the trailing clause is ELIDED, not paraphrased: the agent's sentence runs on
+       "…at higher average values per transfer", and rewriting it to end early would
+       put words in its mouth. A declared trim is the same move as the other film's
+       "… 6 more fields". */
+    [
+      [
+        "against Bitcoin's $122,679,327.18 — because ETH carried more crossings (12,925 vs 7,485)…",
+        0,
+      ],
+    ],
+  ];
+
+  /* The console's meta text is lowercase; `microlabel` force-uppercases, which is
+     the film's vocabulary and the wrong one HERE — this act's whole job is that a
+     viewer recognises the page when they land on it. */
+  function uiText(g, text, x, y, size, colour, a, align) {
+    g.save();
+    g.globalAlpha = a;
+    g.font = font(size, 400);
+    g.textAlign = align || "left";
+    g.textBaseline = "alphabetic";
+    g.fillStyle = colour;
+    g.fillText(text, x, y);
+    g.restore();
+  }
+
+  function sceneF(g, t) {
+    const a = Math.min(p(t, SC.F + 0.05, SC.F + 0.4), 1 - p(t, SC.G - 0.25, SC.G));
+    if (a <= 0) return;
+    const k = eOutExpo(p(t, SC.F + 0.05, SC.F + 0.75));
+    const X = 260,
+      PW = 1400;
+
+    g.save();
+    g.globalAlpha = a;
+    g.translate(W / 2, H / 2);
+    g.scale(mix(0.955, 1, k), mix(0.955, 1, k));
+    g.translate(-W / 2, -H / 2);
+
+    /* page header, as the route renders it */
+    microlabel(g, "AI AGENT", X, 200, 18, C.green, 1);
+    g.font = font(44, 700);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillStyle = C.inkBright;
+    g.fillText("Ask about Zcash", X, 252);
+
+    /* the notice — the amber clause is the one line that is useless if read
+       afterwards, so it is on screen here exactly as it is on the page */
+    g.font = font(20, 400);
+    let nx = X;
+    g.fillStyle = rgba(C.green, 0.5);
+    g.fillText("# ", nx, 302);
+    nx += g.measureText("# ").width;
+    g.fillStyle = C.inkFaint;
+    const notice = "answers are ai generated and can be wrong · ";
+    g.fillText(notice, nx, 302);
+    nx += g.measureText(notice).width;
+    g.fillStyle = C.amber;
+    g.fillText("never paste a viewing key or seed phrase", nx, 302);
+
+    /* the transcript */
+    const TY = 340,
+      TH = 336;
+    panel(g, X, TY, PW, TH, 1);
+    uiText(g, "> clear", X + PW - 40, TY + 44, 17, C.inkFaint, 0.8, "right");
+
+    g.font = font(25, 700);
+    g.fillStyle = C.green;
+    g.textAlign = "left";
+    g.fillText("you>", X + 40, TY + 96);
+    g.font = font(25, 400);
+    g.fillStyle = C.ink;
+    g.fillText(AG.crosschain.q, X + 40 + g.measureText("you> ").width, TY + 96);
+    uiText(g, "edit", X + PW - 40, TY + 96, 17, C.inkFaint, 0.8, "right");
+
+    uiText(g, "worked for 14.1s  ›", X + 40, TY + 140, 18, C.inkFaint, 0.9);
+
+    IFACE_ANSWER.forEach((line, i) => {
+      const la = p(t, SC.F + 0.5 + i * 0.13, SC.F + 0.8 + i * 0.13);
+      if (la <= 0) return;
+      g.save();
+      g.globalAlpha = la;
+      let lx = X + 40;
+      const y = TY + 196 + i * 40;
+      line.forEach(([txt, bold]) => {
+        g.font = font(22, bold ? 700 : 400);
+        g.fillStyle = bold ? C.inkBright : C.ink;
+        g.textAlign = "left";
+        g.textBaseline = "alphabetic";
+        g.fillText(txt, lx, y);
+        lx += g.measureText(txt).width;
+      });
+      g.restore();
+    });
+
+    /* the composer — the brighter box is the live one, which is the whole point
+       of showing this frame at all */
+    const CY = 704,
+      CH = 152;
+    const glow = 0.5 + 0.5 * Math.sin((t - SC.F) * 3.2);
+    panel(g, X, CY, PW, CH, 1);
+    g.strokeStyle = rgba(C.green, 0.34 + 0.22 * glow);
+    g.lineWidth = 1;
+    g.strokeRect(X + 0.5, CY + 0.5, PW - 1, CH - 1);
+    g.fillStyle = rgba(C.green, 0.03 + 0.02 * glow);
+    g.fillRect(X + 1, CY + 1, PW - 2, CH - 2);
+
+    g.font = font(26, 700);
+    g.fillStyle = C.green;
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillText("zcash>", X + 40, CY + 58);
+    const px = X + 40 + g.measureText("zcash> ").width;
+    /* the blinking block after the prompt says "type here" — the hero's own
+       affordance, which is where the console borrowed it from */
+    if (Math.floor(t * 2.4) % 2 === 0) {
+      g.fillStyle = C.green;
+      g.fillRect(px, CY + 36, 14, 28);
+    }
+    g.font = font(24, 400);
+    g.fillStyle = C.inkFaint;
+    g.fillText("ask a follow-up, or start something new", px + 26, CY + 58);
+
+    g.fillStyle = rgba(C.green, 0.14);
+    g.fillRect(X + 1, CY + 100, PW - 2, 1);
+    uiText(
+      g,
+      "enter sends · shift+enter for a new line · nothing you type is saved",
+      X + 40,
+      CY + 132,
+      17,
+      C.inkFaint,
+      0.9,
+    );
+
+    const bw = 176,
+      bx = X + PW - 40 - bw;
+    g.fillStyle = rgba(C.green, 0.1 + 0.06 * glow);
+    g.fillRect(bx, CY + 112, bw, 40);
+    g.strokeStyle = rgba(C.green, 0.5);
+    g.lineWidth = 1;
+    g.strokeRect(bx + 0.5, CY + 112.5, bw - 1, 39);
+    g.font = font(21, 700);
+    g.fillStyle = C.green;
+    g.textAlign = "center";
+    g.textBaseline = "alphabetic";
+    g.fillText("[ send ⏎ ]", bx + bw / 2, CY + 139);
+
+    g.restore();
+
+    headline(g, "ASK IT YOURSELF.", t, SC.F + 1.5, SC.G - 0.2, 1000);
+  }
+
+  /* --- G. end card ---------------------------------------------------------- */
+  function sceneG(g, t) {
+    const a = p(t, SC.G + 0.05, SC.G + 0.3);
+    if (a <= 0) return;
+
+    /* the questions that were asked, drifting up behind — faint, and gone before
+       the card settles, so nothing competes with the URL */
+    const ga = p(t, SC.G + 0.1, SC.G + 0.5) * (1 - p(t, SC.G + 1.9, SC.G + 2.5));
+    if (ga > 0) {
+      g.save();
+      g.globalAlpha = ga * 0.13;
+      g.font = font(22, 400);
+      g.textAlign = "center";
+      g.textBaseline = "alphabetic";
+      g.fillStyle = C.green;
+      const drift = (t - SC.G) * 46;
+      AG.ghosts.forEach((q, i) => {
+        g.fillText(q, W / 2, 300 + i * 92 - drift);
+      });
+      g.restore();
+    }
+
+    g.save();
+    g.globalAlpha = a;
+    const rise = eOutExpo(p(t, SC.G + 0.1, SC.G + 0.9));
+    const cy = 452 + (1 - rise) * 26;
+
+    withBloom(
+      (bg) => {
+        bg.textAlign = "center";
+        bg.textBaseline = "alphabetic";
+        rasterText(bg, "./shieldedscan", W / 2, cy, 104, 800, C.green, "center");
+      },
+      26,
+      0.55,
+    );
+
+    const rw = eOutExpo(p(t, SC.G + 0.7, SC.G + 1.3)) * 900;
+    g.fillStyle = rgba(C.green, 0.35);
+    g.fillRect(W / 2 - rw / 2, cy + 44, rw, 1);
+
+    const url = "shieldedscan.xyz/ai-agent";
+    const shown = typed(url, t, SC.G + 1.25, 15);
+    g.font = font(58, 700);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    const full = g.measureText(url).width;
+    const sx = W / 2 - full / 2;
+    withBloom(
+      (bg) => {
+        bg.font = font(58, 700);
+        bg.textAlign = "left";
+        bg.textBaseline = "alphabetic";
+        bg.fillStyle = C.inkBright;
+        bg.fillText(shown, sx, cy + 136);
+        const wShown = bg.measureText(shown).width;
+        const blink = t > SC.G + 2.9 ? Math.floor(t * 2) % 2 === 0 : true;
+        if (blink) {
+          bg.fillStyle = C.green;
+          bg.fillRect(sx + wShown + 6, cy + 136 - 42, 23, 50);
+        }
+      },
+      18,
+      0.42,
+    );
+
+    /* the name, given plainly and once */
+    microlabel(
+      g,
+      "zeno · ask it anything",
+      W / 2,
+      cy + 206,
+      21,
+      C.green,
+      p(t, SC.G + 2.4, SC.G + 2.8),
+      "center",
+    );
+    microlabel(
+      g,
+      "every figure read live from the chain, with its denominator",
+      W / 2,
+      cy + 244,
+      18,
+      C.inkFaint,
+      p(t, SC.G + 2.8, SC.G + 3.2),
+      "center",
+    );
+    g.restore();
+  }
+
+  /* -------------------------------------------------------------- frame ----- */
+
+  window.__frame = function (frame) {
+    const t = frame / FPS;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+
+    if (t < SC.B) {
+      sceneA(ctx, t);
+    } else {
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(0, 0, W, H);
+      grid(ctx, t < SC.G ? 1 : 0.4);
+      if (t < SC.C) sceneB(ctx, t);
+      else if (t < SC.D) sceneC(ctx, t);
+      else if (t < SC.E) sceneD(ctx, t);
+      else if (t < SC.F) sceneE(ctx, t);
+      else if (t < SC.G) sceneF(ctx, t);
+      else sceneG(ctx, t);
+    }
+
+    glitch(ctx, t, GLITCHES);
+
+    /* phosphor persistence: bright pixels leave a decaying trail */
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.16;
+    ctx.drawImage(prev, 0, 0);
+    ctx.restore();
+    prevc.setTransform(1, 0, 0, 1, 0, 0);
+    prevc.clearRect(0, 0, W, H);
+    prevc.drawImage(c, 0, 0);
+
+    postfx(ctx, t, frame);
+  };
+
+  window.__ready = (async () => {
+    await document.fonts.load("700 100px JBM");
+    await document.fonts.load("400 24px JBM");
+    await document.fonts.load("800 100px JBM");
+    await document.fonts.ready;
+    return true;
+  })();
+  window.__meta = { W, H, FPS, frames: Math.round(SC.END * FPS) };
+</script>

@@ -1,0 +1,152 @@
+/* The agent trail: the live indicator and step rows for `/ai-agent`'s thinking trail.
+
+   Component classes rather than inline styles, which are banned in `src/`. The shimmer runs
+   through `--ink-dim` rather than the accent, and no cell glows: green is the privacy signal
+   and the glow budget rations bloom. */
+
+/* The wavefront loader: a 3x3 grid whose cells brighten in a chevron sweeping
+   right. The cycle is shorter than the sweep, so two fronts are always in flight —
+   which is what makes it read as continuous work rather than a repeating blink. */
+.pixel-cell {
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--ink-dim);
+  opacity: 0.15;
+  animation: pixel-on 650ms ease-in-out infinite;
+}
+
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  40% {
+    opacity: 0.9;
+  }
+}
+
+/* Nine cells, one delay each: (column + |row - 1|) * 90ms. Written out because a
+   chevron is a fixed shape, not a computed one. */
+.pixel-cell:nth-child(1) {
+  animation-delay: 90ms;
+}
+.pixel-cell:nth-child(2) {
+  animation-delay: 180ms;
+}
+.pixel-cell:nth-child(3) {
+  animation-delay: 270ms;
+}
+.pixel-cell:nth-child(4) {
+  animation-delay: 0ms;
+}
+.pixel-cell:nth-child(5) {
+  animation-delay: 90ms;
+}
+.pixel-cell:nth-child(6) {
+  animation-delay: 180ms;
+}
+.pixel-cell:nth-child(7) {
+  animation-delay: 90ms;
+}
+.pixel-cell:nth-child(8) {
+  animation-delay: 180ms;
+}
+.pixel-cell:nth-child(9) {
+  animation-delay: 270ms;
+}
+
+/* A label that reads as "in progress" without moving the layout. `background-clip` on text
+   still needs the WebKit prefix. */
+.shimmer-label {
+  background-image: linear-gradient(
+    90deg,
+    var(--ink-faint) 35%,
+    var(--ink) 50%,
+    var(--ink-faint) 65%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
+
+@keyframes shimmer-text {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* Rows arrive rather than appear. Staggered by nth-child so the component needs no
+   per-row inline delay. */
+.step-row {
+  animation: step-fade-up 320ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.step-row:nth-child(2) {
+  animation-delay: 60ms;
+}
+.step-row:nth-child(3) {
+  animation-delay: 120ms;
+}
+.step-row:nth-child(4) {
+  animation-delay: 180ms;
+}
+.step-row:nth-child(5) {
+  animation-delay: 240ms;
+}
+.step-row:nth-child(6) {
+  animation-delay: 300ms;
+}
+
+@keyframes step-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The answer resolves into place rather than appearing flat. Block-level rather than
+   word-level: a per-word stagger needs a per-element delay, i.e. an inline style or an
+   inline CSS variable, both banned in `src/`. Blocks stagger through `nth-child`.
+
+   `filter: blur()` makes it read as focusing rather than fading. It is on the block, never
+   on the pane, so nothing behind it is touched. */
+.answer-block {
+  animation: stream-in 420ms cubic-bezier(0.22, 0.61, 0.25, 1) both;
+}
+.answer-block:nth-child(2) {
+  animation-delay: 70ms;
+}
+.answer-block:nth-child(3) {
+  animation-delay: 140ms;
+}
+.answer-block:nth-child(4) {
+  animation-delay: 210ms;
+}
+.answer-block:nth-child(5) {
+  animation-delay: 280ms;
+}
+.answer-block:nth-child(n + 6) {
+  animation-delay: 350ms;
+}
+
+@keyframes stream-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}

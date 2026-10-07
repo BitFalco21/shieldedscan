@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Runs before every commit: credential files and secrets, plus the maintainer-only identity
+# and blocklist checks described in lib.sh.
+source "$(git rev-parse --show-toplevel)/.githooks/lib.sh"
+
+check_email "${GIT_AUTHOR_EMAIL:-$(git config user.email)}" "The commit author"
+check_email "${GIT_COMMITTER_EMAIL:-$(git config user.email)}" "The committer"
+git diff --cached --name-only --diff-filter=ACMR | check_filenames
+
+if have_gitleaks; then
+  gitleaks git --pre-commit --staged --redact --no-banner --config "$ROOT/.gitleaks.toml" "$ROOT" >/dev/null 2>&1 ||
+    fail "gitleaks found a possible secret in the staged changes. Run: gitleaks git --pre-commit --staged --redact -v"
+fi
+
+{ git diff --cached --name-only --diff-filter=ACMR; git diff --cached -U0 | grep -aE '^\+' | grep -av '^+++ ' || true; } |
+  check_blocklist "The staged changes"

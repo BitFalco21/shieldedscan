@@ -1,0 +1,1716 @@
+{
+  "captured": "2026-10-06 from https://api.shieldedscan.xyz (mainnet)",
+  "/v1/analytics/records": {
+    "query": {},
+    "coverage": {
+      "status": "complete",
+      "notes": []
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/charts/median-fee"
+    },
+    "basis": "coinbase excluded throughout. A record is named only when it is unique (ties = 1). transparentValue covers transactions with a public amount only \u2014 never the largest transaction on Zcash, whose shielded amounts are encrypted. crossings are the largest single shielding (transparent value into the pools), unshielding (out of them) and pool migration, each measured by the balances the pools themselves publish.",
+    "data": {
+      "fees": {
+        "transaction": {
+          "lowest": {
+            "amount": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "ties": 61045,
+            "txid": null,
+            "height": null
+          },
+          "lowestNonZero": {
+            "amount": {
+              "zat": 1,
+              "zec": "0.00000001"
+            },
+            "ties": 2464,
+            "txid": null,
+            "height": null
+          },
+          "highest": {
+            "amount": {
+              "zat": 98784262808,
+              "zec": "987.84262808"
+            },
+            "ties": 1,
+            "txid": "7a34e0c7bd9a381fa915da188da0a039d32d7d7b9bdec386757f5de2ec35c9d1",
+            "height": 3065135
+          },
+          "considered": 15041390
+        },
+        "block": {
+          "lowest": {
+            "amount": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "ties": 771182,
+            "height": null
+          },
+          "lowestNonZero": {
+            "amount": {
+              "zat": 1,
+              "zec": "0.00000001"
+            },
+            "ties": 436,
+            "height": null
+          },
+          "highest": {
+            "amount": {
+              "zat": 98784262808,
+              "zec": "987.84262808"
+            },
+            "ties": 1,
+            "height": 3065135
+          },
+          "considered": 3508482
+        }
+      },
+      "transparentValue": {
+        "lowest": {
+          "amount": {
+            "zat": 54,
+            "zec": "0.00000054"
+          },
+          "ties": 12,
+          "txid": null,
+          "height": null
+        },
+        "highest": {
+          "amount": {
+            "zat": 87294301279739,
+            "zec": "872943.01279739"
+          },
+          "ties": 1,
+          "txid": "d913e08e76ea94896b7ef20e680b806c3e8864adbbc55e900167fefd8389dd10",
+          "height": 2889330
+        },
+        "considered": 13514795,
+        "coveredThroughHeight": 3508381
+      },
+      "crossings": {
+        "shielding": {
+          "amount": {
+            "zat": 29999999985000,
+            "zec": "299999.99985000"
+          },
+          "ties": 1,
+          "txid": "dee6b35718a1a0aa20e9ebe68ba992ff7e31bb24fed63285120bf6f3c90d9617",
+          "height": 2848699,
+          "considered": 1142759
+        },
+        "unshielding": {
+          "amount": {
+            "zat": 20207620725000,
+            "zec": "202076.20725000"
+          },
+          "ties": 1,
+          "txid": "e179e5b0f9fec1c6a9718b1dbe8cedddf1d8e494db276fe72c047a153365a163",
+          "height": 3190907,
+          "considered": 1414509
+        },
+        "migration": {
+          "amount": {
+            "zat": 5212200528299,
+            "zec": "52122.00528299"
+          },
+          "ties": 1,
+          "txid": "6110fac9b8c6f5efc41bd74e62b3af2d3a5dd11e18c9299bd6607e84606c83d6",
+          "height": 3450022,
+          "considered": 71712
+        },
+        "coveredThroughDay": "2026-10-06"
+      }
+    },
+    "unknowns": {},
+    "asOf": 1791305814
+  },
+  "/v1/network/mining": {
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/mining-cost"
+    },
+    "data": {
+      "readAtHeight": 3508535,
+      "difficulty": 242563390.92165568,
+      "networkSolutionRate": {
+        "solPerSecond": 27146167730,
+        "basis": "node"
+      },
+      "minerSubsidy": {
+        "zat": 125000000,
+        "zec": "1.25000000"
+      },
+      "subsidyChangesAtHeight": 4406400,
+      "observedBlockIntervalSeconds": 75.34954715124859,
+      "priceUsd": 1353.67
+    },
+    "unknowns": {},
+    "notes": [
+      "networkSolutionRate.basis is node when the node reported it (getnetworksolps over its trailing window) and estimated when derived from difficulty at the observed interval.",
+      "minerSubsidy is the miner's share of the block subsidy only; fees are on top and funding streams are not included."
+    ],
+    "asOf": 1791305814
+  },
+  "/v1/nodes": {
+    "coverage": {
+      "status": "floor",
+      "notes": [
+        "Counts only nodes that accept incoming connections; nodes behind a router cannot be crawled, so the real network is larger."
+      ]
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/network"
+    },
+    "data": {
+      "answeringWindowSeconds": 86400,
+      "answering": 153,
+      "knownAddresses": 5267,
+      "everAnswered": 656,
+      "neverAnswered": 4611,
+      "ipv6": {
+        "known": 645,
+        "answering": 21
+      },
+      "torKnown": 680,
+      "countries": 31,
+      "networkOperators": 46,
+      "clients": [
+        {
+          "client": "Zebra",
+          "share": {
+            "pct": 51.633986928104584,
+            "numerator": 79,
+            "denominator": 153
+          }
+        },
+        {
+          "client": "Zakura",
+          "share": {
+            "pct": 46.40522875816993,
+            "numerator": 71,
+            "denominator": 153
+          }
+        },
+        {
+          "client": "zcashd",
+          "share": {
+            "pct": 1.9607843137254901,
+            "numerator": 3,
+            "denominator": 153
+          }
+        }
+      ],
+      "versions": [
+        {
+          "client": "Zakura",
+          "version": "1.6.0",
+          "nodes": 35
+        },
+        {
+          "client": "Zebra",
+          "version": "6.4.2",
+          "nodes": 25
+        },
+        {
+          "client": "Zebra",
+          "version": "6.3.0",
+          "nodes": 18
+        },
+        {
+          "client": "Zakura",
+          "version": "1.5.0",
+          "nodes": 16
+        },
+        {
+          "client": "Zebra",
+          "version": "6.2.3",
+          "nodes": 14
+        },
+        {
+          "client": "Zebra",
+          "version": "7.0.0-rc.0",
+          "nodes": 7
+        },
+        {
+          "client": "Zakura",
+          "version": "1.5.0-modified",
+          "nodes": 6
+        },
+        {
+          "client": "Zakura",
+          "version": "1.5.0-rc0",
+          "nodes": 3
+        },
+        {
+          "client": "Zakura",
+          "version": "1.5.1",
+          "nodes": 3
+        },
+        {
+          "client": "Zebra",
+          "version": "4.3.0",
+          "nodes": 3
+        },
+        {
+          "client": "Zebra",
+          "version": "5.0.0",
+          "nodes": 3
+        },
+        {
+          "client": "Zakura",
+          "version": "1.1.1",
+          "nodes": 2
+        },
+        {
+          "client": "Zakura",
+          "version": "1.4.0",
+          "nodes": 2
+        },
+        {
+          "client": "Zakura",
+          "version": "1.4.1",
+          "nodes": 2
+        },
+        {
+          "client": "zcashd",
+          "version": "6.12.1",
+          "nodes": 2
+        },
+        {
+          "client": "Zebra",
+          "version": "5.1.0",
+          "nodes": 2
+        },
+        {
+          "client": "Zebra",
+          "version": "6.2.0",
+          "nodes": 2
+        },
+        {
+          "client": "Zebra",
+          "version": "6.2.2",
+          "nodes": 2
+        },
+        {
+          "client": "Zebra",
+          "version": "6.4.2-modified",
+          "nodes": 2
+        },
+        {
+          "client": "Zakura",
+          "version": "1.0.0",
+          "nodes": 1
+        },
+        {
+          "client": "Zakura",
+          "version": "1.2.0",
+          "nodes": 1
+        },
+        {
+          "client": "zcashd",
+          "version": "6.20.0",
+          "nodes": 1
+        },
+        {
+          "client": "Zebra",
+          "version": "3.1.0",
+          "nodes": 1
+        }
+      ],
+      "protocolVersions": [
+        {
+          "protocolVersion": 170160,
+          "nodes": 71
+        },
+        {
+          "protocolVersion": 170190,
+          "nodes": 63
+        },
+        {
+          "protocolVersion": 170180,
+          "nodes": 7
+        },
+        {
+          "protocolVersion": 170150,
+          "nodes": 6
+        },
+        {
+          "protocolVersion": 170140,
+          "nodes": 6
+        }
+      ],
+      "crawls": {
+        "count": 2537,
+        "firstStartedAt": 1788697919,
+        "lastFinishedAt": 1791305268,
+        "intervalSeconds": 1028
+      }
+    },
+    "notes": [
+      "A node is answering when it completed a handshake with our crawler within answeringWindowSeconds.",
+      "A user agent is the node's own claim about its software and is not verified."
+    ],
+    "asOf": 1791305815
+  },
+  "/v1/nodes/geography": {
+    "coverage": {
+      "status": "floor",
+      "notes": [
+        "Counts only nodes that accept incoming connections; nodes behind a router cannot be crawled, so the real network is larger."
+      ]
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/network/map"
+    },
+    "data": {
+      "countries": [
+        {
+          "country": "United States",
+          "nodes": 53
+        },
+        {
+          "country": "Germany",
+          "nodes": 25
+        },
+        {
+          "country": "Canada",
+          "nodes": 9
+        },
+        {
+          "country": "France",
+          "nodes": 9
+        },
+        {
+          "country": "United Kingdom",
+          "nodes": 9
+        },
+        {
+          "country": "Finland",
+          "nodes": 6
+        },
+        {
+          "country": "Hong Kong",
+          "nodes": 5
+        },
+        {
+          "country": "Australia",
+          "nodes": 4
+        },
+        {
+          "country": "Japan",
+          "nodes": 4
+        },
+        {
+          "country": "India",
+          "nodes": 3
+        },
+        {
+          "country": "Ukraine",
+          "nodes": 3
+        },
+        {
+          "country": "Austria",
+          "nodes": 2
+        },
+        {
+          "country": "Brazil",
+          "nodes": 2
+        },
+        {
+          "country": "Singapore",
+          "nodes": 2
+        },
+        {
+          "country": "Belarus",
+          "nodes": 1
+        },
+        {
+          "country": "China",
+          "nodes": 1
+        },
+        {
+          "country": "Croatia",
+          "nodes": 1
+        },
+        {
+          "country": "Hungary",
+          "nodes": 1
+        },
+        {
+          "country": "Lithuania",
+          "nodes": 1
+        },
+        {
+          "country": "Mexico",
+          "nodes": 1
+        },
+        {
+          "country": "Nigeria",
+          "nodes": 1
+        },
+        {
+          "country": "Oman",
+          "nodes": 1
+        },
+        {
+          "country": "Poland",
+          "nodes": 1
+        },
+        {
+          "country": "Qatar",
+          "nodes": 1
+        },
+        {
+          "country": "South Africa",
+          "nodes": 1
+        },
+        {
+          "country": "Spain",
+          "nodes": 1
+        },
+        {
+          "country": "Sweden",
+          "nodes": 1
+        },
+        {
+          "country": "Taiwan",
+          "nodes": 1
+        },
+        {
+          "country": "The Netherlands",
+          "nodes": 1
+        },
+        {
+          "country": "United Arab Emirates",
+          "nodes": 1
+        },
+        {
+          "country": "Vietnam",
+          "nodes": 1
+        }
+      ],
+      "unplaced": 0,
+      "cellDegrees": 1,
+      "cells": [
+        {
+          "lat": 51.5,
+          "lon": 0.5,
+          "nodes": 2,
+          "country": "United Kingdom",
+          "city": "Bexley",
+          "clients": [
+            {
+              "client": "Zakura",
+              "nodes": 1
+            },
+            {
+              "client": "Zebra",
+              "nodes": 1
+            }
+          ]
+        },
+        {
+          "lat": 22.5,
+          "lon": 114.5,
+          "nodes": 5,
+          "country": "Hong Kong",
+          "city": "Hong Kong",
+          "clients": [
+            {
+              "client": "Zakura",
+              "nodes": 4
+            },
+            {
+              "client": "Zebra",
+              "nodes": 1
+            }
+          ]
+        },
+        {
+          "lat": 51.5,
+          "lon": 9.5,
+          "nodes": 3,
+          "country": "Germany",
+          "city": null,
+          "clients": [
+            {
+              "client": "Zebra",
+              "nodes": 3
+            }
+          ]
+        }
+      ],
+      "notAnswering": {
+        "total": 5114,
+        "cells": [
+          {
+            "lat": 52.5,
+            "lon": 4.5,
+            "addresses": 178
+          },
+          {
+            "lat": 34.5,
+            "lon": -118.5,
+            "addresses": 30
+          },
+          {
+            "lat": 40.5,
+            "lon": -74.5,
+            "addresses": 375
+          }
+        ]
+      }
+    },
+    "notes": [
+      "A location is GeoIP's claim about an address, never a measurement; a node GeoIP could not place is counted in unplaced and drawn nowhere.",
+      "notAnswering counts advertised addresses that did not complete a handshake within the answering window."
+    ],
+    "asOf": 1791305815
+  },
+  "/v1/nodes/concentration": {
+    "coverage": {
+      "status": "floor",
+      "notes": [
+        "Counts only nodes that accept incoming connections; nodes behind a router cannot be crawled, so the real network is larger."
+      ]
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/network/health"
+    },
+    "data": {
+      "topNetworkOperators": [
+        {
+          "asn": 396982,
+          "networkOperator": "Google LLC",
+          "share": {
+            "pct": 15.686274509803921,
+            "numerator": 24,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 16276,
+          "networkOperator": "OVH SAS",
+          "share": {
+            "pct": 11.76470588235294,
+            "numerator": 18,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 24940,
+          "networkOperator": "Hetzner Online GmbH",
+          "share": {
+            "pct": 11.11111111111111,
+            "numerator": 17,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 14061,
+          "networkOperator": "DigitalOcean, LLC",
+          "share": {
+            "pct": 9.803921568627452,
+            "numerator": 15,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 197540,
+          "networkOperator": "netcup GmbH",
+          "share": {
+            "pct": 5.88235294117647,
+            "numerator": 9,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 16509,
+          "networkOperator": "Amazon.com, Inc.",
+          "share": {
+            "pct": 3.9215686274509802,
+            "numerator": 6,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 51167,
+          "networkOperator": "Contabo GmbH",
+          "share": {
+            "pct": 3.2679738562091507,
+            "numerator": 5,
+            "denominator": 153
+          }
+        },
+        {
+          "asn": 20473,
+          "networkOperator": "The Constant Company, LLC",
+          "share": {
+            "pct": 3.2679738562091507,
+            "numerator": 5,
+            "denominator": 153
+          }
+        }
+      ],
+      "topThreeOperators": {
+        "pct": 38.56209150326798,
+        "numerator": 59,
+        "denominator": 153
+      },
+      "clusteredSubnets": [
+        {
+          "subnet": "154.21.212.x",
+          "nodes": 4
+        },
+        {
+          "subnet": "198.13.136.x",
+          "nodes": 2
+        }
+      ]
+    },
+    "notes": [
+      "Grouped by autonomous system, never clustered into operators: two networks run by one company count separately, so real concentration can only be higher.",
+      "A subnet is a /24, written a.b.c.x; the last octet is never published."
+    ],
+    "asOf": 1791305815
+  },
+  "/v1/analytics/pool-usage": {
+    "query": {
+      "from": "2026-07-01",
+      "to": "2026-08-01",
+      "interval": "day",
+      "pool": ["ironwood", "orchard", "sapling", "sprout"]
+    },
+    "coverage": {
+      "status": "complete",
+      "notes": []
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/shielded"
+    },
+    "basis": "transactions that used each pool (carried a bundle in it), split by kind; a pool migration uses two pools and is counted in both, so pools do not sum. `notes.atClose` is the pool's note commitment tree size at the period's last block, as the node reports it: every note ever created in the pool, spent or not \u2014 the anonymity set a spend from it hides in. Sprout's is not reported.",
+    "data": {
+      "interval": "day",
+      "totals": {
+        "ironwood": {
+          "transactions": {
+            "total": 6278,
+            "fullyShielded": 4233,
+            "mixed": 2045,
+            "coinbase": 0,
+            "mixedByDirection": {
+              "shielding": 1338,
+              "unshielding": 707,
+              "indeterminate": 0
+            }
+          },
+          "bundle": {
+            "actions": 13504
+          },
+          "notes": {
+            "atClose": 13504,
+            "created": 13504,
+            "closeDay": "2026-07-31",
+            "closeHeight": 3432059
+          }
+        },
+        "orchard": {
+          "transactions": {
+            "total": 34295,
+            "fullyShielded": 11329,
+            "mixed": 22966,
+            "coinbase": 0,
+            "mixedByDirection": {
+              "shielding": 9909,
+              "unshielding": 13042,
+              "indeterminate": 15
+            }
+          },
+          "bundle": {
+            "actions": 126717
+          },
+          "notes": {
+            "atClose": 50281176,
+            "created": 126717,
+            "closeDay": "2026-07-31",
+            "closeHeight": 3432059
+          }
+        },
+        "sapling": {
+          "transactions": {
+            "total": 6628,
+            "fullyShielded": 588,
+            "mixed": 6040,
+            "coinbase": 0,
+            "mixedByDirection": {
+              "shielding": 3569,
+              "unshielding": 2454,
+              "indeterminate": 17
+            }
+          },
+          "bundle": {
+            "spends": 5831,
+            "outputs": 12975
+          },
+          "notes": {
+            "atClose": 73939962,
+            "created": 12975,
+            "closeDay": "2026-07-31",
+            "closeHeight": 3432059
+          }
+        },
+        "sprout": {
+          "transactions": {
+            "total": 30,
+            "fullyShielded": 28,
+            "mixed": 2,
+            "coinbase": 0,
+            "mixedByDirection": {
+              "shielding": 0,
+              "unshielding": 2,
+              "indeterminate": 0
+            }
+          },
+          "bundle": {
+            "joinsplits": 30
+          },
+          "notes": {
+            "atClose": null,
+            "created": null,
+            "closeDay": "2026-07-31",
+            "closeHeight": 3432059
+          }
+        }
+      },
+      "points": [
+        {
+          "periodStart": "2026-07-01",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-01",
+                "closeHeight": 3397652
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 1079,
+                "fullyShielded": 230,
+                "mixed": 849,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 360,
+                  "unshielding": 489,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 2640
+              },
+              "notes": {
+                "atClose": 50157099,
+                "created": 2640,
+                "closeDay": "2026-07-01",
+                "closeHeight": 3397652
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 181,
+                "fullyShielded": 19,
+                "mixed": 162,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 91,
+                  "unshielding": 71,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "spends": 161,
+                "outputs": 358
+              },
+              "notes": {
+                "atClose": 73927345,
+                "created": 358,
+                "closeDay": "2026-07-01",
+                "closeHeight": 3397652
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-01",
+                "closeHeight": 3397652
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-02",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-02",
+                "closeHeight": 3398793
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 1180,
+                "fullyShielded": 303,
+                "mixed": 877,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 383,
+                  "unshielding": 494,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 3109
+              },
+              "notes": {
+                "atClose": 50160208,
+                "created": 3109,
+                "closeDay": "2026-07-02",
+                "closeHeight": 3398793
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 215,
+                "fullyShielded": 19,
+                "mixed": 196,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 113,
+                  "unshielding": 83,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "spends": 198,
+                "outputs": 417
+              },
+              "notes": {
+                "atClose": 73927762,
+                "created": 417,
+                "closeDay": "2026-07-02",
+                "closeHeight": 3398793
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-02",
+                "closeHeight": 3398793
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-03",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-03",
+                "closeHeight": 3399939
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 1075,
+                "fullyShielded": 272,
+                "mixed": 803,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 376,
+                  "unshielding": 427,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 2697
+              },
+              "notes": {
+                "atClose": 50162905,
+                "created": 2697,
+                "closeDay": "2026-07-03",
+                "closeHeight": 3399939
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 195,
+                "fullyShielded": 28,
+                "mixed": 167,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 110,
+                  "unshielding": 56,
+                  "indeterminate": 1
+                }
+              },
+              "bundle": {
+                "spends": 182,
+                "outputs": 378
+              },
+              "notes": {
+                "atClose": 73928140,
+                "created": 378,
+                "closeDay": "2026-07-03",
+                "closeHeight": 3399939
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-03",
+                "closeHeight": 3399939
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-04",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-04",
+                "closeHeight": 3401087
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 841,
+                "fullyShielded": 186,
+                "mixed": 655,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 324,
+                  "unshielding": 331,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 2087
+              },
+              "notes": {
+                "atClose": 50164992,
+                "created": 2087,
+                "closeDay": "2026-07-04",
+                "closeHeight": 3401087
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 157,
+                "fullyShielded": 7,
+                "mixed": 150,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 101,
+                  "unshielding": 49,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "spends": 149,
+                "outputs": 308
+              },
+              "notes": {
+                "atClose": 73928448,
+                "created": 308,
+                "closeDay": "2026-07-04",
+                "closeHeight": 3401087
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-04",
+                "closeHeight": 3401087
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-05",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-05",
+                "closeHeight": 3402243
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 706,
+                "fullyShielded": 151,
+                "mixed": 555,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 270,
+                  "unshielding": 285,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 1735
+              },
+              "notes": {
+                "atClose": 50166727,
+                "created": 1735,
+                "closeDay": "2026-07-05",
+                "closeHeight": 3402243
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 179,
+                "fullyShielded": 10,
+                "mixed": 169,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 103,
+                  "unshielding": 66,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "spends": 161,
+                "outputs": 348
+              },
+              "notes": {
+                "atClose": 73928796,
+                "created": 348,
+                "closeDay": "2026-07-05",
+                "closeHeight": 3402243
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-05",
+                "closeHeight": 3402243
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-06",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-06",
+                "closeHeight": 3403382
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 868,
+                "fullyShielded": 178,
+                "mixed": 690,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 313,
+                  "unshielding": 376,
+                  "indeterminate": 1
+                }
+              },
+              "bundle": {
+                "actions": 2151
+              },
+              "notes": {
+                "atClose": 50168878,
+                "created": 2151,
+                "closeDay": "2026-07-06",
+                "closeHeight": 3403382
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 232,
+                "fullyShielded": 22,
+                "mixed": 210,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 111,
+                  "unshielding": 98,
+                  "indeterminate": 1
+                }
+              },
+              "bundle": {
+                "spends": 221,
+                "outputs": 454
+              },
+              "notes": {
+                "atClose": 73929250,
+                "created": 454,
+                "closeDay": "2026-07-06",
+                "closeHeight": 3403382
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-06",
+                "closeHeight": 3403382
+              }
+            }
+          }
+        },
+        {
+          "periodStart": "2026-07-07",
+          "pools": {
+            "ironwood": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "actions": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-07",
+                "closeHeight": 3404531
+              }
+            },
+            "orchard": {
+              "transactions": {
+                "total": 1155,
+                "fullyShielded": 234,
+                "mixed": 921,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 374,
+                  "unshielding": 546,
+                  "indeterminate": 1
+                }
+              },
+              "bundle": {
+                "actions": 2974
+              },
+              "notes": {
+                "atClose": 50171852,
+                "created": 2974,
+                "closeDay": "2026-07-07",
+                "closeHeight": 3404531
+              }
+            },
+            "sapling": {
+              "transactions": {
+                "total": 199,
+                "fullyShielded": 13,
+                "mixed": 186,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 104,
+                  "unshielding": 81,
+                  "indeterminate": 1
+                }
+              },
+              "bundle": {
+                "spends": 181,
+                "outputs": 387
+              },
+              "notes": {
+                "atClose": 73929637,
+                "created": 387,
+                "closeDay": "2026-07-07",
+                "closeHeight": 3404531
+              }
+            },
+            "sprout": {
+              "transactions": {
+                "total": 0,
+                "fullyShielded": 0,
+                "mixed": 0,
+                "coinbase": 0,
+                "mixedByDirection": {
+                  "shielding": 0,
+                  "unshielding": 0,
+                  "indeterminate": 0
+                }
+              },
+              "bundle": {
+                "joinsplits": 0
+              },
+              "notes": {
+                "atClose": null,
+                "created": null,
+                "closeDay": "2026-07-07",
+                "closeHeight": 3404531
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unknowns": {
+      "data.points.0.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.0.pools.ironwood.notes.created": "nonexistent",
+      "data.points.0.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.0.pools.sprout.notes.created": "unmeasured",
+      "data.points.1.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.1.pools.ironwood.notes.created": "nonexistent",
+      "data.points.1.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.1.pools.sprout.notes.created": "unmeasured",
+      "data.points.2.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.2.pools.ironwood.notes.created": "nonexistent",
+      "data.points.2.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.2.pools.sprout.notes.created": "unmeasured",
+      "data.points.3.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.3.pools.ironwood.notes.created": "nonexistent",
+      "data.points.3.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.3.pools.sprout.notes.created": "unmeasured",
+      "data.points.4.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.4.pools.ironwood.notes.created": "nonexistent",
+      "data.points.4.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.4.pools.sprout.notes.created": "unmeasured",
+      "data.points.5.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.5.pools.ironwood.notes.created": "nonexistent",
+      "data.points.5.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.5.pools.sprout.notes.created": "unmeasured",
+      "data.points.6.pools.ironwood.notes.atClose": "nonexistent",
+      "data.points.6.pools.ironwood.notes.created": "nonexistent",
+      "data.points.6.pools.sprout.notes.atClose": "unmeasured",
+      "data.points.6.pools.sprout.notes.created": "unmeasured",
+      "data.totals.sprout.notes.atClose": "unmeasured",
+      "data.totals.sprout.notes.created": "unmeasured"
+    },
+    "asOf": 1791305818
+  },
+  "/v1/analytics/pools": {
+    "query": {
+      "from": "2026-01-01",
+      "to": "2026-08-01",
+      "interval": "month"
+    },
+    "coverage": {
+      "status": "complete",
+      "notes": []
+    },
+    "source": {
+      "name": "ShieldedScan",
+      "url": "https://shieldedscan.xyz/charts/pool-balances"
+    },
+    "basis": "closing balance of each shielded pool at the period's highest block; a level, not a flow \u2014 never sum points. The transparent and lockbox pools are at /v1/supply.",
+    "data": {
+      "interval": "month",
+      "points": [
+        {
+          "periodStart": "2026-01-01",
+          "closing": {
+            "day": "2026-01-31",
+            "height": 3224540
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 439800342005093,
+              "zec": "4398003.42005093"
+            },
+            "sapling": {
+              "zat": 61855460145909,
+              "zec": "618554.60145909"
+            },
+            "sprout": {
+              "zat": 2548104009822,
+              "zec": "25481.04009822"
+            }
+          },
+          "totalShielded": {
+            "zat": 504203906160824,
+            "zec": "5042039.06160824"
+          }
+        },
+        {
+          "periodStart": "2026-02-01",
+          "closing": {
+            "day": "2026-02-28",
+            "height": 3256651
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 440145818033129,
+              "zec": "4401458.18033129"
+            },
+            "sapling": {
+              "zat": 61950318703102,
+              "zec": "619503.18703102"
+            },
+            "sprout": {
+              "zat": 2548074009822,
+              "zec": "25480.74009822"
+            }
+          },
+          "totalShielded": {
+            "zat": 504644210746053,
+            "zec": "5046442.10746053"
+          }
+        },
+        {
+          "periodStart": "2026-03-01",
+          "closing": {
+            "day": "2026-03-31",
+            "height": 3292200
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 452607956319937,
+              "zec": "4526079.56319937"
+            },
+            "sapling": {
+              "zat": 61263087327018,
+              "zec": "612630.87327018"
+            },
+            "sprout": {
+              "zat": 2542447009822,
+              "zec": "25424.47009822"
+            }
+          },
+          "totalShielded": {
+            "zat": 516413490656777,
+            "zec": "5164134.90656777"
+          }
+        },
+        {
+          "periodStart": "2026-04-01",
+          "closing": {
+            "day": "2026-04-30",
+            "height": 3326581
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 455586410612505,
+              "zec": "4555864.10612505"
+            },
+            "sapling": {
+              "zat": 59931882084869,
+              "zec": "599318.82084869"
+            },
+            "sprout": {
+              "zat": 2540941766914,
+              "zec": "25409.41766914"
+            }
+          },
+          "totalShielded": {
+            "zat": 518059234464288,
+            "zec": "5180592.34464288"
+          }
+        },
+        {
+          "periodStart": "2026-05-01",
+          "closing": {
+            "day": "2026-05-31",
+            "height": 3362123
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 450140173434951,
+              "zec": "4501401.73434951"
+            },
+            "sapling": {
+              "zat": 59183576322369,
+              "zec": "591835.76322369"
+            },
+            "sprout": {
+              "zat": 2540941766914,
+              "zec": "25409.41766914"
+            }
+          },
+          "totalShielded": {
+            "zat": 511864691524234,
+            "zec": "5118646.91524234"
+          }
+        },
+        {
+          "periodStart": "2026-06-01",
+          "closing": {
+            "day": "2026-06-30",
+            "height": 3396508
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "orchard": {
+              "zat": 377313767196780,
+              "zec": "3773137.67196780"
+            },
+            "sapling": {
+              "zat": 62102684037615,
+              "zec": "621026.84037615"
+            },
+            "sprout": {
+              "zat": 2540941766914,
+              "zec": "25409.41766914"
+            }
+          },
+          "totalShielded": {
+            "zat": 441957393001309,
+            "zec": "4419573.93001309"
+          }
+        },
+        {
+          "periodStart": "2026-07-01",
+          "closing": {
+            "day": "2026-07-31",
+            "height": 3432059
+          },
+          "pools": {
+            "ironwood": {
+              "zat": 65475340416310,
+              "zec": "654753.40416310"
+            },
+            "orchard": {
+              "zat": 309510897369709,
+              "zec": "3095108.97369709"
+            },
+            "sapling": {
+              "zat": 54120089770048,
+              "zec": "541200.89770048"
+            },
+            "sprout": {
+              "zat": 2263726786698,
+              "zec": "22637.26786698"
+            }
+          },
+          "totalShielded": {
+            "zat": 431370054342765,
+            "zec": "4313700.54342765"
+          }
+        }
+      ]
+    },
+    "unknowns": {},
+    "asOf": 1791305818
+  }
+}

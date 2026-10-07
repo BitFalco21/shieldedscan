@@ -1,0 +1,654 @@
+/* /ai-agent — Zeno's console.
+   Zeno sits in a rail beside the conversation acting out what the loop is doing
+   (`zeno-mood.ts`). Its own layer block after the reduced-motion query, so the global rule
+   there still stops every animation below (`!important` beats a normal declaration in any
+   layer) and nothing here is accidentally scoped inside it.
+
+   Every motion is a class because inline style props are banned in `src/`. Transform origins
+   are in the figure's own 512-unit coordinates: an SVG element's transform box is the view
+   box by default, so `256px 452px` means "between the feet". Base styles are the resting
+   pose, which is what reduced motion leaves on screen: confetti and smoke rest at opacity 0,
+   the dots at a dim .55, and every pose still says its state through the face. No glow on
+   the figure. */
+@layer components {
+  .zeno-figure {
+    transform-origin: 256px 452px;
+  }
+  .zeno-shadow {
+    transform-origin: 256px 456px;
+  }
+  .zeno-head {
+    transform-origin: 256px 302px;
+  }
+  .zeno-stack {
+    transform-origin: 49px 454px;
+  }
+
+  /* thinking / writing: a slow float, the shadow tightening under it */
+  .zeno-float {
+    animation: zeno-float 2.4s ease-in-out infinite;
+  }
+  .zeno-shadow-float {
+    animation: zeno-shadow-float 2.4s ease-in-out infinite;
+  }
+  /* reading: a quick bob */
+  .zeno-bob {
+    animation: zeno-bob 0.5s ease-in-out infinite;
+  }
+  .zeno-shadow-bob {
+    animation: zeno-shadow-bob 0.5s ease-in-out infinite;
+  }
+  /* answered: one squash-and-stretch hop, the stack jumping a beat behind */
+  .zeno-hop {
+    animation: zeno-hop 0.9s ease-out 1;
+  }
+  .zeno-shadow-hop {
+    animation: zeno-shadow-hop 0.9s ease-out 1;
+  }
+  .zeno-jump {
+    animation: zeno-jump 0.7s ease-out 0.15s 1;
+  }
+  /* stuck: a shrug, twice */
+  .zeno-shrug {
+    animation: zeno-shrug 0.5s ease-in-out 2;
+  }
+  .zeno-tilt {
+    animation: zeno-tilt 3.2s ease-in-out infinite;
+  }
+  .zeno-read {
+    animation: zeno-read 1.6s ease-in-out infinite;
+  }
+  .zeno-blink {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: zeno-blink 5.4s infinite;
+  }
+  .zeno-scribble {
+    transform-origin: 348px 330px;
+    animation: zeno-scribble 0.45s ease-in-out infinite;
+  }
+  .zeno-scratch {
+    transform-origin: 176px 326px;
+    animation: zeno-scratch 0.5s ease-in-out infinite;
+  }
+  .zeno-sweat {
+    opacity: 0.9;
+    animation: zeno-sweat 1.9s ease-in infinite;
+  }
+  .zeno-sweat-late {
+    animation-delay: 700ms;
+  }
+
+  /* The antenna pings while a lookup runs: three arcs, each a beat after the last. */
+  .zeno-arc {
+    opacity: 0.75;
+    animation: zeno-arc 1.1s ease-out infinite;
+  }
+  .zeno-arc:nth-child(2) {
+    animation-delay: 180ms;
+  }
+  .zeno-arc:nth-child(3) {
+    animation-delay: 360ms;
+  }
+
+  /* The bubble's three-dot wave, where the idle cursor sits. */
+  .zeno-dot {
+    opacity: 0.55;
+    animation: zeno-dot 1s ease-in-out infinite;
+  }
+  .zeno-dot:nth-child(2) {
+    animation-delay: 160ms;
+  }
+  .zeno-dot:nth-child(3) {
+    animation-delay: 320ms;
+  }
+
+  /* One block per lookup drops onto the stack; while writing, each pulses as it is read into
+     the answer, bottom block first. */
+  .zeno-block {
+    animation: zeno-drop 0.75s ease-in 1;
+  }
+  .zeno-feed {
+    animation: zeno-feed 0.9s ease-in-out infinite;
+  }
+  .zeno-block:nth-child(2) .zeno-feed {
+    animation-delay: 150ms;
+  }
+  .zeno-block:nth-child(3) .zeno-feed {
+    animation-delay: 300ms;
+  }
+  .zeno-block:nth-child(4) .zeno-feed {
+    animation-delay: 450ms;
+  }
+
+  /* stuck: a fizzle over the antenna */
+  .zeno-puff {
+    opacity: 0;
+    animation: zeno-smoke 1.6s ease-out 2;
+  }
+  .zeno-puff:nth-child(2) {
+    animation-delay: 300ms;
+  }
+  .zeno-puff:nth-child(3) {
+    animation-delay: 600ms;
+  }
+
+  /* answered: twelve pixels of confetti, each on its own path, once. Longhands, not the
+     shorthand with the name left to the per-piece rules below: the minifier rewrites a nameless
+     `animation: 1s ease-out 1` to `animation: none`, dropping the duration. */
+  .zeno-confetti > rect {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: 1s;
+    animation-timing-function: ease-out;
+    animation-iteration-count: 1;
+  }
+  .zeno-confetti > rect:nth-child(1) {
+    animation-name: zeno-c1;
+  }
+  .zeno-confetti > rect:nth-child(2) {
+    animation-name: zeno-c2;
+  }
+  .zeno-confetti > rect:nth-child(3) {
+    animation-name: zeno-c3;
+  }
+  .zeno-confetti > rect:nth-child(4) {
+    animation-name: zeno-c4;
+  }
+  .zeno-confetti > rect:nth-child(5) {
+    animation-name: zeno-c5;
+  }
+  .zeno-confetti > rect:nth-child(6) {
+    animation-name: zeno-c6;
+  }
+  .zeno-confetti > rect:nth-child(7) {
+    animation-name: zeno-c7;
+  }
+  .zeno-confetti > rect:nth-child(8) {
+    animation-name: zeno-c8;
+  }
+  .zeno-confetti > rect:nth-child(9) {
+    animation-name: zeno-c9;
+  }
+  .zeno-confetti > rect:nth-child(10) {
+    animation-name: zeno-c10;
+  }
+  .zeno-confetti > rect:nth-child(11) {
+    animation-name: zeno-c11;
+  }
+  .zeno-confetti > rect:nth-child(12) {
+    animation-name: zeno-c12;
+  }
+
+  /* Zeno's rail, and the phone stage card in a live turn: the panel with a faint wash of the
+     accent from the top, where the figure stands. The wash is the hue token at 7%, so it
+     follows the theme; a wash, not a glow. */
+  .zeno-wash {
+    background:
+      radial-gradient(120% 60% at 50% 0%, oklch(0.874 0.252 var(--h) / 0.07), transparent 70%),
+      var(--panel);
+  }
+
+  /* The ZENO wordmark — the page's <h1>, and from the desktop breakpoint a scanline readout.
+     Built like `.crt-title`: a real token colour plus an `::after` raster, never
+     `background-clip: text`, which needs a transparent fill and reads to e2e/a11y.spec.ts as
+     black on near-black. Below the breakpoint it is the phone bar's small bold name with
+     neither bloom nor raster: an em-pitched raster on 14px type is grey haze. The element is
+     `w-fit` at the call site so the raster does not stripe the rail's wash beside the word. */
+  .zeno-wordmark {
+    position: relative;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    line-height: 1;
+    color: var(--green);
+  }
+  /* The same treatment unconditionally, for the phone empty state's hero — the wordmark's
+     one appearance below the breakpoint at a size the raster suits. */
+  .zeno-crt {
+    text-shadow:
+      0 0 1px oklch(0.988 0.019 calc(var(--h) + 6) / 0.4),
+      0 0 14px oklch(0.874 0.252 var(--h) / 0.55),
+      0 0 42px oklch(0.874 0.252 var(--h) / 0.26);
+  }
+  .zeno-crt::after {
+    content: "";
+    position: absolute;
+    inset: -0.06em 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 0.055em,
+      oklch(0.128 0.011 var(--h) / 0.45) 0.055em 0.1em
+    );
+  }
+  @media (min-width: 64rem) {
+    .zeno-wordmark {
+      text-shadow:
+        0 0 1px oklch(0.988 0.019 calc(var(--h) + 6) / 0.4),
+        0 0 14px oklch(0.874 0.252 var(--h) / 0.55),
+        0 0 42px oklch(0.874 0.252 var(--h) / 0.26);
+    }
+    .zeno-wordmark::after {
+      content: "";
+      position: absolute;
+      inset: -0.06em 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0 0.055em,
+        oklch(0.128 0.011 var(--h) / 0.45) 0.055em 0.1em
+      );
+    }
+  }
+
+  /* The rail is the frame's left column from `lg`, and on a phone it dissolves
+     (`display: contents`) so its head can be the bar above the conversation and its foot can
+     sit below it — one `<h1>` and one set of disclosures in both layouts (see ZenoRail.tsx).
+     Utilities beat this layer, so the aside's `lg:flex` is what restores the box. */
+  .zeno-rail {
+    display: contents;
+  }
+
+  /* A short desktop window cannot hold the whole rail: the "how Zeno answers" list goes first,
+     then the figure shrinks, so the wordmark and the disclosures never scroll out of a rail
+     that is meant to be read at a glance. Display and width live HERE rather than in
+     utilities, because a utility would beat these media queries (the layer order above). */
+  .zeno-rail-about {
+    display: none;
+  }
+  .zeno-rail-figure {
+    width: 15rem;
+  }
+  @media (min-width: 64rem) {
+    .zeno-rail-about {
+      display: block;
+    }
+  }
+  @media (min-width: 64rem) and (max-height: 50rem) {
+    .zeno-rail-about {
+      display: none;
+    }
+  }
+  @media (min-width: 64rem) and (max-height: 42rem) {
+    .zeno-rail-figure {
+      width: 10rem;
+    }
+  }
+
+  @keyframes zeno-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes zeno-shadow-float {
+    0%,
+    100% {
+      transform: scaleX(1);
+    }
+    50% {
+      transform: scaleX(0.86);
+    }
+  }
+  @keyframes zeno-bob {
+    0%,
+    100% {
+      transform: translateY(0) scale(1, 1);
+    }
+    50% {
+      transform: translateY(-7px) scale(0.98, 1.02);
+    }
+  }
+  @keyframes zeno-shadow-bob {
+    0%,
+    100% {
+      transform: scaleX(1);
+    }
+    50% {
+      transform: scaleX(0.9);
+    }
+  }
+  @keyframes zeno-hop {
+    0% {
+      transform: translateY(0) scale(1, 1);
+    }
+    15% {
+      transform: translateY(0) scale(1.08, 0.9);
+    }
+    40% {
+      transform: translateY(-36px) scale(0.94, 1.07);
+    }
+    62% {
+      transform: translateY(0) scale(1.1, 0.88);
+    }
+    78% {
+      transform: translateY(-6px) scale(0.98, 1.03);
+    }
+    100% {
+      transform: translateY(0) scale(1, 1);
+    }
+  }
+  @keyframes zeno-shadow-hop {
+    0%,
+    100% {
+      transform: scaleX(1);
+    }
+    40% {
+      transform: scaleX(0.7);
+    }
+    62% {
+      transform: scaleX(1.12);
+    }
+  }
+  @keyframes zeno-jump {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    35% {
+      transform: translateY(-22px);
+    }
+    60% {
+      transform: translateY(0);
+    }
+    80% {
+      transform: translateY(-7px);
+    }
+  }
+  @keyframes zeno-shrug {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  @keyframes zeno-tilt {
+    0%,
+    100% {
+      transform: rotate(-4deg);
+    }
+    50% {
+      transform: rotate(4deg);
+    }
+  }
+  @keyframes zeno-read {
+    0%,
+    100% {
+      transform: translateX(-7px);
+    }
+    50% {
+      transform: translateX(7px);
+    }
+  }
+  @keyframes zeno-blink {
+    0%,
+    93%,
+    100% {
+      transform: scaleY(1);
+    }
+    95.5% {
+      transform: scaleY(0.1);
+    }
+  }
+  @keyframes zeno-scribble {
+    0%,
+    100% {
+      transform: rotate(-7deg);
+    }
+    50% {
+      transform: rotate(5deg);
+    }
+  }
+  @keyframes zeno-scratch {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(-9deg);
+    }
+  }
+  @keyframes zeno-sweat {
+    0% {
+      transform: translateY(-6px);
+      opacity: 0;
+    }
+    25% {
+      opacity: 0.9;
+    }
+    80% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translateY(14px);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-arc {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    35% {
+      opacity: 0.95;
+    }
+    70% {
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-dot {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+  @keyframes zeno-drop {
+    0% {
+      transform: translateY(-560px);
+      opacity: 0;
+    }
+    30% {
+      opacity: 0;
+    }
+    40% {
+      opacity: 1;
+    }
+    70% {
+      transform: translateY(0);
+    }
+    84% {
+      transform: translateY(-16px);
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes zeno-feed {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.2;
+    }
+  }
+  @keyframes zeno-smoke {
+    0% {
+      transform: translate(0, 0) scale(0.5);
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.45;
+    }
+    100% {
+      transform: translate(14px, -46px) scale(1.3);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c1 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-170px, 20px) rotate(220deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c2 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-140px, -60px) rotate(-200deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c3 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-70px, -120px) rotate(180deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c4 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(0px, -140px) rotate(-240deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c5 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(70px, -120px) rotate(210deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c6 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(140px, -70px) rotate(-190deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c7 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(180px, 10px) rotate(230deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c8 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(150px, 90px) rotate(-220deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c9 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-160px, 100px) rotate(200deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c10 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-40px, -80px) rotate(-210deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c11 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(40px, -80px) rotate(190deg) scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes zeno-c12 {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(100px, 50px) rotate(-230deg) scale(1);
+      opacity: 0;
+    }
+  }
+}

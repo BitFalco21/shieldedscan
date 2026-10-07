@@ -1,0 +1,364 @@
+/* /pulse — the stock-and-flow stage.
+
+   The glow budget is extended here and only here. `.pulse-core` and `.pulse-ripple` glow as
+   the site's live-motion mark: a movement arriving is what this page exists to show, and the
+   bloom separates a mark in flight from the static picture behind it. `.pulse-veil` glows
+   for the reason `.redact` does — it is redaction. Nothing else on this page blooms.
+
+   Every colour is a token or an `oklch(… var(--h))` recipe, so the page follows the theme. */
+@layer components {
+  .pulse-stage {
+    padding: 6px 6px 0;
+    /* A phone gets less content, not smaller content: at 375px the 1400-unit stage would scale
+       to 27% and every label to two pixels. The stage scrolls inside this box, so the page itself
+       never scrolls sideways. */
+    overflow-x: auto;
+    background: radial-gradient(
+      ellipse 55% 70% at 48% 50%,
+      oklch(0.874 0.252 var(--h) / 0.055),
+      transparent 70%
+    );
+  }
+  .pulse-stage-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* The scroll affordance and the scroll itself, in one query, so the breakpoint that
+     creates the scroll and the one that announces it cannot drift apart. */
+  .pulse-scroll-hint {
+    display: none;
+  }
+  @media (max-width: 900px) {
+    .pulse-stage-svg {
+      min-width: 860px;
+    }
+    .pulse-scroll-hint {
+      display: block;
+    }
+  }
+
+  /* Boxes. Area is the balance; the interior is what the chain publishes about it. */
+  .pulse-box {
+    fill: var(--panel);
+    stroke: currentColor;
+    stroke-width: 1.25;
+  }
+  .pulse-box.is-glass {
+    fill: oklch(0.161 0.0182 var(--h) / 0.3);
+  }
+  .pulse-box.is-sealed {
+    fill: oklch(0.161 0.0182 var(--h) / 0.92);
+  }
+  /* No balance at this height — outlined and labelled, never floor-sized. Absent is our gap;
+     zero would be a measurement, and the two must not look alike. */
+  .pulse-box.is-absent {
+    fill: none;
+    stroke: var(--ink-faint);
+  }
+  .pulse-box.is-floored {
+    stroke-dasharray: 4 3;
+  }
+  /* A box lights when value arrives in it. The stroke thickens; nothing blooms. */
+  .pulse-box.is-lit,
+  .pulse-chain.is-lit {
+    stroke-width: 3;
+  }
+  .pulse-chain {
+    fill: var(--panel);
+    stroke: currentColor;
+    stroke-width: 1.25;
+  }
+  .pulse-chain-mark {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    fill: currentColor;
+  }
+  .pulse-chain-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    fill: var(--ink-dim);
+    text-anchor: end;
+  }
+  .pulse-chain-sub {
+    font-size: 9px;
+    fill: var(--ink-faint);
+    text-anchor: end;
+  }
+  .pulse-box-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    fill: var(--ink-dim);
+  }
+  .pulse-box-value {
+    font-size: 12px;
+    fill: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .pulse-box-sub {
+    font-size: 10px;
+    fill: var(--ink-faint);
+  }
+  .pulse-label-bed {
+    fill: var(--panel);
+    opacity: 0.88;
+  }
+
+  /* Interiors. A pool publishes its total and nothing else, so its inside is redaction; the
+     lockbox is hatched because consensus holds it; the ledger lists its real rows. */
+  .pulse-rbar {
+    fill: currentColor;
+    fill-opacity: 0.22;
+    stroke: currentColor;
+    stroke-opacity: 0.55;
+    stroke-width: 0.75;
+  }
+  .pulse-cipher {
+    font-size: 8px;
+    fill: currentColor;
+    opacity: 0.55;
+    letter-spacing: 0.1em;
+  }
+  .pulse-hatch {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    opacity: 0.55;
+  }
+  .pulse-ledger-row text {
+    font-size: 9px;
+    fill: var(--ink-dim);
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+  }
+  .pulse-ledger-row:hover text,
+  .pulse-ledger-row:focus-visible text {
+    fill: var(--green);
+    opacity: 1;
+  }
+
+  /* Ribbons. They stop short of every box: a stock and a flow are two rulers, and a diagram
+     whose ribbons meet a node's edge reads as a budget that balances. */
+  .pulse-ribbon {
+    fill: none;
+    opacity: 0.38;
+  }
+  .pulse-ribbon.is-venue {
+    stroke-dasharray: 9 4;
+  }
+  .pulse-ribbon.is-floored {
+    stroke-dasharray: 3 3;
+  }
+  .pulse-ribbons.is-unavailable .pulse-ribbon {
+    opacity: 0.16;
+    stroke-dasharray: 2 5;
+  }
+
+  /* Marks. The one place on this site outside the Veil where a bloom is spent. */
+  .pulse-core {
+    fill: var(--ink-bright);
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 18px currentColor);
+  }
+  .pulse-core.is-hollow {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .pulse-halo {
+    fill: currentColor;
+    opacity: 0.5;
+  }
+  .pulse-tail {
+    fill: currentColor;
+  }
+  .pulse-ripple {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+  .pulse-still {
+    fill: currentColor;
+  }
+  .pulse-still.is-hollow {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .pulse-counter {
+    font-size: 11px;
+    fill: var(--green);
+  }
+  .pulse-caption {
+    font-size: 10px;
+    fill: var(--ink-faint);
+  }
+
+  /* The Veil, orbiting form: a fully shielded movement is public, its amount is not. */
+  .pulse-veil {
+    fill: oklch(0.874 0.252 var(--h) / 0.28);
+    stroke: oklch(0.874 0.252 var(--h) / 0.85);
+    filter: drop-shadow(0 0 8px var(--green));
+  }
+
+  /* A movement whose direction the chain did not settle: legs, drawn as legs. */
+  .pulse-hub-node {
+    fill: none;
+    stroke: var(--ink-dim);
+    stroke-dasharray: 3 3;
+  }
+  .pulse-hub-leg {
+    fill: none;
+    stroke: currentColor;
+    opacity: 0.7;
+  }
+
+  /* Unconfirmed: it hovers at the start of its edge and never travels. */
+  .pulse-pending {
+    fill: currentColor;
+    fill-opacity: 0.18;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-dasharray: 3 2;
+    animation: pulse-breathe 1.6s ease-in-out infinite;
+  }
+  .pulse-pending.is-still-mark {
+    animation: none;
+  }
+  /* A pending mark fades out rather than vanishing, so a dropped mark never looks like a
+     confirmed one. */
+  .pulse-pending-group.is-fading {
+    animation: pulse-fade 700ms ease-out forwards;
+  }
+  @keyframes pulse-fade {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pulse-breathe {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  /* Reduced motion collapses duration globally but not delay, and an infinite breathe has
+     neither — so it is stopped outright rather than shortened. */
+  .is-still .pulse-pending {
+    animation: none;
+  }
+
+  .pulse-heart {
+    display: block;
+    width: 420px;
+    max-width: 100%;
+    height: auto;
+  }
+  .pulse-beat-bar {
+    fill: var(--green-dim);
+    opacity: 0.55;
+  }
+  .pulse-beat-bar.is-hot {
+    fill: var(--green);
+    opacity: 1;
+  }
+  /* No interval recorded either side — a gap, never a zero-height bar, which would state that
+     a block arrived instantly. */
+  .pulse-beat-gap {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 2 2;
+  }
+  /* The whole column is the target, so a thin bar is not what the pointer has to find. */
+  .pulse-beat-hit {
+    fill: transparent;
+  }
+  .pulse-beat-slot {
+    cursor: default;
+    outline: none;
+  }
+  .pulse-beat-slot:hover .pulse-beat-bar,
+  .pulse-beat-slot:focus-visible .pulse-beat-bar {
+    opacity: 1;
+  }
+  .pulse-beat-slot:focus-visible .pulse-beat-hit {
+    stroke: var(--green-dim);
+    stroke-width: 1;
+  }
+  .pulse-beat-target {
+    stroke: var(--ink-faint);
+    stroke-dasharray: 2 3;
+  }
+  .pulse-beat-label {
+    font-size: 9px;
+    fill: var(--ink-faint);
+    letter-spacing: 0.1em;
+  }
+
+  .pulse-rulers,
+  .pulse-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 1px solid var(--edge-faint);
+  }
+  .pulse-controls {
+    background: oklch(0.874 0.252 var(--h) / 0.03);
+  }
+  .pulse-rulers .is-unavailable {
+    color: var(--warn);
+  }
+  .pulse-seg {
+    display: flex;
+    border: 1px solid var(--edge-faint);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .pulse-seg button {
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--edge-faint);
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 11px;
+    padding: 3px 9px;
+    cursor: pointer;
+  }
+  .pulse-seg button:last-child {
+    border-right: 0;
+  }
+  .pulse-seg button[aria-pressed="true"] {
+    color: var(--green);
+    background: oklch(0.874 0.252 var(--h) / 0.08);
+  }
+  .pulse-play {
+    background: transparent;
+    border: 1px solid var(--edge);
+    color: var(--green);
+    font: inherit;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pulse-scrub {
+    flex: 1;
+    min-width: 120px;
+    accent-color: var(--green);
+    height: 2px;
+  }
+  .pulse-status {
+    color: var(--warn);
+    font-size: 0.8125rem;
+  }
+  .pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+}

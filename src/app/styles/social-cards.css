@@ -1,0 +1,195 @@
+/* The daily social card:
+   `/social/card/daily/[day]` — a fixed 1600x900 image, screenshotted rather than browsed,
+   so type sizes are in px (not rem) and much larger than anything else on the site, for
+   legibility at social-card scale. */
+@layer components {
+  .card-daily {
+    width: 1600px;
+    height: 900px;
+    padding: 72px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  /* The hero price. Paired with `.crt-digit` at the call site (which supplies the glow and
+     the scanline raster) rather than combined here — `composes:` exists only in CSS Modules.
+     `.crt-digit` defaults to `--ink-bright`; this figure reads as the accent, so the colour is
+     overridden to `--green`, declared after `.crt-digit` so it wins the specificity tie. */
+  .card-price {
+    font-size: 124px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--green);
+  }
+
+  .card-figure {
+    font-size: 42px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-bright);
+  }
+
+  .card-flow {
+    display: flex;
+    align-items: baseline;
+    /* Wider than the gap inside a pair below, so the row reads as two labelled figures rather
+       than six loose items. Both gaps live here so the relationship is readable in one place. */
+    gap: 2.25rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--edge-faint);
+  }
+
+  .card-flow-pair {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+}
+
+/* The boundary-crossing social card:
+   `/social/card/{shielding,unshielding}/[txid]` — a fixed 1600x900 image, screenshotted
+   rather than browsed, so type sizes are px and much larger than anything else on the site.
+   Shares `.card-swap`'s frame treatment (the ambient grid and the radial spill) so the
+   cards read as one family. */
+@layer components {
+  .card-boundary {
+    width: 1600px;
+    height: 900px;
+    padding: 64px 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: var(--ink);
+    background:
+      radial-gradient(120% 90% at 50% 0%, oklch(0.874 0.252 var(--h) / 0.055), transparent 62%),
+      repeating-linear-gradient(0deg, var(--hatch-a) 0 1px, transparent 1px 44px),
+      repeating-linear-gradient(90deg, var(--hatch-a) 0 1px, transparent 1px 44px), var(--bg);
+  }
+
+  /* The movement heading — the biggest words on the card, beside the hero's biggest figures.
+     Green only when value is becoming private: green is this site's privacy signal, so it is
+     not spent on an unshielding. */
+  .card-boundary-word {
+    font-size: 60px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--ink-bright);
+  }
+
+  .card-boundary-word[data-dir="shielding"] {
+    color: var(--green);
+    text-shadow: var(--glow-text);
+  }
+
+  .card-boundary-figure {
+    font-size: 132px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-bright);
+  }
+
+  .card-boundary-figure[data-dir="shielding"] {
+    color: var(--green);
+    text-shadow: var(--glow-text);
+  }
+
+  .card-boundary-usd {
+    font-size: 62px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-bright);
+  }
+
+  /* The two halves of the boundary strip, cross-faded. Two groups rather than one ramp
+     because the colour travels from neutral ink to the pool's green, and a per-rect colour
+     would mean colour literals in a component. Each group carries one token colour via a
+     class and the ramp is per-rect `fill-opacity`, an SVG attribute. */
+  .card-boundary-plain {
+    color: var(--ink-faint);
+  }
+
+  /* The lit half glows because it IS redaction — the same meaning `.redact` carries. The
+     drop-shadow respects each rect's own alpha, so the glow ramps with the fill for free
+     rather than needing a second split. */
+  .card-boundary-lit {
+    filter: drop-shadow(0 0 7px oklch(0.874 0.252 var(--h) / 0.5));
+  }
+
+  .card-boundary-pool {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  /* Sapling and Sprout are dimmer, matching `PoolBadge`'s tone table: strength of the
+     cryptography, not decoration. */
+  .card-boundary-pool[data-tone="dim"] {
+    color: var(--green-dim);
+  }
+
+  .card-boundary-pool[data-tone="faint"] {
+    color: var(--ink-faint);
+  }
+
+  .card-boundary-transparent {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+}
+
+/* The swap social card:
+   `/social/card/swap/[key]` — a fixed 1600x900 image, screenshotted rather than browsed, so
+   sizes are absolute px as for `.card-daily`. A distinct class: it uses its own padding
+   (64px vertical, 72px horizontal) and carries the site's ambient grid, which `.card-daily`
+   does not. */
+@layer components {
+  .card-swap {
+    width: 1600px;
+    height: 900px;
+    padding: 64px 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: var(--ink);
+    background:
+      radial-gradient(120% 90% at 50% 0%, oklch(0.874 0.252 var(--h) / 0.055), transparent 62%),
+      repeating-linear-gradient(0deg, var(--hatch-a) 0 1px, transparent 1px 44px),
+      repeating-linear-gradient(90deg, var(--hatch-a) 0 1px, transparent 1px 44px), var(--bg);
+  }
+
+  /* The counterpart and ZEC cells: identical treatment either side of the crossing
+     column, so the two halves of a swap read as a matched pair. */
+  .card-swap-side {
+    flex: 1 1 0%;
+    text-align: center;
+    padding: 34px 20px;
+  }
+
+  /* The centre column: a fixed width so the counterpart and ZEC cells split the
+     remaining space evenly regardless of how long the venue's name is. */
+  .card-swap-crossing {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--hairline);
+    border-right: 1px solid var(--hairline);
+  }
+
+  /* The gradient rule leading into the crossing arrow — a fixed decorative sliver,
+     never a computed width, so it needs no runtime style prop. */
+  .card-swap-rule {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green));
+  }
+}

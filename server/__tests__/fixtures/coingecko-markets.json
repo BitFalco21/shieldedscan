@@ -1,0 +1,83 @@
+[
+  {
+    "id": "bitcoin",
+    "symbol": "btc",
+    "name": "Bitcoin",
+    "current_price": 64168,
+    "market_cap": 1287601924219,
+    "market_cap_rank": 1,
+    "circulating_supply": 20069140
+  },
+  {
+    "id": "ethereum",
+    "symbol": "eth",
+    "name": "Ethereum",
+    "current_price": 1912.46,
+    "market_cap": 230793668746,
+    "market_cap_rank": 2,
+    "circulating_supply": 120682013.99372673
+  },
+  {
+    "id": "tether",
+    "symbol": "usdt",
+    "name": "Tether",
+    "current_price": 0.999151,
+    "market_cap": 183019315369,
+    "market_cap_rank": 3,
+    "circulating_supply": 183178499291.62772
+  },
+  {
+    "id": "zcash",
+    "symbol": "zec",
+    "name": "Zcash",
+    "current_price": 489.43,
+    "market_cap": 8249897604,
+    "market_cap_rank": 15,
+    "circulating_supply": 16871956.4155448
+  },
+  {
+    "id": "figure-heloc",
+    "symbol": "figr_heloc",
+    "name": "Figure Heloc",
+    "current_price": 1.038,
+    "market_cap": 21983454157,
+    "market_cap_rank": 9,
+    "circulating_supply": 21175594037.696
+  },
+  {
+    "id": "leo-token",
+    "symbol": "leo",
+    "name": "LEO Token",
+    "current_price": 9.11,
+    "market_cap": 8380845094,
+    "market_cap_rank": 14,
+    "circulating_supply": 919993733.9
+  },
+  {
+    "id": "rain",
+    "symbol": "rain",
+    "name": "Rain",
+    "current_price": 0.0128952,
+    "market_cap": 9239573905,
+    "market_cap_rank": 13,
+    "circulating_supply": 716577603732.2578
+  },
+  {
+    "id": "monero",
+    "symbol": "xmr",
+    "name": "Monero",
+    "current_price": 399.06,
+    "market_cap": 7494032634,
+    "market_cap_rank": 16,
+    "circulating_supply": 18790258.96859989
+  },
+  {
+    "id": "dogecoin",
+    "symbol": "doge",
+    "name": "Dogecoin",
+    "current_price": 0.071899,
+    "market_cap": 11177048147,
+    "market_cap_rank": 11,
+    "circulating_supply": 155461276383.70517
+  }
+]

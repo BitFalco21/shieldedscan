@@ -1,0 +1,158 @@
+/* Brand marks: chain, asset and protocol logos in their real colours — the one exception to the phosphor
+   palette.
+
+   Colour lives here rather than on the element because inline style props are banned and
+   these are design tokens: one place to audit and change. `ChainLogo` only attaches
+   `.brand-<ticker>`; an unknown ticker matches no rule and inherits the surrounding ink,
+   which is the correct fallback.
+
+   The site is dark-only, so each brand carries a single value: its published hex, except
+   where that is unreadable on near-black (Ethereum's #3C3C3D, NEAR's #000000) — those are
+   lightened in HLS, hue preserved, until relative luminance clears 0.18.
+
+   Sources: simple-icons (CC0) where it carries the brand, otherwise the chain palette from
+   the cross-chain implementation guide. Generated, not hand-typed. */
+@layer components {
+  /* Zakura, the Zcash full node this explorer reads the chain from (credited in the footer).
+     Two tones rather than one `currentColor`, because it is reproduced exactly as published: a
+     pink blossom with a black stamen drawn on top of it. The black sits on #fd6798, not on the
+     page, so it needs no lightening. Faithful reproduction suits descriptive use crediting a
+     dependency. */
+  .brand-zakura-petal {
+    color: var(--brand-zakura);
+  }
+  .brand-zakura-core {
+    color: #000000;
+  }
+  /* The two other Zcash node implementations, for the /network page's client marks. zcashd
+     is Electric Coin Company's ring logo: their sampled orange disc and near-black ring and
+     ⓩ (`ZcashdMark`), descriptive use to name their software as in a ZEC row. Zebra's badge
+     is a raster (`ZebraMark`) and carries its own colours; its BARS and POINTS take
+     `.net-client-zebra`'s brightest ink — a zebra is black and white, so its data is drawn
+     in stripes, never in a guessed brand hue. */
+  .brand-zcashd {
+    color: var(--brand-zcashd);
+  }
+  .brand-arb {
+    color: #28a0f0;
+  }
+  /* Aleo's mark is black too, same treatment. */
+  .brand-aleo {
+    color: #7a7a7a;
+  }
+  /* Aptos publishes a black mark; matched to the ETH/NEAR treatment for achromatic brands rather than introducing a third near-identical grey. */
+  .brand-aptos {
+    color: #7a7a7a;
+  }
+  /* published, readable as-is */
+  .brand-berachain {
+    color: #fb9942;
+  }
+  /* lightened from the published #3e6957 (luminance 0.05 → 0.18) */
+  .brand-gno {
+    color: #4c806a;
+  }
+  /* published, readable as-is */
+  .brand-kujira {
+    color: #e53935;
+  }
+  /* black mark, same treatment as Aptos */
+  .brand-plasma {
+    color: #7a7a7a;
+  }
+  /* lightened from the published #0c0c4f, which is unreadable on near-black */
+  .brand-starknet {
+    color: #6666e8;
+  }
+  /* published, readable as-is */
+  .brand-xrd {
+    color: #3ccf8d;
+  }
+  .brand-atom {
+    color: #9ea3c9;
+  }
+  .brand-avax {
+    color: #e84142;
+  }
+  .brand-base {
+    color: #296eff;
+  }
+  .brand-bch {
+    color: #0ac18e;
+  }
+  .brand-bsc {
+    color: #f0b90b;
+  }
+  .brand-btc {
+    color: #f7931a;
+  }
+  .brand-cardano {
+    color: #356ffe;
+  }
+  .brand-dash {
+    color: #008de4;
+  }
+  .brand-doge {
+    color: #c2a633;
+  }
+  .brand-eth {
+    color: #7a7a7a;
+  }
+  /* Hyperliquid's published mint. Sampled from their own artwork at #95F9E2, which is their
+     stated #97FCE4 inside JPEG rounding; relative luminance 0.80, far clear of the 0.18 floor. */
+  .brand-hype {
+    color: #97fce4;
+  }
+  /* LEO's mark is an orange-to-yellow gradient that one currentColor value cannot carry, so
+     this is the pixel-weighted mean of the official artwork's ink. Luminance 0.44. */
+  .brand-leo {
+    color: #dbaa4b;
+  }
+  /* Sampled from the official artwork's disc, 20,724 px. Luminance 0.79.
+     The mark is drawn evenodd, so this is the DISC's colour and the droplet is a hole. */
+  .brand-rain {
+    color: #dbf300;
+  }
+  .brand-ltc {
+    color: #a6a9aa;
+  }
+  .brand-maya {
+    color: #40e0d0;
+  }
+  .brand-near {
+    color: #7a7a7a;
+  }
+  .brand-pol {
+    color: #8d5ae8;
+  }
+  .brand-sol {
+    color: #9945ff;
+  }
+  .brand-stellar {
+    color: #fdda24;
+  }
+  .brand-sui {
+    color: #4da2ff;
+  }
+  .brand-thor {
+    color: #33ffdd;
+  }
+  .brand-ton {
+    color: #0098ea;
+  }
+  .brand-tron {
+    color: #ff060a;
+  }
+  .brand-usdc {
+    color: #297ad3;
+  }
+  .brand-usdt {
+    color: #26a17b;
+  }
+  .brand-xrp {
+    color: #25a768;
+  }
+  .brand-zec {
+    color: #f3b724;
+  }
+}

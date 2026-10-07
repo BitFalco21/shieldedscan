@@ -1,0 +1,365 @@
+# Public TLS front door for the read-only explorer API.
+#
+# api.shieldedscan.xyz is the public name; the DuckDNS name is kept as a fallback alias so
+# anything still pointing at it keeps working. Caddy obtains and renews a certificate for each.
+{
+	# `rate_limit` is not a standard directive, so its place in the handler chain must be
+	# declared. It sits before `reverse_proxy` so a limited request never reaches the API.
+	order rate_limit before reverse_proxy
+
+	# ---------------------------------------------------------------- no visitor IPs
+	#
+	# The per-site `log { output discard }` blocks below only configure each site's access log.
+	# Three other sources write client IPs to the runtime log and are excluded here:
+	#
+	#   - `http.handlers.rate_limit` logs `remote_ip` at INFO every time it limits a request.
+	#   - `http.log.access` covers Caddy's automatic HTTP->HTTPS redirect server (requests to the
+	#     bare IP), which is synthesised outside the site blocks and never sees `output discard`.
+	#   - `http.log.error` logs a handler error (a 502 while the API restarts, for instance) with
+	#     the request, including `remote_ip`. The API logs its own errors without addresses.
+	#
+	# Excluding these namespaces drops those entries, since no other sink claims them. TLS/ACME,
+	# admin and error logging are untouched, so do not replace this with a global
+	# `output discard`: that would also silence certificate-renewal failures.
+	#
+	# After any change, verify by triggering a 429 and checking the container log for `remote_ip`.
+	log default {
+		exclude http.handlers.rate_limit http.log.access http.log.error
+	}
+}
+
+api.shieldedscan.xyz, shieldedscan-api.duckdns.org {
+	encode zstd gzip
+
+	# HSTS on the API host itself. The apex's `includeSubDomains; preload` protects browsers,
+	# but this host's real clients (server-side fetch, curl) keep no HSTS store, so an
+	# `http://` misconfiguration would otherwise send the bearer token in cleartext. The DuckDNS
+	# alias is not under the apex at all. No `preload`: it is a long-lived commitment that a
+	# fallback alias should not make.
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+	# No visitor logs: IP addresses are personal data. This is also why there is no fail2ban —
+	# banning by IP means writing IPs to disk. The rate limiter keeps its counters in memory only.
+	log {
+		output discard
+	}
+
+	# ------------------------------------------------------------------ rate limiting
+	#
+	# Zones are keyed by PATH, not by the presence of an Authorization header: a header-keyed
+	# matcher is bypassed by sending any junk header.
+	#
+	# Authenticated /chain/* and /crosschain/* traffic is unthrottled: the frontend renders on
+	# Netlify, whose egress comes from many shifting shared IPs, so a per-IP limit would throttle
+	# the site's own pages under load. The frontend never calls /v1.
+	#
+	# Every /v1 request is limited regardless of headers. The global zone is keyed on a constant:
+	# it backstops distributed floods and stores no client identity at all. Counters stay in
+	# memory; never add a `storage` block to rate_limit, which would write client keys to disk.
+
+	@v1 path /v1 /v1/*
+	rate_limit @v1 {
+		zone v1_ip {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+		zone v1_burst {
+			key {remote_host}
+			events 20
+			window 1s
+		}
+		# Sized from a capacity test that served three times this at a p95 of ~37 ms with ingestion
+		# unaffected. The heavy paths have their own groups below and their own bounds in the app.
+		zone v1_global {
+			key v1
+			events 3600
+			window 1m
+		}
+	}
+
+	# Windowed analytics and miners-over-a-window. A request here also passes @v1 above; these
+	# zones are tighter because one request can query all of history (0.2–1.4 s) where a /v1
+	# entity read is a primary-key lookup. The real cost bound is in the app: at most two
+	# uncached windows run at once, eight more wait up to ten seconds, the rest are refused before
+	# touching the database, identical windows share one run, and closed windows are cached for
+	# six hours. These zones keep one address from holding both slots.
+	@v1_analytics path /v1/analytics/activity /v1/analytics/shielding-flow /v1/analytics/migrations /v1/analytics/miners /v1/crosschain/aggregate
+	rate_limit @v1_analytics {
+		zone v1_analytics_ip {
+			key {remote_host}
+			events 30
+			window 1m
+		}
+		zone v1_analytics_burst {
+			key {remote_host}
+			events 3
+			window 1s
+		}
+		zone v1_analytics_global {
+			key v1_analytics
+			events 600
+			window 1m
+		}
+	}
+
+	# The block list. Pages come from the index; the node answers only rows the index cannot
+	# state yet, so these zones bound that fallback. Also inside @v1. The app refuses a page whole
+	# (503, never a short page) when the node queue cannot take it; these keep one caller's paging
+	# from using the node's public capacity. 60 a minute still walks a hundred blocks a second.
+	@v1_block_list path /v1/blocks
+	rate_limit @v1_block_list {
+		zone v1_blocks_ip {
+			key {remote_host}
+			events 60
+			window 1m
+		}
+		zone v1_blocks_burst {
+			key {remote_host}
+			events 5
+			window 1s
+		}
+		zone v1_blocks_global {
+			key v1_blocks
+			events 600
+			window 1m
+		}
+	}
+
+	# One transparent address over a window, and its largest receipt and payment: the costliest
+	# public reads (a cold walk is ~4 s). Also inside @v1. The app bounds cost with two dedicated
+	# connections and a cache; these keep one address from holding both. A regexp because the
+	# address sits mid-path; `server/v1/address-windows.ts` carries the same pattern and a test
+	# holds the two together.
+	@v1_address path_regexp ^/v1/addresses/[^/]+/(activity|extremes)$
+	rate_limit @v1_address {
+		zone v1_address_ip {
+			key {remote_host}
+			events 10
+			window 1m
+		}
+		zone v1_address_burst {
+			key {remote_host}
+			events 2
+			window 1s
+		}
+		zone v1_address_global {
+			key v1_address
+			events 120
+			window 1m
+		}
+	}
+
+	# ------------------------------------------------------------------ /mcp
+	#
+	# The public MCP server: every tool is one /v1 read dispatched in-process, so a call here does
+	# not pass through @v1 and needs its own zones. Per-address limits are looser than /v1's
+	# because remote connectors (claude.ai, ChatGPT) call from a few shared vendor addresses. The
+	# cost bound is in the app: the expensive tools sit behind the analytics gate, the address
+	# windows' dedicated connections and the public node client slots. `server/mcp.ts` carries
+	# these numbers and a test holds them against this block.
+	#
+	# Anthropic's connector range (160.79.104.0/21) is published and stable, and every Claude
+	# user's calls arrive through a few addresses in it, so it gets its own, larger per-address
+	# zone, still inside the global ceiling. ChatGPT's list is hundreds of frequently regenerated
+	# prefixes, too volatile to pin; spread over that many addresses, the ordinary zone fits.
+	@mcp path /mcp /mcp/*
+	@mcp_connector {
+		path /mcp /mcp/*
+		remote_ip 160.79.104.0/21
+	}
+	@mcp_direct {
+		path /mcp /mcp/*
+		not remote_ip 160.79.104.0/21
+	}
+	rate_limit @mcp_direct {
+		zone mcp_ip {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+		zone mcp_burst {
+			key {remote_host}
+			events 20
+			window 1s
+		}
+	}
+	rate_limit @mcp_connector {
+		zone mcp_connector_ip {
+			key {remote_host}
+			events 900
+			window 1m
+		}
+		zone mcp_connector_burst {
+			key {remote_host}
+			events 60
+			window 1s
+		}
+	}
+	rate_limit @mcp {
+		zone mcp_global {
+			key mcp
+			events 1800
+			window 1m
+		}
+	}
+
+	# ------------------------------------------------------------------ /agent
+	#
+	# /agent is keyless: the console calls it from the visitor's browser, and a bearer token must
+	# never ship to the browser. So rate limiting is the whole defence, and it is path-keyed
+	# (excluded from `@unauthenticated` below, which a junk Authorization header escapes). Each
+	# request calls a paid model, and the caller is one person typing, so budgets are far tighter
+	# than /v1's.
+	#
+	# The zones and the agent's token budget are sized together against the measured cost of a
+	# turn: **38,828 tokens per request** (read off `agent_budget`). The budget is a leaky bucket
+	# (`server/agent/budget.ts`) refilling at budget/86,400 tokens per second, so a drained budget
+	# recovers in about an hour.
+	#
+	#   AGENT_DAILY_TOKEN_BUDGET  40,000,000   (~1,030 questions/day)
+	#   agent_global  15/min   (~69 min minimum to drain the budget)
+	#   agent_ip       5/min   (~3.4 h from a single address)
+	#
+	# A 429 is preferable to an exhausted budget: throttling costs a visitor seconds and carries
+	# `Retry-After`, while an empty budget costs every later visitor the feature. 15/min also sits
+	# inside what the process can serve (`MAX_IN_FLIGHT` 8 turns, ~15 s median), about 32/min.
+	# 5/min per address is out of reach for a person reading answers. These numbers bound
+	# availability, not money: a fully drained day costs a few dollars.
+	#
+	# Not solved: a caller spread across many addresses can hold the bucket below one turn's
+	# reserve. Closing that needs per-caller accounting, which the no-visitor-logs rule forbids.
+	# `server/agent/__tests__/budget.test.ts` parses the figures above and asserts the arithmetic.
+	@agent path /agent /agent/*
+	rate_limit @agent {
+		zone agent_ip {
+			key {remote_host}
+			events 5
+			window 1m
+		}
+		zone agent_burst {
+			key {remote_host}
+			events 2
+			window 1s
+		}
+		zone agent_global {
+			key agent
+			events 15
+			window 1m
+		}
+	}
+
+	# /health on its own zone: `@unauthenticated` is skipped by any Authorization header, junk
+	# included, and each check reads the database.
+	@health path /health
+	rate_limit @health {
+		zone health {
+			key {remote_host}
+			events 30
+			window 1m
+		}
+	}
+
+	# Everything else without a token is a probe or the /health check.
+	@unauthenticated {
+		not header Authorization *
+		not path /v1 /v1/*
+		not path /agent /agent/*
+		not path /mcp /mcp/*
+	}
+	rate_limit @unauthenticated {
+		zone unauthenticated {
+			key {remote_host}
+			events 20
+			window 1m
+		}
+	}
+
+	# A rate-limited request never reaches the app, so Caddy reproduces the API's JSON error
+	# envelope rather than answering with an empty body. `{http.request.uuid}` and
+	# `{time.now.unix}` are real placeholders, so `requestId` and `asOf` are genuine.
+	# Retry-After is set by the limiter and survives handle_errors.
+	handle_errors 429 {
+		header Content-Type "application/json"
+		# CORS on the error: `OPTIONS` is inside `@agent`, so a throttled preflight would otherwise
+		# lack `Access-Control-Allow-Origin` and the browser would report a CORS failure instead of
+		# the rate-limit message. `*` is safe: these endpoints are keyless and the console sends no
+		# credentials.
+		header Access-Control-Allow-Origin "*"
+		respond `{"error":{"code":"rate_limited","message":"too many requests — budgets are per-IP plus a global ceiling; see Retry-After"},"requestId":"{http.request.uuid}","asOf":{time.now.unix}}` 429
+	}
+
+	# ------------------------------------------------------------------ /agent
+	#
+	# The agent runs in its own container, so a mainline deploy cannot break it and agent code
+	# never runs in the process serving the site. Routed by path on this host rather than a new
+	# hostname, so the frontend's `connect-src` still names exactly one API origin.
+	#
+	# `@agent` is the same matcher the rate-limit zones use, so limiting and routing agree on what
+	# "/agent" means. Directives of one type keep file order, so this matches first and the rest
+	# falls through to the mainline API below.
+	reverse_proxy @agent explorer-api-agent:8080
+
+	# ------------------------------------------------------- /v1, /mcp
+	#
+	# The public surface is served by `explorer-api-public`, a replica of the API
+	# (`server/api-role.ts`): the same image and database, running no background jobs. A public
+	# flood shares no heap or event loop with `explorer-api`, which serves the site's own
+	# `/chain/*` reads. Same named matchers as the zones above.
+	#
+	# Deleting these two lines falls back to the primary, which still mounts both surfaces.
+	reverse_proxy @v1 explorer-api-public:8080
+	reverse_proxy @mcp explorer-api-public:8080
+
+	# The API enforces the bearer token itself, so Caddy only terminates TLS.
+	reverse_proxy explorer-api:8080
+}
+
+# ---------------------------------------------------------------- TESTNET API
+#
+# A separate site block rather than a path on the mainnet host, so the two deployments
+# cannot reach each other's data. Its rate-limit zones are separate too: a shared zone would
+# let testnet traffic consume mainnet's budget.
+#
+# No /v1 zone: testnet runs without PUBLIC_API_ENABLED, so /v1 answers 404. If that changes,
+# copy the /v1 zones from the mainnet block with a `_testnet` suffix — never reuse mainnet's.
+api-testnet.shieldedscan.xyz {
+	encode zstd gzip
+
+	# Same reasoning as the mainnet block: SSR and curl keep no HSTS store.
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+	# No visitor logs, exactly as mainnet — the rule is about the box, not the network.
+	log {
+		output discard
+	}
+
+	# Authenticated /chain/* stays unthrottled (see the mainnet block). Because a header-keyed
+	# matcher is escaped by any junk Authorization header, the probe paths also get a path-keyed
+	# zone, so a future prefix added here does not inherit that hole.
+	@unauthenticated_testnet {
+		not header Authorization *
+	}
+	@probe_testnet path /health /metrics /debug /status /admin /internal /_health /stats
+	rate_limit @probe_testnet {
+		zone probe_testnet_ip {
+			key {remote_host}
+			events 30
+			window 1m
+		}
+	}
+	rate_limit @unauthenticated_testnet {
+		zone unauthenticated_testnet {
+			key {remote_host}
+			events 20
+			window 1m
+		}
+	}
+
+	handle_errors 429 {
+		header Content-Type "application/json"
+		respond `{"error":{"code":"rate_limited","message":"too many requests — budgets are per-IP; see Retry-After"},"requestId":"{http.request.uuid}","asOf":{time.now.unix}}` 429
+	}
+
+	reverse_proxy explorer-api-testnet:8080
+}

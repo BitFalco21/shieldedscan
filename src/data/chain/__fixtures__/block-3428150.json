@@ -1,0 +1,603 @@
+{
+  "hash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+  "confirmations": 3,
+  "size": 117778,
+  "height": 3428150,
+  "version": 4,
+  "merkleroot": "69e31c936fcdbb50261e680d7660cb8a5cbeb8453405ac476203af8fbdc09145",
+  "blockcommitments": "e06c2dba56a8a285fb4e1f20b0b9a9dcd94cc89bd8c92b766b20ac0474afec73",
+  "finalsaplingroot": "240ddb71df85ad9ab64a348c9cc50b4a9d72e04925023f1c1e93a16367651564",
+  "finalorchardroot": "048c473a2931dbb4c3572e9736f38ca5c637460cb7d70bd43ae2155e0a191e05",
+  "nTx": 7,
+  "tx": [
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [
+        {
+          "coinbase": "03364f3404f09fa693",
+          "sequence": 4294967295
+        }
+      ],
+      "vout": [
+        {
+          "value": 1.2513,
+          "valueZat": 125130000,
+          "n": 0,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 25db9091e9786867e536f70089a5102523ab1d6a OP_EQUALVERIFY OP_CHECKSIG",
+            "hex": "76a91425db9091e9786867e536f70089a5102523ab1d6a88ac",
+            "reqSigs": 1,
+            "type": "pubkeyhash",
+            "addresses": ["t1MKn34KBa8Xh4g8qU8psibBXvURafphVn7"]
+          }
+        },
+        {
+          "value": 0.125,
+          "valueZat": 12500000,
+          "n": 1,
+          "scriptPubKey": {
+            "asm": "OP_HASH160 c20cd5bdf7964ca61764db66bc2531b1792a084d OP_EQUAL",
+            "hex": "a914c20cd5bdf7964ca61764db66bc2531b1792a084d87",
+            "reqSigs": 1,
+            "type": "scripthash",
+            "addresses": ["t3cFfPt1Bcvgez9ZbMBFWeZsskxTkPzGCow"]
+          }
+        }
+      ],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [],
+        "valueBalance": 0.0,
+        "valueBalanceZat": 0
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 142,
+      "time": 1785247959,
+      "txid": "a23d77c48b523f0e0d3f8a2524d76100b6f7f01ab7685fc44b954b23b3b9427a",
+      "authdigest": "6d0dd944a03bc9d4eadd54e7d3ffb1157f276ff0d3f5af157562f7dc07ab0a4d",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428150,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "b4246727ed6765c3c4e124429e9768596a265bdd7d1322d35aaab3f33a0ae40b",
+            "nullifier": "8875350b3816f3a51bd03555a7b6d7ae667688a39d0c1cebf33acaf6c641f126",
+            "rk": "838ae4b1c2ee7f775af4ae1ea8b859441b5537eb21ba1d2a9513938e581ee703",
+            "cmx": "66655dbc5a94ddcdb0e60147bbab1d852413abd1d3176a8d58ba7bbda98f320a",
+            "ephemeralKey": "a3acd51c923e332a8f3ad6ec7a9bd4e94b4d629a6e68a73be441785fb0701920"
+          },
+          {
+            "cv": "62c7d88d4079ce897c8e7c15d8ac1d7ae16232989763d7f293ee6040f385ea81",
+            "nullifier": "649af2b580fa0fd97e510ba2e201cdcff52839a05a2d246bedfdb4f50a46d425",
+            "rk": "72697be796b34afea29edf476fa05eee02e7082778e753cefb436516faaf1a29",
+            "cmx": "1a47bf830052a1765c09e146d2ccb493a7aa4fa55fccc72ff56fc2cee920ab35",
+            "ephemeralKey": "698711567bd555214c1ac1197b52cdbce1564c13b5e9022d98ea7923175fd217"
+          }
+        ],
+        "valueBalance": 0.0102,
+        "valueBalanceZat": 1020000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "c53aabfcd8fccb1b9d1621de67596ca40a785be9ff9fb972e59ad53e0b65b81b"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "407e0c8fe84430347bc2492709f10da39e17659d163902b92a00c1ff9ab05782",
+            "nullifier": "dd72a337a1cb552e7b27ed8fc4429178bb50c2fcd6360c5d6e7d5c2d6973bd27",
+            "rk": "3abc26d9b5a941e1e9a8d10bd8d8104a54920d0180d7c0252c83264a412674bd",
+            "cmx": "dc4798dfcf633cc67d6d4704abde2ba98d0e04a0911fbc3cbb12c79928f39f21",
+            "ephemeralKey": "0d99600bcb403736ba66d9035ec241e49a52f258520a4b1b0d5c1978e9c3329e"
+          },
+          {
+            "cv": "be510ac7f9a4498133aa5449013d3219f847f8bafab4ddd1ed13a1ad8e14460f",
+            "nullifier": "82b7baed6422ba8031030ea4cb25f02f1e0acb46b8fdf64d7a190dce6e964d01",
+            "rk": "ff26e23085402ca459fc0f8de46318b365a2fe1d93862060427b9e3c41af0f3a",
+            "cmx": "a5f48c99b872e6774ba13fab98b25af7f83a23188b826098c6d8731cdabdfb20",
+            "ephemeralKey": "e9f0f7166b9d24b63095b00f2e3b5304e0162f3ecd4c0c47b4bb913cddfd66ac"
+          }
+        ],
+        "valueBalance": -0.01,
+        "valueBalanceZat": -1000000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "ad4bd9fdb5c2e040597e36c9ea367575cdd1d53ed451a8a3454078c6670fbf3b"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 18306,
+      "time": 1785247959,
+      "txid": "8084f55cf8267b59f28ad41fcbe9974c74338e0b0c1b0ae05cf53461696f40cd",
+      "authdigest": "e10078323a1fd0b3dccd5a418c3cb276026dfdaf4038ad2954a7784169f7f98b",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428189,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "46578de84c67b52a74b29432bc999f92646268a63cf300316d79186b5ebac9ba",
+            "nullifier": "822d11810af32b8b1087eac38d298ef2d2552437d320a6d4fd2125818322290e",
+            "rk": "4fd1be02fae2ef3c7887a63930d473541040ae7e95e63f85106bef9dc4625b8a",
+            "cmx": "25ac40e11e626176aaf73b03ac10afab0af01919805cd1e95442bdada817582e",
+            "ephemeralKey": "4ecaabad53c1b3644dfbf5ad0e486fae4aca2247c2aaeaedcbdd3006084c5537"
+          },
+          {
+            "cv": "03e23ef5789426531afcbc7470aa6a88ec8e218dce9c879549ea8fe6690b841e",
+            "nullifier": "a8a810e1fae030bb895bcaa2be279a2e3d622caf3ea19c10b55a36ca0aba5218",
+            "rk": "bd303a16e1b825b9f022ef6aef2efab955c1c7f745eeaa98d4c04d66dd70b68d",
+            "cmx": "e73a59e71f0f44186fd632a220731e7a1ab90b028e0b70e70401f5f8de34d90b",
+            "ephemeralKey": "565174c235b18a41d91bf601b42487953dee7f1fee10672f42809c37f5a4a68a"
+          }
+        ],
+        "valueBalance": 0.0012,
+        "valueBalanceZat": 120000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "924420badf702dbdd3131a3d0ee4d6ee51bf638c0cc06a8398f7a6856e293c1d"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "8e7af5b6ea7fcdd35581f678e19b22c0804757c03d8381340788437dc4915b1b",
+            "nullifier": "ef10314ab0e263bf35433da653ca4cd89812ec14f88ab08279e24ffa2660aa3d",
+            "rk": "9e50f28465bbb90ed9e909f325fb0f924569aad19dd5983113e84e15d8bf7627",
+            "cmx": "0e81965ae1cae7931bce9139f5f15e021cbf5df3a2fca570d2d12f2b2f881027",
+            "ephemeralKey": "b369b98f80eb60f6070ffddd5bc23c3c7cddcaa82c3bddfd929b6a90e2a4b19b"
+          },
+          {
+            "cv": "4ec4624a59733f098594a3df8cf5c029a1eacf577ca67d39b0b33e9473b2001e",
+            "nullifier": "044836132e7436d5edbd50095c07fb542dcb6adb01ffda127a727d8948d5bc26",
+            "rk": "95a6275c789fe3d524525e64797b3b85f27a08cc55698c5f647dac3ca41829ae",
+            "cmx": "706eed8112e0393c8f13c7922244bca1f7b75c55b55295363d004e9276239214",
+            "ephemeralKey": "39b34359ae4aa4babede4b7a5a6c8ed78f2cf3b419d415569fe1ed5de61ab71d"
+          }
+        ],
+        "valueBalance": -0.001,
+        "valueBalanceZat": -100000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "f10de622a02782da6e1095c63965f442aa90c18f8c3e525cb42ab91d5c9d502d"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 18306,
+      "time": 1785247959,
+      "txid": "de50e02bf4218b64e4fdefe8bf58583e697420cba9d905ea71790feff33b915e",
+      "authdigest": "002b48bf6528999fc08949bfea3af1e32ac3efe900de7b3ea06c303dac87082c",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428189,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "9c3240430ea5fabe96bac1054378f30411f57151c329060e9c2f8fefa5801482",
+            "nullifier": "667254b6394e85bf1ceb0a32883057e38ac5ea9d022780dfe38c16dbdce9280c",
+            "rk": "24095e353f4627e8b75ec9be4ea161a765500b8e4ccc872f8074c1bae1a57835",
+            "cmx": "44034103245f8735b3b681f2a47a94a2e3dcb6522ba9c1ebdd1b48dc0a175438",
+            "ephemeralKey": "942dace870eef2d5ec0af44ef4f2b3580226a15c9a9dca6df80ad9db85574f2f"
+          },
+          {
+            "cv": "8570fdc5f7436072218c68026c9c8e142705e9db91f6b5dd6dd9c0ef16e1bd96",
+            "nullifier": "efdda0c7811cec08a46429eedb2c58578dda1aac75e2c13f71e93db514c75f22",
+            "rk": "3dfc048226ae69628e8439465789bccbec7b65d3c477f1e5f85ecfc6b6b27ba4",
+            "cmx": "f74499b2f6a0211672435ab0e4b6df021bb4ff4bee5351e57367edd3e194dc3a",
+            "ephemeralKey": "c4bd4eac1d52065182fb48d8b5d064297ed6ce3d9bedcb919a05c3f76c723e2e"
+          }
+        ],
+        "valueBalance": 0.0102,
+        "valueBalanceZat": 1020000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "4857a182a9298011aa13c68032069582a76b89912ebfeeb05abb146c4034ff14"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "530ce98c5629a4bc3c5d60debe74154fa3bab2f4cda55db40197754f06079994",
+            "nullifier": "bd93fa0aabd0a2a449b696075547d5eeba11e7aea3c33bfbc63f09b742b1543f",
+            "rk": "f0105d9068b544d565975d7b31268acf9e90ef48c07da076522f2f431a852120",
+            "cmx": "6c1234e0b0231817318cb2d44678fb007b451e50a4e193fc57c794cdc60c0f22",
+            "ephemeralKey": "0165d67800968c78a9d4978bc31db98c937e081d9d8a522b67150147e7a7c826"
+          },
+          {
+            "cv": "4af212a9a0962128e0348bd11a1d1292211d5cf18c2e17471de403cd3dc1bb1b",
+            "nullifier": "94908c94ed794b1cc3fd9be286dac42d2ff46d0885b629c5c779f88d7e3a4134",
+            "rk": "3060c0da8df97a1e335894c6804e9f426893c30c7ec79ecceef34342a978c2ac",
+            "cmx": "d39b8e20e4205f4e57ff7322c48f6eeb10234fa71197855bf152d76e994b712a",
+            "ephemeralKey": "308dd05acbb4451694866cac586964f34ce72bde3f37f94adbd3f180286d080a"
+          }
+        ],
+        "valueBalance": -0.01,
+        "valueBalanceZat": -1000000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "0a6c46fdf087ea29705ddf332f627a7210d2289d3c19621d0bdbba8c379e6d2d"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 18306,
+      "time": 1785247959,
+      "txid": "07d18d850656bda82d40aef20d0b335558d0f626a92c90c67d096f1e5e6fc707",
+      "authdigest": "a91e598b5a3d45ecf704d49414d26e7a15917bb20317c392f85aba292cda7508",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428188,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "dc12036af7f1baeda80e7cc10051c996842da4c2c70ca2bded7bc979d49a638c",
+            "nullifier": "f932396fae614f4b52b47a60f126b38ef45f26c328ef07aa1b52a42aaa157014",
+            "rk": "dbb9262b3e78b31f4bfae5722628be515d72857d152206bf8ad063edb587c533",
+            "cmx": "317f36e3385a22ff78edffe2976a1e14ae07f3fb45b21b7e54a62fa283baeb35",
+            "ephemeralKey": "f446b710f917984125fc6af8486abdaafcfaf12ac8d23f6c13c0e173b369a094"
+          },
+          {
+            "cv": "9a9b52980053fc618a10aa067a21c469e5456c3e353ea7c50b751956b708219e",
+            "nullifier": "6b19b54729390fac95f6fc9ac6fef98a8c29eefaf05513ab6bbd682e95a26e22",
+            "rk": "ae2287556d3b69c5cc0d1dc67e9b9b90e92816b1e0f77971282ab1b4136515a8",
+            "cmx": "01b371d236761c37f268a643dc1752d900ce2e6df1d139f155db0b0f4c0aa236",
+            "ephemeralKey": "0194a2032cbf46714eab4273bacddbd4fc68aefb1ddc933c4914afd81821a981"
+          }
+        ],
+        "valueBalance": 0.0022,
+        "valueBalanceZat": 220000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "f6f5523c55ab6e32e4b69ca257e144bf373dfc22eb3a0ffbb9519cafa8776c29"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "7a6db12e6b78e11de517dc234c7f7027bb88c2e964159c83ca879a48d1a5b02c",
+            "nullifier": "b2f575f93f9cb223edb695214d4020db0472d1adf49f0cdfb953fee418bc9f3c",
+            "rk": "6ce54a358851955d8a15aea7dc436e5815d115e7ca7635073182e94556441f1f",
+            "cmx": "1dac05dd74c72dc5e43387eed2e1517085b4d81339f290f19dade2c693ae7625",
+            "ephemeralKey": "ed169bf3839ea8abc900fa55c62447dcab2035ab97223943d391df4004153028"
+          },
+          {
+            "cv": "9c04a1789cd8270f9d86b89b95e55bbd2e30a348a5bf52a552337a225d5d6595",
+            "nullifier": "3baf358826e167a09be1a31f1ac0828986549f074a679d06a96f4165eda5c81e",
+            "rk": "2390b58c635c9e850652e7474024b64a35c194f7e2d23e65254de38ed3d02284",
+            "cmx": "c2cf6caf8bd9adcf147da93092c0d7c1a8b9c8ca56d12259c8fb845d2a4c7620",
+            "ephemeralKey": "3716e76f0f3ede3ffee0f9fbd8843e7580355377a5851dfec48ba31f8ce259b7"
+          }
+        ],
+        "valueBalance": -0.002,
+        "valueBalanceZat": -200000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "1fc133493a7c6d369ece9b5f50eec778ee72eb5488b0b10803b915d6f72d920b"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 18306,
+      "time": 1785247959,
+      "txid": "6edd978f4d3596b7c5a89c6c0baf6626ffb20ea0af4abdde082920f9e15564b4",
+      "authdigest": "e8b5565fd187284ccc8b3dcb4c6a8ae45bcefb16294c0f1db21e4c5928c88b06",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428187,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "ee815adb39edb4a6de3f7593addccf632ec686c2498569bcd3ea26eaf4412519",
+            "nullifier": "6ec62d4ae0a6686ac1b73269d61832f10da6d0267037ca2401233bf932112e1c",
+            "rk": "e326a77999e5fe5f05f821cf72a286df406db3c0cde89fbbdc1e55e0ffd2899e",
+            "cmx": "9233f5ced2262e3a1dc688f61b77e4024f5acffd6d07b402abfe7005ee1fae28",
+            "ephemeralKey": "847956a6dde0d7c75906dfa4712ca6fb632471a97e01362a2a23c59014807302"
+          },
+          {
+            "cv": "27d70ec3af0763b8ff26827943dbb3e22a11da0c6ef2d1b075b483b28df80eb1",
+            "nullifier": "104d2b46a53791f98f720b7ce6cbd59e9c735b0c68d40f268378f0d46d91ed27",
+            "rk": "de9ac80c13445dd69da9a82f4e6b69427fa6849c266c6fdc7e64c55b6b9c44ae",
+            "cmx": "e7717b2c331869b7e7ff12970f50502b1a6fdc5ddfe9f826097b109898e8a00a",
+            "ephemeralKey": "8af0a8a3b132a96a3ecf21e6f37d2b2ae51183fbacb6d66ea62c96b8a843b223"
+          },
+          {
+            "cv": "824022a243ede1e2a41cb218e73b93e60e2693933fd61a99e846920e86566a95",
+            "nullifier": "bf74c8bd71326afa051a4f3c1ea1ea8233ed14b8a114bb2a4dc63b4e2c2c981b",
+            "rk": "6f4f5b8fa4f99404cfac6c43ffdc16c8680716cc146be44dba85bce7d4c34b39",
+            "cmx": "ea820cc06700790cdc75e71174317fb5e91c6e6eca8b86767fa3a46292f33e10",
+            "ephemeralKey": "d6ad9c958d225edb2c7adea329d5974b35a9282b8dade0057a2280b087d61fb7"
+          },
+          {
+            "cv": "2bd5f64724887ae6fdb7b4b84c16f6dc4d37d88163cc6f43d874feda0bb59d32",
+            "nullifier": "7a307368626ca00f15cedc04cfc64c8463eba8304ae83bd4a61124743fe7960a",
+            "rk": "2ab8ae005132c1022ffd6b273591b2845fc36c22534f0500470ffcd0ec830e1f",
+            "cmx": "00d018bc2a0617b0ef5ff75d37f9f77dc8101054fadeec2879fe9326443f1536",
+            "ephemeralKey": "682168d27368650d3f6292cb8d65cdebccb2bc1cb7e1aa7723d6cb9098663ea5"
+          }
+        ],
+        "valueBalance": 3.0003,
+        "valueBalanceZat": 300030000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "8bf2dfcdba0e6bf3ca2a23ba71b5b236af99ba95584a558117015c4a51ddc81e"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "a9803e7efd67721a03530257322d6475b22ddc14dacdffee19ead51b809f4788",
+            "nullifier": "98fd393ee95a2605fa2b0d5b18ccb911545797202cebca6e2cdf35da7fb1ae1f",
+            "rk": "d7fa54f92eecf734736dcf4c303041bc5f98d6a45d88a0992694cb756f57be22",
+            "cmx": "b3864f261a1832ec29392686ff1e0407a53f1e710c6fae605695022635c96f3c",
+            "ephemeralKey": "e4a3208c8e577c1f5c15af74ba85202320fe5664de1c9964567b8663d46510b2"
+          },
+          {
+            "cv": "b332def3760c3396018c15f8729b8c8926a5520a4b9276a37b5aa80eb8b86c91",
+            "nullifier": "fea216fcf0fc4024e935ef1cf0bcec46089762ab514f3cb4cf31524899784b2a",
+            "rk": "1504e58d3387656b5ab0e605a6c14a42abd613b94bab890dd971419605100921",
+            "cmx": "faa2b30f42402f4f6da5945bd6458cadfeed54887f0065281263c3547db56d1e",
+            "ephemeralKey": "72656da0548f928d86346f7d446f4b34b9cee0fb71d596693a43a7c8aa4ef2bc"
+          }
+        ],
+        "valueBalance": -3.0,
+        "valueBalanceZat": -300000000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "99af5a0ae242a95d8712d81bee3cfb16e615ab05c30a0c40e898126adcbca31d"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 24618,
+      "time": 1785247959,
+      "txid": "25d87ba678308c4b88b5b3cfebf4eda388d2e3523f2cf93c03ea2894b0fe8a1e",
+      "authdigest": "1e611e7c75ef67edb1acf2dde4d179526bd8cf73b8460e3b56df06bfa5f6da4c",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428190,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    },
+    {
+      "in_active_chain": true,
+      "height": 3428150,
+      "confirmations": 3,
+      "vin": [],
+      "vout": [],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [
+          {
+            "cv": "09a44572843d8e4cfe51e142052513fd195b3463f3e69a8ec4eb6ab36aa82c13",
+            "nullifier": "daf2e23fcc2fec2dca80a8b9e026f201f5c68099331815b91024ded47a94561e",
+            "rk": "07b70ceb43c56d5c12dee67f7b713a41e0585cf9603f289cd4acba5c661a2aae",
+            "cmx": "f92a6f6d2098fbe0c9f35a9c49fa07d46628c5ce2dad8bd1f3f4d66d2d683a33",
+            "ephemeralKey": "fadecbef362ce5b0b51b00f12db7617059f859dfef8b3c7712129e18a2fe05a5"
+          },
+          {
+            "cv": "7162a69551dfc3187e6705a1615d006f7751cc0b4d65e0a501a5248d3ffbf022",
+            "nullifier": "d612515baf482a7979dfed7b9cc89ff040d51a24a13dc56578286f7a6d936e0b",
+            "rk": "0e4403792ca336306af3a815b6726c7468407b3e1b0103cef7d847796a06418a",
+            "cmx": "f266693d59de89a4ef704d4dd66842c03964f8d14576a030566179af6a030e3a",
+            "ephemeralKey": "0d2568fed799634fe087a678de9e6a14f79506489174598436c0f6a8885d831e"
+          }
+        ],
+        "valueBalance": 0.0012,
+        "valueBalanceZat": 120000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true
+        },
+        "anchor": "4857a182a9298011aa13c68032069582a76b89912ebfeeb05abb146c4034ff14"
+      },
+      "ironwood": {
+        "actions": [
+          {
+            "cv": "84632d446db6cff1b62dd5e7332e25d2fd80eee937b2f144e0ab6bb17f027ebd",
+            "nullifier": "466c8f1bba514a49933d7088e46eab5eebd39ba91f4e6b84ace84932b266af36",
+            "rk": "9f6d30efafca9f1f75c3e9e96b06808a63096d5b87910c1578a65a7c33d14d81",
+            "cmx": "29d93f149f7eef8df695ad181c8e4857abf801563a0adc99933fe4834ae1f01e",
+            "ephemeralKey": "cc86e50b4e6d250ed6cb40afee396fe4073783be6f1f5a0c958552b8f38dab01"
+          },
+          {
+            "cv": "367a99175763fefac2d3acba4711fb57ac25404f9a21fc701e3c55df745d6c14",
+            "nullifier": "99fe2f36610a2d9ff2fc89af4f69cd05a44583a75a75ff574c638bae613e222e",
+            "rk": "8daec9ac8304d304e629a7dbe4c230706c56f5ca8308c666a57a13901e98f703",
+            "cmx": "b57437c4a5e52e23faf18e150bc102e7edb592878b0ea0539510f5bf2629dc38",
+            "ephemeralKey": "a440d9bcc9cd5c7b6d33b208612d34c63ad7dcf3147e0468edbee601a8e48ca8"
+          }
+        ],
+        "valueBalance": -0.001,
+        "valueBalanceZat": -100000,
+        "flags": {
+          "enableOutputs": true,
+          "enableSpends": true,
+          "enableCrossAddress": true
+        },
+        "anchor": "0a6c46fdf087ea29705ddf332f627a7210d2289d3c19621d0bdbba8c379e6d2d"
+      },
+      "valueBalance": 0.0,
+      "valueBalanceZat": 0,
+      "size": 18306,
+      "time": 1785247959,
+      "txid": "5bf0153577418720fc9b749e7cee409502f19a4d553ac5526cbbbd4150afacbe",
+      "authdigest": "d1887ca72537912d4e2c09f25e593e00df05cd9493ee17cdbc03084c245c1363",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3428188,
+      "blockhash": "00000000004c828d2e62a4782c9668cc794e318f5b214a90f29322c925a3b553",
+      "blocktime": 1785247959
+    }
+  ],
+  "time": 1785247959,
+  "nonce": "90130154000000000000000000130000000000000000000000000000059f2b83",
+  "solution": "00c67b86e72b6837c8fec127db4092a26aa0f66d311dda43fd0dcfdc4ed53dd34ffc3407c17b775d939d10cbde74800a31631794a449a06a276f4af5fc458b2073466742d5c79ce7ce44ea3459e75a0ffe18121806abc039dd96cced555eb70494e4a03a4f3ef2aca610888136b39be66510cd526acef7dcd0b405b7e9e12f6ffd4f1e561e4ccd0954e12a5c3e7dd8ebde3e0a55b41ab362a7e9ed6737657021d734de419cb8658e0179e6f1beb19e97b892925726f658fa332f5499ad16fc2ec141a7cb73ff7164ebb6e0cede657b5e186103ad7b0e429b48a55610e064f94b123e1db99cd7fd1bd2e1e7050d31c0e7a0b87f1aebc1c631b6b1b6f302ac860ac7d6aef7905f705b139dea80e0eb0b07df09e2668a3ac9e59e738b81fe58d28ad6b0609f68582ba56603805d3cd7f73a6608716e7202ace29c51b237014bb87ad8bc097865d5f46b45ad61ec9998bbc702f92413235a5c0187d540c37978a715c59b337be0310b7736040cc34138b73688d56db0ba2b0612d48a37c7aa96b5e65f0f79cfa4e1aaabc2daafb0da3d0a40c7024958145f0f1ef58896e9ef92feaa2b96ca60067d268d42f46e57ebd1e0f78bb67ed43ea36775252bc90ffce96a593f5c04d685e84bfd1e7dc059ebf4081d097572246f1533c061eb63d45d2db104f3d4ff3eac1fa8b16bdd4b7121dbb22ee9fbd6f7cd7d5a3e059d40ddcaa0badb7202064baf6e0762e7b9bc9149176c4ac7d58d27fbe457561211bbe21a1dd497d15612091637ea65dfebb4c441de299e5a220c3211110226181bd0960bcfada690d40552f8adb690f7ddbc051407a40898a94aeb4b1c932574f9289e076011bc32165c82cedf45b2b92d9007be3b550c3a7f97745c3934986de65c0eaa252ee4c58c5e73b76dc2ef3514794bcaeb8e89da9713e7c13553dc7ba32e24fd51707b01ad35449fc3c953d29ad9f53eed15abca7ddee63c368971c9c4ac317b9a20744958d205a55419ec9ed00b80559d5dde1dc93e951279c2b862d99c653a09cc7ae2a5e8901fb09bf5df28439c685e1e271671e5690e4943a7b395352d2f9671b931a2e4bc974917cc2421613ce5d56ee381e930d25e97d4fe3ed4ac17b0471c7055de20a2ca1f5939e2e72eb42f80d79cdf2fee2153ceaba3afb041e59ce2174926bcd1bce23b0c1d01f1ef4aaf07f822a1c3f497e86f7f1ec8a59dff681455470cc71151ecef892394d6db01127a59bd1bc406cf855faf700a099ff3812c589b314f703c1fa6dc07b60774144c4a167d38d0b102103e55dd8274049e0d84593b03a1c5b9a1a302546ab9c8652cbc5a01c4177ef649a6c81ad3e11462ed522ea01130bb39f88d15979ef75a4b2cff94bfa2e81c651f65755c6e52b7404e55ada65f3b87b723d40a7ed80c55120968c5cd09ef0a656226d46fef2895662e6077c3a36cbf730546848cfbf65e0f8fe753d51db8b3ef9d7e0d7e18e71888059da14923f9e733d53d84560f79f8aa9a1e9d2b397263a8a20f3972752562f2532ea2fd7ab902300e6c84d4b74463628a19d6a37fb6bd8aa079bb2f12397df295b91a2dab06b8b6faff46f5824bf6bad1f90f0dc51f5708fd4ebd2228a800e6e33ec7573d55d71647a5b4aed29c08e3ce22066c220e8ce39a7d0b000ffeaa7af21002d29f83d175ebed608ccc6ced9b3226008303fd8bd350ef4028b5b8f69d96872799945911229e5c20a81dbf7e037323e0e0c0cd31630d04741dd6e1fb6b625e41636531ef8febe0bd295d52f946178f33763a4f203b74c594835a5a41e2f8fe5fc8512e9d1f7052e00483e8872538f87829b6de361a92842c47ef98110f1bf6ce8844e0a5b4e0f55a4297f4253e397d8a151704a7d571f4b51627d9a9fe6fbdca21",
+  "bits": "1c00c1af",
+  "difficulty": 177401049.65395397,
+  "chainSupply": {
+    "chainValue": 16846117.3530448,
+    "chainValueZat": 1684611735304480,
+    "monitored": true
+  },
+  "valuePools": [
+    {
+      "id": "transparent",
+      "chainValue": 12517279.49809515,
+      "chainValueZat": 1251727949809515,
+      "monitored": true,
+      "valueDelta": 1.3763,
+      "valueDeltaZat": 137630000
+    },
+    {
+      "id": "sprout",
+      "chainValue": 22637.26786698,
+      "chainValueZat": 2263726786698,
+      "monitored": true,
+      "valueDelta": 0.0,
+      "valueDeltaZat": 0
+    },
+    {
+      "id": "sapling",
+      "chainValue": 592178.91137121,
+      "chainValueZat": 59217891137121,
+      "monitored": true,
+      "valueDelta": 0.0,
+      "valueDeltaZat": 0
+    },
+    {
+      "id": "orchard",
+      "chainValue": 3661170.1455456,
+      "chainValueZat": 366117014554560,
+      "monitored": true,
+      "valueDelta": -3.0253,
+      "valueDeltaZat": -302530000
+    },
+    {
+      "id": "lockbox",
+      "chainValue": 52828.3125,
+      "chainValueZat": 5282831250000,
+      "monitored": true,
+      "valueDelta": 0.1875,
+      "valueDeltaZat": 18750000
+    },
+    {
+      "id": "ironwood",
+      "chainValue": 23.21766586,
+      "chainValueZat": 2321766586,
+      "monitored": true,
+      "valueDelta": 3.024,
+      "valueDeltaZat": 302400000
+    }
+  ],
+  "trees": {
+    "sapling": {
+      "size": 73938245
+    },
+    "orchard": {
+      "size": 50227978
+    },
+    "ironwood": {
+      "size": 43
+    }
+  },
+  "previousblockhash": "00000000005c25d0e2823222609565e8571cbc789cfdd8b436a5704382a54e63",
+  "nextblockhash": "000000000095cb0d45d71c96a2c5a0e9d284d2edb079f7e995aaea779839991a"
+}

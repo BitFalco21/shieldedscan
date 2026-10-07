@@ -1,0 +1,1024 @@
+<meta charset="utf-8" />
+<title>shieldedscan — cross-chain</title>
+<style>
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "JBM";
+    src: url("../../public/fonts/JetBrainsMono-ExtraBold.woff2") format("woff2");
+    font-weight: 800;
+    font-display: block;
+  }
+  html,
+  body {
+    margin: 0;
+    background: #000;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="chain-marks.js"></script>
+<script src="film.js"></script>
+<script>
+  "use strict";
+  /* ---------------------------------------------------------------------------
+   shieldedscan — cross-chain film. Vocabulary comes from film.js; this file
+   owns the timeline and the scenes.
+
+   EVERY figure and EVERY row below is real, read from the keyless public API on
+   2026-07-30. There are no placeholder rows in this film: the transfer list is
+   twelve actual crossings with their actual hashes, amounts and per-leg USD.
+   --------------------------------------------------------------------------- */
+
+  /* ------------------------------------------------------------------ data --- */
+
+  const CC = {
+    from: "2025-03-30",
+    to: "2026-07-30", // coverage.firstAt / lastAt
+    venues: ["MAYA", "NEAR INTENTS"],
+
+    /* /v1/crosschain/flows */
+    inTransfers: 50031,
+    inZec: 1245251,
+    outTransfers: 79675,
+    outZec: 1628384,
+    inFlows: [
+      ["BTC", 417420],
+      ["ETH", 399461],
+      ["SOL", 234470],
+      ["NEAR", 61483],
+      ["TRON", 50660],
+      ["ARB", 35269],
+      ["BASE", 21562],
+      ["SUI", 12495],
+    ],
+    inRestChains: 15,
+    inRestZec: 12429,
+    outFlows: [
+      ["ETH", 772153],
+      ["SOL", 337947],
+      ["TRON", 160301],
+      ["BTC", 125298],
+      ["NEAR", 67845],
+      ["ARB", 59224],
+      ["MAYA", 55636],
+      ["BASE", 31717],
+    ],
+    outRestChains: 14,
+    outRestZec: 18264,
+
+    /* 60 consecutive real crossings, newest first, for the opening swarm:
+     [counterpart chain, direction, ZEC amount]. Every streak in act A is one of
+     these — the distribution of chains and directions on screen is the venues'
+     own, not a shape chosen to look busy. */
+    swarm: [
+      ["ETH", "in", 0.07423378],
+      ["ETH", "out", 0.55234619],
+      ["SOL", "out", 20],
+      ["NEAR", "out", 0.00219225],
+      ["NEAR", "in", 0.05294455],
+      ["NEAR", "out", 0.0677],
+      ["ETH", "out", 0.05268263],
+      ["BASE", "out", 1.06968657],
+      ["ETH", "out", 1.0584007],
+      ["TRON", "out", 7.57547423],
+      ["ETH", "in", 0.56493836],
+      ["SOL", "in", 15.75005824],
+      ["TRON", "out", 0.13],
+      ["SOL", "in", 16.38451736],
+      ["SOL", "in", 0.20956349],
+      ["ETH", "in", 6.44064454],
+      ["SOL", "out", 0.1],
+      ["ETH", "in", 8.05705444],
+      ["BTC", "out", 1.12937325],
+      ["SOL", "out", 0.02],
+      ["ETH", "in", 1.04676694],
+      ["BTC", "out", 6.15980272],
+      ["ETH", "in", 1.04753588],
+      ["ETH", "in", 6.51301285],
+      ["SOL", "out", 3],
+      ["BASE", "out", 0.005],
+      ["TRON", "in", 193.93195051],
+      ["BASE", "out", 0.00109581],
+      ["SOL", "in", 50.04423699],
+      ["BTC", "in", 4.86522518],
+      ["BTC", "out", 60.4908624],
+      ["SOL", "in", 0.15684438],
+      ["TRON", "in", 98.84590976],
+      ["SOL", "out", 1.5],
+      ["ETH", "out", 0.0211519],
+      ["TRON", "out", 9.69999999],
+      ["SOL", "out", 0.3],
+      ["ARB", "in", 0.0986458],
+      ["ETH", "out", 2],
+      ["BTC", "in", 22.4896417],
+      ["SOL", "out", 0.02791228],
+      ["BASE", "in", 73.94130704],
+      ["SOL", "out", 0.15996113],
+      ["ETH", "in", 0.02049579],
+      ["SOL", "out", 0.00477997],
+      ["SOL", "out", 0.1],
+      ["SOL", "out", 0.16298254],
+      ["SOL", "out", 0.1],
+      ["ETH", "in", 6.28527457],
+      ["ETH", "in", 14.66358209],
+      ["TRON", "in", 0.01337654],
+      ["ARB", "in", 0.17260031],
+      ["TRON", "in", 0.05489903],
+      ["SOL", "out", 1.08937568],
+      ["ETH", "out", 1.08836626],
+      ["SOL", "out", 1],
+      ["XRP", "out", 0.63200472],
+      ["SOL", "out", 0.05460174],
+      ["SOL", "in", 0.03860699],
+      ["ETH", "out", 0.75866858],
+    ],
+
+    /* /v1/crosschain/transfers — real crossings, newest first */
+    rows: [
+      ["19:24", "near-intents", "out", "7.57547423", "TRON", "USDT", "3,472.8342", "$3,584"],
+      ["19:22", "near-intents", "in", "0.56493836", "ETH", "ETH", "0.1400", "$267"],
+      ["19:19", "near-intents", "in", "15.75012600", "SOL", "SOL", "100.0000", "$7,453"],
+      ["19:19", "near-intents", "out", "0.13000000", "TRON", "USDT", "60.2280", "$62"],
+      ["19:15", "near-intents", "in", "16.38452000", "SOL", "SOL", "104.6000", "$7,747"],
+      ["19:14", "near-intents", "in", "0.20960000", "SOL", null, "100.0248", "$99"],
+      ["19:08", "near-intents", "in", "6.44060000", "ETH", "ETH", "1.5968", "$3,046"],
+      ["19:03", "near-intents", "out", "0.10000000", "SOL", null, "47.0153", "$47"],
+      ["19:02", "near-intents", "in", "8.05710000", "ETH", "ETH", "2.0000", "$3,805"],
+      ["18:56", "near-intents", "out", "1.12940000", "BTC", "BTC", "0.0080", "$533"],
+      ["07-28", "maya", "in", "39.22591564", "ETH", "ETH", "10.0000", "$18,772"],
+      ["07-28", "maya", "in", "23.66462006", "ETH", "ETH", "6.0000", "$11,183"],
+    ],
+  };
+  CC.totalTransfers = CC.inTransfers + CC.outTransfers;
+  CC.totalZec = CC.inZec + CC.outZec;
+  CC.netZec = CC.outZec - CC.inZec;
+  CC.ratio = CC.outZec / CC.inZec;
+  CC.chains = 23;
+
+  /* Deterministic per-chain colour, mirroring `flowPaletteClass`: a chain keeps
+   its colour on both sides of the boundary and between visits. */
+  const CHAIN_ORDER = ["ETH", "BTC", "SOL", "TRON", "NEAR", "ARB", "BASE", "SUI", "MAYA"];
+  function chainColour(name) {
+    const i = CHAIN_ORDER.indexOf(name);
+    if (i >= 0) return C.flow[i % C.flow.length];
+    let h = 0;
+    for (let k = 0; k < name.length; k++) h = (h * 31 + name.charCodeAt(k)) >>> 0;
+    return C.flow[h % C.flow.length];
+  }
+
+  /* --------------------------------------------------------------- timeline --- */
+
+  const SC = { A: 0, B: 2.4, C: 6.8, D: 13.2, F: 16.8, G: 19.6, END: 23.8 };
+  const GLITCHES = [
+    [SC.B - 0.16, 0.28],
+    [SC.C - 0.14, 0.26],
+    [SC.D - 0.12, 0.26],
+    [SC.F - 0.12, 0.26],
+    [SC.G - 0.14, 0.34],
+  ];
+
+  /* --- A. the swarm --------------------------------------------------------- */
+  /* Sixty real crossings firing in and out of Zcash, accelerating, then collapsing
+   into the node they all pass through. An earlier cut opened on ONE transfer
+   making the trip — accurate, and the sparsest two seconds in the film: a single
+   dot on black at the exact moment a muted autoplay has to earn attention. The
+   grounding it was there for is done better by the transfer list in act D, which
+   shows twelve crossings with their far legs instead of one.
+
+   Each streak is a row of `CC.swarm`, so the mix of chains and directions on
+   screen is the venues' own. Angles match the orbit spokes in act B, so the
+   swarm resolves into that field rather than cutting to an unrelated picture. */
+  /* Built lazily: it reads ORBIT, which is declared further down for act B, and a
+   `const` at module scope would hit its temporal dead zone. */
+  let SWARM_CACHE = null;
+  const swarm = () =>
+    (SWARM_CACHE ||= CC.swarm.map((row, i) => {
+      const [chain, dir, zec] = row;
+      const o = ORBIT.find((x) => x.chain === chain);
+      let ang;
+      if (o) ang = o.angle;
+      else {
+        let h = 0;
+        for (let k = 0; k < chain.length; k++) h = (h * 31 + chain.charCodeAt(k)) >>> 0;
+        ang = ((h % 360) * Math.PI) / 180;
+      }
+      /* Anchored on the chain's spoke but spread widely around it. Two chains carry
+     two thirds of the rows (SOL 21, ETH 17), so a tight jitter piled most of the
+     burst onto two spokes and left half the frame black — the exact failing this
+     open replaced. */
+      ang += (srnd(i * 17 + 5) - 0.5) * 1.15;
+      return {
+        chain,
+        dir,
+        zec,
+        ang,
+        /* accelerating: the gap between launches shrinks as the act runs */
+        t0: 0.18 + Math.pow(i / CC.swarm.length, 1.65) * 1.3,
+        speed: 0.9 + srnd(i * 29 + 11) * 0.55,
+        reach: 620 + srnd(i * 13 + 3) * 380,
+        len: 0.1 + srnd(i * 7 + 2) * 0.13,
+      };
+    }));
+
+  /* The three that are named as they cross — enough to say "these are real
+   transfers", few enough to stay readable. Three different chains on purpose:
+   two labelled streaks from one chain share a spoke and their captions collide. */
+  const SWARM_LABELLED = [9, 21, 41]; // TRON out · ETH in · BASE in
+
+  function sceneA(g, t) {
+    const a = Math.min(p(t, 0.12, 0.4), 1 - p(t, SC.B - 0.25, SC.B));
+    if (a <= 0) return;
+    const cx = 960,
+      cy = 500;
+    g.save();
+    g.globalAlpha = a;
+
+    /* the collapse: everything is pulled back toward the node at the end */
+    const pull = eInOut(p(t, 1.78, 2.24));
+
+    swarm().forEach((sw, i) => {
+      const u = (t - sw.t0) * sw.speed;
+      if (u <= 0) return;
+      const inbound = sw.dir === "in";
+      const colour = inbound ? C.green : C.amber;
+      const reach = sw.reach * (1 - pull * 0.82);
+
+      /* head and tail along the spoke; inbound runs outer→centre */
+      const head = clamp(u, 0, 1.25);
+      const tail = clamp(u - sw.len, 0, 1.25);
+      const rAt = (v) => (inbound ? 1 - clamp(v, 0, 1) : clamp(v, 0, 1)) * reach;
+      const hx = cx + Math.cos(sw.ang) * rAt(head),
+        hy = cy + Math.sin(sw.ang) * rAt(head);
+      const tx = cx + Math.cos(sw.ang) * rAt(tail),
+        ty = cy + Math.sin(sw.ang) * rAt(tail);
+
+      /* fade in on launch, out on arrival, and again as the swarm collapses */
+      const life = Math.min(1, u * 5) * (1 - clamp((u - 1) / 0.25, 0, 1));
+      if (life <= 0) return;
+
+      g.save();
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = a * life * (0.5 + 0.5 * (1 - pull));
+      const grad = g.createLinearGradient(tx, ty, hx, hy);
+      grad.addColorStop(0, rgba(colour, 0));
+      grad.addColorStop(1, rgba(colour, 0.85));
+      g.strokeStyle = grad;
+      g.lineWidth = 2 + Math.min(2.6, Math.sqrt(sw.zec) * 0.5);
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(tx, ty);
+      g.lineTo(hx, hy);
+      g.stroke();
+      g.fillStyle = rgba(colour, 0.95);
+      g.beginPath();
+      g.arc(hx, hy, 2.4, 0, 7);
+      g.fill();
+      g.restore();
+
+      /* a few carry their real amount as they travel */
+      const li = SWARM_LABELLED.indexOf(i);
+      /* only while the head is comfortably in frame: a streak may fly off the
+       edge, but its caption must not go with it */
+      const inFrame = hx > 240 && hx < 1680 && hy > 130 && hy < 820;
+      if (li >= 0 && head < 1 && pull < 0.5 && inFrame) {
+        g.save();
+        g.globalAlpha = a * life * 0.95 * (1 - pull * 2);
+        g.font = font(21, 700);
+        g.textAlign = Math.cos(sw.ang) < 0 ? "right" : "left";
+        g.textBaseline = "middle";
+        g.fillStyle = C.ink;
+        const off = Math.cos(sw.ang) < 0 ? -14 : 14;
+        g.fillText(sw.zec.toFixed(8) + " ZEC", hx + off, hy - 16);
+        microlabel(
+          g,
+          sw.chain + (inbound ? " → zcash" : " ← zcash"),
+          hx + off,
+          hy + 6,
+          12,
+          inbound ? C.green : C.amber,
+          1,
+          Math.cos(sw.ang) < 0 ? "right" : "left",
+        );
+        g.restore();
+      }
+    });
+
+    /* the node they all pass through, igniting as the swarm folds in */
+    const nk = eOutExpo(p(t, 1.85, 2.3));
+    if (nk > 0) {
+      g.save();
+      g.globalAlpha = a * nk;
+      g.globalCompositeOperation = "lighter";
+      g.filter = "blur(24px)";
+      g.fillStyle = rgba(C.green, 0.55);
+      g.beginPath();
+      g.arc(cx, cy, 60 * nk, 0, 7);
+      g.fill();
+      g.filter = "none";
+      g.restore();
+      g.save();
+      g.globalAlpha = a * nk;
+      g.fillStyle = C.bg;
+      g.beginPath();
+      g.arc(cx, cy, 52 * nk, 0, 7);
+      g.fill();
+      g.strokeStyle = C.green;
+      g.lineWidth = 2;
+      g.stroke();
+      g.restore();
+      microlabel(g, "zcash", cx, cy + 5, 15, C.green, nk, "center");
+    }
+    g.restore();
+  }
+
+  /* --- B. the scale --------------------------------------------------------- */
+  function counter(g, x, y, w, label, value, sub, t, t0, colour) {
+    const k = eOutExpo(p(t, t0, t0 + 0.55));
+    if (k <= 0) return;
+    g.save();
+    g.globalAlpha = clamp(p(t, t0, t0 + 0.3), 0, 1);
+    g.translate(0, (1 - k) * 26);
+    microlabel(g, label, x, y, 15, C.inkFaint, 1);
+    g.font = font(62, 800);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillStyle = colour || C.inkBright;
+    /* count up, so the number arrives rather than appearing */
+    const shown = typeof value === "number" ? commas(value * eOutExpo(p(t, t0, t0 + 0.9))) : value;
+    g.fillText(shown, x, y + 64);
+    if (sub) microlabel(g, sub, x, y + 96, 14, C.green, clamp(p(t, t0 + 0.4, t0 + 0.7), 0, 1));
+    g.restore();
+  }
+
+  function sceneB(g, t) {
+    const a = Math.min(p(t, SC.B, SC.B + 0.3), 1 - p(t, SC.C - 0.3, SC.C));
+    if (a <= 0) return;
+    g.save();
+    g.globalAlpha = a;
+
+    counter(
+      g,
+      130,
+      250,
+      620,
+      "crossings indexed",
+      CC.totalTransfers,
+      CC.venues.join(" · ") + " · both live",
+      t,
+      SC.B + 0.15,
+    );
+    counter(
+      g,
+      130,
+      450,
+      620,
+      "zec moved across chains",
+      CC.totalZec,
+      CC.from + " → " + CC.to,
+      t,
+      SC.B + 0.35,
+      C.green,
+    );
+    counter(
+      g,
+      130,
+      650,
+      620,
+      "chains",
+      CC.chains,
+      "public swap protocols only — a floor, not a total",
+      t,
+      SC.B + 0.55,
+    );
+
+    orbitField(g, 1280, 512, t, SC.B + 0.45);
+    g.restore();
+  }
+
+  /* The chain field: the real brand marks in orbit around Zcash, with value
+   streaming both ways along each spoke.
+
+   The geometry is not decoration — every property is read off the data. Orbit
+   radius is rank by total ZEC crossed (nearer = more), mark size is √volume, and
+   the number of travelling particles on a spoke is that chain's share of
+   transfers. A field where the positions meant nothing would be the same class
+   of error as a plausible-looking chart on a surface nobody can check, so the
+   key is stated on screen rather than left to be admired.
+
+   Brand colour is deliberate here and does NOT contradict the flow-palette rule:
+   that rule governs CHARTS, where ribbons must be told apart. This is a wall of
+   logos — identification, which is exactly the job brand colour is for. */
+  const ORBIT = (() => {
+    const total = {};
+    CC.inFlows.concat(CC.outFlows).forEach(([chain, zec]) => {
+      total[chain] = (total[chain] || 0) + zec;
+    });
+    const inBy = Object.fromEntries(CC.inFlows);
+    const outBy = Object.fromEntries(CC.outFlows);
+    const ranked = Object.entries(total).sort((a, b) => b[1] - a[1]);
+    const max = ranked[0][1];
+    return ranked.map(([chain, zec], i) => ({
+      chain,
+      zec,
+      angle: (i / ranked.length) * Math.PI * 2 - Math.PI / 2,
+      radius: 168 + (i / (ranked.length - 1)) * 232,
+      size: 26 + Math.sqrt(zec / max) * 36,
+      inShare: (inBy[chain] || 0) / zec,
+      dots: Math.max(2, Math.round((zec / max) * 9)),
+    }));
+  })();
+
+  function orbitField(g, cx, cy, t, t0) {
+    const spin = (t - t0) * 0.085; // slow, never dizzying
+
+    /* the rings the marks sit on */
+    g.save();
+    g.globalAlpha = p(t, t0, t0 + 0.5) * 0.5;
+    g.strokeStyle = rgba(C.green, 0.1);
+    g.lineWidth = 1;
+    [168, 284, 400].forEach((r) => {
+      g.beginPath();
+      g.arc(cx, cy, r, 0, 7);
+      g.stroke();
+    });
+    g.restore();
+
+    ORBIT.forEach((o, i) => {
+      const ti = t0 + i * 0.07;
+      const k = eOutBack(p(t, ti, ti + 0.55));
+      if (k <= 0) return;
+      const al = clamp(p(t, ti, ti + 0.3), 0, 1);
+      const ang = o.angle + spin;
+      const mx = cx + Math.cos(ang) * o.radius * k;
+      const my = cy + Math.sin(ang) * o.radius * k;
+
+      /* the spoke */
+      g.save();
+      g.globalAlpha = al * 0.3;
+      g.strokeStyle = rgba(C.green, 0.5);
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(mx, my);
+      g.stroke();
+      g.restore();
+
+      /* value in flight — green toward Zcash, amber away from it, split by this
+       chain's own in/out mix */
+      for (let d = 0; d < o.dots; d++) {
+        const inbound = d / o.dots < o.inShare;
+        const speed = 0.17 + (i % 3) * 0.035;
+        let u = ((t - t0) * speed + d / o.dots + i * 0.13) % 1;
+        if (inbound) u = 1 - u;
+        const px = cx + Math.cos(ang) * o.radius * u * k;
+        const py = cy + Math.sin(ang) * o.radius * u * k;
+        const fade = Math.sin(u * Math.PI);
+        g.save();
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = al * fade * 0.85;
+        g.fillStyle = inbound ? C.green : C.amber;
+        g.beginPath();
+        g.arc(px, py, 2.2, 0, 7);
+        g.fill();
+        g.restore();
+      }
+
+      /* the mark, upright regardless of where its orbit has carried it */
+      const s = o.size * k;
+      g.save();
+      g.globalAlpha = al;
+      g.globalCompositeOperation = "lighter";
+      g.fillStyle = rgba(C.bg, 1);
+      g.beginPath();
+      g.arc(mx, my, s * 0.78, 0, 7);
+      g.fill();
+      g.restore();
+      g.save();
+      g.globalAlpha = al * 0.9;
+      g.fillStyle = C.bg;
+      g.beginPath();
+      g.arc(mx, my, s * 0.78, 0, 7);
+      g.fill();
+      g.strokeStyle = rgba(C.green, 0.18);
+      g.lineWidth = 1;
+      g.stroke();
+      g.restore();
+      chainMark(g, o.chain, mx, my, s, al);
+    });
+
+    /* Zcash at the centre — a green node, not the ⓩ: the trademark labels ZEC in
+     a row, it is not this project's identity to wear. */
+    const ck = eOutExpo(p(t, t0, t0 + 0.5));
+    g.save();
+    g.globalAlpha = ck;
+    g.globalCompositeOperation = "lighter";
+    g.filter = "blur(18px)";
+    g.fillStyle = rgba(C.green, 0.4);
+    g.beginPath();
+    g.arc(cx, cy, 52 * ck, 0, 7);
+    g.fill();
+    g.filter = "none";
+    g.restore();
+    g.save();
+    g.globalAlpha = ck;
+    g.fillStyle = C.bg;
+    g.beginPath();
+    g.arc(cx, cy, 52 * ck, 0, 7);
+    g.fill();
+    g.strokeStyle = C.green;
+    g.lineWidth = 2;
+    g.stroke();
+    g.restore();
+    microlabel(g, "zcash", cx, cy + 5, 15, C.green, ck, "center");
+
+    /* The key sits above the field: below it collided with the headline bed. And
+     the field holds the nine chains with their own marks, not all 23 — said out
+     loud, the same discipline the folded Sankey tail gets. */
+    const key = p(t, t0 + 1.2, t0 + 1.6);
+    microlabel(
+      g,
+      "nearer and larger = more zec crossed",
+      cx,
+      cy - 452,
+      13,
+      C.inkFaint,
+      key,
+      "center",
+    );
+    microlabel(
+      g,
+      ORBIT.length + " of " + CC.chains + " chains shown",
+      cx,
+      cy - 428,
+      13,
+      C.inkFaint,
+      key * 0.8,
+      "center",
+    );
+  }
+
+  /* --- C. the Sankey, both directions on one ruler --------------------------- */
+  /** One half of the picture. `dir` decides which side the boundary bar sits on. */
+  function halfSankey(g, dir, x, wBand, cy, unit, flows, restChains, restZec, total, t, t0) {
+    const inbound = dir === "in";
+    const barH = total * unit;
+    const barX = inbound ? x + wBand : x;
+    const barY = cy - barH / 2;
+
+    const rows = flows.concat([["+ " + restChains + " MORE", restZec]]);
+    const gap = 76;
+    const spread = rows.length * gap;
+    const outerTop = cy - spread / 2;
+
+    /* the boundary bar: ribbons stack against it with no gaps, so the picture is
+     a budget rather than a bundle of arrows */
+    const barK = eOutCubic(p(t, t0, t0 + 0.45));
+    g.save();
+    g.globalAlpha = barK;
+    g.fillStyle = C.green;
+    g.fillRect(barX - 3, cy - (barH * barK) / 2, 6, barH * barK);
+    g.restore();
+
+    let off = 0;
+    rows.forEach((f, i) => {
+      const ti = t0 + 0.25 + i * 0.07;
+      const k = eOutCubic(p(t, ti, ti + 0.7));
+      const th = Math.max(2.5, f[1] * unit);
+      const yBoundary = barY + off + th / 2;
+      const yOuter = outerTop + gap * i + gap / 2;
+      off += th;
+      if (k <= 0) return;
+      const colour = i < flows.length ? chainColour(f[0]) : C.flowRest;
+      const x0 = inbound ? x + wBand : x;
+      const x1 = inbound ? x + wBand * (1 - k) : x + wBand * k;
+      ribbon(g, x0, yBoundary, x1, mix(yBoundary, yOuter, eInOut(k)), th, th, colour, 0.55 * k);
+      if (k > 0.55) {
+        const al = (k - 0.55) / 0.45;
+        const lx = inbound ? x - 16 : x + wBand + 16;
+        const align = inbound ? "right" : "left";
+        microlabel(g, f[0], lx, yOuter + 4, 16, colour, al, align);
+        g.save();
+        g.globalAlpha = al * 0.8;
+        g.font = font(14, 400);
+        g.textAlign = align;
+        g.fillStyle = C.inkFaint;
+        g.fillText(commas(f[1]) + " ZEC", lx, yOuter + 26);
+        g.restore();
+      }
+    });
+  }
+
+  /** The centre column: each half's total, and the gap between the bars named.
+    Kept out of `halfSankey` so the two halves cannot write over each other in
+    the middle — which is exactly what happened when each labelled its own bar. */
+  function sankeyLegend(g, cx, t, t0) {
+    const k = p(t, t0, t0 + 0.4);
+    if (k <= 0) return;
+    g.save();
+    g.globalAlpha = k;
+    g.textAlign = "center";
+    g.textBaseline = "alphabetic";
+
+    const block = (y, label, zec, transfers, colour) => {
+      microlabel(g, label, cx, y, 15, colour, 1, "center");
+      g.font = font(38, 800);
+      g.fillStyle = C.inkBright;
+      g.fillText(commas(zec) + " ZEC", cx, y + 50);
+      microlabel(g, commas(transfers) + " transfers", cx, y + 78, 13, C.inkFaint, 1, "center");
+    };
+    block(258, "into zcash", CC.inZec, CC.inTransfers, C.green);
+    block(620, "out of zcash", CC.outZec, CC.outTransfers, C.amber);
+
+    const net = p(t, t0 + 0.35, t0 + 0.75);
+    if (net > 0) {
+      g.save();
+      g.globalAlpha = k * net;
+      g.strokeStyle = rgba(C.green, 0.22);
+      g.beginPath();
+      g.moveTo(cx - 170, 400.5);
+      g.lineTo(cx + 170, 400.5);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(cx - 170, 540.5);
+      g.lineTo(cx + 170, 540.5);
+      g.stroke();
+      g.font = font(30, 800);
+      g.fillStyle = C.amber;
+      g.fillText("NET " + commas(CC.netZec) + " ZEC OUT", cx, 462);
+      g.font = font(19, 400);
+      g.fillStyle = C.inkDim;
+      g.fillText(CC.ratio.toFixed(2) + "× more left than arrived", cx, 500);
+      g.restore();
+    }
+    microlabel(
+      g,
+      "both halves drawn to one ruler",
+      cx,
+      806,
+      13,
+      C.inkFaint,
+      p(t, t0 + 0.6, t0 + 0.9),
+      "center",
+    );
+    g.restore();
+  }
+
+  function sceneC(g, t) {
+    const a = Math.min(p(t, SC.C, SC.C + 0.3), 1 - p(t, SC.D - 0.3, SC.D));
+    if (a <= 0) return;
+    g.save();
+    g.globalAlpha = a;
+
+    /* ONE ruler for both halves. Per-side scaling would leave each diagram
+     internally tidy and the pair mutually meaningless. */
+    const unit = 470 / CC.outZec;
+    const cy = 470;
+
+    halfSankey(
+      g,
+      "in",
+      210,
+      420,
+      cy,
+      unit,
+      CC.inFlows,
+      CC.inRestChains,
+      CC.inRestZec,
+      CC.inZec,
+      t,
+      SC.C + 0.2,
+    );
+    halfSankey(
+      g,
+      "out",
+      1290,
+      420,
+      cy,
+      unit,
+      CC.outFlows,
+      CC.outRestChains,
+      CC.outRestZec,
+      CC.outZec,
+      t,
+      SC.C + 0.5,
+    );
+    sankeyLegend(g, 960, t, SC.C + 1.5);
+    g.restore();
+  }
+
+  /* --- D. the crossings themselves ------------------------------------------ */
+  function sceneD(g, t) {
+    const a = Math.min(p(t, SC.D, SC.D + 0.3), 1 - p(t, SC.F - 0.3, SC.F));
+    if (a <= 0) return;
+    const X = 190,
+      Y = 150,
+      PW = 1540,
+      PH = 700;
+    g.save();
+    g.globalAlpha = a;
+    panel(g, X, Y, PW, PH, eOutCubic(p(t, SC.D, SC.D + 0.4)));
+
+    const cols = [X + 34, X + 210, X + 470, X + 800, X + PW - 40];
+    microlabel(g, "time", cols[0], Y + 46, 14, C.inkFaint, 1);
+    microlabel(g, "venue", cols[1], Y + 46, 14, C.inkFaint, 1);
+    microlabel(g, "zcash leg", cols[2], Y + 46, 14, C.inkFaint, 1);
+    microlabel(g, "counterpart leg", cols[3], Y + 46, 14, C.inkFaint, 1);
+    microlabel(g, "at swap", cols[4], Y + 46, 14, C.inkFaint, 1, "right");
+    g.save();
+    g.strokeStyle = rgba(C.green, 0.18);
+    g.beginPath();
+    g.moveTo(X + 20, Y + 66.5);
+    g.lineTo(X + PW - 20, Y + 66.5);
+    g.stroke();
+    g.restore();
+
+    CC.rows.forEach((r, i) => {
+      const t0 = SC.D + 0.35 + i * 0.075;
+      const k = eOutCubic(p(t, t0, t0 + 0.5));
+      if (k <= 0) return;
+      const [time, venue, dir, zec, chain, asset, amt, usd] = r;
+      const y = Y + 108 + i * 50;
+      const inbound = dir === "in";
+      g.save();
+      g.globalAlpha = clamp(p(t, t0, t0 + 0.3), 0, 1);
+      g.translate((1 - k) * 22, 0);
+      g.textBaseline = "middle";
+      g.textAlign = "left";
+      g.strokeStyle = rgba(C.green, 0.055);
+      g.beginPath();
+      g.moveTo(X + 20, y + 25.5);
+      g.lineTo(X + PW - 20, y + 25.5);
+      g.stroke();
+
+      g.font = font(19, 400);
+      g.fillStyle = C.inkFaint;
+      g.fillText(time, cols[0], y);
+      g.fillStyle = C.inkDim;
+      g.fillText(venue, cols[1], y);
+
+      /* direction is shape as well as colour: an arrow, not just a hue */
+      g.fillStyle = inbound ? C.green : C.amber;
+      g.font = font(19, 700);
+      g.fillText(inbound ? "←" : "→", cols[2] - 30, y);
+
+      g.font = font(21, 700);
+      g.fillStyle = C.ink;
+      g.fillText(zec + " ZEC", cols[2], y);
+
+      g.font = font(20, 400);
+      g.fillStyle = chainColour(chain);
+      g.fillText(chain, cols[3], y);
+      g.fillStyle = asset ? C.ink : C.inkFaint;
+      /* a venue that never published a ticker gets a label, not a fabricated one */
+      g.fillText(asset ? amt + " " + asset : amt + " — unidentified token", cols[3] + 68, y);
+
+      g.textAlign = "right";
+      g.fillStyle = C.inkDim;
+      g.font = font(19, 400);
+      g.fillText("≈ " + usd, cols[4], y);
+      g.restore();
+    });
+    g.restore();
+  }
+
+  /* --- F. the API ------------------------------------------------------------ */
+  /* Real /v1/crosschain/flows keys, in the order the endpoint emits them. */
+  const JSON_LINES = [
+    ["{", C.inkFaint],
+    ['  "coverage": ', C.inkDim, '{ "basis": "floor", "scope": "public-swap-protocols" }', C.green],
+    [
+      '  "in":  ',
+      C.inkDim,
+      '{ "transfers": ' + CC.inTransfers + ', "zecAmountZat": ' + CC.inZec + "00000000 }",
+      C.amber,
+    ],
+    [
+      '  "out": ',
+      C.inkDim,
+      '{ "transfers": ' + CC.outTransfers + ', "zecAmountZat": ' + CC.outZec + "00000000 }",
+      C.amber,
+    ],
+    ["  … flows[] per chain, both directions", C.inkFaint],
+    ["}", C.inkFaint],
+  ];
+
+  function sceneF(g, t) {
+    const a = Math.min(p(t, SC.F, SC.F + 0.3), 1 - p(t, SC.G - 0.25, SC.G));
+    if (a <= 0) return;
+    const k = eOutExpo(p(t, SC.F, SC.F + 0.6));
+    const X = 250,
+      Y = 300,
+      PW = 1420,
+      PH = 470;
+    g.save();
+    g.globalAlpha = a;
+    g.translate(W / 2, H / 2);
+    g.scale(mix(0.94, 1, k), mix(0.94, 1, k));
+    g.translate(-W / 2, -H / 2);
+    panel(g, X, Y, PW, PH, 1);
+    g.fillStyle = rgba(C.green, 0.06);
+    g.fillRect(X + 1, Y + 1, PW - 2, 44);
+    microlabel(g, "api.shieldedscan.xyz", X + 24, Y + 30, 15, C.green, 1);
+
+    const cmd = "$ curl -s https://api.shieldedscan.xyz/v1/crosschain/flows";
+    const shown = typed(cmd, t, SC.F + 0.3, 58);
+    g.font = font(25, 700);
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
+    g.fillStyle = C.green;
+    g.fillText(shown, X + 34, Y + 104);
+    if (shown.length < cmd.length && Math.floor(t * 6) % 2 === 0) {
+      g.fillStyle = C.green;
+      g.fillRect(X + 34 + g.measureText(shown).width + 3, Y + 82, 13, 26);
+    }
+
+    JSON_LINES.forEach((ln, i) => {
+      const t0 = SC.F + 1.15 + i * 0.1;
+      const al = p(t, t0, t0 + 0.22);
+      if (al <= 0) return;
+      const y = Y + 162 + i * 44;
+      g.save();
+      g.globalAlpha = al;
+      g.translate((1 - eOutCubic(al)) * 14, 0);
+      g.font = font(22, 400);
+      g.fillStyle = ln[1];
+      g.fillText(ln[0], X + 34, y);
+      if (ln[2]) {
+        g.fillStyle = ln[3];
+        g.fillText(ln[2], X + 34 + g.measureText(ln[0]).width, y);
+      }
+      g.restore();
+    });
+
+    /* the honesty this endpoint is built around */
+    const hl = p(t, SC.F + 2.0, SC.F + 2.25);
+    if (hl > 0) {
+      const y = Y + 162 + 44;
+      g.save();
+      g.globalAlpha = hl * (0.75 + 0.25 * Math.sin(t * 9));
+      g.strokeStyle = C.green;
+      g.lineWidth = 1.5;
+      g.strokeRect(X + 24.5, y - 30.5, 900, 44);
+      g.restore();
+      microlabel(
+        g,
+        "a floor, never a total — custodial routes and aggregators are out of scope",
+        X + 34,
+        Y + PH - 40,
+        15,
+        C.inkDim,
+        hl,
+      );
+    }
+    g.restore();
+  }
+
+  /* --- G. end card ----------------------------------------------------------- */
+  function sceneG(g, t) {
+    const a = p(t, SC.G + 0.05, SC.G + 0.3);
+    if (a <= 0) return;
+    g.save();
+    g.globalAlpha = a;
+    const rise = eOutExpo(p(t, SC.G + 0.1, SC.G + 0.9));
+    const cy = 452 + (1 - rise) * 26;
+
+    withBloom(
+      (bg) => {
+        bg.textAlign = "center";
+        bg.textBaseline = "alphabetic";
+        rasterText(bg, "./shieldedscan", W / 2, cy, 104, 800, C.green, "center");
+      },
+      26,
+      0.55,
+    );
+
+    const rw = eOutExpo(p(t, SC.G + 0.7, SC.G + 1.3)) * 760;
+    g.fillStyle = rgba(C.green, 0.35);
+    g.fillRect(W / 2 - rw / 2, cy + 44, rw, 1);
+
+    const url = "shieldedscan.xyz/cross-chain";
+    const shown = typed(url, t, SC.G + 1.2, 15);
+    g.font = font(58, 700);
+    g.textAlign = "left";
+    const sx = W / 2 - g.measureText(url).width / 2;
+    const wShown = g.measureText(shown).width;
+    withBloom(
+      (bg) => {
+        bg.font = font(58, 700);
+        bg.textAlign = "left";
+        bg.textBaseline = "alphabetic";
+        bg.fillStyle = C.inkBright;
+        bg.fillText(shown, sx, cy + 134);
+        const blink = t > SC.G + 3.1 ? Math.floor(t * 2) % 2 === 0 : true;
+        if (blink) {
+          bg.fillStyle = C.green;
+          bg.fillRect(sx + wShown + 6, cy + 134 - 42, 23, 50);
+        }
+      },
+      18,
+      0.42,
+    );
+
+    microlabel(
+      g,
+      "keyless public api · api.shieldedscan.xyz/v1",
+      W / 2,
+      cy + 204,
+      20,
+      C.inkDim,
+      p(t, SC.G + 2.6, SC.G + 3.0),
+      "center",
+    );
+    g.restore();
+  }
+
+  /* ------------------------------------------------------------------ frame --- */
+
+  window.__frame = function (frame) {
+    const t = frame / FPS;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    if (t < SC.B) {
+      sceneA(ctx, t);
+      headline(ctx, "ZEC DOES NOT STAY ON ZCASH.", t, 0.9, SC.B - 0.1, 900);
+      subline(ctx, "sixty consecutive crossings, in and out", t, 1.3, SC.B - 0.1, 936);
+    } else if (t < SC.C) {
+      sceneB(ctx, t);
+      headline(ctx, "AND IT HAS BEEN DOING IT AT SCALE.", t, SC.B + 0.5, SC.C - 0.15, 940);
+      subline(
+        ctx,
+        "every public swap venue that lists ZEC, indexed since launch",
+        t,
+        SC.B + 0.85,
+        SC.C - 0.15,
+        976,
+      );
+    } else if (t < SC.D) {
+      sceneC(ctx, t);
+      headline(ctx, "TWO DIRECTIONS. ONE RULER.", t, SC.C + 3.2, SC.D - 0.15, 950);
+      subline(
+        ctx,
+        "the tail is folded, never dropped — every chain is listed on the page",
+        t,
+        SC.C + 3.5,
+        SC.D - 0.15,
+        986,
+      );
+    } else if (t < SC.F) {
+      sceneD(ctx, t);
+      headline(ctx, "EVERY CROSSING, WITH ITS FAR LEG.", t, SC.D + 0.7, SC.F - 0.15, 960);
+      subline(
+        ctx,
+        "both sides priced at swap · full eight-decimal ZEC",
+        t,
+        SC.D + 1.0,
+        SC.F - 0.15,
+        996,
+      );
+    } else if (t < SC.G) {
+      sceneF(ctx, t);
+      headline(ctx, "ALL OF IT, KEYLESS, OVER HTTP.", t, SC.F + 2.3, SC.G - 0.15, 960);
+    } else {
+      sceneG(ctx, t);
+    }
+
+    glitch(ctx, t, GLITCHES);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.16;
+    ctx.drawImage(prev, 0, 0);
+    ctx.restore();
+    prevc.setTransform(1, 0, 0, 1, 0, 0);
+    prevc.clearRect(0, 0, W, H);
+    prevc.drawImage(c, 0, 0);
+
+    postfx(ctx, t, frame);
+  };
+
+  window.__ready = (async () => {
+    await document.fonts.load("700 100px JBM");
+    await document.fonts.load("400 24px JBM");
+    await document.fonts.load("800 100px JBM");
+    await document.fonts.ready;
+    return true;
+  })();
+  window.__meta = { W, H, FPS, frames: Math.round(SC.END * FPS) };
+</script>

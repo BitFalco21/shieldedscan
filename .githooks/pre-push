@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Runs before every push, over exactly the commits being sent: credential files and a secret
+# scan, plus the maintainer-only identity and blocklist checks described in lib.sh.
+source "$(git rev-parse --show-toplevel)/.githooks/lib.sh"
+scan=false
+have_gitleaks && scan=true
+
+ZERO=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [[ "$local_sha" == "$ZERO" ]] && continue # deleting a branch sends nothing
+  if [[ "$remote_sha" == "$ZERO" ]]; then
+    range_args=("$local_sha" --not --remotes)
+    log_opts="$local_sha --not --remotes"
+  else
+    range_args=("$remote_sha..$local_sha")
+    log_opts="$remote_sha..$local_sha"
+  fi
+
+  commits="$(git rev-list "${range_args[@]}")"
+  [[ -z "$commits" ]] && continue
+
+  for c in $commits; do
+    check_email "$(git log -1 --format=%ae "$c")" "Commit ${c:0:7}'s author"
+    check_email "$(git log -1 --format=%ce "$c")" "Commit ${c:0:7}'s committer"
+    if maintainer_checks &&
+      git log -1 --format=%B "$c" | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' |
+      grep -vqE "$NOREPLY_RE"; then
+      fail "commit ${c:0:7}'s message contains an email address"
+    fi
+    git diff-tree --no-commit-id --name-only -r "$c" | check_filenames
+  done
+
+  if $scan; then
+    gitleaks git --log-opts="$log_opts" --redact --no-banner --config "$ROOT/.gitleaks.toml" "$ROOT" >/dev/null 2>&1 ||
+      fail "gitleaks found a possible secret in the commits being pushed. Run: gitleaks git --log-opts=\"$log_opts\" --redact -v"
+  fi
+
+  if maintainer_checks; then
+    for c in $commits; do
+      # Names of added or changed files only: deleting a file publishes nothing new.
+      { git log -1 --format=%B "$c"; git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "$c"; git show --format= -U0 "$c" | grep -aE '^\+' | grep -av '^+++ ' || true; }
+    done | check_blocklist "The commits being pushed"
+  fi
+done
