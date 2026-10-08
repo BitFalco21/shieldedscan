@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { SearchIcon } from "@/components/SearchIcon";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { useResolvedSuggestions } from "@/lib/use-resolved-suggestions";
 
@@ -46,7 +47,7 @@ export function HeroSearchBox() {
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="panel prompt-focus flex h-[52px] items-center gap-2.5 px-4 text-sm">
+      <div className="panel prompt-focus flex h-[52px] items-center gap-2.5 pr-2 pl-4 text-sm">
         <span aria-hidden className="whitespace-nowrap text-green">
           zcash&gt;
         </span>
@@ -102,6 +103,18 @@ export function HeroSearchBox() {
           className="flex h-full cursor-pointer items-center px-1"
         >
           <span aria-hidden className="cursor-block" />
+        </button>
+        {/* A plain submit: it posts the surrounding form exactly as Enter does, so it works
+            without JavaScript. An outline key that fills on hover, so the prompt's text stays
+            the brightest thing at rest. The focus fill is there because the panel's ring alone
+            would not say which of the prompt's controls holds focus. */}
+        <button
+          type="submit"
+          aria-label="Search"
+          title="Search"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xs border border-green text-green transition-colors hover:bg-green hover:text-bg focus-visible:border-ink-bright focus-visible:bg-ink-bright focus-visible:text-bg"
+        >
+          <SearchIcon />
         </button>
       </div>
       {/* Absolute so the rows overlay the page rather than pushing the stat cards down as you
