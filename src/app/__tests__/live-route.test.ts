@@ -12,7 +12,7 @@ import { parseLivePayload } from "@/data/live-payload";
 const call = async (url: string) => {
   const first = await GET(new Request(url));
   const location = first.headers.get("location");
-  return first.status === 308 && location ? GET(new Request(location)) : first;
+  return first.status === 308 && location ? GET(new Request(new URL(location, url))) : first;
 };
 
 describe("one URL per (kind, direction)", () => {
@@ -31,9 +31,8 @@ describe("one URL per (kind, direction)", () => {
       const res = await GET(new Request(url));
       expect(res.status, url).toBe(308);
       expect(res.headers.get("cache-control"), url).toBe("no-store");
-      expect(new URL(res.headers.get("location")!).search, url).toMatch(
-        /^\?kind=\w+&direction=\w+$/,
-      );
+      // Relative, so the browser stays on the host it asked rather than an internal one.
+      expect(res.headers.get("location"), url).toMatch(/^\/api\/live\?kind=\w+&direction=\w+$/);
     }
   });
 });

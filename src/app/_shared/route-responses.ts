@@ -7,6 +7,18 @@ import { NextResponse } from "next/server";
  */
 export const LIVE_POLL_CACHE_CONTROL = "public, s-maxage=5";
 
+/**
+ * A permanent redirect to the canonical spelling of a query, never cached. The Location is
+ * relative, so the browser stays on the host it asked: behind the CDN, `request.url` can name
+ * the deployment's internal address rather than the site's own domain.
+ */
+export function canonicalRedirect(pathAndQuery: string): NextResponse {
+  return new NextResponse(null, {
+    status: 308,
+    headers: { Location: pathAndQuery, "Cache-Control": "no-store" },
+  });
+}
+
 /** The answer of a mainnet-only endpoint on testnet, where the page it serves also 404s. */
 export function testnetAbsent(): NextResponse {
   return NextResponse.json({ error: "not found" }, { status: 404 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parsePulseWindowParams, PULSE_SETTLED_SECONDS, PULSE_WINDOW_PARAM_ERROR } from "@/domain";
 import { getDataSource } from "@/data";
 import { isTestnet } from "@/lib/network";
-import { testnetAbsent } from "@/app/_shared/route-responses";
+import { canonicalRedirect, testnetAbsent } from "@/app/_shared/route-responses";
 
 /**
  * One aligned hour of history, for `/pulse`'s replay transport.
@@ -41,10 +41,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // so each hour has one CDN entry. Other spellings are redirected, uncached, before any read.
   const canonical = `?from=${window.fromSeconds}&to=${window.toSeconds}`;
   if (new URL(request.url).search !== canonical) {
-    return NextResponse.redirect(new URL(`/api/pulse/window${canonical}`, request.url), {
-      status: 308,
-      headers: { "Cache-Control": "no-store" },
-    });
+    return canonicalRedirect(`/api/pulse/window${canonical}`);
   }
 
   const payload = await getDataSource().getPulseWindow(window.fromSeconds, window.toSeconds);

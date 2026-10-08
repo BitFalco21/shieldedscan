@@ -116,7 +116,7 @@ describe("GET /api/pulse/window", () => {
       const res = await replay(new Request(url(q)));
       expect(res.status, q).toBe(308);
       expect(res.headers.get("cache-control"), q).toBe("no-store");
-      expect(new URL(res.headers.get("location")!).search, q).toBe(`?from=${from}&to=${to}`);
+      expect(res.headers.get("location"), q).toBe(`/api/pulse/window?from=${from}&to=${to}`);
     }
     expect(spy).not.toHaveBeenCalled();
   });

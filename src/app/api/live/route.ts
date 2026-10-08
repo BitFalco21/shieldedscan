@@ -3,7 +3,7 @@ import { parseDirectionFilter, parseTxKindFilter } from "@/domain";
 import { getDataSource } from "@/data";
 import { consistentTransactions } from "@/lib/live-feed";
 import { isTestnet } from "@/lib/network";
-import { LIVE_POLL_CACHE_CONTROL } from "@/app/_shared/route-responses";
+import { canonicalRedirect, LIVE_POLL_CACHE_CONTROL } from "@/app/_shared/route-responses";
 
 /**
  * The live feed's single upstream read, for `/`, `/blocks`, `/txs` and `/cross-chain`.
@@ -46,10 +46,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // cached, so a junk variant can neither cost a read nor stand in for the real entry.
   const canonical = `?kind=${encodeURIComponent(kind)}&direction=${encodeURIComponent(direction)}`;
   if (new URL(request.url).search !== canonical) {
-    return NextResponse.redirect(new URL(`/api/live${canonical}`, request.url), {
-      status: 308,
-      headers: { "Cache-Control": "no-store" },
-    });
+    return canonicalRedirect(`/api/live${canonical}`);
   }
   const data = getDataSource();
 
