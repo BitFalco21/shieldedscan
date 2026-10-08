@@ -1,7 +1,10 @@
 name: CI
 
+# Pushes to main, plus pull requests: a branch is checked through its pull request, so it is not
+# checked twice.
 on:
   push:
+    branches: [main]
   pull_request:
 
 # Read-only token: CI only checks out code and never writes to the repository.
