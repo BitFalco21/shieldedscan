@@ -99,6 +99,10 @@ test.describe("/pulse", () => {
     );
 
     // The scrubber moves the clock the page prints, and the printed clock is seconds-ago.
+    // Paused first: at ×600 the clock moves ten minutes a second, so a playing replay leaves
+    // "0:30:00 ago" before the label can be read.
+    await page.getByRole("button", { name: "pause", exact: true }).click();
+    await expect(page.getByRole("button", { name: "play", exact: true })).toBeVisible();
     const scrub = page.locator(".pulse-scrub");
     await scrub.fill("1800");
     await expect(page.getByText(/0:30:00 ago/)).toBeVisible();
