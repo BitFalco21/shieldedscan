@@ -661,7 +661,6 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
     case "shielded-capable-swaps": {
       const t = chartTable(slug, data, range);
       if (!t || t.rows.length < 2) return unavailable("The cross-chain series");
-      const count = (v: ChartCell) => (v === null ? "—" : formatCount(v));
       return (
         <MultiLineChart
           labels={tableLabels(t)}
@@ -672,13 +671,6 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
-          // Each share's two terms, so a month of three swaps never reads like one of thousands.
-          contextRows={[
-            {
-              name: "Shielded-capable swaps",
-              values: t.rows.map((r) => `${count(r[2] ?? null)} of ${count(r[3] ?? null)}`),
-            },
-          ]}
           ariaLabel="Share of swaps into ZEC each month sent to a shielded-capable address, by swaps and by ZEC"
         />
       );
