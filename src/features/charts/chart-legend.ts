@@ -1,12 +1,8 @@
 import { NU7 } from "@/domain";
 import type { LegendItem } from "@/components/ChartLegend";
-import { chainName } from "@/lib/chains";
-import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
-import type { ChartData } from "./chart-data";
-import { chartTable, INFLOW_OTHER } from "./chart-table";
 import { POOL_STACK } from "./pool-series";
 import { capitalise } from "@/lib/format";
 
@@ -28,7 +24,7 @@ const pools = (mark: LegendItem["mark"], only?: readonly string[]): LegendItem[]
  * What each colour stands for, per chart, in the order and the ink the chart draws them. A chart
  * of one series gets none: its title names it. Stacks list bottom band first, as they are drawn.
  */
-export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
+export function chartLegend(slug: ChartSlug): LegendItem[] {
   switch (slug) {
     case "transactions-by-kind":
       return [
@@ -78,12 +74,6 @@ export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
         { label: "Largest 10", className: RANKED_LINES[2], mark: "line" },
         { label: "Paid to a shielded address", className: BESIDE_RANKED_LINE, mark: "line" },
       ];
-    case "inflow-by-chain":
-      return (chartTable(slug, data, "all")?.keys ?? []).map((key) => ({
-        label: key === INFLOW_OTHER ? "Other chains" : chainName(key),
-        className: key === INFLOW_OTHER ? FOLDED_FLOW_CLASS : flowPaletteClass(key),
-        mark: "area" as const,
-      }));
     case "shielded-supply":
     case "ironwood-balance":
     case "price":
@@ -92,6 +82,8 @@ export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
     case "fee-totals":
     case "transparent-activity":
     case "reorgs":
+    // Its ranked key, beside the bars, is the legend.
+    case "inflow-by-chain":
       return [];
   }
 }

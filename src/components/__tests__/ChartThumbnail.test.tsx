@@ -26,6 +26,26 @@ describe("ChartThumbnail", () => {
     expect(paths[1]!.getAttribute("class")).toContain("band-shielded");
   });
 
+  it("stacks bars, each period scaled to the tallest total", () => {
+    const svg = draw({
+      kind: "stacked-bars",
+      series: [
+        { values: [2, 1], className: "flow-1" },
+        { values: [2, 0], className: "flow-3" },
+      ],
+    });
+    const [first, second] = [...svg.querySelectorAll("g.flow-1 rect")];
+    const [top] = [...svg.querySelectorAll("g.flow-3 rect")];
+    // The second segment sits on the first, and a zero draws nothing.
+    expect(svg.querySelectorAll("g.flow-3 rect")).toHaveLength(1);
+    const topBottom = Number(top!.getAttribute("y")) + Number(top!.getAttribute("height"));
+    expect(topBottom).toBeCloseTo(Number(first!.getAttribute("y")));
+    // Totals 4 and 1: the second bar is a quarter of the first's full height.
+    expect(Number(second!.getAttribute("height")) * 4).toBeCloseTo(
+      Number(first!.getAttribute("height")) + Number(top!.getAttribute("height")),
+    );
+  });
+
   it("keeps a gap in a line a gap, and draws each line in its own class", () => {
     const svg = draw({
       kind: "lines",

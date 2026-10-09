@@ -56,6 +56,12 @@ export interface ChartData {
   blocksDaily: BlocksDayPoint[] | null;
   /** The crawler's daily release record, for the upgrade readiness trend. */
   releases: NetReleases | null;
+  /**
+   * When these series were read, Unix seconds: what a period still running is measured against.
+   * Stamped with the data rather than read in the browser, so a cached page never calls a month
+   * partial that its data had finished, or the reverse. 0 means unknown: no period is partial.
+   */
+  asOf: number;
 }
 
 /** A fully-null `ChartData` with the given members filled — for single-chart call sites. */
@@ -82,6 +88,7 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     chainInflow: null,
     blocksDaily: null,
     releases: null,
+    asOf: 0,
     ...partial,
   };
 }

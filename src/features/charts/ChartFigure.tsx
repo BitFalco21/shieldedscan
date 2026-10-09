@@ -41,7 +41,8 @@ import type { ChartSlug } from "./catalog";
 import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
 import { chartLegend } from "./chart-legend";
-import { chartTable, INFLOW_OTHER, UNRANGED, type ChartTable } from "./chart-table";
+import { InflowByChainChart } from "./InflowByChainChart";
+import { chartTable, INFLOW_OTHER, runningMonth, UNRANGED, type ChartTable } from "./chart-table";
 import { poolBands, poolLines } from "./pool-series";
 
 /** An x-axis label: a day for the daily siblings, a short month for the monthly series. */
@@ -129,7 +130,7 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
     <div>
       {(ranged || detail) && toolbar}
       <Figure slug={slug} data={data} range={range} />
-      <ChartLegend items={chartLegend(slug, data)} />
+      <ChartLegend items={chartLegend(slug)} />
     </div>
   );
 }
@@ -609,7 +610,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
       const t = chartTable(slug, data, range);
       if (!t || t.rows.length < 2) return unavailable("The cross-chain inflow series");
       return (
-        <StackedAreaChart
+        <InflowByChainChart
           series={(t.keys ?? []).map((key, i) => ({
             key,
             label: key === INFLOW_OTHER ? "Other chains" : chainName(key),
@@ -618,9 +619,10 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           }))}
           labels={tableLabels(t)}
           readoutLabels={tableReadout(t)}
+          running={runningMonth(t, data.asOf)}
+          foldKey={INFLOW_OTHER}
           formatValue={formatZecCompact}
           formatTick={formatZecTick}
-          ariaLabel="ZEC arriving on Zcash per month, by source chain"
         />
       );
     }

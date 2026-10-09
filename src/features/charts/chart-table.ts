@@ -86,6 +86,22 @@ export const INFLOW_OTHER = "OTHER";
 const share = (part: number, whole: number): ChartCell =>
   whole === 0 ? null : Math.round((10_000 * part) / whole) / 100;
 
+/**
+ * The last row of a monthly table when its month was still running at `asOf`, with the day of
+ * the month the data reaches: drawn as a whole month, it would read as a collapse. Null when
+ * every month shown had ended, or `asOf` is unknown.
+ */
+export function runningMonth(
+  t: ChartTable,
+  asOf: number,
+): { index: number; throughDay: number } | null {
+  if (t.period !== "month" || asOf <= 0 || t.timestamps.length === 0) return null;
+  const at = new Date(asOf * 1000);
+  const monthStart = Date.UTC(at.getUTCFullYear(), at.getUTCMonth()) / 1000;
+  const index = t.timestamps.length - 1;
+  return t.timestamps[index] === monthStart ? { index, throughDay: at.getUTCDate() } : null;
+}
+
 /** Null when the chart's series is unreadable, exactly when `ChartFigure` renders "unavailable". */
 export function chartTable(
   slug: ChartSlug,

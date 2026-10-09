@@ -20,10 +20,10 @@ test.describe("the chart library", () => {
     for (const text of await cards.allTextContents()) expect(text.toLowerCase()).toContain("fee");
 
     await page.getByRole("searchbox", { name: "Search charts" }).fill("");
-    await page.getByRole("button", { name: "Mining", exact: true }).click();
+    await page.getByRole("button", { name: /^Mining \(\d+\)$/ }).click();
     for (const text of await cards.allTextContents()) expect(text).toContain("Mining");
 
-    await page.getByRole("button", { name: "All", exact: true }).click();
+    await page.getByRole("button", { name: `All (${total})` }).click();
     await expect(cards).toHaveCount(total);
   });
 

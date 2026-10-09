@@ -19,6 +19,7 @@ export type ChartThumb =
   | { kind: "lines"; series: ThumbSeries[]; max?: number }
   | { kind: "area"; series: ThumbSeries }
   | { kind: "bars"; series: ThumbSeries }
+  | { kind: "stacked-bars"; series: ThumbSeries[] }
   | { kind: "flow"; inValues: (number | null)[]; outValues: (number | null)[] };
 
 export interface ChartThumbnailProps {
@@ -146,6 +147,41 @@ export function ChartThumbnail({ thumb, className = "" }: ChartThumbnailProps) {
           vectorEffect="non-scaling-stroke"
         />
       </g>,
+    );
+  }
+
+  if (thumb.kind === "stacked-bars") {
+    const n = thumb.series[0]?.values.length ?? 0;
+    if (n < 2) return null;
+    const totals = Array.from({ length: n }, (_, i) =>
+      thumb.series.reduce((sum, s) => sum + (s.values[i] ?? 0), 0),
+    );
+    const max = finiteMax(totals) || 1;
+    const slot = W / n;
+    const bar = Math.max(slot * 0.7, 0.6);
+    const base = new Array<number>(n).fill(0);
+    return svg(
+      thumb.series.map((s, si) => (
+        <g key={si} className={s.className}>
+          {s.values.map((v, i) => {
+            if (v === null || v <= 0) return null;
+            const height = (v / max) * (H - 2 * PAD);
+            const top = H - PAD - ((base[i] ?? 0) / max) * (H - 2 * PAD) - height;
+            base[i] = (base[i] ?? 0) + v;
+            return (
+              <rect
+                key={i}
+                x={i * slot}
+                y={top}
+                width={bar}
+                height={height}
+                fill="currentColor"
+                className="chart-band"
+              />
+            );
+          })}
+        </g>
+      )),
     );
   }
 

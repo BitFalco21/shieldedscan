@@ -1,4 +1,5 @@
 import type { ExplorerDataSource } from "@/data/source";
+import { nowSeconds } from "@/lib/clock";
 import { nullIfTransient } from "@/lib/transient-upstream";
 import type { ChartData } from "@/features/charts/chart-data";
 import type { ChartSlug } from "@/features/charts/catalog";
@@ -109,5 +110,6 @@ export async function loadChartData(
     chainInflow,
     blocksDaily,
     releases,
+    asOf: nowSeconds(),
   };
 }

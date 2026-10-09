@@ -147,7 +147,7 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
       return { kind: "bars", series: { values: col(0), className: "text-series" } };
     case "inflow-by-chain":
       return {
-        kind: "stack",
+        kind: "stacked-bars",
         series: (t.keys ?? []).map((key, i) => ({
           values: col(i),
           className: key === INFLOW_OTHER ? FOLDED_FLOW_CLASS : flowPaletteClass(key),

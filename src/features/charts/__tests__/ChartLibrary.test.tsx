@@ -33,8 +33,9 @@ describe("ChartLibrary", () => {
     render(<ChartLibrary charts={CHARTS} />);
     expect(screen.getAllByRole("link")).toHaveLength(4);
     expect(screen.getByText("4 charts")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Privacy" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Fees" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Privacy/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Fees (2)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "All (4)" })).toBeTruthy();
   });
 
   it("narrows as you type, every word having to match", () => {
@@ -49,13 +50,19 @@ describe("ChartLibrary", () => {
 
   it("filters by category, and All restores the list", () => {
     render(<ChartLibrary charts={CHARTS} />);
-    fireEvent.click(screen.getByRole("button", { name: "Mining" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mining (1)" }));
     expect(titles()).toEqual([expect.stringContaining("Mining difficulty")]);
-    expect(screen.getByRole("button", { name: "Mining" }).getAttribute("aria-pressed")).toBe(
+    expect(screen.getByRole("button", { name: "Mining (1)" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    fireEvent.click(screen.getByRole("button", { name: "All (4)" }));
     expect(titles()).toHaveLength(4);
+  });
+
+  it("keeps each chip's count while a search narrows the cards", () => {
+    render(<ChartLibrary charts={CHARTS} />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "network" } });
+    expect(screen.getByRole("button", { name: "Fees (2)" })).toBeTruthy();
   });
 
   it("says so when nothing matches, rather than showing an empty grid", () => {

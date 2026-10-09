@@ -21,7 +21,8 @@ function matches(chart: ChartCardProps, words: string[]): boolean {
  *
  * Filtering is local: every card is already on the page, so typing costs no request, and the
  * prerendered page lists every chart for a reader or crawler without JavaScript. A category with
- * no chart on this deployment gets no chip, so no chip ever empties the grid.
+ * no chart on this deployment gets no chip, so no chip ever empties the grid. Each chip counts
+ * its category's charts, which do not change as you type: the count says what the chip holds.
  */
 export function ChartLibrary({ charts }: ChartLibraryProps) {
   const [query, setQuery] = useState("");
@@ -32,6 +33,8 @@ export function ChartLibrary({ charts }: ChartLibraryProps) {
     (c) => (category === null || c.category === category) && matches(c, words),
   );
   const chips = CHART_CATEGORIES.filter((cat) => charts.some((c) => c.category === cat));
+  const countOf = (cat: ChartCategory | null) =>
+    cat === null ? charts.length : charts.filter((c) => c.category === cat).length;
 
   return (
     <div>
@@ -71,7 +74,8 @@ export function ChartLibrary({ charts }: ChartLibraryProps) {
                   : "border-edge text-ink-dim hover:border-edge-strong hover:text-green"
               }`}
             >
-              {cat ?? "All"}
+              {cat ?? "All"}{" "}
+              <span className={active ? "" : "text-ink-faint"}>({countOf(cat)})</span>
             </button>
           );
         })}

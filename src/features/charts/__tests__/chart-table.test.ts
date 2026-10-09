@@ -6,7 +6,7 @@ import { loadChartData } from "@/app/_shared/load-chart-data";
 import { CHART_CATEGORIES, CHARTS, VISIBLE_CHARTS, relatedCharts } from "../catalog";
 import { chartData } from "../chart-data";
 import { chartPreview, sampleEvenly, SPARK_POINTS } from "../chart-preview";
-import { chartCsv, chartTable } from "../chart-table";
+import { chartCsv, chartTable, runningMonth } from "../chart-table";
 
 const DAY = 86_400;
 
@@ -156,6 +156,22 @@ describe("the newer charts' tables", () => {
     expect(t.rows[0]!.slice(0, 4)).toEqual([33.3, 70, 95, 3]);
     // A month with no blocks has no share: null, never 0%.
     expect(t.rows[1]![0]).toBeNull();
+  });
+
+  it("finds a month still running at the time the data was read, and only then", () => {
+    const sep = Date.UTC(2026, 8, 1) / 1000;
+    const oct = Date.UTC(2026, 9, 1) / 1000;
+    const chainInflow = [
+      { timestamp: sep, chain: "BTC", inZat: 100 },
+      { timestamp: oct, chain: "BTC", inZat: 10 },
+    ];
+    const t = chartTable("inflow-by-chain", chartData({ chainInflow }), "all")!;
+    const ninthOfOct = Date.UTC(2026, 9, 9, 12) / 1000;
+    expect(runningMonth(t, ninthOfOct)).toEqual({ index: 1, throughDay: 9 });
+    // Read in November, October had ended: nothing is partial.
+    expect(runningMonth(t, Date.UTC(2026, 10, 2) / 1000)).toBeNull();
+    // An unknown read time claims nothing.
+    expect(runningMonth(t, 0)).toBeNull();
   });
 
   it("draws the largest source chains on their own and folds the rest", () => {
