@@ -675,7 +675,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           // Each share's two terms, so a month of three swaps never reads like one of thousands.
           contextRows={[
             {
-              name: "Swaps (capable of classified)",
+              name: "Shielded-capable swaps",
               values: t.rows.map((r) => `${count(r[2] ?? null)} of ${count(r[3] ?? null)}`),
             },
           ]}
