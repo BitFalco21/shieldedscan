@@ -29,6 +29,7 @@ import {
   formatUsd,
   formatZec,
   formatZecCompact,
+  formatZecVolumeCompact,
   formatZecTick,
   formatZecWhole,
   monthLong,
@@ -622,6 +623,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           running={runningMonth(t, data.asOf)}
           foldKey={INFLOW_OTHER}
           formatValue={formatZecCompact}
+          formatSum={(v) => `${formatZecVolumeCompact(v)} ZEC`}
           formatTick={formatZecTick}
         />
       );

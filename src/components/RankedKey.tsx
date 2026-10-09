@@ -13,6 +13,8 @@ export interface RankedKeyProps {
   /** What the figures cover: the period, and the total the shares are of. */
   caption: string;
   formatValue: (value: number) => string;
+  /** The exact amount, on hover, where `formatValue` rounds. */
+  formatExact?: (value: number) => string;
   /** Keys kept at the bottom whatever their size: a fold of the rest does not rank among them. */
   pinnedLast?: readonly string[];
   highlighted: string | null;
@@ -28,6 +30,7 @@ export function RankedKey({
   items,
   caption,
   formatValue,
+  formatExact,
   pinnedLast = [],
   highlighted,
   onHighlight,
@@ -50,14 +53,19 @@ export function RankedKey({
             }`}
           >
             <th scope="row" className="py-1.5 text-left font-normal text-ink">
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 whitespace-nowrap">
                 <span aria-hidden className={`inline-flex ${item.colorClass}`}>
                   <span className="chart-band inline-block h-2.5 w-2.5 bg-current" />
                 </span>
                 {item.label}
               </span>
             </th>
-            <td className="py-1.5 pl-3 text-right text-ink">{formatValue(item.value)}</td>
+            <td
+              className="py-1.5 pl-3 text-right whitespace-nowrap text-ink"
+              title={formatExact?.(item.value)}
+            >
+              {formatValue(item.value)}
+            </td>
             <td className="w-14 py-1.5 text-right text-ink-faint">
               {total > 0 ? formatSharePct((100 * item.value) / total) : "—"}
             </td>

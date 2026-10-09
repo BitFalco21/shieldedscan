@@ -14,7 +14,8 @@ const draw = (running: { index: number; throughDay: number } | null = null) =>
       readoutLabels={["September 2026", "October 2026"]}
       running={running}
       foldKey="OTHER"
-      formatValue={(v) => `${v} ZEC`}
+      formatValue={(v) => `${v}.00000000 ZEC`}
+      formatSum={(v) => `${v} ZEC`}
       formatTick={(v) => `${v} ZEC`}
     />,
   );
@@ -26,6 +27,12 @@ describe("InflowByChainChart", () => {
     draw();
     expect(screen.getByText("September 2026 – October 2026 · 1400 ZEC")).toBeTruthy();
     expect(firstRow()).toContain("Ethereum");
+  });
+
+  it("rounds the key's amounts and keeps the exact one on hover", () => {
+    draw();
+    const cell = screen.getByText("310 ZEC");
+    expect(cell.getAttribute("title")).toBe("310.00000000 ZEC");
   });
 
   it("re-ranks the key for the month the readout is on", () => {
@@ -43,6 +50,10 @@ describe("InflowByChainChart", () => {
   it("names how far a running month reaches, on the bar and in the key", () => {
     draw({ index: 1, throughDay: 9 });
     expect(screen.getByRole("img").textContent).toContain("to 9 Oct");
-    expect(screen.getByText("September 2026 – October 2026, to 9 Oct · 1400 ZEC")).toBeTruthy();
+    expect(screen.getByText("September 2026 – 9 Oct 2026 · 1400 ZEC")).toBeTruthy();
+    // The month itself, read on its own, says how far it reaches.
+    fireEvent.keyDown(screen.getByRole("group"), { key: "End" });
+    fireEvent.focus(screen.getByRole("group"));
+    expect(screen.getByText("October 2026, to 9 Oct · 400 ZEC")).toBeTruthy();
   });
 });

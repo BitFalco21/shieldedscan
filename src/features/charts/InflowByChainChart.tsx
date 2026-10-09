@@ -12,7 +12,10 @@ export interface InflowByChainChartProps {
   running: { index: number; throughDay: number } | null;
   /** The fold of the smaller chains: ranked last, since it is not one chain. */
   foldKey: string;
+  /** Exact amounts, for the bars' readout and the key's hover. */
   formatValue: (value: number) => string;
+  /** A summed amount in the key, rounded to a width the column holds. */
+  formatSum: (value: number) => string;
   formatTick: (value: number) => string;
 }
 
@@ -28,19 +31,22 @@ export function InflowByChainChart({
   running,
   foldKey,
   formatValue,
+  formatSum,
   formatTick,
 }: InflowByChainChartProps) {
   const [active, setActive] = useState<number | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
 
   // "to 9 Oct" wherever the running month is named, so no figure for it reads as a whole month.
-  const throughNote =
-    running === null
-      ? ""
-      : `to ${running.throughDay} ${(readoutLabels[running.index] ?? "").slice(0, 3)}`;
+  const month = (i: number) => (readoutLabels[i] ?? "").slice(0, 3);
+  const throughNote = running === null ? "" : `to ${running.throughDay} ${month(running.index)}`;
   const readouts = readoutLabels.map((label, i) =>
     i === running?.index ? `${label}, ${throughNote}` : label,
   );
+  const lastDay =
+    running === null
+      ? readoutLabels.at(-1)
+      : `${running.throughDay} ${month(running.index)} ${(readoutLabels[running.index] ?? "").slice(-4)}`;
 
   const values = (key: string) => series.find((s) => s.key === key)?.values ?? [];
   const sumOf = (key: string) =>
@@ -52,7 +58,7 @@ export function InflowByChainChart({
     value: sumOf(s.key),
   }));
   const total = items.reduce((sum, item) => sum + item.value, 0);
-  const period = active === null ? `${readouts[0]} – ${readouts.at(-1)}` : (readouts[active] ?? "");
+  const period = active === null ? `${readoutLabels[0]} – ${lastDay}` : (readouts[active] ?? "");
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
@@ -70,8 +76,9 @@ export function InflowByChainChart({
       />
       <RankedKey
         items={items}
-        caption={`${period} · ${formatValue(total)}`}
-        formatValue={formatValue}
+        caption={`${period} · ${formatSum(total)}`}
+        formatValue={formatSum}
+        formatExact={formatValue}
         pinnedLast={[foldKey]}
         highlighted={highlighted}
         onHighlight={setHighlighted}
