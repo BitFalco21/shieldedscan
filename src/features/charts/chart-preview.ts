@@ -1,7 +1,7 @@
-import { feeTotalIsComplete, utcDayFromSeconds } from "@/domain";
+import { feeTotalIsComplete, utcDayFromSeconds, type CrossChainProtocol } from "@/domain";
 import type { ChartThumb, ThumbSeries } from "@/components/ChartThumbnail";
 import { POOL_CLASSES } from "@/lib/pool-palette";
-import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
+import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
 import {
   formatCount,
   formatSharePct,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/format";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
-import { chartTable, INFLOW_OTHER, type ChartTable } from "./chart-table";
+import { chartTable, FOLDED_KEY, type ChartTable } from "./chart-table";
 import { POOL_STACK } from "./pool-series";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 
@@ -146,13 +146,35 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
     case "reorgs":
       return { kind: "bars", series: { values: col(0), className: "text-series" } };
     case "inflow-by-chain":
+    case "outflow-by-chain":
       return {
         kind: "stacked-bars",
         series: (t.keys ?? []).map((key, i) => ({
           values: col(i),
-          className: key === INFLOW_OTHER ? FOLDED_FLOW_CLASS : flowPaletteClass(key),
+          className: key === FOLDED_KEY ? FOLDED_FLOW_CLASS : flowPaletteClass(key),
         })),
       };
+    case "volume-by-venue":
+      return {
+        kind: "stacked-bars",
+        series: (t.keys ?? []).map((key, i) => ({
+          values: col(i),
+          className: VENUE_CLASSES[key as CrossChainProtocol] ?? FOLDED_FLOW_CLASS,
+        })),
+      };
+    case "shielded-capable-swaps":
+      return {
+        kind: "lines",
+        max: 100,
+        series: [
+          { values: col(0), className: RANKED_LINES[0] },
+          { values: col(1), className: RANKED_LINES[1] },
+        ],
+      };
+    case "shielded-share":
+      return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.shielded }] };
+    case "lockbox-balance":
+      return { kind: "area", series: { values: col(0), className: "text-series" } };
   }
 }
 
@@ -340,7 +362,42 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
     case "shielding-flow":
     case "crosschain-volume":
     case "inflow-by-chain":
+    case "outflow-by-chain":
+    case "volume-by-venue":
       return null;
+    case "shielded-share": {
+      // Daily rows, so the caption names the day the share was read at.
+      const t = chartTable(slug, data, "30d");
+      const i = t && lastWithValue(t, 0);
+      if (!t || i === null || i === undefined) return null;
+      return {
+        value: formatSharePct(t.rows[i]![0]!),
+        caption: `of circulating ZEC shielded, ${utcDayFromSeconds(t.timestamps[i]!)}`,
+      };
+    }
+    case "lockbox-balance": {
+      const t = chartTable(slug, data, "30d");
+      const i = t && lastWithValue(t, 0);
+      if (!t || i === null || i === undefined) return null;
+      return {
+        value: formatZecTwo(t.rows[i]![0]!),
+        caption: `in the lockbox, ${utcDayFromSeconds(t.timestamps[i]!)}`,
+      };
+    }
+    case "shielded-capable-swaps": {
+      // The newest month that has ended: a share of a half-month moves as it fills.
+      const t = chartTable(slug, data, "all");
+      if (!t) return null;
+      const now = new Date(nowSec * 1000);
+      const thisMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth()) / 1000;
+      const i = t.timestamps.findLastIndex((ts) => ts < thisMonth);
+      const pct = i >= 0 ? t.rows[i]![0] : null;
+      if (i < 0 || pct === null || pct === undefined) return null;
+      return {
+        value: formatSharePct(pct),
+        caption: `of swaps in to a shielded-capable address, ${monthLong(t.timestamps[i]!)}`,
+      };
+    }
   }
 }
 

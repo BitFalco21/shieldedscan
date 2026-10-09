@@ -59,6 +59,10 @@ import type {
   ZnsLookup,
   BlocksDayPoint,
   ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  SupplyDayPoint,
+  VenueMonthPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -291,6 +295,14 @@ export interface ExplorerDataSource {
   getCrossChainVolumeSeries(): Promise<CrossChainVolumeSeries>;
   /** ZEC arriving per source chain per month, through the public swap venues indexed. */
   getChainInflow(): Promise<ChainInflowPoint[]>;
+  /** ZEC leaving per destination chain per month, on the inflow's rules. */
+  getChainOutflow(): Promise<ChainOutflowPoint[]>;
+  /** ZEC per swap venue per month, both directions as separate sums. */
+  getVenueMonths(): Promise<VenueMonthPoint[]>;
+  /** Inbound ZEC and transfers per Zcash address kind per month. */
+  getInflowKinds(): Promise<InflowKindMonthPoint[]>;
+  /** Every value pool's balance at each complete UTC day's close, all history. */
+  getSupplyDays(): Promise<SupplyDayPoint[]>;
   /** Each shielded pool's note commitment tree size at every day's close. */
   getNoteTrees(): Promise<NoteTreeDayPoint[]>;
   /** Transparent active addresses and output value per day, with gaps where not computed. */

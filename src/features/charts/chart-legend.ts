@@ -74,6 +74,11 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
         { label: "Largest 10", className: RANKED_LINES[2], mark: "line" },
         { label: "Paid to a shielded address", className: BESIDE_RANKED_LINE, mark: "line" },
       ];
+    case "shielded-capable-swaps":
+      return [
+        { label: "Share of swaps", className: RANKED_LINES[0], mark: "line" },
+        { label: "Share of ZEC", className: RANKED_LINES[1], mark: "line" },
+      ];
     case "shielded-supply":
     case "ironwood-balance":
     case "price":
@@ -82,8 +87,12 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "fee-totals":
     case "transparent-activity":
     case "reorgs":
-    // Its ranked key, beside the bars, is the legend.
+    case "shielded-share":
+    case "lockbox-balance":
+    // A ranked key beside the bars is the legend.
     case "inflow-by-chain":
+    case "outflow-by-chain":
+    case "volume-by-venue":
       return [];
   }
 }

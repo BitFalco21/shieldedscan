@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { InflowByChainChart } from "../InflowByChainChart";
+import { RankedBarsChart } from "../RankedBarsChart";
 
 const draw = (running: { index: number; throughDay: number } | null = null) =>
   render(
-    <InflowByChainChart
+    <RankedBarsChart
+      ariaLabel="Inflow"
       series={[
         { key: "ETH", label: "Ethereum", colorClass: "flow-1", values: [10, 300] },
         { key: "BTC", label: "Bitcoin", colorClass: "flow-3", values: [90, 100] },
@@ -22,7 +23,7 @@ const draw = (running: { index: number; throughDay: number } | null = null) =>
 
 const firstRow = () => screen.getAllByRole("row")[0]!.textContent ?? "";
 
-describe("InflowByChainChart", () => {
+describe("RankedBarsChart", () => {
   it("ranks the chains over every month shown until a month is read", () => {
     draw();
     expect(screen.getByText("September 2026 – October 2026 · 1400 ZEC")).toBeTruthy();

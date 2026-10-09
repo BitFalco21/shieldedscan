@@ -5,12 +5,14 @@ import type {
   BlocksDayPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
+  SupplyDayPoint,
   TransparentDayPoint,
 } from "@/domain";
 import {
   BLOCKS_DAILY_PATH,
   MINER_SHARES_PATH,
   NOTE_TREES_PATH,
+  SUPPLY_DAYS_PATH,
   TRANSPARENT_DAYS_PATH,
   chartSeriesRoutes,
 } from "../chart-series-routes";
@@ -96,6 +98,14 @@ describeDb("the chart library's newer series", () => {
       [today - 2 * DAY, today - DAY, today],
     );
 
+    await pool.query(`CREATE TABLE chain_day_supply_close (
+      day DATE PRIMARY KEY, transparent_pool_zat BIGINT, sprout_pool_zat BIGINT,
+      sapling_pool_zat BIGINT, orchard_pool_zat BIGINT, ironwood_pool_zat BIGINT,
+      lockbox_pool_zat BIGINT)`);
+    await pool.query(`INSERT INTO chain_day_supply_close VALUES
+      ('2026-09-01', 700, 100, 200, NULL, NULL, NULL),
+      ('2026-09-02', 690, 100, 210, 5, NULL, 12)`);
+
     await pool.query(`CREATE TABLE reorg_observation (observing_since BIGINT)`);
     await pool.query(`CREATE TABLE reorg_event (id BIGSERIAL, detected_at BIGINT, depth INT)`);
     app = chartSeriesRoutes(undefined, pool);
@@ -168,21 +178,62 @@ describeDb("the chart library's newer series", () => {
     expect(body.weeks.slice(2).every((w) => w.reorgs === 0)).toBe(true);
   });
 
+  it("serves every pool's close per day, a pool before it existed as null, never zero", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await pool.query("INSERT INTO chain_day_supply_close VALUES ($1, 1, 1, 1, 1, 1, 1)", [today]);
+    const body = await get<SupplyDayPoint[]>(SUPPLY_DAYS_PATH);
+    await pool.query("DELETE FROM chain_day_supply_close WHERE day = $1", [today]);
+    // Today, still filling, is left out.
+    expect(body).toEqual([
+      {
+        timestamp: SEP,
+        transparentZat: 700,
+        sproutZat: 100,
+        saplingZat: 200,
+        orchardZat: null,
+        ironwoodZat: null,
+        lockboxZat: null,
+      },
+      {
+        timestamp: SEP + DAY,
+        transparentZat: 690,
+        sproutZat: 100,
+        saplingZat: 210,
+        orchardZat: 5,
+        ironwoodZat: null,
+        lockboxZat: 12,
+      },
+    ]);
+  });
+
   it("sums inbound ZEC per source chain and month, settlement legs excluded", async () => {
     await pool.query(`CREATE TABLE crosschain_transfer (
-      id TEXT PRIMARY KEY, direction TEXT, counterpart_chain TEXT, counterpart_asset TEXT,
-      zec_amount_zat BIGINT, timestamp BIGINT)`);
+      id TEXT PRIMARY KEY, protocol TEXT, direction TEXT, counterpart_chain TEXT,
+      counterpart_asset TEXT, zcash_address_kind TEXT, zec_amount_zat BIGINT, timestamp BIGINT)`);
     await pool.query(`INSERT INTO crosschain_transfer VALUES
-      ('a', 'in',  'BTC',  'BTC',   500, ${SEP + 10}),
-      ('b', 'in',  'BTC',  'BTC',   250, ${SEP + DAY}),
-      ('c', 'out', 'BTC',  'BTC',   999, ${SEP + 20}),
-      ('d', 'in',  'MAYA', 'CACAO', 777, ${SEP + 30}),
-      ('e', 'in',  'ETH',  'ETH',   100, ${OCT + 5})`);
+      ('a', 'near-intents', 'in',  'BTC',  'BTC',   'unified',     500, ${SEP + 10}),
+      ('b', 'near-intents', 'in',  'BTC',  'BTC',   'transparent', 250, ${SEP + DAY}),
+      ('c', 'maya',         'out', 'BTC',  'BTC',   'transparent', 999, ${SEP + 20}),
+      ('d', 'maya',         'in',  'MAYA', 'CACAO', 'sapling',     777, ${SEP + 30}),
+      ('e', 'maya',         'in',  'ETH',  'ETH',   NULL,          100, ${OCT + 5})`);
     const store = new PostgresStorePort(url);
     try {
       expect(await store.inflowByChain()).toEqual([
         { timestamp: SEP, chain: "BTC", inZat: 750 },
         { timestamp: OCT, chain: "ETH", inZat: 100 },
+      ]);
+      expect(await store.outflowByChain()).toEqual([{ timestamp: SEP, chain: "BTC", outZat: 999 }]);
+      // The CACAO settlement leg is in neither venue's volume.
+      expect(await store.volumeByVenue()).toEqual([
+        { timestamp: SEP, protocol: "maya", inZat: 0, outZat: 999 },
+        { timestamp: SEP, protocol: "near-intents", inZat: 750, outZat: 0 },
+        { timestamp: OCT, protocol: "maya", inZat: 100, outZat: 0 },
+      ]);
+      // An unclassified address is a real null, kept as its own bucket.
+      expect(await store.inflowByAddressKind()).toEqual([
+        { timestamp: SEP, kind: "transparent", transfers: 1, zat: 250 },
+        { timestamp: SEP, kind: "unified", transfers: 1, zat: 500 },
+        { timestamp: OCT, kind: null, transfers: 1, zat: 100 },
       ]);
     } finally {
       await store.close();

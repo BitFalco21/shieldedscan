@@ -146,6 +146,18 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getBlocksDaily() {
     return chartSeries.getBlocksDaily();
   },
+  async getSupplyDays() {
+    return chartSeries.getSupplyDays();
+  },
+  async getChainOutflow() {
+    return chartSeries.getChainOutflow();
+  },
+  async getVenueMonths() {
+    return chartSeries.getVenueMonths();
+  },
+  async getInflowKinds() {
+    return chartSeries.getInflowKinds();
+  },
   async getReorgWeeks() {
     return chartSeries.getReorgWeeks();
   },

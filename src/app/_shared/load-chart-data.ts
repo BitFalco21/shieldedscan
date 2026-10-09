@@ -27,6 +27,11 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "miner-concentration": ["minerShares"],
   reorgs: ["reorgWeeks"],
   "inflow-by-chain": ["chainInflow"],
+  "outflow-by-chain": ["chainOutflow"],
+  "volume-by-venue": ["venueMonths"],
+  "shielded-capable-swaps": ["inflowKinds"],
+  "shielded-share": ["supplyDays"],
+  "lockbox-balance": ["supplyDays"],
 };
 
 /**
@@ -63,6 +68,10 @@ export async function loadChartData(
     minerShares,
     reorgWeeks,
     chainInflow,
+    chainOutflow,
+    venueMonths,
+    inflowKinds,
+    supplyDays,
     blocksDaily,
     releases,
   ] = await Promise.all([
@@ -85,6 +94,10 @@ export async function loadChartData(
     wanted.has("minerShares") ? guard(() => data.getMinerShares()) : null,
     wanted.has("reorgWeeks") ? guard(() => data.getReorgWeeks()) : null,
     wanted.has("chainInflow") ? guard(() => data.getChainInflow()) : null,
+    wanted.has("chainOutflow") ? guard(() => data.getChainOutflow()) : null,
+    wanted.has("venueMonths") ? guard(() => data.getVenueMonths()) : null,
+    wanted.has("inflowKinds") ? guard(() => data.getInflowKinds()) : null,
+    wanted.has("supplyDays") ? guard(() => data.getSupplyDays()) : null,
     wanted.has("blocksDaily") ? guard(() => data.getBlocksDaily()) : null,
     wanted.has("releases") ? guard(() => data.getNetworkReleases()) : null,
   ]);
@@ -108,6 +121,10 @@ export async function loadChartData(
     minerShares,
     reorgWeeks,
     chainInflow,
+    chainOutflow,
+    venueMonths,
+    inflowKinds,
+    supplyDays,
     blocksDaily,
     releases,
     asOf: nowSeconds(),

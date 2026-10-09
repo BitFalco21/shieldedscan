@@ -27,6 +27,7 @@ import type {
   NetTopology,
   NetTopologyScope,
   BlocksDayPoint,
+  SupplyDayPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -593,6 +594,32 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised blocks daily shape");
       }
       return body as BlocksDayPoint[];
+    },
+
+    async getSupplyDays(): Promise<SupplyDayPoint[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/supply-days", CACHE_QUARTER_HOUR),
+        "supply days",
+      );
+      const zatOrNull = (v: unknown) => v === null || typeof v === "number";
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: SupplyDayPoint) =>
+            typeof p.timestamp === "number" &&
+            [
+              p.transparentZat,
+              p.sproutZat,
+              p.saplingZat,
+              p.orchardZat,
+              p.ironwoodZat,
+              p.lockboxZat,
+            ].every(zatOrNull),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised supply days shape");
+      }
+      return body as SupplyDayPoint[];
     },
 
     async getReorgWeeks(): Promise<ReorgWeekSeries> {

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { ChartRange } from "@/domain";
+import type { ChartRange, CrossChainProtocol } from "@/domain";
 import {
   feeTotalIsComplete,
   NU7,
   NU7_RELEASES,
   parseChartRange,
+  protocolLabel,
   sliceRange,
   sliceTail,
   upgradeMarkers,
@@ -21,7 +22,7 @@ import { RangeToggle } from "@/components/RangeToggle";
 import { StackedAreaChart } from "@/components/StackedAreaChart";
 import { readinessChart } from "@/features/network/upgrade/readiness-chart";
 import { chainName } from "@/lib/chains";
-import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
+import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
 import {
   compactCount,
   formatCount,
@@ -42,8 +43,15 @@ import type { ChartSlug } from "./catalog";
 import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
 import { chartLegend } from "./chart-legend";
-import { InflowByChainChart } from "./InflowByChainChart";
-import { chartTable, INFLOW_OTHER, runningMonth, UNRANGED, type ChartTable } from "./chart-table";
+import {
+  chartTable,
+  FOLDED_KEY,
+  runningMonth,
+  UNRANGED,
+  type ChartCell,
+  type ChartTable,
+} from "./chart-table";
+import { RankedBarsChart } from "./RankedBarsChart";
 import { poolBands, poolLines } from "./pool-series";
 
 /** An x-axis label: a day for the daily siblings, a short month for the monthly series. */
@@ -607,24 +615,102 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
         />
       );
     }
-    case "inflow-by-chain": {
+    case "inflow-by-chain":
+    case "outflow-by-chain":
+    case "volume-by-venue": {
       const t = chartTable(slug, data, range);
-      if (!t || t.rows.length < 2) return unavailable("The cross-chain inflow series");
+      if (!t || t.rows.length < 2) return unavailable("The cross-chain series");
+      const venues = slug === "volume-by-venue";
+      const label = (key: string) =>
+        key === FOLDED_KEY
+          ? "Other chains"
+          : venues
+            ? protocolLabel(key as CrossChainProtocol)
+            : chainName(key);
+      const colour = (key: string) =>
+        key === FOLDED_KEY
+          ? FOLDED_FLOW_CLASS
+          : venues
+            ? VENUE_CLASSES[key as CrossChainProtocol]
+            : flowPaletteClass(key);
       return (
-        <InflowByChainChart
+        <RankedBarsChart
           series={(t.keys ?? []).map((key, i) => ({
             key,
-            label: key === INFLOW_OTHER ? "Other chains" : chainName(key),
-            colorClass: key === INFLOW_OTHER ? FOLDED_FLOW_CLASS : flowPaletteClass(key),
+            label: label(key),
+            colorClass: colour(key),
             values: column(t, i).map((v) => v ?? 0),
           }))}
           labels={tableLabels(t)}
           readoutLabels={tableReadout(t)}
           running={runningMonth(t, data.asOf)}
-          foldKey={INFLOW_OTHER}
+          foldKey={FOLDED_KEY}
           formatValue={formatZecCompact}
           formatSum={(v) => `${formatZecVolumeCompact(v)} ZEC`}
           formatTick={formatZecTick}
+          ariaLabel={
+            slug === "inflow-by-chain"
+              ? "ZEC arriving on Zcash per month, by source chain"
+              : slug === "outflow-by-chain"
+                ? "ZEC leaving Zcash per month, by destination chain"
+                : "ZEC swapped per month through each venue, both directions"
+          }
+        />
+      );
+    }
+    case "shielded-capable-swaps": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The cross-chain series");
+      const count = (v: ChartCell) => (v === null ? "—" : formatCount(v));
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[
+            { name: "Share of swaps", values: column(t, 0), className: RANKED_LINES[0] },
+            { name: "Share of ZEC", values: column(t, 1), className: RANKED_LINES[1] },
+          ]}
+          yMax={100}
+          formatValue={(v) => formatSharePct(v)}
+          // Each share's two terms, so a month of three swaps never reads like one of thousands.
+          contextRows={[
+            {
+              name: "Swaps (capable of classified)",
+              values: t.rows.map((r) => `${count(r[2] ?? null)} of ${count(r[3] ?? null)}`),
+            },
+          ]}
+          ariaLabel="Share of swaps into ZEC each month sent to a shielded-capable address, by swaps and by ZEC"
+        />
+      );
+    }
+    case "shielded-share": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The supply series");
+      const zec = (v: ChartCell) => (v === null ? "—" : formatZecWhole(v));
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[{ name: "Shielded", values: column(t, 0), className: KIND_CLASSES.shielded }]}
+          formatValue={(v) => formatSharePct(v)}
+          contextRows={[
+            { name: "Shielded ZEC", values: column(t, 1).map(zec) },
+            { name: "Circulating ZEC", values: column(t, 2).map(zec) },
+          ]}
+          ariaLabel={`Share of circulating ZEC held in the shielded pools, per ${t.period}`}
+        />
+      );
+    }
+    case "lockbox-balance": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The supply series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[{ name: "Lockbox", values: column(t, 0), className: "text-series" }]}
+          formatValue={formatZecWhole}
+          ariaLabel="ZEC held in the NU6 dev-fund lockbox at each day's close"
         />
       );
     }

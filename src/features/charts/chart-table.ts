@@ -1,6 +1,7 @@
-import type { ChartRange } from "@/domain";
+import type { ChartRange, SupplyDayPoint } from "@/domain";
 import {
   blocksTargetForDay,
+  shieldedOfCirculating,
   NU7,
   NU7_RELEASES,
   readinessHistory,
@@ -74,13 +75,73 @@ export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   "miner-concentration",
   "reorgs",
   "inflow-by-chain",
+  "outflow-by-chain",
+  "volume-by-venue",
+  "shielded-capable-swaps",
 ]);
 
-/** Source chains drawn on their own in `inflow-by-chain`; the rest are folded into one band. */
-export const INFLOW_CHAINS_SHOWN = 6;
+/** Chains drawn on their own in the inflow and outflow charts; the rest fold into one band. */
+export const CHAINS_SHOWN = 6;
 
 /** The fold's key: not a chain, and coloured as the Sankey colours its folded tail. */
-export const INFLOW_OTHER = "OTHER";
+export const FOLDED_KEY = "OTHER";
+
+/** Every month from the first to the last, so time keeps its spacing. */
+function everyMonth(first: number, last: number): number[] {
+  const out: number[] = [];
+  for (let d = new Date(first * 1000); d.getTime() / 1000 <= last;) {
+    out.push(d.getTime() / 1000);
+    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1));
+  }
+  return out;
+}
+
+/**
+ * Monthly sums per key: the `shown` largest keys by all-time total on their own, then one
+ * `FOLDED_KEY` band for the rest, so the colours and the order hold still as the months go by.
+ * Every month from the first to the last is a row, and a month a key saw nothing is a measured
+ * zero: every indexed swap is counted.
+ */
+function foldedMonths(
+  points: readonly { timestamp: number; key: string; zat: number }[],
+  shown: number,
+  column: (key: string) => string,
+): ChartTable {
+  const totals = new Map<string, number>();
+  for (const p of points) totals.set(p.key, (totals.get(p.key) ?? 0) + p.zat);
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([key]) => key);
+  const own = ranked.slice(0, shown);
+  const keys = ranked.length > own.length ? [...own, FOLDED_KEY] : own;
+  const months = new Map<number, Map<string, number>>();
+  for (const p of points) {
+    const key = own.includes(p.key) ? p.key : FOLDED_KEY;
+    const month = months.get(p.timestamp) ?? new Map<string, number>();
+    month.set(key, (month.get(key) ?? 0) + p.zat);
+    months.set(p.timestamp, month);
+  }
+  const seen = [...months.keys()].sort((a, b) => a - b);
+  const timestamps = seen.length > 0 ? everyMonth(seen[0]!, seen.at(-1)!) : [];
+  return {
+    period: "month",
+    columns: keys.map((k) => column(k.toLowerCase().replace(/-/g, "_"))),
+    keys,
+    timestamps,
+    rows: timestamps.map((ts) => keys.map((k) => months.get(ts)?.get(k) ?? 0)),
+  };
+}
+
+/** The last row of each UTC month, stamped with the month's start: a level read at its close. */
+function monthCloses<T extends { timestamp: number }>(points: readonly T[]): T[] {
+  const byMonth = new Map<number, T>();
+  for (const p of points) {
+    const d = new Date(p.timestamp * 1000);
+    byMonth.set(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()) / 1000, p);
+  }
+  return [...byMonth.entries()].map(([timestamp, p]) => ({ ...p, timestamp }));
+}
+
+/** The address kinds that can receive shielded funds, as `/v1/crosschain/destinations` counts. */
+const SHIELDED_CAPABLE: ReadonlySet<string> = new Set(["sapling", "unified"]);
 
 /** A share of a whole in percent, to the hundredth of a point; null over nothing. */
 const share = (part: number, whole: number): ChartCell =>
@@ -340,41 +401,92 @@ export function chartTable(
         { name: "deepest", value: (p) => p.deepest },
       ]);
     }
-    case "inflow-by-chain": {
+    case "inflow-by-chain":
       if (!data.chainInflow) return null;
-      // The largest sources by all-time inflow, then one band for the rest, so the colours and the
-      // order hold still as the months go by.
-      const totals = new Map<string, number>();
-      for (const p of data.chainInflow) totals.set(p.chain, (totals.get(p.chain) ?? 0) + p.inZat);
-      const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([chain]) => chain);
-      const shown = ranked.slice(0, INFLOW_CHAINS_SHOWN);
-      const keys = ranked.length > shown.length ? [...shown, INFLOW_OTHER] : shown;
-      const months = new Map<number, Map<string, number>>();
-      for (const p of data.chainInflow) {
-        const key = shown.includes(p.chain) ? p.chain : INFLOW_OTHER;
-        const month = months.get(p.timestamp) ?? new Map<string, number>();
-        month.set(key, (month.get(key) ?? 0) + p.inZat);
-        months.set(p.timestamp, month);
-      }
-      // Every month from the first to the last, so time keeps its spacing: a month with no inbound
-      // swap is a measured zero, since every indexed swap is counted.
-      const seen = [...months.keys()].sort((a, b) => a - b);
-      const timestamps: number[] = [];
-      if (seen.length > 0) {
-        const last = seen.at(-1)!;
-        for (let d = new Date(seen[0]! * 1000); d.getTime() / 1000 <= last;) {
-          timestamps.push(d.getTime() / 1000);
-          d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1));
+      return foldedMonths(
+        data.chainInflow.map((p) => ({ timestamp: p.timestamp, key: p.chain, zat: p.inZat })),
+        CHAINS_SHOWN,
+        (k) => `${k}_in_zat`,
+      );
+    case "outflow-by-chain":
+      if (!data.chainOutflow) return null;
+      return foldedMonths(
+        data.chainOutflow.map((p) => ({ timestamp: p.timestamp, key: p.chain, zat: p.outZat })),
+        CHAINS_SHOWN,
+        (k) => `${k}_out_zat`,
+      );
+    case "volume-by-venue":
+      if (!data.venueMonths) return null;
+      // Gross: what each venue carried, both directions added, never netted.
+      return foldedMonths(
+        data.venueMonths.map((p) => ({
+          timestamp: p.timestamp,
+          key: p.protocol,
+          zat: p.inZat + p.outZat,
+        })),
+        Number.POSITIVE_INFINITY,
+        (k) => `${k}_zat`,
+      );
+    case "shielded-capable-swaps": {
+      if (!data.inflowKinds) return null;
+      const months = new Map<
+        number,
+        { swaps: number; capableSwaps: number; zat: number; capableZat: number }
+      >();
+      for (const p of data.inflowKinds) {
+        // No published address: in neither side of either share, as the public API counts.
+        if (p.kind === null) continue;
+        const m = months.get(p.timestamp) ?? { swaps: 0, capableSwaps: 0, zat: 0, capableZat: 0 };
+        const capable = SHIELDED_CAPABLE.has(p.kind);
+        m.swaps += p.transfers;
+        m.zat += p.zat;
+        if (capable) {
+          m.capableSwaps += p.transfers;
+          m.capableZat += p.zat;
         }
+        months.set(p.timestamp, m);
       }
-      return {
-        period: "month",
-        columns: keys.map((k) => `${k.toLowerCase()}_in_zat`),
-        keys,
-        timestamps,
-        // A month a chain sent nothing is a measured zero: every inbound swap indexed is counted.
-        rows: timestamps.map((ts) => keys.map((k) => months.get(ts)?.get(k) ?? 0)),
-      };
+      const seen = [...months.keys()].sort((a, b) => a - b);
+      const timestamps = seen.length > 0 ? everyMonth(seen[0]!, seen.at(-1)!) : [];
+      const points = timestamps.map((timestamp) => ({ timestamp, ...months.get(timestamp) }));
+      return table("month", points, [
+        {
+          name: "capable_swaps_pct",
+          value: (p) => (p.swaps ? share(p.capableSwaps!, p.swaps) : null),
+        },
+        { name: "capable_zec_pct", value: (p) => (p.zat ? share(p.capableZat!, p.zat) : null) },
+        { name: "capable_swaps", value: (p) => p.capableSwaps ?? null },
+        { name: "classified_swaps", value: (p) => p.swaps ?? null },
+        { name: "capable_zat", value: (p) => p.capableZat ?? null },
+        { name: "classified_zat", value: (p) => p.zat ?? null },
+      ]);
+    }
+    case "shielded-share": {
+      if (!data.supplyDays) return null;
+      const days = sliceRange(data.supplyDays, (p) => p.timestamp, range);
+      const split = (p: SupplyDayPoint) => shieldedOfCirculating(p);
+      return table(grain, daily ? days : monthCloses(days), [
+        {
+          name: "shielded_pct",
+          value: (p) => {
+            const s = split(p);
+            return s ? share(s.shieldedZat, s.circulatingZat) : null;
+          },
+        },
+        { name: "shielded_zat", value: (p) => split(p)?.shieldedZat ?? null },
+        { name: "circulating_zat", value: (p) => split(p)?.circulatingZat ?? null },
+      ]);
+    }
+    case "lockbox-balance": {
+      if (!data.supplyDays) return null;
+      // From the day NU6 created it: before then there was no lockbox, not an empty one.
+      const from = data.supplyDays.findIndex((p) => p.lockboxZat !== null);
+      if (from < 0) return null;
+      return table(
+        "day",
+        sliceRange(data.supplyDays.slice(from), (p) => p.timestamp, range),
+        [{ name: "lockbox_zat", value: (p) => p.lockboxZat }],
+      );
     }
   }
 }

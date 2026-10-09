@@ -1,6 +1,10 @@
 import type {
   BlocksDayPoint,
   ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  SupplyDayPoint,
+  VenueMonthPoint,
   MinerShareMonth,
   NetReleases,
   NoteTreeDayPoint,
@@ -53,6 +57,10 @@ export interface ChartData {
   minerShares: MinerShareMonth[] | null;
   reorgWeeks: ReorgWeekSeries | null;
   chainInflow: ChainInflowPoint[] | null;
+  chainOutflow: ChainOutflowPoint[] | null;
+  venueMonths: VenueMonthPoint[] | null;
+  inflowKinds: InflowKindMonthPoint[] | null;
+  supplyDays: SupplyDayPoint[] | null;
   blocksDaily: BlocksDayPoint[] | null;
   /** The crawler's daily release record, for the upgrade readiness trend. */
   releases: NetReleases | null;
@@ -86,6 +94,10 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     minerShares: null,
     reorgWeeks: null,
     chainInflow: null,
+    chainOutflow: null,
+    venueMonths: null,
+    inflowKinds: null,
+    supplyDays: null,
     blocksDaily: null,
     releases: null,
     asOf: 0,

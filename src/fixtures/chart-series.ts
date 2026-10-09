@@ -1,11 +1,16 @@
 import type {
   BlocksDayPoint,
   ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  SupplyDayPoint,
+  VenueMonthPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
   TransparentDayPoint,
 } from "@/domain";
+import { classifyZcashAddress } from "@/domain/address";
 import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import { crossChainTransfers } from "./crosschain";
 import { getDailySeries, getMonthlySeries, getReorgSummary, listReorgEvents } from "./index";
@@ -87,6 +92,81 @@ export function getChainInflow(): ChainInflowPoint[] {
   return [...by.values()].sort(
     (a, b) => a.timestamp - b.timestamp || a.chain.localeCompare(b.chain),
   );
+}
+
+/** The first instant of the UTC month holding `seconds`. */
+const monthOf = (seconds: number) => {
+  const d = new Date(seconds * 1000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth()) / 1000;
+};
+
+const swaps = (direction: "in" | "out" | null) =>
+  crossChainTransfers.filter(
+    (t) =>
+      (direction === null || t.direction === direction) &&
+      !SETTLEMENT_ASSETS.includes(t.counterpartAsset),
+  );
+
+export function getChainOutflow(): ChainOutflowPoint[] {
+  const by = new Map<string, ChainOutflowPoint>();
+  for (const t of swaps("out")) {
+    const timestamp = monthOf(t.timestamp);
+    const key = `${timestamp}:${t.counterpartChain}`;
+    const point = by.get(key) ?? { timestamp, chain: t.counterpartChain, outZat: 0 };
+    point.outZat += t.zecAmountZat;
+    by.set(key, point);
+  }
+  return [...by.values()].sort(
+    (a, b) => a.timestamp - b.timestamp || a.chain.localeCompare(b.chain),
+  );
+}
+
+export function getVenueMonths(): VenueMonthPoint[] {
+  const by = new Map<string, VenueMonthPoint>();
+  for (const t of swaps(null)) {
+    const timestamp = monthOf(t.timestamp);
+    const key = `${timestamp}:${t.protocol}`;
+    const point = by.get(key) ?? { timestamp, protocol: t.protocol, inZat: 0, outZat: 0 };
+    if (t.direction === "in") point.inZat += t.zecAmountZat;
+    else point.outZat += t.zecAmountZat;
+    by.set(key, point);
+  }
+  return [...by.values()].sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export function getInflowKinds(): InflowKindMonthPoint[] {
+  const by = new Map<string, InflowKindMonthPoint>();
+  for (const t of swaps("in")) {
+    const timestamp = monthOf(t.timestamp);
+    const kind = classifyZcashAddress(t.zcashAddress);
+    const key = `${timestamp}:${kind}`;
+    const point = by.get(key) ?? { timestamp, kind, transfers: 0, zat: 0 };
+    point.transfers += 1;
+    point.zat += t.zecAmountZat;
+    by.set(key, point);
+  }
+  return [...by.values()].sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * From the fixture days' pool balances: transparent held at a steady multiple of the shielded
+ * total, and a lockbox filling over the last year, as NU6's did.
+ */
+export function getSupplyDays(): SupplyDayPoint[] {
+  const days = getDailySeries();
+  const lockboxFrom = days.length - 330;
+  return days.map((d, i) => {
+    const shielded = d.sproutZat + d.saplingZat + d.orchardZat + d.ironwoodZat;
+    return {
+      timestamp: d.timestamp,
+      transparentZat: Math.round(shielded * 2.4),
+      sproutZat: d.sproutZat,
+      saplingZat: d.saplingZat,
+      orchardZat: d.orchardZat || null,
+      ironwoodZat: d.ironwoodZat || null,
+      lockboxZat: i < lockboxFrom ? null : (i - lockboxFrom) * 22_500_000_000,
+    };
+  });
 }
 
 /** From the fixture network days: each day's count and a top height on the post-Blossom side. */

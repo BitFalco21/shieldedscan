@@ -14,6 +14,12 @@ import { clampPageSize } from "./page-size";
 
 /** ZEC arriving per source chain per month: the chart library's inflow-by-chain series. */
 export const INFLOW_BY_CHAIN_PATH = "/crosschain/inflow-by-chain";
+/** ZEC leaving per destination chain per month. */
+export const OUTFLOW_BY_CHAIN_PATH = "/crosschain/outflow-by-chain";
+/** ZEC per swap venue per month, both directions. */
+export const VENUE_MONTHS_PATH = "/crosschain/venue-months";
+/** Inbound ZEC per Zcash address kind per month. */
+export const INFLOW_KINDS_PATH = "/crosschain/inflow-kinds";
 /**
  * The private cross-chain surface: the transfer list, the aggregates and the lookups the frontend
  * and the agent read.
@@ -125,6 +131,9 @@ export function crosschainRoutes(store: CrossChainStorePort): Hono {
   app.get("/crosschain/volume", async (c) => c.json(await store.volume()));
   app.get("/crosschain/volume-series", async (c) => c.json(await store.volumeSeries()));
   app.get(INFLOW_BY_CHAIN_PATH, async (c) => c.json(await store.inflowByChain()));
+  app.get(OUTFLOW_BY_CHAIN_PATH, async (c) => c.json(await store.outflowByChain()));
+  app.get(VENUE_MONTHS_PATH, async (c) => c.json(await store.volumeByVenue()));
+  app.get(INFLOW_KINDS_PATH, async (c) => c.json(await store.inflowByAddressKind()));
 
   // The crossings a Zcash transaction is a leg of, for the `/tx` page's swap strip. Always 200 with
   // a list and its exact total (empty is the common answer), with the txid echoed so an adapter can

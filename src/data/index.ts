@@ -58,6 +58,9 @@ function build(tipRevalidateSeconds?: number): ExplorerDataSource {
     getCrossChainVolume: () => crossChain.getCrossChainVolume(),
     getCrossChainVolumeSeries: () => crossChain.getCrossChainVolumeSeries(),
     getChainInflow: () => crossChain.getChainInflow(),
+    getChainOutflow: () => crossChain.getChainOutflow(),
+    getVenueMonths: () => crossChain.getVenueMonths(),
+    getInflowKinds: () => crossChain.getInflowKinds(),
 
     getPools: () => chain.getPools(),
     getSupplyBreakdown: () => chain.getSupplyBreakdown(),
@@ -88,6 +91,7 @@ function build(tipRevalidateSeconds?: number): ExplorerDataSource {
     getMinerShares: () => chain.getMinerShares(),
     getReorgWeeks: () => chain.getReorgWeeks(),
     getBlocksDaily: () => chain.getBlocksDaily(),
+    getSupplyDays: () => chain.getSupplyDays(),
     getMiningOverview: (window) => chain.getMiningOverview(window),
     getMonthlySeries: () => chain.getMonthlySeries(),
     getDailySeries: () => chain.getDailySeries(),

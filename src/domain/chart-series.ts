@@ -4,6 +4,7 @@
  * chart and the endpoint it names cannot disagree about what they count.
  */
 
+import type { ZcashAddressKind } from "./address";
 import { BLOCK_TARGET_SECONDS, BLOSSOM_HEIGHT, PRE_BLOSSOM_TARGET_SECONDS } from "./halving";
 
 /**
@@ -58,6 +59,62 @@ export interface ChainInflowPoint {
   timestamp: number;
   chain: string;
   inZat: number;
+}
+
+/** ZEC leaving for one destination chain in one month, through the public swap venues indexed. */
+export interface ChainOutflowPoint {
+  timestamp: number;
+  chain: string;
+  outZat: number;
+}
+
+/** ZEC through one swap venue in one month: the two directions as separate figures, never netted. */
+export interface VenueMonthPoint {
+  timestamp: number;
+  protocol: string;
+  inZat: number;
+  outZat: number;
+}
+
+/**
+ * ZEC arriving in one month at one kind of Zcash address. A unified address is shielded-capable
+ * only: it may carry a transparent receiver, and which receiver a payout used is not public.
+ * Null is an address the indexer could not classify; it stays in every denominator.
+ */
+export interface InflowKindMonthPoint {
+  timestamp: number;
+  kind: ZcashAddressKind | null;
+  transfers: number;
+  zat: number;
+}
+
+/**
+ * Every value pool's balance at one complete UTC day's last block. A shielded pool is null before
+ * it existed and the lockbox before NU6 created it; a null is never a zero balance. A level, read
+ * at the close: never summed across days.
+ */
+export interface SupplyDayPoint {
+  timestamp: number;
+  transparentZat: number | null;
+  sproutZat: number | null;
+  saplingZat: number | null;
+  orchardZat: number | null;
+  ironwoodZat: number | null;
+  lockboxZat: number | null;
+}
+
+/**
+ * Shielded ZEC and circulating ZEC at a close, from one block, so the share's two sides cannot
+ * disagree. Circulating is every pool but the lockbox, as `circulatingZat` defines it. A pool that
+ * did not exist yet holds nothing; null when the transparent or Sprout balance is unread.
+ */
+export function shieldedOfCirculating(
+  p: SupplyDayPoint,
+): { shieldedZat: number; circulatingZat: number } | null {
+  if (p.transparentZat === null || p.sproutZat === null) return null;
+  const shieldedZat =
+    p.sproutZat + (p.saplingZat ?? 0) + (p.orchardZat ?? 0) + (p.ironwoodZat ?? 0);
+  return { shieldedZat, circulatingZat: p.transparentZat + shieldedZat };
 }
 
 /**

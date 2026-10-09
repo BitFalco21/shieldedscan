@@ -4,6 +4,7 @@ import type {
   BlocksDayPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
+  SupplyDayPoint,
   TransparentDayPoint,
 } from "@/domain";
 import { Cached } from "./cached";
@@ -14,6 +15,7 @@ export const NOTE_TREES_PATH = "/chain/analytics/note-trees";
 export const TRANSPARENT_DAYS_PATH = "/chain/analytics/transparent-days";
 export const MINER_SHARES_PATH = "/chain/analytics/miner-shares";
 export const BLOCKS_DAILY_PATH = "/chain/analytics/blocks-daily";
+export const SUPPLY_DAYS_PATH = "/chain/analytics/supply-days";
 
 /**
  * The private series behind the chart library's newer charts, one route each.
@@ -31,6 +33,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   const transparentDays = new Cached<TransparentDayPoint[]>();
   const minerShares = new Cached<MinerShareMonth[]>();
   const blocksDaily = new Cached<BlocksDayPoint[]>();
+  const supplyDays = new Cached<SupplyDayPoint[]>();
 
   /** Each shielded pool's note commitment tree size at every day's close, all history. */
   app.get(NOTE_TREES_PATH, async (c) =>
@@ -174,6 +177,45 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
           timestamp: Number(r.ts),
           blocks: Number(r.blocks),
           topHeight: Number(r.top_height),
+        }));
+      }),
+    ),
+  );
+
+  /**
+   * Every value pool's balance at each complete UTC day's last block, all history: the shielded
+   * share's two sides and the lockbox, from one row so they agree. Today is left out, as on every
+   * daily series here. Nulls pass through: a pool before it existed is not a pool at zero.
+   */
+  app.get(SUPPLY_DAYS_PATH, async (c) =>
+    c.json(
+      await supplyDays.get(async () => {
+        const { rows } = await pool.query<{
+          ts: string;
+          transparent: string | null;
+          sprout: string | null;
+          sapling: string | null;
+          orchard: string | null;
+          ironwood: string | null;
+          lockbox: string | null;
+        }>(
+          `SELECT EXTRACT(EPOCH FROM day)::bigint AS ts,
+                  transparent_pool_zat AS transparent, sprout_pool_zat AS sprout,
+                  sapling_pool_zat AS sapling, orchard_pool_zat AS orchard,
+                  ironwood_pool_zat AS ironwood, lockbox_pool_zat AS lockbox
+             FROM chain_day_supply_close
+            WHERE day < (now() AT TIME ZONE 'UTC')::date
+            ORDER BY day`,
+        );
+        const zat = (v: string | null) => (v === null ? null : Number(v));
+        return rows.map((r) => ({
+          timestamp: Number(r.ts),
+          transparentZat: zat(r.transparent),
+          sproutZat: zat(r.sprout),
+          saplingZat: zat(r.sapling),
+          orchardZat: zat(r.orchard),
+          ironwoodZat: zat(r.ironwood),
+          lockboxZat: zat(r.lockbox),
         }));
       }),
     ),

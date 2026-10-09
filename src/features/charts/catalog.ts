@@ -37,7 +37,12 @@ export type ChartSlug =
   | "upgrade-readiness"
   | "miner-concentration"
   | "reorgs"
-  | "inflow-by-chain";
+  | "inflow-by-chain"
+  | "outflow-by-chain"
+  | "volume-by-venue"
+  | "shielded-capable-swaps"
+  | "shielded-share"
+  | "lockbox-balance";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -123,6 +128,26 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Both directions of the privacy boundary, drawn to one shared scale — the net is the visible gap between the bars. Net alone hides the story: a month with 10,000 ZEC shielded and 9,900 unshielded nets to almost nothing, yet nearly 20,000 ZEC crossed the boundary.",
       "Summed from each transaction's own declared value balances, Sprout included. Pool-to-pool migrations net out by construction, so Ironwood's activation does not masquerade as a shielding wave.",
+    ],
+  },
+  {
+    slug: "shielded-share",
+    title: "Share of ZEC held shielded",
+    category: "Supply",
+    api: null,
+    blurb: "Shielded ZEC as a share of circulating supply, every day since 2016.",
+    description: [
+      "Every shielded pool's balance at each day's last block, as a share of circulating ZEC at the same block: all mined ZEC except the dev-fund lockbox. A pool counts as empty before it existed.",
+    ],
+  },
+  {
+    slug: "lockbox-balance",
+    title: "Dev-fund lockbox",
+    category: "Supply",
+    api: null,
+    blurb: "ZEC held in the lockbox NU6 created for deferred development funding.",
+    description: [
+      "Since NU6, 12% of every block's subsidy goes into a lockbox that no transaction can spend: only a network upgrade can pay it out. The one fall so far is the payout NU6.1 made at its activation.",
     ],
   },
   {
@@ -304,6 +329,38 @@ export const CHARTS: ChartEntry[] = [
       "Swaps through venues not indexed here are not counted, so every figure is a lower bound.",
     ],
   },
+  {
+    slug: "outflow-by-chain",
+    title: "Outflow by destination chain",
+    category: "Cross-chain",
+    api: { docsId: "crosschain-aggregate", path: "/v1/crosschain/aggregate" },
+    blurb: "ZEC leaving Zcash each month, by the chain it went to.",
+    description: [
+      "ZEC leaving through the public swap venues this explorer indexes, by the chain the swap ended on, month by month. The largest destinations are drawn on their own and the rest grouped.",
+      "Swaps through venues not indexed here are not counted, so every figure is a lower bound.",
+    ],
+  },
+  {
+    slug: "volume-by-venue",
+    title: "Swap volume by venue",
+    category: "Cross-chain",
+    api: { docsId: "crosschain-aggregate", path: "/v1/crosschain/aggregate" },
+    blurb: "ZEC swapped each month through each venue, both directions.",
+    description: [
+      "ZEC in and out through each public swap venue this explorer indexes, added per month. Both directions count: this is how much each venue carried, not a net flow.",
+    ],
+  },
+  {
+    slug: "shielded-capable-swaps",
+    title: "Swaps into a shielded-capable address",
+    category: "Cross-chain",
+    api: { docsId: "destinations", path: "/v1/crosschain/destinations" },
+    blurb: "Share of swaps into ZEC each month that went to a Sapling or unified address.",
+    description: [
+      "Of the swaps into ZEC each month, the share sent to an address that can receive shielded funds: Sapling or unified. Shielded-capable, never shielded: a unified address may also carry a transparent receiver, and which one a payout used is not public.",
+      "Drawn by swap count, as the public API states it, and by ZEC. A swap whose venue published no Zcash address is in neither side of either share.",
+    ],
+  },
 ];
 
 /**
@@ -323,6 +380,9 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "crosschain-volume",
   "price",
   "inflow-by-chain",
+  "outflow-by-chain",
+  "volume-by-venue",
+  "shielded-capable-swaps",
   "upgrade-readiness",
 ]);
 

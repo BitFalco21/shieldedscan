@@ -4,14 +4,15 @@ import { useState } from "react";
 import { RankedKey } from "@/components/RankedKey";
 import { StackedBarChart, type BarSeries } from "@/components/StackedBarChart";
 
-export interface InflowByChainChartProps {
+export interface RankedBarsChartProps {
   series: BarSeries[];
+  ariaLabel: string;
   labels: string[];
   readoutLabels: string[];
   /** The month still running when the data was read, and the day it reaches. */
   running: { index: number; throughDay: number } | null;
-  /** The fold of the smaller chains: ranked last, since it is not one chain. */
-  foldKey: string;
+  /** A fold of the smaller series, ranked last since it is not one of them. */
+  foldKey?: string;
   /** Exact amounts, for the bars' readout and the key's hover. */
   formatValue: (value: number) => string;
   /** A summed amount in the key, rounded to a width the column holds. */
@@ -20,12 +21,13 @@ export interface InflowByChainChartProps {
 }
 
 /**
- * Monthly inflow as stacked bars beside a ranked key. The key ranks the chains over the months
- * shown, or over the month under the pointer, and pointing at a chain brings its segments
- * forward: the one way to read a band above the bottom one in a stack.
+ * Monthly totals as stacked bars beside a ranked key: chains, venues, any categories that add up.
+ * The key ranks them over the months shown, or over the month under the pointer, and pointing at
+ * one brings its segments forward: the one way to read a band above the bottom one in a stack.
  */
-export function InflowByChainChart({
+export function RankedBarsChart({
   series,
+  ariaLabel,
   labels,
   readoutLabels,
   running,
@@ -33,7 +35,7 @@ export function InflowByChainChart({
   formatValue,
   formatSum,
   formatTick,
-}: InflowByChainChartProps) {
+}: RankedBarsChartProps) {
   const [active, setActive] = useState<number | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
 
@@ -66,7 +68,7 @@ export function InflowByChainChart({
         series={series}
         labels={labels}
         readoutLabels={readouts}
-        ariaLabel="ZEC arriving on Zcash per month, by source chain"
+        ariaLabel={ariaLabel}
         formatValue={formatValue}
         formatTick={formatTick}
         partial={running === null ? null : { index: running.index, note: throughNote }}
@@ -79,7 +81,7 @@ export function InflowByChainChart({
         caption={`${period} · ${formatSum(total)}`}
         formatValue={formatSum}
         formatExact={formatValue}
-        pinnedLast={[foldKey]}
+        pinnedLast={foldKey === undefined ? [] : [foldKey]}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
