@@ -14,7 +14,7 @@ import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 import { chartTable, INFLOW_OTHER, type ChartTable } from "./chart-table";
 import { POOL_STACK } from "./pool-series";
-import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
+import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 
 /** What a gallery card shows beside a chart's title. */
 export interface ChartPreview {
@@ -87,8 +87,18 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
     case "block-size":
     case "fee-totals":
       return { kind: "lines", series: green() };
-    case "privacy-share":
     case "miner-concentration":
+      return {
+        kind: "lines",
+        max: 100,
+        series: [
+          { values: col(0), className: RANKED_LINES[0] },
+          { values: col(1), className: RANKED_LINES[1] },
+          { values: col(2), className: RANKED_LINES[2] },
+          { values: col(3), className: BESIDE_RANKED_LINE },
+        ],
+      };
+    case "privacy-share":
       return {
         kind: "lines",
         max: 100,

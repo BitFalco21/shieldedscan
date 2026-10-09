@@ -138,6 +138,7 @@ describe("the newer charts' tables", () => {
         top1Blocks: 333,
         top3Blocks: 700,
         top10Blocks: 950,
+        shieldedBlocks: 30,
       },
       {
         timestamp: 1_702_600_000,
@@ -146,12 +147,13 @@ describe("the newer charts' tables", () => {
         top1Blocks: 0,
         top3Blocks: 0,
         top10Blocks: 0,
+        shieldedBlocks: 0,
       },
     ];
     const t = chartTable("miner-concentration", chartData({ minerShares }), "30d")!;
     // No range on a monthly series: the request for 30 days still returns every month.
     expect(t.rows).toHaveLength(2);
-    expect(t.rows[0]!.slice(0, 3)).toEqual([33.3, 70, 95]);
+    expect(t.rows[0]!.slice(0, 4)).toEqual([33.3, 70, 95, 3]);
     // A month with no blocks has no share: null, never 0%.
     expect(t.rows[1]![0]).toBeNull();
   });

@@ -96,7 +96,8 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   /**
    * The largest transparent payout addresses' share of each month's blocks, on the rule
    * `/v1/analytics/miners` applies to any window: addresses ranked within the month and never
-   * merged, against every block the month holds. The denominator rides with each month.
+   * merged, against every block the month holds. The denominator rides with each month, beside
+   * the blocks paid to a shielded coinbase (ZIP 213), whose miner no one can name.
    */
   app.get(MINER_SHARES_PATH, async (c) =>
     c.json(
@@ -108,6 +109,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
           top1: string | null;
           top3: string | null;
           top10: string | null;
+          shielded: string | null;
         }>(
           `WITH by_address AS (
              SELECT date_trunc('month', day)::date AS month, address, sum(blocks)::bigint AS blocks
@@ -124,14 +126,21 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
                     sum(blocks) FILTER (WHERE rn <= 3)  AS top3,
                     sum(blocks) FILTER (WHERE rn <= 10) AS top10
                FROM ranked GROUP BY month
+           ), shielded AS (
+             SELECT date_trunc('month', day)::date AS month, sum(blocks)::bigint AS blocks
+               FROM mining_day_payout
+              WHERE kind = 'shielded'
+              GROUP BY 1
            ), totals AS (
              SELECT date_trunc('month', day)::date AS month, sum(blocks)::bigint AS blocks,
                     count(*)::int AS days
                FROM mining_day GROUP BY 1
            )
            SELECT EXTRACT(EPOCH FROM totals.month)::bigint AS ts, totals.blocks, totals.days,
-                  tops.top1, tops.top3, tops.top10
-             FROM totals LEFT JOIN tops USING (month)
+                  tops.top1, tops.top3, tops.top10, shielded.blocks AS shielded
+             FROM totals
+             LEFT JOIN tops USING (month)
+             LEFT JOIN shielded USING (month)
             ORDER BY totals.month`,
         );
         return rows.map((r) => ({
@@ -141,6 +150,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
           top1Blocks: Number(r.top1 ?? 0),
           top3Blocks: Number(r.top3 ?? 0),
           top10Blocks: Number(r.top10 ?? 0),
+          shieldedBlocks: Number(r.shielded ?? 0),
         }));
       }),
     ),

@@ -132,7 +132,7 @@ describeDb("the chart library's newer series", () => {
 
   it("ranks transparent addresses within the month, against every block", async () => {
     const [sep] = await get<MinerShareMonth[]>(MINER_SHARES_PATH);
-    // t1a 400, t1c 300, t1b 250 of 1,000 blocks; the shielded payout counts in the denominator only.
+    // t1a 400, t1c 300, t1b 250 of 1,000 blocks; the shielded payout is never ranked, only counted.
     expect(sep).toEqual({
       timestamp: SEP,
       blocks: 1000,
@@ -140,6 +140,7 @@ describeDb("the chart library's newer series", () => {
       top1Blocks: 400,
       top3Blocks: 950,
       top10Blocks: 950,
+      shieldedBlocks: 50,
     });
   });
 

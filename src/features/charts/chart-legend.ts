@@ -3,7 +3,7 @@ import type { LegendItem } from "@/components/ChartLegend";
 import { chainName } from "@/lib/chains";
 import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
 import { POOL_CLASSES } from "@/lib/pool-palette";
-import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
+import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 import { chartTable, INFLOW_OTHER } from "./chart-table";
@@ -76,6 +76,7 @@ export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
         { label: "Largest address", className: RANKED_LINES[0], mark: "line" },
         { label: "Largest 3", className: RANKED_LINES[1], mark: "line" },
         { label: "Largest 10", className: RANKED_LINES[2], mark: "line" },
+        { label: "Paid to a shielded address", className: BESIDE_RANKED_LINE, mark: "line" },
       ];
     case "inflow-by-chain":
       return (chartTable(slug, data, "all")?.keys ?? []).map((key) => ({

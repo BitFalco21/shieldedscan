@@ -42,6 +42,8 @@ export interface MinerShareMonth {
   top1Blocks: number;
   top3Blocks: number;
   top10Blocks: number;
+  /** Blocks whose coinbase paid into a shielded pool (ZIP 213): their miner cannot be named. */
+  shieldedBlocks: number;
 }
 
 /** Reorganisations one node observed, per ISO week, from when it began observing. */

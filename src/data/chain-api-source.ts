@@ -560,9 +560,15 @@ export function createChainApiSource(config: ChainApiConfig) {
       if (
         !Array.isArray(body) ||
         !body.every((p: MinerShareMonth) =>
-          ["timestamp", "blocks", "days", "top1Blocks", "top3Blocks", "top10Blocks"].every(
-            (f) => typeof (p as unknown as Record<string, unknown>)[f] === "number",
-          ),
+          [
+            "timestamp",
+            "blocks",
+            "days",
+            "top1Blocks",
+            "top3Blocks",
+            "top10Blocks",
+            "shieldedBlocks",
+          ].every((f) => typeof (p as unknown as Record<string, unknown>)[f] === "number"),
         )
       ) {
         throw new Error("chain API returned an unrecognised miner shares shape");

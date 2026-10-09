@@ -312,6 +312,7 @@ export function chartTable(
         { name: "top1_pct", value: (p) => share(p.top1Blocks, p.blocks) },
         { name: "top3_pct", value: (p) => share(p.top3Blocks, p.blocks) },
         { name: "top10_pct", value: (p) => share(p.top10Blocks, p.blocks) },
+        { name: "shielded_coinbase_pct", value: (p) => share(p.shieldedBlocks, p.blocks) },
         { name: "blocks", value: (p) => p.blocks },
         { name: "days_computed", value: (p) => p.days },
       ]);

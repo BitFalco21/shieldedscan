@@ -7,6 +7,9 @@
  */
 export const RANKED_LINES = ["text-green", "text-line-2", "text-line-3"] as const;
 
+/** A fourth line beside a ranked three, measuring something else: apart from all of them. */
+export const BESIDE_RANKED_LINE = "text-line-4";
+
 /** The privacy kinds in those inks. */
 export const KIND_CLASSES = {
   shielded: RANKED_LINES[0],

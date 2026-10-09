@@ -36,7 +36,7 @@ import {
 } from "@/lib/format";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { useQueryParam } from "@/lib/use-query-param";
-import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
+import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
 import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
@@ -558,6 +558,11 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             { name: "Largest address", values: column(t, 0), className: RANKED_LINES[0] },
             { name: "Largest 3", values: column(t, 1), className: RANKED_LINES[1] },
             { name: "Largest 10", values: column(t, 2), className: RANKED_LINES[2] },
+            {
+              name: "Paid to a shielded address",
+              values: column(t, 3),
+              className: BESIDE_RANKED_LINE,
+            },
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
@@ -566,14 +571,14 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
               // The denominator, and whether the month is complete in the index.
               name: "Blocks",
               values: t.rows.map((r, i) => {
-                const blocks = r[3] ?? null;
+                const blocks = r[4] ?? null;
                 if (blocks === null) return "—";
-                const partial = (r[4] ?? 0) < daysInMonth(t.timestamps[i]!);
+                const partial = (r[5] ?? 0) < daysInMonth(t.timestamps[i]!);
                 return `${formatCount(blocks)}${partial ? " · partial month" : ""}`;
               }),
             },
           ]}
-          ariaLabel="Share of each month's blocks paid to the largest one, three and ten payout addresses"
+          ariaLabel="Share of each month's blocks paid to the largest one, three and ten payout addresses, and to a shielded address"
         />
       );
     }

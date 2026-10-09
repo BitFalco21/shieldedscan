@@ -46,6 +46,7 @@ export function getMinerShares(): MinerShareMonth[] {
       top1Blocks: Math.round(blocks * (0.32 + 0.06 * Math.sin(i / 3))),
       top3Blocks: Math.round(blocks * (0.66 + 0.05 * Math.sin(i / 4))),
       top10Blocks: Math.round(blocks * 0.93),
+      shieldedBlocks: Math.round(blocks * 0.02 * (1 + Math.sin(i / 5))),
     };
   });
 }

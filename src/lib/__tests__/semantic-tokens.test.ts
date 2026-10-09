@@ -98,34 +98,39 @@ describe("the ranked inks stay apart from the accent and readable, on every them
     return m ? { l: Number(m[1]), c: Number(m[2]), h: Number(m[3]) } : null;
   };
   const root = css.match(/:root\s*\{([^}]*)\}/)?.[1] ?? "";
-  const amberBlock = css.match(/:root\[data-theme="amber"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  const themeBlock = (id: string) =>
+    css.match(new RegExp(`:root\\[data-theme="${id}"\\]\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  /** A line token as a theme sees it: its own override, else the default. */
+  const ink = (id: string, name: string) => literal(themeBlock(id), name) ?? literal(root, name)!;
   const hueGap = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+  const LINES = ["line-2", "line-3", "line-4"];
 
-  it("defines both as plain oklch literals and exposes them to Tailwind", () => {
-    for (const name of ["line-2", "line-3"]) {
+  it("defines each as a plain oklch literal and exposes it to Tailwind", () => {
+    for (const name of LINES) {
       expect(literal(root, name), `--${name} in :root`).not.toBeNull();
       expect(css).toMatch(new RegExp(`--color-${name}: var\\(--${name}\\);`));
     }
   });
 
-  it("keeps --line-2 a hue apart from each theme's accent, and --line-3 a neutral", () => {
+  it("keeps the hued inks a hue apart from each theme's accent and each other; --line-3 neutral", () => {
     for (const t of THEMES) {
-      const line2 = (t.id === "amber" && literal(amberBlock, "line-2")) || literal(root, "line-2")!;
+      const [line2, line4] = [ink(t.id, "line-2"), ink(t.id, "line-4")];
       expect(hueGap(line2.h, t.hue), `--line-2 against ${t.id}`).toBeGreaterThan(60);
+      expect(hueGap(line4.h, t.hue), `--line-4 against ${t.id}`).toBeGreaterThan(60);
+      expect(hueGap(line2.h, line4.h), `--line-2 against --line-4 on ${t.id}`).toBeGreaterThan(60);
     }
     // A near-grey cannot be mistaken for a saturated accent, whatever its hue.
     expect(literal(root, "line-3")!.c).toBeLessThan(0.05);
   });
 
-  it("draws both at 3:1 or better against each theme's panel, the bar for a chart line", () => {
+  it("draws each at 3:1 or better against each theme's panel, the bar for a chart line", () => {
     for (const t of THEMES) {
       const panel = oklchToSrgb(deriveTokens(t.hue).panel);
-      const line2 = (t.id === "amber" && literal(amberBlock, "line-2")) || literal(root, "line-2")!;
-      for (const [name, ink] of [
-        ["line-2", line2],
-        ["line-3", literal(root, "line-3")!],
-      ] as const) {
-        expect(contrastRatio(oklchToSrgb(ink), panel), `--${name} on ${t.id}`).toBeGreaterThan(3);
+      for (const name of LINES) {
+        expect(
+          contrastRatio(oklchToSrgb(ink(t.id, name)), panel),
+          `--${name} on ${t.id}`,
+        ).toBeGreaterThan(3);
       }
     }
   });
