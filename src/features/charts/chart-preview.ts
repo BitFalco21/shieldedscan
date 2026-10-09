@@ -7,7 +7,6 @@ import {
   formatSharePct,
   formatUsd,
   formatZec,
-  formatZecAmount,
   formatZecTwo,
   monthLong,
 } from "@/lib/format";
@@ -106,16 +105,6 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
           { values: col(0), className: POOL_CLASSES.sapling },
           { values: col(1), className: POOL_CLASSES.orchard },
           { values: col(2), className: POOL_CLASSES.ironwood },
-        ],
-      };
-    case "fee-spread":
-      // The fully shielded band's edges, faint, around its median: the shape of the spread.
-      return {
-        kind: "lines",
-        series: [
-          { values: col(2), className: "text-green", opacity: 0.35 },
-          { values: col(1), className: "text-green" },
-          { values: col(0), className: "text-green", opacity: 0.35 },
         ],
       };
     case "blocks-per-day":
@@ -277,16 +266,6 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: `${formatCount(largest.v)} notes`,
         caption: `${largest.pool}, the largest tree, ${utcDayFromSeconds(t.timestamps.at(-1)!)}`,
-      };
-    }
-    case "fee-spread": {
-      const t = chartTable(slug, data, "30d");
-      const i = t && lastCompleteDay(t, nowSec);
-      const row = t && i !== null && i !== undefined ? t.rows[i]! : null;
-      if (!t || !row || row[0] === null || row[2] === null) return null;
-      return {
-        value: `${formatZecAmount(row[0]!)}–${formatZecAmount(row[2]!)} ZEC`,
-        caption: `middle half of fully shielded fees, ${utcDayFromSeconds(t.timestamps[i!]!)}`,
       };
     }
     case "blocks-per-day": {

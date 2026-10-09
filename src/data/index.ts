@@ -83,7 +83,6 @@ function build(tipRevalidateSeconds?: number): ExplorerDataSource {
     getTxCounts: () => chain.getTxCounts(),
     getDailyPriceMap: () => chain.getDailyPriceMap(),
     getNetworkDaily: () => chain.getNetworkDaily(),
-    getFeeSpread: () => chain.getFeeSpread(),
     getNoteTrees: () => chain.getNoteTrees(),
     getTransparentDays: () => chain.getTransparentDays(),
     getMinerShares: () => chain.getMinerShares(),

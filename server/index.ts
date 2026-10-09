@@ -149,7 +149,7 @@ if (USE_POSTGRES) {
   // and only the follower witnessed what it rolled back.
   app.route("/", reorgRoutes(DATABASE_URL));
   log("reorg routes mounted against the audit log");
-  // The chart library's newer series: fee spread, note trees, transparent days, miner shares.
+  // The chart library's newer series: note trees, transparent days, miner shares, blocks per day.
   app.route("/", chartSeriesRoutes(DATABASE_URL));
   log("chart series routes mounted");
 

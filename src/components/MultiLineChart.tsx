@@ -30,19 +30,6 @@ export interface MultiLineSeries {
   dashed?: boolean;
 }
 
-/**
- * A range drawn as a shaded area between two series: the middle half of a distribution, say. It
- * breaks wherever either edge is null, like a line, so a missing period is never shaded.
- */
-export interface MultiLineBand {
-  name: string;
-  lower: (number | null)[];
-  upper: (number | null)[];
-  className: string;
-  /** Fill opacity. Low, so the lines drawn over the band stay the thing read first. */
-  opacity?: number;
-}
-
 export interface MultiLineChartProps {
   labels: string[];
   series: MultiLineSeries[];
@@ -99,8 +86,6 @@ export interface MultiLineChartProps {
    * every instant between was measured too.
    */
   markers?: boolean;
-  /** Shaded ranges, drawn beneath the lines, each with one readout row stating its two edges. */
-  bands?: MultiLineBand[];
 }
 
 /**
@@ -128,14 +113,10 @@ export function MultiLineChart({
   phone = false,
   yMax,
   markers = false,
-  bands = [],
 }: MultiLineChartProps) {
   if (labels.length === 0 || series.length === 0) return null;
 
-  const values = [
-    ...series.flatMap((s) => s.values),
-    ...bands.flatMap((b) => [...b.lower, ...b.upper]),
-  ].filter((v): v is number => v !== null);
+  const values = series.flatMap((s) => s.values).filter((v): v is number => v !== null);
   const max = Math.max(...values, yMax ?? 0, 0) || 1;
   /*
    * A clipped axis gets a margin below the lowest point (a tenth of the visible span): a line
@@ -173,31 +154,6 @@ export function MultiLineChart({
     return out;
   };
 
-  /** A band's closed shapes, one per run where both edges are present. */
-  const bandShapes = (band: MultiLineBand): string[] => {
-    const out: string[] = [];
-    let run: number[] = [];
-    const close = () => {
-      if (run.length >= 2) {
-        const up = run.map(
-          (i, k) =>
-            `${k === 0 ? "M" : "L"}${frame.x(i).toFixed(1)} ${frame.y(band.upper[i]!).toFixed(1)}`,
-        );
-        const down = [...run]
-          .reverse()
-          .map((i) => `L${frame.x(i).toFixed(1)} ${frame.y(band.lower[i]!).toFixed(1)}`);
-        out.push(`${up.join(" ")} ${down.join(" ")} Z`);
-      }
-      run = [];
-    };
-    band.upper.forEach((u, i) => {
-      if (u === null || band.lower[i] === null || band.lower[i] === undefined) close();
-      else run.push(i);
-    });
-    close();
-    return out;
-  };
-
   return (
     <ChartHover
       labels={readoutLabels ?? labels}
@@ -207,15 +163,6 @@ export function MultiLineChart({
           values: s.values.map((v) =>
             v === null ? (s.omitNullFromReadout ? null : "—") : formatValue(v),
           ),
-        })),
-        ...bands.map((b) => ({
-          name: b.name,
-          values: b.lower.map((lo, i) => {
-            const hi = b.upper[i];
-            return lo === null || hi === null || hi === undefined
-              ? "—"
-              : `${formatValue(lo)} – ${formatValue(hi)}`;
-          }),
         })),
         // After the plotted series, deliberately: a reader reads the quantity first and its
         // denominator second.
@@ -239,17 +186,6 @@ export function MultiLineChart({
       >
         <YAxis frame={frame} ticks={frame.ticks} formatValue={formatTick} />
         <XAxis frame={frame} labels={labels} />
-        {bands.map((b) =>
-          bandShapes(b).map((d, i) => (
-            <path
-              key={`${b.name}-band-${i}`}
-              d={d}
-              fill="currentColor"
-              className={b.className}
-              opacity={b.opacity ?? 0.14}
-            />
-          )),
-        )}
         {series.map((s) =>
           segments(s.values).map((d, i) => (
             <path

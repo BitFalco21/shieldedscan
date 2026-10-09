@@ -108,11 +108,13 @@ describe("fee-totals coverage", () => {
     );
   }
 
-  it("states blocks covered against blocks contained, per period", () => {
+  it("states the blocks a complete period covers, once", () => {
     renderChart([feePoint(1_700_000_000, 35_000, 35_000), feePoint(1_702_600_000, 35_000, 35_000)]);
     const readout = readoutAt("first");
     expect(readout).toContain("Blocks");
-    expect(readout).toContain("35,000 of 35,000");
+    expect(readout).toContain("35,000");
+    // "35,000 of 35,000" says nothing the count alone does not.
+    expect(readout).not.toContain(" of ");
     // The quantity is still the headline; the denominator sits under it.
     expect(readout.indexOf("Fees paid")).toBeLessThan(readout.indexOf("Blocks"));
   });
@@ -121,7 +123,7 @@ describe("fee-totals coverage", () => {
     // The failure the row exists for: this period's total is smaller than the truth, and
     // nothing else on the chart would say so — the line simply dips.
     renderChart([feePoint(1_700_000_000, 35_000, 35_000), feePoint(1_702_600_000, 35_000, 34_100)]);
-    expect(readoutAt("last")).toContain("34,100 of 35,000 blocks · partial");
+    expect(readoutAt("last")).toContain("34,100 of 35,000 · partial");
   });
 
   it("does not brand a complete period partial", () => {

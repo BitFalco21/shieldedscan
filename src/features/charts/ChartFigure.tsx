@@ -382,11 +382,13 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           contextRows={[
             {
               name: "Blocks",
-              values: points.map((p) => {
-                const covered = `${formatCount(p.blocksCovered)} of ${formatCount(p.blocks)}`;
-                // "partial" says the total rests on fewer blocks than the period holds.
-                return feeTotalIsComplete(p) ? `${covered} blocks` : `${covered} blocks · partial`;
-              }),
+              // A complete period states its count once; "of" and "partial" appear only when
+              // the total rests on fewer blocks than the period holds.
+              values: points.map((p) =>
+                feeTotalIsComplete(p)
+                  ? formatCount(p.blocks)
+                  : `${formatCount(p.blocksCovered)} of ${formatCount(p.blocks)} · partial`,
+              ),
             },
           ]}
           formatValue={formatZecCompact}
@@ -494,73 +496,6 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           formatValue={compactCount}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
-        />
-      );
-    }
-    case "fee-spread": {
-      const t = chartTable(slug, data, range);
-      if (!t || t.rows.length < 2) return unavailable("The fee spread series");
-      // Columns per kind, in the table's order: p25, median, p75, transactions.
-      const kind = (k: number) => ({
-        p25: column(t, k * 4),
-        median: column(t, k * 4 + 1),
-        p75: column(t, k * 4 + 2),
-        txs: column(t, k * 4 + 3),
-      });
-      const [shielded, mixed, transparent] = [kind(0), kind(1), kind(2)];
-      const count = (v: number | null) => (v === null ? "—" : formatCount(v));
-      return (
-        <MultiLineChart
-          labels={tableLabels(t)}
-          readoutLabels={tableReadout(t)}
-          bands={[
-            {
-              name: "Fully shielded, p25–p75",
-              lower: shielded.p25,
-              upper: shielded.p75,
-              className: KIND_CLASSES.shielded,
-              opacity: 0.16,
-            },
-            {
-              name: "Mixed, p25–p75",
-              lower: mixed.p25,
-              upper: mixed.p75,
-              className: KIND_CLASSES.mixed,
-              opacity: 0.07,
-            },
-            {
-              name: "Transparent, p25–p75",
-              lower: transparent.p25,
-              upper: transparent.p75,
-              className: KIND_CLASSES.transparent,
-              opacity: 0.12,
-            },
-          ]}
-          series={[
-            {
-              name: "Fully shielded, median",
-              values: shielded.median,
-              className: KIND_CLASSES.shielded,
-            },
-            { name: "Mixed, median", values: mixed.median, className: KIND_CLASSES.mixed },
-            {
-              name: "Transparent, median",
-              values: transparent.median,
-              className: KIND_CLASSES.transparent,
-            },
-          ]}
-          formatValue={formatZec}
-          formatTick={formatZecTick}
-          contextRows={[
-            {
-              name: "Transactions (shielded · mixed · transparent)",
-              values: shielded.txs.map(
-                (v, i) =>
-                  `${count(v)} · ${count(mixed.txs[i] ?? null)} · ${count(transparent.txs[i] ?? null)}`,
-              ),
-            },
-          ]}
-          ariaLabel={`Fee percentiles per ${t.period} by privacy kind: the middle half of fees around each median`}
         />
       );
     }

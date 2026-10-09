@@ -3,14 +3,12 @@ import { Pool } from "pg";
 import type { Hono } from "hono";
 import type {
   BlocksDayPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NoteTreeDayPoint,
   TransparentDayPoint,
 } from "@/domain";
 import {
   BLOCKS_DAILY_PATH,
-  FEE_SPREAD_PATH,
   MINER_SHARES_PATH,
   NOTE_TREES_PATH,
   TRANSPARENT_DAYS_PATH,
@@ -67,15 +65,6 @@ describeDb("the chart library's newer series", () => {
   beforeAll(async () => {
     url = await createTestDatabase(DATABASE_URL!);
     pool = new Pool({ connectionString: url, max: 2 });
-    for (const view of ["chain_month_fee_kind", "chain_day_fee_kind"]) {
-      await pool.query(`CREATE TABLE ${view} (
-        ts BIGINT, kind TEXT, median_zat BIGINT, p25_zat BIGINT, p75_zat BIGINT, txs INT)`);
-    }
-    await pool.query(`INSERT INTO chain_month_fee_kind VALUES
-      (${SEP}, 'shielded', 10000, 10000, 15000, 900),
-      (${SEP}, 'transparent', 20000, 15000, 30000, 400),
-      (${OCT}, 'transparent', 21000, 15000, 31000, 410)`);
-
     await pool.query(`CREATE TABLE pool_usage_daily (day DATE, pool TEXT, notes_at_close BIGINT)`);
     await pool.query(`INSERT INTO pool_usage_daily VALUES
       ('2026-09-01', 'sapling', 100), ('2026-09-01', 'orchard', 50), ('2026-09-01', 'sprout', NULL),
@@ -114,17 +103,6 @@ describeDb("the chart library's newer series", () => {
 
   afterAll(async () => {
     await pool.end();
-  });
-
-  it("pivots fee percentiles per kind, a kind with no row being null", async () => {
-    const body = await get<FeeSpreadSeries>(FEE_SPREAD_PATH);
-    expect(body.monthly).toHaveLength(2);
-    expect(body.monthly[0]).toMatchObject({
-      timestamp: SEP,
-      shielded: { p25Zat: 10000, medianZat: 10000, p75Zat: 15000, txs: 900 },
-      mixed: null,
-    });
-    expect(body.monthly[1]!.shielded).toBeNull();
   });
 
   it("pivots tree sizes per pool, never reading Sprout's", async () => {

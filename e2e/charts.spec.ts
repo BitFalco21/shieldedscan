@@ -25,7 +25,6 @@ const CHART_ROUTES = [
   "/charts/pool-migrations",
   // The newer charts: bands, dashed targets, weekly markers and a chain stack, each a new
   // geometry path that only a real browser proves well-formed. Plus the library's thumbnails.
-  "/charts/fee-spread",
   "/charts/blocks-per-day",
   "/charts/reorgs",
   "/charts/inflow-by-chain",

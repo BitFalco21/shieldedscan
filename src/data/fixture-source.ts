@@ -134,9 +134,6 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getChainInflow() {
     return chartSeries.getChainInflow();
   },
-  async getFeeSpread() {
-    return chartSeries.getFeeSpread();
-  },
   async getNoteTrees() {
     return chartSeries.getNoteTrees();
   },

@@ -2,9 +2,6 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 import type {
   BlocksDayPoint,
-  FeeSpreadKind,
-  FeeSpreadPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NoteTreeDayPoint,
   TransparentDayPoint,
@@ -13,45 +10,10 @@ import { Cached } from "./cached";
 import { createPool } from "./pg-pool";
 import "./pg-types";
 
-export const FEE_SPREAD_PATH = "/chain/analytics/fee-spread";
 export const NOTE_TREES_PATH = "/chain/analytics/note-trees";
 export const TRANSPARENT_DAYS_PATH = "/chain/analytics/transparent-days";
 export const MINER_SHARES_PATH = "/chain/analytics/miner-shares";
 export const BLOCKS_DAILY_PATH = "/chain/analytics/blocks-daily";
-
-interface FeeKindRow {
-  ts: string;
-  kind: string;
-  p25_zat: string;
-  median_zat: string;
-  p75_zat: string;
-  txs: number;
-}
-
-/** One point per period, each kind's percentiles beside its transaction count. */
-export function pivotFeeSpread(rows: readonly FeeKindRow[]): FeeSpreadPoint[] {
-  const byTs = new Map<number, FeeSpreadPoint>();
-  for (const r of rows) {
-    const timestamp = Number(r.ts);
-    const point = byTs.get(timestamp) ?? {
-      timestamp,
-      transparent: null,
-      mixed: null,
-      shielded: null,
-    };
-    const kind: FeeSpreadKind = {
-      p25Zat: Number(r.p25_zat),
-      medianZat: Number(r.median_zat),
-      p75Zat: Number(r.p75_zat),
-      txs: Number(r.txs),
-    };
-    if (r.kind === "transparent" || r.kind === "mixed" || r.kind === "shielded") {
-      point[r.kind] = kind;
-    }
-    byTs.set(timestamp, point);
-  }
-  return [...byTs.values()].sort((a, b) => a.timestamp - b.timestamp);
-}
 
 /**
  * The private series behind the chart library's newer charts, one route each.
@@ -59,39 +21,16 @@ export function pivotFeeSpread(rows: readonly FeeKindRow[]): FeeSpreadPoint[] {
  * Every one reads a table or view something else already maintains (the hourly matviews, the
  * pool-usage, transparent and mining trackers), so a cache miss is a short read and nothing here
  * writes. Each mirrors the definition of the public endpoint the chart names, so the chart and the
- * figure a reader fetches agree: fee percentiles from the same matviews as `/v1/analytics/fees`,
- * concentration on `/v1/analytics/miners`' rule, transparent activity on
+ * figure a reader fetches agree: concentration on `/v1/analytics/miners`' rule, transparent activity on
  * `/v1/analytics/transparent`'s.
  */
 export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   const app = new Hono();
   const pool = injected ?? createPool(connection, { max: 2, statement_timeout: 30_000 });
-  const feeSpread = new Cached<FeeSpreadSeries>();
   const noteTrees = new Cached<NoteTreeDayPoint[]>();
   const transparentDays = new Cached<TransparentDayPoint[]>();
   const minerShares = new Cached<MinerShareMonth[]>();
   const blocksDaily = new Cached<BlocksDayPoint[]>();
-
-  /**
-   * Fee percentiles per privacy kind: every month, and the trailing 366 days by day. Never
-   * averaged across periods: a median of medians is no median.
-   */
-  app.get(FEE_SPREAD_PATH, async (c) =>
-    c.json(
-      await feeSpread.get(async () => {
-        const columns = "ts, kind, p25_zat, median_zat, p75_zat, txs";
-        const [monthly, daily] = await Promise.all([
-          pool.query<FeeKindRow>(`SELECT ${columns} FROM chain_month_fee_kind ORDER BY ts`),
-          pool.query<FeeKindRow>(
-            `SELECT ${columns} FROM chain_day_fee_kind
-              WHERE ts >= EXTRACT(EPOCH FROM now() - interval '366 days')::bigint
-              ORDER BY ts`,
-          ),
-        ]);
-        return { monthly: pivotFeeSpread(monthly.rows), daily: pivotFeeSpread(daily.rows) };
-      }),
-    ),
-  );
 
   /** Each shielded pool's note commitment tree size at every day's close, all history. */
   app.get(NOTE_TREES_PATH, async (c) =>

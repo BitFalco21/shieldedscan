@@ -1,7 +1,6 @@
 import type {
   BlocksDayPoint,
   ChainInflowPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NetReleases,
   NoteTreeDayPoint,
@@ -49,7 +48,6 @@ export interface ChartData {
   /** Both grains in one object — see the note on `FeeTotalSeries`. */
   feeTotals: FeeTotalSeries | null;
   crosschainVolume: CrossChainVolumeSeries | null;
-  feeSpread: FeeSpreadSeries | null;
   noteTrees: NoteTreeDayPoint[] | null;
   transparentDays: TransparentDayPoint[] | null;
   minerShares: MinerShareMonth[] | null;
@@ -77,7 +75,6 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     feesDaily: null,
     feeTotals: null,
     crosschainVolume: null,
-    feeSpread: null,
     noteTrees: null,
     transparentDays: null,
     minerShares: null,

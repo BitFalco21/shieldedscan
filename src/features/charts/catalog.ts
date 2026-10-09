@@ -32,7 +32,6 @@ export type ChartSlug =
   | "crosschain-volume"
   | "privacy-share"
   | "anonymity-set"
-  | "fee-spread"
   | "blocks-per-day"
   | "transparent-activity"
   | "upgrade-readiness"
@@ -168,7 +167,7 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "The sum of every fee paid, per period. Deliberately not the same question as the median-fee chart: that one asks what a single transaction costs, which is set by ZIP-317 and barely moves, while this is fee count multiplied by fee size and rises and falls with demand. A reader who conflated the two would conclude the network's fee income is flat.",
       "This is the part of a miner's income that does not come from the block subsidy. It is small next to the subsidy today, which is the honest headline: Zcash's security budget is still overwhelmingly issuance, and the halving schedule means that fees will have to grow for that to change.",
-      "Each period carries the number of blocks behind it and how many of them had a derivable fee total. A block's total is legitimately unknown when a transaction in it has an input we could not resolve — coverage is complete today and is not guaranteed to stay so, and a total quoted over an unstated denominator is the failure this site exists to avoid.",
+      "The readout gives the blocks each total covers. If a block's fees could not be read, it says how many of the period's blocks the total rests on and marks it partial.",
     ],
   },
   {
@@ -236,17 +235,6 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Each shielded pool keeps a tree of every note ever created in it, spent or not. A spend proves its note is somewhere in that tree without saying where, so the tree's size is the crowd the spend hides in.",
       "Pools are drawn separately and never added: a spend hides only among its own pool's notes. The node does not report Sprout's tree size, so Sprout is not drawn.",
-    ],
-  },
-  {
-    slug: "fee-spread",
-    title: "Fee spread by privacy kind",
-    category: "Fees",
-    api: { docsId: "analytics-fees", path: "/v1/analytics/fees" },
-    blurb: "The middle half of fees paid, p25 to p75, around each median.",
-    description: [
-      "For each privacy kind, the shaded band runs from the 25th to the 75th percentile of the fees paid in the period, with the median drawn through it: half of all fee-paying transactions paid within the band.",
-      "Percentiles are computed per period and never averaged across periods. The readout gives how many transactions each kind's figures rest on.",
     ],
   },
   {

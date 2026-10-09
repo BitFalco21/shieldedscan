@@ -27,8 +27,6 @@ import type {
   NetTopology,
   NetTopologyScope,
   BlocksDayPoint,
-  FeeSpreadPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -513,33 +511,6 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised network daily shape");
       }
       return body as NetworkDayPoint[];
-    },
-
-    async getFeeSpread(): Promise<FeeSpreadSeries> {
-      const body = await json<unknown>(
-        await request(config, "/chain/analytics/fee-spread", CACHE_QUARTER_HOUR),
-        "fee spread",
-      );
-      const series = body as FeeSpreadSeries;
-      const kindOk = (k: unknown) =>
-        k === null ||
-        (typeof k === "object" &&
-          ["p25Zat", "medianZat", "p75Zat", "txs"].every(
-            (f) => typeof (k as Record<string, unknown>)[f] === "number",
-          ));
-      const pointsOk = (ps: unknown) =>
-        Array.isArray(ps) &&
-        ps.every(
-          (p: FeeSpreadPoint) =>
-            typeof p.timestamp === "number" &&
-            kindOk(p.transparent) &&
-            kindOk(p.mixed) &&
-            kindOk(p.shielded),
-        );
-      if (!pointsOk(series?.monthly) || !pointsOk(series?.daily)) {
-        throw new Error("chain API returned an unrecognised fee spread shape");
-      }
-      return series;
     },
 
     async getNoteTrees(): Promise<NoteTreeDayPoint[]> {

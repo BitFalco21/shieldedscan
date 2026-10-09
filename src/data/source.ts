@@ -59,7 +59,6 @@ import type {
   ZnsLookup,
   BlocksDayPoint,
   ChainInflowPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -292,8 +291,6 @@ export interface ExplorerDataSource {
   getCrossChainVolumeSeries(): Promise<CrossChainVolumeSeries>;
   /** ZEC arriving per source chain per month, through the public swap venues indexed. */
   getChainInflow(): Promise<ChainInflowPoint[]>;
-  /** Fee percentiles per privacy kind: every month, and the trailing 366 days by day. */
-  getFeeSpread(): Promise<FeeSpreadSeries>;
   /** Each shielded pool's note commitment tree size at every day's close. */
   getNoteTrees(): Promise<NoteTreeDayPoint[]>;
   /** Transparent active addresses and output value per day, with gaps where not computed. */

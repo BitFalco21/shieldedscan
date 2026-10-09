@@ -6,30 +6,6 @@
 
 import { BLOCK_TARGET_SECONDS, BLOSSOM_HEIGHT, PRE_BLOSSOM_TARGET_SECONDS } from "./halving";
 
-/** One privacy kind's fee distribution in one period: never averaged across periods. */
-export interface FeeSpreadKind {
-  p25Zat: number;
-  medianZat: number;
-  p75Zat: number;
-  /** The transactions the percentiles are over: the denominator. */
-  txs: number;
-}
-
-/** Null for a kind with no fee-bearing transaction in the period: a gap, never a zero fee. */
-export interface FeeSpreadPoint {
-  /** Unix seconds at the period start. */
-  timestamp: number;
-  transparent: FeeSpreadKind | null;
-  mixed: FeeSpreadKind | null;
-  shielded: FeeSpreadKind | null;
-}
-
-/** Both grains in one response, like `FeeTotalSeries`: the daily one is the trailing 366 days. */
-export interface FeeSpreadSeries {
-  monthly: FeeSpreadPoint[];
-  daily: FeeSpreadPoint[];
-}
-
 /**
  * Each pool's note commitment tree size at the day's last block, as the node reports it: every
  * note ever created in the pool, spent or not. A level, not a flow: never summed across days, and

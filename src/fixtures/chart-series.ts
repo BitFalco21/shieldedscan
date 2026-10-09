@@ -1,10 +1,6 @@
 import type {
   BlocksDayPoint,
   ChainInflowPoint,
-  FeeKindMonthPoint,
-  FeeSpreadKind,
-  FeeSpreadPoint,
-  FeeSpreadSeries,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -12,48 +8,14 @@ import type {
 } from "@/domain";
 import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import { crossChainTransfers } from "./crosschain";
-import {
-  getDailySeries,
-  getFeeDistribution,
-  getFeeKindsDaily,
-  getMonthlySeries,
-  getReorgSummary,
-  listReorgEvents,
-} from "./index";
+import { getDailySeries, getMonthlySeries, getReorgSummary, listReorgEvents } from "./index";
 
 /**
  * Sample series for the chart library's newer charts, each derived from the fixtures that
- * already exist so that, in fixture mode, one page never shows two stories: fee percentiles from
- * the sample medians, transparent activity from the sample transparent counts, and so on.
+ * already exist so that, in fixture mode, one page never shows two stories: transparent activity from the sample transparent counts, and so on.
  */
 
 const DAY = 86_400;
-
-function spreadOf(median: number | null, txs: number): FeeSpreadKind | null {
-  if (median === null) return null;
-  return {
-    p25Zat: Math.round(median * 0.8),
-    medianZat: median,
-    p75Zat: Math.round(median * 1.6),
-    txs,
-  };
-}
-
-function spreadPoints(medians: FeeKindMonthPoint[], txs: number): FeeSpreadPoint[] {
-  return medians.map((m) => ({
-    timestamp: m.timestamp,
-    transparent: spreadOf(m.transparentZat, txs),
-    mixed: spreadOf(m.mixedZat, Math.round(txs / 3)),
-    shielded: spreadOf(m.shieldedZat, Math.round(txs / 2)),
-  }));
-}
-
-export function getFeeSpread(): FeeSpreadSeries {
-  return {
-    monthly: spreadPoints(getFeeDistribution().monthly, 120_000),
-    daily: spreadPoints(getFeeKindsDaily(), 4_000),
-  };
-}
 
 /** Sapling from its 2018 activation, Orchard from 2022, Ironwood over the last weeks. */
 export function getNoteTrees(): NoteTreeDayPoint[] {

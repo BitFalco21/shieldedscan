@@ -1,4 +1,4 @@
-import type { ChartRange, FeeSpreadKind } from "@/domain";
+import type { ChartRange } from "@/domain";
 import {
   blocksTargetForDay,
   NU7,
@@ -85,12 +85,6 @@ export const INFLOW_OTHER = "OTHER";
 /** A share of a whole in percent, to the hundredth of a point; null over nothing. */
 const share = (part: number, whole: number): ChartCell =>
   whole === 0 ? null : Math.round((10_000 * part) / whole) / 100;
-
-const FEE_KINDS = [
-  ["fully_shielded", "shielded"],
-  ["mixed", "mixed"],
-  ["transparent", "transparent"],
-] as const;
 
 /** Null when the chart's series is unreadable, exactly when `ChartFigure` renders "unavailable". */
 export function chartTable(
@@ -273,25 +267,6 @@ export function chartTable(
           { name: "orchard_notes", value: (p) => p.orchardNotes },
           { name: "ironwood_notes", value: (p) => p.ironwoodNotes },
         ],
-      );
-    }
-    case "fee-spread": {
-      const series = data.feeSpread;
-      if (!series) return null;
-      const source = daily ? series.daily : series.monthly;
-      const field =
-        (kind: "shielded" | "mixed" | "transparent", f: keyof FeeSpreadKind) =>
-        (p: (typeof source)[number]): ChartCell =>
-          p[kind]?.[f] ?? null;
-      return table(
-        grain,
-        sliceRange(source, (p) => p.timestamp, range),
-        FEE_KINDS.flatMap(([label, kind]) => [
-          { name: `${label}_p25_zat`, value: field(kind, "p25Zat") },
-          { name: `${label}_median_zat`, value: field(kind, "medianZat") },
-          { name: `${label}_p75_zat`, value: field(kind, "p75Zat") },
-          { name: `${label}_txs`, value: field(kind, "txs") },
-        ]),
       );
     }
     case "blocks-per-day": {
