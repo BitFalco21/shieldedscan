@@ -137,6 +137,14 @@ describeDb("the chart library's newer series", () => {
     ]);
   });
 
+  it("leaves out today, still filling", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await pool.query("INSERT INTO transparent_daily VALUES ($1, 3, 10, 0)", [today]);
+    const body = await get<TransparentDayPoint[]>(TRANSPARENT_DAYS_PATH);
+    expect(body.at(-1)!.timestamp).toBeLessThan(Date.parse(`${today}T00:00:00Z`) / 1000);
+    await pool.query("DELETE FROM transparent_daily WHERE day = $1", [today]);
+  });
+
   it("serves every day between the first and last, a missing one as nulls", async () => {
     const body = await get<TransparentDayPoint[]>(TRANSPARENT_DAYS_PATH);
     expect(body).toEqual([

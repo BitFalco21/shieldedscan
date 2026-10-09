@@ -123,8 +123,9 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   );
 
   /**
-   * Transparent activity per day, every day from the first computed to the last. A day the
-   * backfill has not reached is a row of nulls, so the chart draws a gap rather than a quiet day.
+   * Transparent activity per complete UTC day, every day from the first computed to yesterday. A
+   * day the backfill has not reached is a row of nulls, so the chart draws a gap rather than a
+   * quiet day; today, still filling, is left out, or it would draw as a collapse.
    */
   app.get(TRANSPARENT_DAYS_PATH, async (c) =>
     c.json(
@@ -134,7 +135,11 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
           active: number | null;
           outputs_zat: string | null;
         }>(
-          `WITH bounds AS (SELECT min(day) AS lo, max(day) AS hi FROM transparent_daily)
+          `WITH bounds AS (
+             SELECT min(day) AS lo, max(day) AS hi
+               FROM transparent_daily
+              WHERE day < (now() AT TIME ZONE 'UTC')::date
+           )
            SELECT EXTRACT(EPOCH FROM d)::bigint AS ts,
                   t.active_addresses AS active,
                   (t.out_transparent_zat + t.out_mixed_zat)::text AS outputs_zat
