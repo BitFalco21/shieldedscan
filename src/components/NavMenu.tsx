@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "@/components/Link";
+import { HeartIcon } from "@/components/HeartIcon";
+import { isTestnet } from "@/lib/network";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   commandClass,
@@ -72,6 +74,20 @@ export function NavMenu() {
           id="nav-menu"
           className="panel absolute right-6 z-10 mt-2 flex flex-col gap-1 p-3 text-sm"
         >
+          {/* First, and as a key rather than a line: below `sm` the nav's own donate key is
+              hidden, so this is where a phone finds it. Mainnet only, like the page. */}
+          {isTestnet ? null : (
+            <li className="mb-2 border-b border-edge-faint pb-3">
+              <Link
+                href="/donate"
+                onClick={close}
+                className="flex h-11 items-center justify-center gap-2.5 rounded-xs border border-green text-green transition-colors hover:bg-green hover:text-bg"
+              >
+                <HeartIcon />
+                donate
+              </Link>
+            </li>
+          )}
           {NAV_ITEMS.map((entry) =>
             isNavGroup(entry) ? (
               <li key={entry.label}>
