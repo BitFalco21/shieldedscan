@@ -49,6 +49,21 @@ test.describe("/donate", () => {
     }
   });
 
+  test("the nav carries a donate key on desktop, and the menu carries it on a phone", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/blocks");
+    await page.getByRole("navigation").first().getByRole("link", { name: "Donate" }).click();
+    await expect(page).toHaveURL(/\/donate$/);
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/blocks");
+    await page.getByRole("button", { name: "Navigation menu" }).click();
+    await page.locator("#nav-menu").getByRole("link", { name: "donate" }).click();
+    await expect(page).toHaveURL(/\/donate$/);
+  });
+
   test("says why donations matter, in the maintainer's voice", async ({ page }) => {
     await page.goto("/donate");
     await expect(page.locator("main")).toContainText(/bootstrapping/i);

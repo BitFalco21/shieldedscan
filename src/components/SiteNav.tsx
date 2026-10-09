@@ -1,8 +1,10 @@
 import Link from "@/components/Link";
+import { NavDonate } from "@/components/NavDonate";
 import { NavMenu } from "@/components/NavMenu";
 import { NavLinks } from "@/components/NavLinks";
 import { NetworkSwitch } from "@/components/NetworkSwitch";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { isTestnet } from "@/lib/network";
 
 export function SiteNav() {
   /* `bg-bg/60`: a faint scrim, a no-op on pages whose ground is already --bg. On the
@@ -50,6 +52,7 @@ export function SiteNav() {
               />
             </form>
           </noscript>
+          {isTestnet ? null : <NavDonate />}
           {/* The network switcher sits at the far right: it is not a destination, it changes
               which chain every destination shows. Present on both deployments. */}
           <NetworkSwitch />
