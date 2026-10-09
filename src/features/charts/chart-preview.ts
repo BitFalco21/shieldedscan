@@ -395,7 +395,7 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       if (i < 0 || pct === null || pct === undefined) return null;
       return {
         value: formatSharePct(pct),
-        caption: `of swaps in to a shielded-capable address, ${monthLong(t.timestamps[i]!)}`,
+        caption: `of incoming swaps went to a shielded-capable address, ${monthLong(t.timestamps[i]!)}`,
       };
     }
   }
