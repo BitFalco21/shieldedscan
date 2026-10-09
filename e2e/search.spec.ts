@@ -71,6 +71,13 @@ test.describe("a query reaches the thing it names", () => {
     await searchFromHero(page, `  ${TIP_HEIGHT}  `);
     await expect(page).toHaveURL(new RegExp(`/block/${TIP_HEIGHT}$`));
   });
+
+  test("the hero's search button submits like Enter", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("searchbox").first().fill(String(TIP_HEIGHT));
+    await page.getByRole("search").getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/block/${TIP_HEIGHT}$`));
+  });
 });
 
 test.describe("a query that names nothing says so", () => {
