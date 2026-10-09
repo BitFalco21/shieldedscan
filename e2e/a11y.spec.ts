@@ -226,6 +226,10 @@ test.describe("semantics", () => {
     const offenders: string[] = [];
     for (const route of ROUTES) {
       await page.goto(route);
+      // Count once streaming has finished. A route's `loading.tsx` carries its own h1 over a
+      // skeleton marked `aria-busy`; while the page streams in behind it, both h1s are briefly
+      // in the DOM, and a count taken in that window fails on a slow machine.
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       const count = await page.locator("h1").count();
       if (count !== 1) offenders.push(`${route}: ${count} h1 elements`);
     }
