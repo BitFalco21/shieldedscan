@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getPrerenderedDataSource } from "@/data";
 import { PageHeader } from "@/components/PageHeader";
-import { CHART_CATEGORIES, VISIBLE_CHARTS, isNewChart } from "@/features/charts/catalog";
+import { CHART_CATEGORIES, VISIBLE_CHARTS } from "@/features/charts/catalog";
 import { ChartLibrary } from "@/features/charts/ChartLibrary";
 import { chartPreview } from "@/features/charts/chart-preview";
 import { nowSeconds } from "@/lib/clock";
@@ -53,7 +53,6 @@ export default async function Page() {
             category: c.category,
             blurb: c.blurb,
             preview: chartPreview(c.slug, data, nowSec),
-            isNew: isNewChart(c, nowSec),
           }))}
       />
     </>

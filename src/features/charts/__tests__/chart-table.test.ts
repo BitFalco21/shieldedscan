@@ -3,7 +3,7 @@ import { fixtureDataSource } from "@/data/fixture-source";
 import { utcDayFromSeconds } from "@/domain";
 import { API_GROUPS } from "@/api-catalogue";
 import { loadChartData } from "@/app/_shared/load-chart-data";
-import { CHART_CATEGORIES, CHARTS, VISIBLE_CHARTS, isNewChart, relatedCharts } from "../catalog";
+import { CHART_CATEGORIES, CHARTS, VISIBLE_CHARTS, relatedCharts } from "../catalog";
 import { chartData } from "../chart-data";
 import { chartPreview, sampleEvenly, SPARK_POINTS } from "../chart-preview";
 import { chartCsv, chartTable } from "../chart-table";
@@ -104,20 +104,6 @@ describe("the catalogue", () => {
       }
       expect(documented.get(c.api.docsId), c.slug).toBe(c.api.path);
     }
-  });
-
-  it("marks a chart new for 45 days after it joins, and never before", () => {
-    const chart = CHARTS.find((c) => c.slug === "fee-spread")!;
-    const added = Date.parse(`${chart.added}T00:00:00Z`) / 1000;
-    expect(isNewChart(chart, added - 1)).toBe(false);
-    expect(isNewChart(chart, added + 44 * DAY)).toBe(true);
-    expect(isNewChart(chart, added + 45 * DAY)).toBe(false);
-    expect(
-      isNewChart(
-        CHARTS.find((c) => c.slug === "price")!,
-        added,
-      ),
-    ).toBe(false);
   });
 
   it("files every chart under a known category", () => {

@@ -29,12 +29,14 @@ import {
   formatUsd,
   formatZec,
   formatZecCompact,
+  formatZecTick,
   formatZecWhole,
   monthLong,
   monthShort,
 } from "@/lib/format";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { useQueryParam } from "@/lib/use-query-param";
+import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
 import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
@@ -186,6 +188,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           readoutLabels={points.map((p) => readoutLabel(p.timestamp, daily))}
           markers={upgradeMarkers(points)}
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel={`Shielded pool balances per ${daily ? "day" : "month"}`}
         />
       );
@@ -234,6 +237,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           // and this day-grained series carries no height. Each activation is visible as its
           // pool's band starting, which is the fact a marker would restate.
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel="ZEC migrating between shielded pools per day, by destination pool"
         />
       );
@@ -253,6 +257,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           inLabel="Shielded"
           outLabel="Unshielded"
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel={`ZEC shielded and unshielded per ${daily ? "day" : "month"}, on one scale`}
         />
       );
@@ -268,21 +273,21 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             {
               name: "Fully shielded",
               values: m.map((p) => p.shieldedZat),
-              className: "text-green",
+              className: KIND_CLASSES.shielded,
             },
             {
               name: "Mixed",
               values: m.map((p) => p.mixedZat),
-              className: "text-green",
-              opacity: 0.55,
+              className: KIND_CLASSES.mixed,
             },
             {
               name: "Transparent",
               values: m.map((p) => p.transparentZat),
-              className: "text-ink-dim",
+              className: KIND_CLASSES.transparent,
             },
           ]}
           formatValue={formatZec}
+          formatTick={formatZecTick}
           ariaLabel={`Median transaction fee per ${daily ? "day" : "month"}, by privacy kind`}
         />
       );
@@ -385,6 +390,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel={`Total fees paid per ${daily ? "day" : "month"}`}
         />
       );
@@ -409,6 +415,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           inLabel="Inbound"
           outLabel="Outbound"
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel={`ZEC arriving on and leaving Zcash per ${daily ? "day" : "month"}, on one scale`}
         />
       );
@@ -442,9 +449,9 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           labels={tableLabels(t)}
           readoutLabels={tableReadout(t)}
           series={[
-            { name: "Fully shielded", values: column(t, 0), className: "text-green" },
-            { name: "Mixed", values: column(t, 1), className: "text-green", opacity: 0.55 },
-            { name: "Transparent", values: column(t, 2), className: "text-ink-dim" },
+            { name: "Fully shielded", values: column(t, 0), className: KIND_CLASSES.shielded },
+            { name: "Mixed", values: column(t, 1), className: KIND_CLASSES.mixed },
+            { name: "Transparent", values: column(t, 2), className: KIND_CLASSES.transparent },
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
@@ -511,30 +518,39 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
               name: "Fully shielded, p25–p75",
               lower: shielded.p25,
               upper: shielded.p75,
-              className: "text-green",
+              className: KIND_CLASSES.shielded,
               opacity: 0.16,
             },
             {
               name: "Mixed, p25–p75",
               lower: mixed.p25,
               upper: mixed.p75,
-              className: "text-green",
+              className: KIND_CLASSES.mixed,
               opacity: 0.07,
             },
             {
               name: "Transparent, p25–p75",
               lower: transparent.p25,
               upper: transparent.p75,
-              className: "text-ink-dim",
+              className: KIND_CLASSES.transparent,
               opacity: 0.12,
             },
           ]}
           series={[
-            { name: "Fully shielded, median", values: shielded.median, className: "text-green" },
-            { name: "Mixed, median", values: mixed.median, className: "text-green", opacity: 0.55 },
-            { name: "Transparent, median", values: transparent.median, className: "text-ink-dim" },
+            {
+              name: "Fully shielded, median",
+              values: shielded.median,
+              className: KIND_CLASSES.shielded,
+            },
+            { name: "Mixed, median", values: mixed.median, className: KIND_CLASSES.mixed },
+            {
+              name: "Transparent, median",
+              values: transparent.median,
+              className: KIND_CLASSES.transparent,
+            },
           ]}
           formatValue={formatZec}
+          formatTick={formatZecTick}
           contextRows={[
             {
               name: "Transactions (shielded · mixed · transparent)",
@@ -571,14 +587,14 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
       return (
         <MultiLineChart
           labels={tableLabels(t)}
-          series={[{ name: "Active addresses", values: column(t, 0), className: "text-ink-dim" }]}
-          formatValue={compactCount}
-          contextRows={[
+          series={[
             {
-              name: "Paid to outputs, change included",
-              values: column(t, 1).map((v) => (v === null ? "—" : formatZecCompact(v))),
+              name: "Active addresses",
+              values: column(t, 0),
+              className: KIND_CLASSES.transparent,
             },
           ]}
+          formatValue={compactCount}
           ariaLabel="Distinct transparent addresses active per day"
         />
       );
@@ -604,9 +620,9 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           labels={tableLabels(t)}
           readoutLabels={tableReadout(t)}
           series={[
-            { name: "Largest address", values: column(t, 0), className: "text-green" },
-            { name: "Largest 3", values: column(t, 1), className: "text-green", opacity: 0.55 },
-            { name: "Largest 10", values: column(t, 2), className: "text-ink-dim" },
+            { name: "Largest address", values: column(t, 0), className: RANKED_LINES[0] },
+            { name: "Largest 3", values: column(t, 1), className: RANKED_LINES[1] },
+            { name: "Largest 10", values: column(t, 2), className: RANKED_LINES[2] },
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
@@ -663,6 +679,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           labels={tableLabels(t)}
           readoutLabels={tableReadout(t)}
           formatValue={formatZecCompact}
+          formatTick={formatZecTick}
           ariaLabel="ZEC arriving on Zcash per month, by source chain"
         />
       );

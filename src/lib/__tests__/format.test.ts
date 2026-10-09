@@ -8,6 +8,7 @@ import {
   formatUtc,
   formatZec,
   formatZecCompact,
+  formatZecTick,
   shortHash,
   timeAgo,
 } from "../format";
@@ -26,6 +27,20 @@ describe("formatZec", () => {
   it("keeps round amounts short — precision is shown only where it exists", () => {
     expect(formatZec(100_000_000)).toBe("1.00 ZEC");
     expect(formatZec(150_000_000)).toBe("1.50 ZEC");
+  });
+});
+
+describe("formatZecTick", () => {
+  it("rounds an axis tick to what a reference line needs", () => {
+    expect(formatZecTick(102_134_378_535)).toBe("1,021 ZEC");
+    expect(formatZecTick(1_234_567_890)).toBe("12.35 ZEC");
+    expect(formatZecTick(12_345)).toBe("0.00012 ZEC");
+    expect(formatZecTick(0)).toBe("0 ZEC");
+  });
+
+  it("shares the K and M tiers with the compact form", () => {
+    expect(formatZecTick(1_500_000_000_000)).toBe("15.0K ZEC");
+    expect(formatZecTick(250_000_000_000_000)).toBe("2.50M ZEC");
   });
 });
 

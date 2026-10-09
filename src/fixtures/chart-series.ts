@@ -71,7 +71,6 @@ export function getTransparentDays(): TransparentDayPoint[] {
   return getDailySeries().map((d) => ({
     timestamp: d.timestamp,
     activeAddresses: Math.round((d.transparentTxs + d.mixedTxs) * 1.4),
-    outputsZat: (d.transparentTxs + d.mixedTxs) * 4_200_000_000,
   }));
 }
 

@@ -7,6 +7,7 @@ import {
 } from "@/domain";
 import type { MultiLineChartProps } from "@/components/MultiLineChart";
 import { formatCount } from "@/lib/format";
+import { RANKED_LINES } from "@/lib/ranked-palette";
 
 /** Dots on each day while the record is short enough that each day is worth seeing. */
 const MARKER_DAYS = 45;
@@ -46,17 +47,17 @@ export function readinessChart(
         {
           name: "Ready",
           values: days.map((d) => pct(d.ready, d.answering)),
-          className: "text-green",
+          className: RANKED_LINES[0],
         },
         {
           name: `Declare ${upgrade.minProtocolVersion.mainnet}+`,
           values: days.map((d) => pct(d.ready + d.declares, d.answering)),
-          className: "text-green-dim",
+          className: RANKED_LINES[1],
         },
         {
           name: "Behind our tip",
           values: days.map((d) => pct(d.behindTip, d.tipKnown)),
-          className: "text-series",
+          className: RANKED_LINES[2],
         },
       ],
       formatValue: (v) => `${v.toFixed(1)}%`,

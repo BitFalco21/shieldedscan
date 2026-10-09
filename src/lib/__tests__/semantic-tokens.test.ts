@@ -91,3 +91,42 @@ describe("amber is a value, series and warn are the roles", () => {
     }
   });
 });
+
+describe("the ranked inks stay apart from the accent and readable, on every theme", () => {
+  const literal = (block: string, name: string) => {
+    const m = block.match(new RegExp(`--${name}:\\s*oklch\\(([0-9.]+) ([0-9.]+) ([0-9.]+)\\)`));
+    return m ? { l: Number(m[1]), c: Number(m[2]), h: Number(m[3]) } : null;
+  };
+  const root = css.match(/:root\s*\{([^}]*)\}/)?.[1] ?? "";
+  const amberBlock = css.match(/:root\[data-theme="amber"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  const hueGap = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+
+  it("defines both as plain oklch literals and exposes them to Tailwind", () => {
+    for (const name of ["line-2", "line-3"]) {
+      expect(literal(root, name), `--${name} in :root`).not.toBeNull();
+      expect(css).toMatch(new RegExp(`--color-${name}: var\\(--${name}\\);`));
+    }
+  });
+
+  it("keeps --line-2 a hue apart from each theme's accent, and --line-3 a neutral", () => {
+    for (const t of THEMES) {
+      const line2 = (t.id === "amber" && literal(amberBlock, "line-2")) || literal(root, "line-2")!;
+      expect(hueGap(line2.h, t.hue), `--line-2 against ${t.id}`).toBeGreaterThan(60);
+    }
+    // A near-grey cannot be mistaken for a saturated accent, whatever its hue.
+    expect(literal(root, "line-3")!.c).toBeLessThan(0.05);
+  });
+
+  it("draws both at 3:1 or better against each theme's panel, the bar for a chart line", () => {
+    for (const t of THEMES) {
+      const panel = oklchToSrgb(deriveTokens(t.hue).panel);
+      const line2 = (t.id === "amber" && literal(amberBlock, "line-2")) || literal(root, "line-2")!;
+      for (const [name, ink] of [
+        ["line-2", line2],
+        ["line-3", literal(root, "line-3")!],
+      ] as const) {
+        expect(contrastRatio(oklchToSrgb(ink), panel), `--${name} on ${t.id}`).toBeGreaterThan(3);
+      }
+    }
+  });
+});

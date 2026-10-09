@@ -3,6 +3,7 @@ import type { LegendItem } from "@/components/ChartLegend";
 import { chainName } from "@/lib/chains";
 import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
 import { POOL_CLASSES } from "@/lib/pool-palette";
+import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 import { chartTable, INFLOW_OTHER } from "./chart-table";
@@ -11,9 +12,9 @@ import { capitalise } from "@/lib/format";
 
 /** The three privacy kinds in the ink grammar every kind chart draws them in. */
 const KIND_LINES: LegendItem[] = [
-  { label: "Fully shielded", className: "text-green", mark: "line" },
-  { label: "Mixed", className: "text-green", mark: "line", weight: "dim" },
-  { label: "Transparent", className: "text-ink-dim", mark: "line" },
+  { label: "Fully shielded", className: KIND_CLASSES.shielded, mark: "line" },
+  { label: "Mixed", className: KIND_CLASSES.mixed, mark: "line" },
+  { label: "Transparent", className: KIND_CLASSES.transparent, mark: "line" },
 ];
 
 const pools = (mark: LegendItem["mark"], only?: readonly string[]): LegendItem[] =>
@@ -67,19 +68,19 @@ export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
       ];
     case "upgrade-readiness":
       return [
-        { label: "Ready", className: "text-green", mark: "line" },
+        { label: "Ready", className: RANKED_LINES[0], mark: "line" },
         {
           label: `Declare ${NU7.minProtocolVersion.mainnet}+`,
-          className: "text-green-dim",
+          className: RANKED_LINES[1],
           mark: "line",
         },
-        { label: "Behind our tip", className: "text-series", mark: "line" },
+        { label: "Behind our tip", className: RANKED_LINES[2], mark: "line" },
       ];
     case "miner-concentration":
       return [
-        { label: "Largest address", className: "text-green", mark: "line" },
-        { label: "Largest 3", className: "text-green", mark: "line", weight: "dim" },
-        { label: "Largest 10", className: "text-ink-dim", mark: "line" },
+        { label: "Largest address", className: RANKED_LINES[0], mark: "line" },
+        { label: "Largest 3", className: RANKED_LINES[1], mark: "line" },
+        { label: "Largest 10", className: RANKED_LINES[2], mark: "line" },
       ];
     case "inflow-by-chain":
       return (chartTable(slug, data, "all")?.keys ?? []).map((key) => ({

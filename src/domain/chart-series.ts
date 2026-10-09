@@ -51,11 +51,6 @@ export interface TransparentDayPoint {
   timestamp: number;
   /** Distinct addresses that sent or received that day. Never added across days. */
   activeAddresses: number | null;
-  /**
-   * ZEC paid to transparent outputs by non-coinbase transactions, change included: an upper
-   * bound on value that changed hands, not ZEC sent.
-   */
-  outputsZat: number | null;
 }
 
 /**

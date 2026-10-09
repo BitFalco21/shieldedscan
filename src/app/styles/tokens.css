@@ -43,6 +43,12 @@
   --warn: var(--amber);
   --warn-edge: var(--amber-edge);
   --warn-wash: var(--amber-wash);
+  /* The second and third lines of a ranked chart (`ranked-palette.ts`); the accent draws the
+     first. Lighter-to-darker as well as hue apart, so they part without colour vision. Plain
+     literals, so semantic-tokens.test.ts can measure them; the amber theme moves --line-2 off
+     its own accent. */
+  --line-2: oklch(0.8 0.135 84);
+  --line-3: oklch(0.72 0.035 257);
   --red: #ff5252;
 
   /* Flow palette — categorical, for charts. Jewel tones on near-black: gold, azure, magenta,
@@ -131,6 +137,8 @@
   --color-amber-edge: var(--amber-edge);
   --color-amber-wash: var(--amber-wash);
   --color-series: var(--series);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
   --color-warn: var(--warn);
   --color-warn-edge: var(--warn-edge);
   --color-warn-wash: var(--warn-wash);
@@ -173,4 +181,5 @@
   --warn: oklch(0.74 0.19 40);
   --warn-edge: oklch(0.74 0.19 40 / 0.35);
   --warn-wash: oklch(0.74 0.19 40 / 0.06);
+  --line-2: oklch(0.76 0.13 300);
 }

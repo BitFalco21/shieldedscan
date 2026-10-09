@@ -568,12 +568,12 @@ export function createChainApiSource(config: ChainApiConfig) {
         await request(config, "/chain/analytics/transparent-days", CACHE_QUARTER_HOUR),
         "transparent days",
       );
-      const valueOk = (v: unknown) => v === null || typeof v === "number";
       if (
         !Array.isArray(body) ||
         !body.every(
           (p: TransparentDayPoint) =>
-            typeof p.timestamp === "number" && valueOk(p.activeAddresses) && valueOk(p.outputsZat),
+            typeof p.timestamp === "number" &&
+            (p.activeAddresses === null || typeof p.activeAddresses === "number"),
         )
       ) {
         throw new Error("chain API returned an unrecognised transparent days shape");

@@ -133,7 +133,6 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
         const { rows } = await pool.query<{
           ts: string;
           active: number | null;
-          outputs_zat: string | null;
         }>(
           `WITH bounds AS (
              SELECT min(day) AS lo, max(day) AS hi
@@ -141,8 +140,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
               WHERE day < (now() AT TIME ZONE 'UTC')::date
            )
            SELECT EXTRACT(EPOCH FROM d)::bigint AS ts,
-                  t.active_addresses AS active,
-                  (t.out_transparent_zat + t.out_mixed_zat)::text AS outputs_zat
+                  t.active_addresses AS active
              FROM bounds, generate_series(bounds.lo, bounds.hi, interval '1 day') AS d
              LEFT JOIN transparent_daily t ON t.day = d::date
             WHERE bounds.lo IS NOT NULL
@@ -151,7 +149,6 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
         return rows.map((r) => ({
           timestamp: Number(r.ts),
           activeAddresses: r.active === null ? null : Number(r.active),
-          outputsZat: r.outputs_zat === null ? null : Number(r.outputs_zat),
         }));
       }),
     ),

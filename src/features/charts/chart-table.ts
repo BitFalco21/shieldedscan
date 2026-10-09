@@ -311,10 +311,7 @@ export function chartTable(
       return table(
         "day",
         sliceRange(data.transparentDays, (p) => p.timestamp, range),
-        [
-          { name: "active_addresses", value: (p) => p.activeAddresses },
-          { name: "outputs_zat", value: (p) => p.outputsZat },
-        ],
+        [{ name: "active_addresses", value: (p) => p.activeAddresses }],
       );
     }
     case "upgrade-readiness": {

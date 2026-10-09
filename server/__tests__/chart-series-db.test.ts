@@ -81,10 +81,8 @@ describeDb("the chart library's newer series", () => {
       ('2026-09-01', 'sapling', 100), ('2026-09-01', 'orchard', 50), ('2026-09-01', 'sprout', NULL),
       ('2026-09-02', 'sapling', 110), ('2026-09-02', 'orchard', 55), ('2026-09-02', 'ironwood', 3)`);
 
-    await pool.query(`CREATE TABLE transparent_daily (
-      day DATE PRIMARY KEY, active_addresses INT, out_transparent_zat BIGINT, out_mixed_zat BIGINT)`);
-    await pool.query(`INSERT INTO transparent_daily VALUES
-      ('2026-09-01', 40, 1000, 500), ('2026-09-03', 42, 2000, 0)`);
+    await pool.query(`CREATE TABLE transparent_daily (day DATE PRIMARY KEY, active_addresses INT)`);
+    await pool.query(`INSERT INTO transparent_daily VALUES ('2026-09-01', 40), ('2026-09-03', 42)`);
 
     await pool.query(`CREATE TABLE mining_day (day DATE PRIMARY KEY, blocks INT)`);
     await pool.query(
@@ -139,7 +137,7 @@ describeDb("the chart library's newer series", () => {
 
   it("leaves out today, still filling", async () => {
     const today = new Date().toISOString().slice(0, 10);
-    await pool.query("INSERT INTO transparent_daily VALUES ($1, 3, 10, 0)", [today]);
+    await pool.query("INSERT INTO transparent_daily VALUES ($1, 3)", [today]);
     const body = await get<TransparentDayPoint[]>(TRANSPARENT_DAYS_PATH);
     expect(body.at(-1)!.timestamp).toBeLessThan(Date.parse(`${today}T00:00:00Z`) / 1000);
     await pool.query("DELETE FROM transparent_daily WHERE day = $1", [today]);
@@ -148,9 +146,9 @@ describeDb("the chart library's newer series", () => {
   it("serves every day between the first and last, a missing one as nulls", async () => {
     const body = await get<TransparentDayPoint[]>(TRANSPARENT_DAYS_PATH);
     expect(body).toEqual([
-      { timestamp: SEP, activeAddresses: 40, outputsZat: 1500 },
-      { timestamp: SEP + DAY, activeAddresses: null, outputsZat: null },
-      { timestamp: SEP + 2 * DAY, activeAddresses: 42, outputsZat: 2000 },
+      { timestamp: SEP, activeAddresses: 40 },
+      { timestamp: SEP + DAY, activeAddresses: null },
+      { timestamp: SEP + 2 * DAY, activeAddresses: 42 },
     ]);
   });
 

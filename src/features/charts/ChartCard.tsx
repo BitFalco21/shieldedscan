@@ -10,8 +10,6 @@ export interface ChartCardProps {
   category: ChartCategory;
   blurb: string;
   preview: ChartPreview;
-  /** Joined the library recently: marked so a returning reader finds what is new. */
-  isNew?: boolean;
 }
 
 /**
@@ -22,23 +20,13 @@ export interface ChartCardProps {
  * A chart with no single honest figure shows its one-line description instead, and a chart whose
  * series could not be read says "unavailable" rather than drawing nothing.
  */
-export function ChartCard({
-  slug,
-  title,
-  category,
-  blurb,
-  preview,
-  isNew = false,
-}: ChartCardProps) {
+export function ChartCard({ slug, title, category, blurb, preview }: ChartCardProps) {
   return (
     <Link
       href={`/charts/${slug}`}
       className="panel flex min-w-0 flex-col gap-1.5 px-4 py-3.5 transition-colors hover:border-edge-strong"
     >
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="microlabel">{category}</span>
-        {isNew && <span className="microlabel text-green">new</span>}
-      </span>
+      <span className="microlabel">{category}</span>
       <span className="text-sm font-semibold text-ink-bright">{title}</span>
       {preview.headline ? (
         <>

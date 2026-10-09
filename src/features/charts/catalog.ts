@@ -64,8 +64,6 @@ export interface ChartEntry {
    * API does not carry yet, and the chart's page says so.
    */
   api: { docsId: string; path: string } | null;
-  /** The day the chart joined the library, `YYYY-MM-DD`: the gallery marks it new for a while. */
-  added?: string;
   /** One line for the gallery card. */
   blurb: string;
   /** The detail page's frame: measurement, source, and the likeliest misreading. */
@@ -223,7 +221,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Share of transactions by privacy kind",
     category: "Privacy",
     api: { docsId: "monthly", path: "/v1/analytics/monthly" },
-    added: "2026-10-09",
     blurb: "Fully shielded, mixed and transparent, as shares of each period.",
     description: [
       "The share of each period's transactions that were fully shielded, mixed (crossing the shielded boundary) or fully transparent. Coinbase transactions are left out, so the three shares sum to 100% of the rest.",
@@ -235,7 +232,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Anonymity set per pool",
     category: "Privacy",
     api: { docsId: "analytics-pool-usage", path: "/v1/analytics/pool-usage" },
-    added: "2026-10-09",
     blurb: "Notes in each pool's commitment tree: what a shielded spend hides among.",
     description: [
       "Each shielded pool keeps a tree of every note ever created in it, spent or not. A spend proves its note is somewhere in that tree without saying where, so the tree's size is the crowd the spend hides in.",
@@ -247,7 +243,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Fee spread by privacy kind",
     category: "Fees",
     api: { docsId: "analytics-fees", path: "/v1/analytics/fees" },
-    added: "2026-10-09",
     blurb: "The middle half of fees paid, p25 to p75, around each median.",
     description: [
       "For each privacy kind, the shaded band runs from the 25th to the 75th percentile of the fees paid in the period, with the median drawn through it: half of all fee-paying transactions paid within the band.",
@@ -259,7 +254,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Blocks per day",
     category: "Mining",
     api: { docsId: "analytics-network", path: "/v1/analytics/network" },
-    added: "2026-10-09",
     blurb: "Blocks mined each day, against the protocol's target.",
     description: [
       "Blocks mined per complete UTC day. The dashed line is the protocol's target: 576 a day at the original 150-second block time, 1,152 since Blossom halved it to 75 seconds in December 2019. The activation day falls under both targets and shows none.",
@@ -271,11 +265,10 @@ export const CHARTS: ChartEntry[] = [
     title: "Transparent activity",
     category: "Activity",
     api: { docsId: "analytics-transparent", path: "/v1/analytics/transparent" },
-    added: "2026-10-09",
     blurb: "Distinct transparent addresses active each day, since 2016.",
     description: [
       "How many distinct transparent addresses sent or received ZEC each UTC day. A distinct count does not add across days: an address active on two days is counted once on each.",
-      "The readout adds the ZEC paid to transparent outputs that day. It includes change returned to the sender, so it bounds the value that changed hands from above. Shielded activity has no address and is in neither figure.",
+      "Shielded activity has no address, so it is not counted here.",
     ],
   },
   {
@@ -283,7 +276,6 @@ export const CHARTS: ChartEntry[] = [
     title: `${NU7.name} readiness`,
     category: "Network & nodes",
     api: null,
-    added: "2026-10-09",
     blurb: "Answering nodes ready for the next network upgrade, day by day.",
     description: [
       `The share of the nodes the crawler reached each day that run a release able to follow ${NU7.name}, the share declaring its protocol version, and the share behind this explorer's tip.`,
@@ -295,7 +287,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Largest miners' share of blocks",
     category: "Mining",
     api: { docsId: "analytics-miners", path: "/v1/analytics/miners" },
-    added: "2026-10-09",
     blurb: "Share of each month's blocks paid to the top 1, 3 and 10 addresses.",
     description: [
       "Each month's blocks, grouped by the payout address of the coinbase's largest output, which is the miner by consensus. The lines are the share of all the month's blocks paid to the largest address, the largest three and the largest ten.",
@@ -307,7 +298,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Reorganisations observed",
     category: "Network & nodes",
     api: { docsId: "reorgs-list", path: "/v1/reorgs" },
-    added: "2026-10-09",
     blurb: "Chain rollbacks this explorer's node saw, week by week.",
     description: [
       "How many reorganisations this explorer's own node observed each week, with the deepest of the week. Depth-1 reorgs are routine on proof of work.",
@@ -319,7 +309,6 @@ export const CHARTS: ChartEntry[] = [
     title: "Inflow by source chain",
     category: "Cross-chain",
     api: { docsId: "crosschain-aggregate", path: "/v1/crosschain/aggregate" },
-    added: "2026-10-09",
     blurb: "ZEC arriving on Zcash each month, by the chain it came from.",
     description: [
       "ZEC arriving through the public swap venues this explorer indexes, by the chain the swap started on, month by month. The largest sources are drawn on their own and the rest grouped.",
@@ -372,14 +361,4 @@ export function relatedCharts(slug: ChartSlug, count = 3): ChartEntry[] {
     .sort((a, b) => distance(a.c) - distance(b.c) || a.order - b.order)
     .slice(0, count)
     .map(({ c }) => c);
-}
-
-/** How long a chart is marked new in the library after it joins. */
-const NEW_FOR_SECONDS = 45 * 86_400;
-
-/** Whether a chart joined the library recently enough to be marked new at `nowSec`. */
-export function isNewChart(chart: ChartEntry, nowSec: number): boolean {
-  if (!chart.added) return false;
-  const added = Date.parse(`${chart.added}T00:00:00Z`) / 1000;
-  return nowSec >= added && nowSec - added < NEW_FOR_SECONDS;
 }

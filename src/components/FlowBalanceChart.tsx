@@ -27,6 +27,8 @@ export interface FlowBalanceChartProps {
   outLabel: string;
   /** Formats a value for the readout. These are zatoshis; without it they render raw. */
   formatValue?: (value: number) => string;
+  /** The y-axis labels, if coarser than `formatValue`; the readout keeps `formatValue`. */
+  formatTick?: (value: number) => string;
   /** Unambiguous labels for the readout; falls back to each point's axis label. */
   readoutLabels?: string[];
   /** Gallery-size axes — see `COMPACT_TICK_FONT`. */
@@ -52,6 +54,7 @@ export function FlowBalanceChart({
   inLabel,
   outLabel,
   formatValue = String,
+  formatTick = formatValue,
   readoutLabels,
   compact = false,
 }: FlowBalanceChartProps) {
@@ -64,12 +67,15 @@ export function FlowBalanceChart({
   // A diverging frame: zero sits mid-plot and the axis runs −max..+max, so both directions
   // read against the ruler the bars are drawn with. The gutter self-sizes against the signed
   // tick labels it will print.
-  const signed = (value: number) =>
-    `${value > 0 ? "+" : value < 0 ? "−" : ""}${formatValue(Math.abs(value))}`;
+  const signedWith = (format: (v: number) => string) => (value: number) =>
+    `${value > 0 ? "+" : value < 0 ? "−" : ""}${format(Math.abs(value))}`;
+  // The readout's net is a stated amount and keeps full precision; the axis ticks need less.
+  const signed = signedWith(formatValue);
+  const signedTick = signedWith(formatTick);
   const tickFont = compact ? COMPACT_TICK_FONT : TICK_FONT;
   const ticks = [-1, -0.5, 0, 0.5, 1].map((f) => maxAbs * f);
   const padL =
-    Math.max(...ticks.map((t) => signed(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
+    Math.max(...ticks.map((t) => signedTick(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   const plotW = CHART_W - padL - CHART_PAD_R;
   // The gap shrinks with the slot: a fixed 2-unit gap would erase the bars at a 365-day range
   // (~2.5 units/slot). A fifth of the slot keeps bars dominant at any count.
@@ -109,7 +115,7 @@ export function FlowBalanceChart({
         role="img"
         aria-label={ariaLabel}
       >
-        <YAxis frame={frame} ticks={ticks} formatValue={signed} />
+        <YAxis frame={frame} ticks={ticks} formatValue={signedTick} />
         <XAxis frame={frame} labels={points.map((p) => p.label)} />
         <line
           x1={padL}

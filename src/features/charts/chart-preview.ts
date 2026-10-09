@@ -15,6 +15,7 @@ import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 import { chartTable, INFLOW_OTHER, type ChartTable } from "./chart-table";
 import { POOL_STACK } from "./pool-series";
+import { KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 
 /** What a gallery card shows beside a chart's title. */
 export interface ChartPreview {
@@ -74,9 +75,9 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
       return {
         kind: "lines",
         series: [
-          { values: col(0), className: "text-green" },
-          { values: col(1), className: "text-green", opacity: 0.55 },
-          { values: col(2), className: "text-ink-dim" },
+          { values: col(0), className: RANKED_LINES[0] },
+          { values: col(1), className: RANKED_LINES[1] },
+          { values: col(2), className: RANKED_LINES[2] },
         ],
       };
     case "shielded-supply":
@@ -93,9 +94,9 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
         kind: "lines",
         max: 100,
         series: [
-          { values: col(0), className: "text-green" },
-          { values: col(1), className: "text-green", opacity: 0.55 },
-          { values: col(2), className: "text-ink-dim" },
+          { values: col(0), className: RANKED_LINES[0] },
+          { values: col(1), className: RANKED_LINES[1] },
+          { values: col(2), className: RANKED_LINES[2] },
         ],
       };
     case "anonymity-set":
@@ -126,7 +127,7 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
         ],
       };
     case "transparent-activity":
-      return { kind: "lines", series: [{ values: col(0), className: "text-ink-dim" }] };
+      return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.transparent }] };
     case "upgrade-readiness": {
       const pct = (part: number | null, whole: number | null) =>
         part === null || !whole ? null : (100 * part) / whole;
@@ -134,12 +135,12 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
         kind: "lines",
         max: 100,
         series: [
-          { values: rows.map((r) => pct(r[1] ?? null, r[0] ?? null)), className: "text-green" },
+          { values: rows.map((r) => pct(r[1] ?? null, r[0] ?? null)), className: RANKED_LINES[0] },
           {
             values: rows.map((r) => pct((r[1] ?? 0) + (r[2] ?? 0), r[0] ?? null)),
-            className: "text-green-dim",
+            className: RANKED_LINES[1],
           },
-          { values: rows.map((r) => pct(r[3] ?? null, r[4] ?? null)), className: "text-series" },
+          { values: rows.map((r) => pct(r[3] ?? null, r[4] ?? null)), className: RANKED_LINES[2] },
         ],
       };
     }

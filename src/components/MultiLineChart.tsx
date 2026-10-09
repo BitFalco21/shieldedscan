@@ -48,6 +48,12 @@ export interface MultiLineChartProps {
   series: MultiLineSeries[];
   ariaLabel: string;
   formatValue?: (value: number) => string;
+  /**
+   * The y-axis labels, where they need less precision than a stated value: a tick is a reference
+   * line at a fraction of the maximum, so eight decimals there are noise. Defaults to
+   * `formatValue`; the hover readout always uses `formatValue`.
+   */
+  formatTick?: (value: number) => string;
   readoutLabels?: string[];
   /**
    * Facts about each point that are not plotted, appended below the series in the readout —
@@ -114,6 +120,7 @@ export function MultiLineChart({
   series,
   ariaLabel,
   formatValue = String,
+  formatTick = formatValue,
   readoutLabels,
   contextRows = [],
   baseline = "zero",
@@ -144,7 +151,7 @@ export function MultiLineChart({
   const frame = axisFrame(
     labels.length,
     max,
-    formatValue,
+    formatTick,
     min,
     phone ? PHONE_TICK_FONT : compact ? COMPACT_TICK_FONT : TICK_FONT,
     phone ? PHONE_CHART_H : CHART_H,
@@ -230,7 +237,7 @@ export function MultiLineChart({
         role="img"
         aria-label={ariaLabel}
       >
-        <YAxis frame={frame} ticks={frame.ticks} formatValue={formatValue} />
+        <YAxis frame={frame} ticks={frame.ticks} formatValue={formatTick} />
         <XAxis frame={frame} labels={labels} />
         {bands.map((b) =>
           bandShapes(b).map((d, i) => (
