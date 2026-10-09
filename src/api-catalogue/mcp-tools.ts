@@ -97,9 +97,9 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
   },
   {
     name: "rich_list",
-    title: "The transparent rich list, or its distribution",
-    summary: "Transparent balances only: shielded value is absent by construction.",
-    views: { list: "rich-list", distribution: "rich-list-distribution" },
+    title: "The transparent rich list, its distribution, or named addresses",
+    summary: "Transparent balances only.",
+    views: { list: "rich-list", distribution: "rich-list-distribution", labels: "labels" },
   },
   {
     name: "nodes",

@@ -14,6 +14,9 @@ import { MemoryStorePort } from "../crosschain-store";
 import { V1_ADDRESS_WINDOW_REGEXP } from "../v1/address-windows";
 import { type V1ChainPort, v1Routes } from "../v1/routes";
 import { ByteBudget } from "../v1/byte-budget";
+import { LABELS_NOTICE } from "../v1/map";
+import type { V1Labels } from "../v1/dto";
+import { ADDRESS_LABELS } from "@/domain";
 
 /**
  * The public contract, tested at the HTTP boundary via `app.request()` (no server, no network):
@@ -2106,5 +2109,80 @@ describe("malformed input is a 400, never a 500", () => {
     expect(res.status).toBe(400);
     const ok = await appWith().request("http://x/v1/crosschain/transfers?minZec=1000");
     expect(ok.status).toBe(200);
+  });
+});
+
+describe("/v1/labels", () => {
+  const [held, unranked, spent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
+  const theft = Object.keys(ADDRESS_LABELS).find((a) => ADDRESS_LABELS[a]!.flag)!;
+  const pool = {
+    query: async (sql: string) => {
+      if (sql.includes("computed_height")) return { rows: [{ computed_height: 3_400_001 }] };
+      // One ranked balance, one the hourly pass has not ranked (rank 0), and no row for the rest,
+      // which hold nothing.
+      return {
+        rows: [
+          { address: held, balance_zat: 43_892_090_013_445, rank: 1 },
+          { address: unranked, balance_zat: 2_869_648_329_284, rank: 0 },
+        ],
+      };
+    },
+  } as unknown as Pool;
+  const app = () => v1Routes({ store: new MemoryStorePort(), pool, enabledProtocols: {} });
+  const labels = async () => (await (await app().request("/v1/labels")).json()) as V1Labels;
+
+  it("serves every labelled address, in the table's order, with whose claim each name is", async () => {
+    const body = await labels();
+    expect(body.labels.map((l) => l.address)).toEqual(Object.keys(ADDRESS_LABELS));
+    expect(body.count).toBe(Object.keys(ADDRESS_LABELS).length);
+    for (const label of body.labels) {
+      expect(label.name).toBe(ADDRESS_LABELS[label.address]!.name);
+      expect(label.source).toBe(ADDRESS_LABELS[label.address]!.source);
+      expect(label.basis).toBe("external");
+    }
+    expect(body.labels[0]!.source).toMatch(/Arkham/);
+  });
+
+  it("carries the notice on every response, so a name never travels without it", async () => {
+    const body = await labels();
+    expect(body.notice).toBe(LABELS_NOTICE);
+    expect(body.notice).toMatch(/not verified by this explorer/);
+    expect(body.notice).toMatch(/transparent only/);
+  });
+
+  it("names the investigator behind a theft label, and no one behind the others", async () => {
+    const body = await labels();
+    const flagged = body.labels.find((l) => l.address === theft)!;
+    expect(flagged.flag).toEqual({
+      by: ADDRESS_LABELS[theft]!.flag!.by,
+      url: ADDRESS_LABELS[theft]!.flag!.href,
+    });
+    expect(body.labels.find((l) => l.address === held)!.flag).toBeNull();
+  });
+
+  it("states why a rank is missing: holds nothing, or not ranked yet", async () => {
+    const body = await labels();
+    const byAddress = new Map(body.labels.map((l) => [l.address, l]));
+    expect(byAddress.get(held)).toMatchObject({ balanceZat: 43_892_090_013_445, rank: 1 });
+    expect(byAddress.get(held)).not.toHaveProperty("unknowns");
+    expect(byAddress.get(unranked)).toMatchObject({
+      rank: null,
+      unknowns: { rank: "unmeasured" },
+    });
+    expect(byAddress.get(spent)).toMatchObject({
+      balanceZat: 0,
+      rank: null,
+      unknowns: { rank: "nonexistent" },
+    });
+    expect(body.rankHeight).toBe(3_400_001);
+  });
+
+  it("refuses a parameter rather than ignoring it", async () => {
+    expect((await app().request("/v1/labels?address=t1x")).status).toBe(400);
+  });
+
+  it("is listed in the descriptor", async () => {
+    const body = await (await app().request("/v1")).json();
+    expect(body.endpoints).toContain("GET /v1/labels");
   });
 });

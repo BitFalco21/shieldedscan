@@ -91,6 +91,7 @@ export function v1DescriptorRoutes(extensionEndpoints: readonly string[]): Hono 
         "GET /v1/addresses/{address}/transactions",
         "GET /v1/rich-list",
         "GET /v1/rich-list/distribution",
+        "GET /v1/labels",
         "GET /v1/search",
         "GET /v1/transactions",
         "GET /v1/transactions/{txid}",

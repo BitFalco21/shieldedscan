@@ -62,12 +62,54 @@ export const RICH_LIST_GROUP: ApiGroup = {
       notes: [
         "`height` is the height the BALANCES cover, not the chain tip — figures are dated by when they were computed, never by when you asked.",
         '`txCount` counts transactions the address appears in, either side, once per transaction. It is `null` on rows a backfill has not reached, with `unknowns.txCount: "unmeasured"` beside it — never 0, which is a value the truth cannot take for an address holding a balance.',
-        "No labels and no entity grouping. One address is one address: an exchange holds thousands and one address holds thousands of people's coins, so 'this entity's wallets' is a claim this API does not make.",
+        "No label on a row and no entity grouping. One address is one address: an exchange holds thousands and one address holds thousands of people's coins. The addresses this explorer names are at `/v1/labels`, each with its source.",
       ],
       toolNotes: [
         "`height` is the height the balances cover, not the tip. `txCount` is null (`unmeasured`) on rows not yet backfilled, never 0.",
         "No labels and no grouping: one address is one address, never one owner.",
       ],
+    },
+    {
+      id: "labels",
+      method: "GET",
+      path: "/v1/labels",
+      title: "The addresses this explorer names",
+      description:
+        "Every labelled transparent address: its name, whose claim it is (`source`: Arkham's entity labels, or a theft investigator), balance and rank.",
+      params: [],
+      exampleResponse: `{
+  "notice": "Each name is a third-party attribution, repeated as its source states it and not verified by this explorer; …",
+  "count": 45,
+  "labels": [
+    {
+      "address": "t3aPMe94jMKyrgkbH5SSukimvdMFJ59EFhP",
+      "name": "Gemini Cold Wallet",
+      "basis": "external",
+      "source": "Arkham entity labels (intel.arkm.com), read 2026-08-21",
+      "flag": null,
+      "balanceZat": 43892090013445,
+      "rank": 1
+    },
+    {
+      "address": "t1SyhmRJ35RpGsyuLArsPLepyoiLcawLia5",
+      "name": "DPRK attackers",
+      "basis": "external",
+      "source": "ZachXBT on X, 2026-09-30 (Bitget exploit; flows checked against /v1)",
+      "flag": { "by": "ZachXBT", "url": "https://t.me/investigations/364" },
+      "balanceZat": 0,
+      "rank": null,
+      "unknowns": { "rank": "nonexistent" }
+    }
+  ],
+  "rankHeight": 3511859,
+  "asOf": 1791555000
+}`,
+      notes: [
+        'A name is someone\'s claim about a real company or person, not a chain fact. `source` says whose, and `basis: "external"` that this explorer repeats it without verifying it. The `notice` on every response says the same, so the names never travel without it.',
+        "A label covers exactly its address. Never extend it to an address that sent to or received from a labelled one, and never total a label's addresses as one owner's holdings without saying they are the labelled addresses only.",
+        "`balanceZat` is current and transparent only; `rank` is as of `rankHeight`, the hourly rich list, never the tip. A null rank carries its reason: `nonexistent` means the address holds nothing, `unmeasured` that it has not been ranked yet.",
+      ],
+      toolNotes: ["Third-party names, not verified here; one label, one address."],
     },
     {
       id: "rich-list-distribution",
