@@ -18,6 +18,15 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "block-size": ["network"],
   "fee-totals": ["feeTotals"],
   "crosschain-volume": ["crosschainVolume"],
+  "privacy-share": ["months", "days"],
+  "anonymity-set": ["noteTrees"],
+  "fee-spread": ["feeSpread"],
+  "blocks-per-day": ["blocksDaily"],
+  "transparent-activity": ["transparentDays"],
+  "upgrade-readiness": ["releases"],
+  "miner-concentration": ["minerShares"],
+  reorgs: ["reorgWeeks"],
+  "inflow-by-chain": ["chainInflow"],
 };
 
 /**
@@ -49,6 +58,14 @@ export async function loadChartData(
     feesDaily,
     feeTotals,
     crosschainVolume,
+    feeSpread,
+    noteTrees,
+    transparentDays,
+    minerShares,
+    reorgWeeks,
+    chainInflow,
+    blocksDaily,
+    releases,
   ] = await Promise.all([
     wanted.has("months") ? guard(() => data.getMonthlySeries()) : null,
     wanted.has("flow") ? guard(() => data.getShieldingFlow()) : null,
@@ -64,6 +81,14 @@ export async function loadChartData(
     wanted.has("feesDaily") ? guard(() => data.getFeeKindsDaily()) : null,
     wanted.has("feeTotals") ? guard(() => data.getFeeTotals()) : null,
     wanted.has("crosschainVolume") ? guard(() => data.getCrossChainVolumeSeries()) : null,
+    wanted.has("feeSpread") ? guard(() => data.getFeeSpread()) : null,
+    wanted.has("noteTrees") ? guard(() => data.getNoteTrees()) : null,
+    wanted.has("transparentDays") ? guard(() => data.getTransparentDays()) : null,
+    wanted.has("minerShares") ? guard(() => data.getMinerShares()) : null,
+    wanted.has("reorgWeeks") ? guard(() => data.getReorgWeeks()) : null,
+    wanted.has("chainInflow") ? guard(() => data.getChainInflow()) : null,
+    wanted.has("blocksDaily") ? guard(() => data.getBlocksDaily()) : null,
+    wanted.has("releases") ? guard(() => data.getNetworkReleases()) : null,
   ]);
   return {
     months,
@@ -80,5 +105,13 @@ export async function loadChartData(
     feesDaily,
     feeTotals,
     crosschainVolume,
+    feeSpread,
+    noteTrees,
+    transparentDays,
+    minerShares,
+    reorgWeeks,
+    chainInflow,
+    blocksDaily,
+    releases,
   };
 }

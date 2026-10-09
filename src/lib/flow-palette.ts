@@ -53,10 +53,13 @@ export function chainHash(text: string): number {
   return h;
 }
 
+/** The folded tail's class: not a chain, so it takes the palette's neutral rather than a hue. */
+export const FOLDED_FLOW_CLASS = "flow-rest";
+
 export function flowPaletteClass(chain: string): string {
   const ticker = chain.toUpperCase();
   // The folded tail is not a chain and should not look like one.
-  if (ticker === "UNKNOWN") return "flow-rest";
+  if (ticker === "UNKNOWN") return FOLDED_FLOW_CLASS;
   const known = KNOWN.indexOf(ticker);
   const index = known >= 0 ? known : chainHash(ticker);
   return `flow-${(index % PALETTE_SIZE) + 1}`;

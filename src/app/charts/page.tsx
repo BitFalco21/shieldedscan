@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "@/components/Link";
 import { getPrerenderedDataSource } from "@/data";
-import { Panel } from "@/components/Panel";
-import { ChartFigure } from "@/features/charts/ChartFigure";
-import { VISIBLE_CHARTS, CHART_GROUPS } from "@/features/charts/catalog";
-import { loadChartData } from "@/app/_shared/load-chart-data";
 import { PageHeader } from "@/components/PageHeader";
+import { CHART_CATEGORIES, VISIBLE_CHARTS, isNewChart } from "@/features/charts/catalog";
+import { ChartLibrary } from "@/features/charts/ChartLibrary";
+import { chartPreview } from "@/features/charts/chart-preview";
+import { nowSeconds } from "@/lib/clock";
+import { loadChartData } from "@/app/_shared/load-chart-data";
 
 /**
  * Prerendered at 300 s. Every series here is day- or month-grain and its own fetch carries a
@@ -17,57 +17,45 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Charts",
   description:
-    "Every chart on shieldedscan: shielded pools, fees, activity and network health, all from public chain data.",
+    "Every chart on shieldedscan: shielded pools, fees, activity, mining and network health, all from public chain data.",
 };
 
 /**
- * The chart library. Each card is the real chart at gallery size — not a thumbnail image —
- * with its own hover readout, and an "open" link to the chart's page where the prose lives.
+ * The chart library: one card per chart, with its headline figure and its shape, searchable and
+ * filterable by category. The charts themselves, with their axes, readouts and prose, live on
+ * each chart's own page, which keeps this page light and scannable as the library grows.
  *
- * The link is on the title row rather than wrapping the panel: the charts are interactive
- * (hover readouts, keyboard groups), and an anchor around an interactive region is both an
- * a11y violation and a click-fight. Title and arrow are the affordance; the chart is the
- * content.
+ * Previews are computed here, on the server, from the same tables the charts draw, so a card
+ * can never show a figure its chart does not.
  */
 export default async function Page() {
   const data = await loadChartData(
     getPrerenderedDataSource(),
     VISIBLE_CHARTS.map((c) => c.slug),
   );
+  const nowSec = nowSeconds();
   return (
     <>
       <PageHeader
         eyebrow="CHARTS"
         title="The chain, drawn"
-        lede="Every chart on this site, in one place. All of it is genuinely public data — counts, fees, declared pool flows and consensus figures. Nothing here estimates what the encryption protects. Open a chart for the full view and what it does and does not say."
+        lede="Every chart on this site, all from public chain data. Nothing here estimates what the encryption protects."
       />
-
-      {/* One larger step between the named groups; `mt-3` between the panels inside one. */}
-      <div className="space-y-8">
-        {CHART_GROUPS.map((group) => (
-          <section key={group}>
-            <h2 className="microlabel mb-3">{group.toUpperCase()}</h2>
-            <div className="grid gap-3 lg:grid-cols-2">
-              {VISIBLE_CHARTS.filter((c) => c.group === group).map((chart) => (
-                <Panel key={chart.slug} className="min-w-0">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <Link
-                      href={`/charts/${chart.slug}`}
-                      className="text-sm font-semibold tracking-wide text-ink-bright hover:text-green"
-                    >
-                      {chart.title} <span aria-hidden>→</span>
-                    </Link>
-                  </div>
-                  <p className="mt-0.5 mb-3 text-xs text-ink-faint">{chart.blurb}</p>
-                  {/* compact: at gallery width the viewBox scales to ~0.5, so axis text is
-                    drawn larger to stay readable — full-size pages keep the base ticks. */}
-                  <ChartFigure slug={chart.slug} data={data} compact />
-                </Panel>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      <ChartLibrary
+        // By category, in chip order, then catalogue order: related charts sit side by side.
+        charts={[...VISIBLE_CHARTS]
+          .sort(
+            (a, b) => CHART_CATEGORIES.indexOf(a.category) - CHART_CATEGORIES.indexOf(b.category),
+          )
+          .map((c) => ({
+            slug: c.slug,
+            title: c.title,
+            category: c.category,
+            blurb: c.blurb,
+            preview: chartPreview(c.slug, data, nowSec),
+            isNew: isNewChart(c, nowSec),
+          }))}
+      />
     </>
   );
 }

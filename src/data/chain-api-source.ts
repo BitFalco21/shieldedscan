@@ -26,6 +26,13 @@ import type {
   NetSummary,
   NetTopology,
   NetTopologyScope,
+  BlocksDayPoint,
+  FeeSpreadPoint,
+  FeeSpreadSeries,
+  MinerShareMonth,
+  NoteTreeDayPoint,
+  ReorgWeekSeries,
+  TransparentDayPoint,
   NetworkDayPoint,
   PoolMigrationDayPoint,
   PoolUsageDayPoint,
@@ -506,6 +513,130 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised network daily shape");
       }
       return body as NetworkDayPoint[];
+    },
+
+    async getFeeSpread(): Promise<FeeSpreadSeries> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/fee-spread", CACHE_QUARTER_HOUR),
+        "fee spread",
+      );
+      const series = body as FeeSpreadSeries;
+      const kindOk = (k: unknown) =>
+        k === null ||
+        (typeof k === "object" &&
+          ["p25Zat", "medianZat", "p75Zat", "txs"].every(
+            (f) => typeof (k as Record<string, unknown>)[f] === "number",
+          ));
+      const pointsOk = (ps: unknown) =>
+        Array.isArray(ps) &&
+        ps.every(
+          (p: FeeSpreadPoint) =>
+            typeof p.timestamp === "number" &&
+            kindOk(p.transparent) &&
+            kindOk(p.mixed) &&
+            kindOk(p.shielded),
+        );
+      if (!pointsOk(series?.monthly) || !pointsOk(series?.daily)) {
+        throw new Error("chain API returned an unrecognised fee spread shape");
+      }
+      return series;
+    },
+
+    async getNoteTrees(): Promise<NoteTreeDayPoint[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/note-trees", CACHE_QUARTER_HOUR),
+        "note trees",
+      );
+      const sizeOk = (v: unknown) => v === null || typeof v === "number";
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: NoteTreeDayPoint) =>
+            typeof p.timestamp === "number" &&
+            sizeOk(p.saplingNotes) &&
+            sizeOk(p.orchardNotes) &&
+            sizeOk(p.ironwoodNotes),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised note trees shape");
+      }
+      return body as NoteTreeDayPoint[];
+    },
+
+    async getTransparentDays(): Promise<TransparentDayPoint[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/transparent-days", CACHE_QUARTER_HOUR),
+        "transparent days",
+      );
+      const valueOk = (v: unknown) => v === null || typeof v === "number";
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: TransparentDayPoint) =>
+            typeof p.timestamp === "number" && valueOk(p.activeAddresses) && valueOk(p.outputsZat),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised transparent days shape");
+      }
+      return body as TransparentDayPoint[];
+    },
+
+    async getMinerShares(): Promise<MinerShareMonth[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/miner-shares", CACHE_QUARTER_HOUR),
+        "miner shares",
+      );
+      if (
+        !Array.isArray(body) ||
+        !body.every((p: MinerShareMonth) =>
+          ["timestamp", "blocks", "days", "top1Blocks", "top3Blocks", "top10Blocks"].every(
+            (f) => typeof (p as unknown as Record<string, unknown>)[f] === "number",
+          ),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised miner shares shape");
+      }
+      return body as MinerShareMonth[];
+    },
+
+    async getBlocksDaily(): Promise<BlocksDayPoint[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/blocks-daily", CACHE_QUARTER_HOUR),
+        "blocks daily",
+      );
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: BlocksDayPoint) =>
+            typeof p.timestamp === "number" &&
+            typeof p.blocks === "number" &&
+            typeof p.topHeight === "number",
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised blocks daily shape");
+      }
+      return body as BlocksDayPoint[];
+    },
+
+    async getReorgWeeks(): Promise<ReorgWeekSeries> {
+      const body = await json<unknown>(
+        await request(config, "/chain/reorgs/weekly", CACHE_QUARTER_HOUR),
+        "reorg weeks",
+      );
+      const series = body as ReorgWeekSeries;
+      if (
+        !(series?.observingSince === null || typeof series?.observingSince === "number") ||
+        !Array.isArray(series.weeks) ||
+        !series.weeks.every(
+          (w) =>
+            typeof w.timestamp === "number" &&
+            typeof w.reorgs === "number" &&
+            typeof w.deepest === "number",
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised reorg weeks shape");
+      }
+      return series;
     },
 
     async getTxCounts(): Promise<Record<string, number>> {

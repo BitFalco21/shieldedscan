@@ -25,7 +25,7 @@ import {
   type ListOptions,
   type VenueHealth,
 } from "@/data/crosschain/store";
-import type { CrossChainVolumePoint, CrossChainVolumeSeries } from "@/domain";
+import type { ChainInflowPoint, CrossChainVolumePoint, CrossChainVolumeSeries } from "@/domain";
 import type {
   AddressKindBucket,
   CrossChainEdgeRow,
@@ -747,6 +747,20 @@ export class PostgresStorePort implements CrossChainStorePort {
       outUsdCoveredTransfers: Number(r.out_usd_covered),
     });
     return { monthly: monthly.rows.map(toPoint), daily: daily.rows.map(toPoint) };
+  }
+
+  async inflowByChain(): Promise<ChainInflowPoint[]> {
+    const { rows } = await this.#pool.query<{ ts: string; chain: string; in_zat: string }>(
+      `SELECT EXTRACT(EPOCH FROM date_trunc('month', to_timestamp(timestamp)))::bigint AS ts,
+              counterpart_chain AS chain,
+              SUM(zec_amount_zat)::bigint AS in_zat
+         FROM crosschain_transfer
+        WHERE direction = 'in' AND counterpart_asset <> ALL($1)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({ timestamp: Number(r.ts), chain: r.chain, inZat: Number(r.in_zat) }));
   }
 
   async markSuccess(protocol: CrossChainProtocol, atSeconds: number): Promise<void> {

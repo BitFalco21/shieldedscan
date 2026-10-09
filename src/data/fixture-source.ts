@@ -1,5 +1,6 @@
 import { blockSummaryOf } from "@/domain";
 import * as fixtures from "@/fixtures";
+import * as chartSeries from "@/fixtures/chart-series";
 import type { ExplorerDataSource } from "./source";
 
 /** The fixture source: typed static data, resolved immediately. */
@@ -129,6 +130,27 @@ export const fixtureDataSource: ExplorerDataSource = {
   },
   async getCrossChainVolumeSeries() {
     return fixtures.getCrossChainVolumeSeries();
+  },
+  async getChainInflow() {
+    return chartSeries.getChainInflow();
+  },
+  async getFeeSpread() {
+    return chartSeries.getFeeSpread();
+  },
+  async getNoteTrees() {
+    return chartSeries.getNoteTrees();
+  },
+  async getTransparentDays() {
+    return chartSeries.getTransparentDays();
+  },
+  async getMinerShares() {
+    return chartSeries.getMinerShares();
+  },
+  async getBlocksDaily() {
+    return chartSeries.getBlocksDaily();
+  },
+  async getReorgWeeks() {
+    return chartSeries.getReorgWeeks();
   },
   async listMempool(page, pageSize) {
     const { entries, totalPages } = fixtures.listMempool(page, pageSize);

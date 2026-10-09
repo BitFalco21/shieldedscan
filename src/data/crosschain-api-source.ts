@@ -3,6 +3,7 @@ import { createStaleMemo } from "@/lib/stale-memo";
 import { cursorSearchParams } from "./cursor";
 import type {
   CrossChainVolume,
+  ChainInflowPoint,
   CrossChainVolumeSeries,
   CrossChainFlow,
   CrossChainFlowSummary,
@@ -336,6 +337,24 @@ export function createCrossChainApiSource(config: CrossChainApiConfig) {
         throw new Error("cross-chain API returned an unrecognised volume series shape");
       }
       return body;
+    },
+
+    async getChainInflow(): Promise<ChainInflowPoint[]> {
+      const res = await request(config, "/crosschain/inflow-by-chain");
+      if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for inflow by chain`);
+      const body = (await res.json()) as unknown;
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: ChainInflowPoint) =>
+            typeof p.timestamp === "number" &&
+            typeof p.chain === "string" &&
+            typeof p.inZat === "number",
+        )
+      ) {
+        throw new Error("cross-chain API returned an unrecognised inflow by chain shape");
+      }
+      return body as ChainInflowPoint[];
     },
 
     async countCrossChainTransfers(filters: CrossChainFilters = {}): Promise<number> {

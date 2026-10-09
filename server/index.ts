@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import { analyticsRoutes } from "./analytics-routes";
+import { chartSeriesRoutes } from "./chart-series-routes";
 import { claimPrimary } from "./api-role";
 import { bearerAuth } from "./auth";
 import { crosschainRoutes } from "./crosschain-routes";
@@ -148,6 +149,9 @@ if (USE_POSTGRES) {
   // and only the follower witnessed what it rolled back.
   app.route("/", reorgRoutes(DATABASE_URL));
   log("reorg routes mounted against the audit log");
+  // The chart library's newer series: fee spread, note trees, transparent days, miner shares.
+  app.route("/", chartSeriesRoutes(DATABASE_URL));
+  log("chart series routes mounted");
 
   // The daily-post snapshot and its ledger, on a tiny pool of their own so a slow write cannot hold
   // connections the read path needs. Primary only: the X poster calls the primary, and these routes

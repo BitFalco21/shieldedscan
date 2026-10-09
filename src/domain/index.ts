@@ -3,6 +3,7 @@ export * from "./analytics";
 export * from "./block";
 export * from "./chain";
 export * from "./chart-range";
+export * from "./chart-series";
 export * from "./series";
 export * from "./ironwood";
 export * from "./shielding-flow";

@@ -23,6 +23,15 @@ const CHART_ROUTES = [
   // The per-pool catalog charts: only a real browser proves their SVG geometry at both grains.
   "/charts/pool-usage",
   "/charts/pool-migrations",
+  // The newer charts: bands, dashed targets, weekly markers and a chain stack, each a new
+  // geometry path that only a real browser proves well-formed. Plus the library's thumbnails.
+  "/charts/fee-spread",
+  "/charts/blocks-per-day",
+  "/charts/reorgs",
+  "/charts/inflow-by-chain",
+  "/charts/upgrade-readiness",
+  "/charts/anonymity-set",
+  "/charts",
   // The stage is SVG end to end — boxes, ribbons and the heartbeat — and it is drawn from
   // runtime geometry rather than from a chart component, so the well-formedness invariant is
   // the only thing that can catch a NaN width reaching an attribute.

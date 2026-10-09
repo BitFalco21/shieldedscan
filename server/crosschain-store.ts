@@ -1,4 +1,6 @@
+import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import type {
+  ChainInflowPoint,
   CrossChainAggregate,
   CrossChainDirection,
   CrossChainFlowSummary,
@@ -101,6 +103,11 @@ export interface CrossChainStorePort {
   volume(): Promise<CrossChainVolume>;
   /** ZEC crossing per month and per day, both grains — see `volumeSeries` in the store. */
   volumeSeries(): Promise<CrossChainVolumeSeries>;
+  /**
+   * ZEC arriving per source chain per month, settlement-asset legs excluded as in `volumeSeries`.
+   * One row per (month, chain) that saw an inbound transfer, oldest first.
+   */
+  inflowByChain(): Promise<ChainInflowPoint[]>;
   markSuccess(protocol: CrossChainProtocol, atSeconds: number): Promise<void>;
   markFailure(protocol: CrossChainProtocol, error: string): Promise<void>;
   health(protocols: readonly CrossChainProtocol[], nowSeconds: number): Promise<VenueHealth[]>;
@@ -186,6 +193,23 @@ export class MemoryStorePort implements CrossChainStorePort {
     }
     return out;
   }
+  /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
+  async inflowByChain(): Promise<ChainInflowPoint[]> {
+    const by = new Map<string, ChainInflowPoint>();
+    for (const t of this.#store.list({ limit: 1_000_000 }).items) {
+      if (t.direction !== "in" || SETTLEMENT_ASSETS.includes(t.counterpartAsset)) continue;
+      const d = new Date(t.timestamp * 1000);
+      const timestamp = Date.UTC(d.getUTCFullYear(), d.getUTCMonth()) / 1000;
+      const key = `${timestamp}:${t.counterpartChain}`;
+      const point = by.get(key) ?? { timestamp, chain: t.counterpartChain, inZat: 0 };
+      point.inZat += t.zecAmountZat;
+      by.set(key, point);
+    }
+    return [...by.values()].sort(
+      (a, b) => a.timestamp - b.timestamp || a.chain.localeCompare(b.chain),
+    );
+  }
+
   /** Same buckets as the Postgres store, computed in memory for tests and fixture mode. */
   async volumeSeries(): Promise<CrossChainVolumeSeries> {
     const bucket = (seconds: number, unit: "month" | "day") => {

@@ -1,4 +1,12 @@
 import type {
+  BlocksDayPoint,
+  ChainInflowPoint,
+  FeeSpreadSeries,
+  MinerShareMonth,
+  NetReleases,
+  NoteTreeDayPoint,
+  ReorgWeekSeries,
+  TransparentDayPoint,
   CrossChainVolumeSeries,
   PoolMigrationDayPoint,
   PoolUsageDayPoint,
@@ -41,6 +49,15 @@ export interface ChartData {
   /** Both grains in one object — see the note on `FeeTotalSeries`. */
   feeTotals: FeeTotalSeries | null;
   crosschainVolume: CrossChainVolumeSeries | null;
+  feeSpread: FeeSpreadSeries | null;
+  noteTrees: NoteTreeDayPoint[] | null;
+  transparentDays: TransparentDayPoint[] | null;
+  minerShares: MinerShareMonth[] | null;
+  reorgWeeks: ReorgWeekSeries | null;
+  chainInflow: ChainInflowPoint[] | null;
+  blocksDaily: BlocksDayPoint[] | null;
+  /** The crawler's daily release record, for the upgrade readiness trend. */
+  releases: NetReleases | null;
 }
 
 /** A fully-null `ChartData` with the given members filled — for single-chart call sites. */
@@ -60,6 +77,14 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     feesDaily: null,
     feeTotals: null,
     crosschainVolume: null,
+    feeSpread: null,
+    noteTrees: null,
+    transparentDays: null,
+    minerShares: null,
+    reorgWeeks: null,
+    chainInflow: null,
+    blocksDaily: null,
+    releases: null,
     ...partial,
   };
 }

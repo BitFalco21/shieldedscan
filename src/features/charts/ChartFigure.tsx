@@ -4,20 +4,28 @@ import { useState } from "react";
 import type { ChartRange } from "@/domain";
 import {
   feeTotalIsComplete,
+  NU7,
+  NU7_RELEASES,
+  parseChartRange,
   sliceRange,
   sliceTail,
   upgradeMarkers,
   utcDayFromSeconds,
 } from "@/domain";
+import { ChartLegend } from "@/components/ChartLegend";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { FlowBalanceChart } from "@/components/FlowBalanceChart";
 import { MultiLineChart } from "@/components/MultiLineChart";
 import { PoolAreaChart } from "@/components/PoolAreaChart";
 import { RangeToggle } from "@/components/RangeToggle";
 import { StackedAreaChart } from "@/components/StackedAreaChart";
+import { readinessChart } from "@/features/network/upgrade/readiness-chart";
+import { chainName } from "@/lib/chains";
+import { FOLDED_FLOW_CLASS, flowPaletteClass } from "@/lib/flow-palette";
 import {
   compactCount,
   formatCount,
+  formatSharePct,
   formatUsd,
   formatZec,
   formatZecCompact,
@@ -25,8 +33,13 @@ import {
   monthLong,
   monthShort,
 } from "@/lib/format";
+import { POOL_CLASSES } from "@/lib/pool-palette";
+import { useQueryParam } from "@/lib/use-query-param";
 import type { ChartSlug } from "./catalog";
+import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
+import { chartLegend } from "./chart-legend";
+import { chartTable, INFLOW_OTHER, UNRANGED, type ChartTable } from "./chart-table";
 import { poolBands, poolLines } from "./pool-series";
 
 /** An x-axis label: a day for the daily siblings, a short month for the monthly series. */
@@ -38,16 +51,43 @@ const readoutLabel = (ts: number, daily: boolean) =>
 
 const unavailable = (what: string) => <DataUnavailable what={what} refreshesWithin="15 minutes" />;
 
+/** One column of a table, as a series' values. */
+const column = (t: ChartTable, i: number) => t.rows.map((r) => r[i] ?? null);
+
+/** Axis labels for a table's rows: days, Mondays or short months, by its period. */
+const tableLabels = (t: ChartTable) =>
+  t.timestamps.map((ts) => (t.period === "month" ? monthShort(ts) : utcDayFromSeconds(ts)));
+
+/** Readout labels: unambiguous on their own, so a month carries its year and a week says so. */
+const tableReadout = (t: ChartTable) =>
+  t.timestamps.map((ts) =>
+    t.period === "month"
+      ? monthLong(ts)
+      : t.period === "week"
+        ? `Week of ${utcDayFromSeconds(ts)}`
+        : utcDayFromSeconds(ts),
+  );
+
+/**
+ * A count's axis labels whole numbers only: an axis tick at "1.5 reorgs" names a quantity that
+ * cannot occur. Values a reader hovers are whole already, so the readout is unaffected.
+ */
+const wholeCount = (v: number) => (Number.isInteger(v) ? formatCount(v) : "");
+
+/** Days in a timestamp's UTC month, to say when a monthly figure is partial. */
+const daysInMonth = (ts: number) => {
+  const d = new Date(ts * 1000);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+};
+
 export interface ChartFigureProps {
   slug: ChartSlug;
   data: ChartData;
   /**
-   * Gallery-size axes. The /charts grid renders each REAL chart at roughly half the content
-   * column, scaling the whole viewBox — tick text included — down with it, so compact charts
-   * draw their axis text larger in SVG units to land back at a readable size. Forwarded to
-   * every chart this component can render; see `COMPACT_TICK_FONT` in `chart-axes.tsx`.
+   * A chart's own page: the range lives in the URL, so a shared link opens on what the sender
+   * saw, and the toolbar carries the CSV download and the copy-link button.
    */
-  compact?: boolean;
+  detail?: boolean;
 }
 
 /**
@@ -55,38 +95,44 @@ export interface ChartFigureProps {
  * configuration its home page already ships, so /charts and the source page can never show
  * the same series differently.
  *
- * Every chart carries the ALL / 1Y / 180D / 90D / 60D / 30D toggle except `ironwood-balance`,
- * whose whole series is days old — a range control on a window narrower than its shortest
- * option is a dead control. Ranges are windowed client-side from data already on the page;
+ * Every chart carries the ALL / 1Y / 180D / 90D / 60D / 30D toggle except the `UNRANGED` ones:
+ * `ironwood-balance`, whose whole series is days old, and the monthly or weekly series with no
+ * daily sibling, where thirty days would be one or four points. Ranges are windowed client-side from data already on the page;
  * the monthly charts switch to their daily sibling series below ALL, because thirty days
  * of a monthly series is one point. The grain switch is visible in the axis labels, which
  * is deliberate — resampling months into a fake daily line would be fabrication.
  */
-export function ChartFigure({ slug, data, compact = false }: ChartFigureProps) {
-  const [range, setRange] = useState<ChartRange>("all");
-  if (slug === "ironwood-balance")
-    return <Figure slug={slug} data={data} range="all" compact={compact} />;
+export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
+  const [localRange, setLocalRange] = useState<ChartRange>("all");
+  const [urlRange, setUrlRange] = useQueryParam("range");
+  // ironwood-balance has no range control: its whole series is narrower than the shortest option.
+  const ranged = !UNRANGED.has(slug);
+  const range: ChartRange = !ranged
+    ? "all"
+    : detail
+      ? parseChartRange(urlRange ?? undefined)
+      : localRange;
+  const setRange = (next: ChartRange) =>
+    detail ? setUrlRange(next === "all" ? null : next) : setLocalRange(next);
+
+  const toolbar = (
+    <div
+      className={`mb-3 flex flex-wrap items-center gap-3 ${detail ? "justify-between" : "justify-end"}`}
+    >
+      {ranged && <RangeToggle value={range} onChange={setRange} />}
+      {detail && <ChartActions slug={slug} data={data} range={range} />}
+    </div>
+  );
   return (
     <div>
-      <div className="mb-3 flex justify-end">
-        <RangeToggle value={range} onChange={setRange} />
-      </div>
-      <Figure slug={slug} data={data} range={range} compact={compact} />
+      {(ranged || detail) && toolbar}
+      <Figure slug={slug} data={data} range={range} />
+      <ChartLegend items={chartLegend(slug, data)} />
     </div>
   );
 }
 
-function Figure({
-  slug,
-  data,
-  range,
-  compact,
-}: {
-  slug: ChartSlug;
-  data: ChartData;
-  range: ChartRange;
-  compact: boolean;
-}) {
+function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range: ChartRange }) {
   // The monthly charts read their daily sibling for every range short of ALL.
   const daily = range !== "all";
   switch (slug) {
@@ -96,7 +142,6 @@ function Figure({
       const points = sliceRange(source, (p) => p.timestamp, range);
       return (
         <StackedAreaChart
-          compact={compact}
           series={[
             {
               key: "transparent",
@@ -131,7 +176,6 @@ function Figure({
       const points = sliceRange(source, (p) => p.timestamp, range);
       return (
         <StackedAreaChart
-          compact={compact}
           series={poolBands({
             sprout: points.map((p) => p.sproutZat),
             sapling: points.map((p) => p.saplingZat),
@@ -157,7 +201,6 @@ function Figure({
       // first use, the pool-balances rule.
       return (
         <MultiLineChart
-          compact={compact}
           labels={points.map((p) => utcDayFromSeconds(p.timestamp))}
           series={poolLines({
             sprout: points.map((p) => p.sproutTxs),
@@ -179,7 +222,6 @@ function Figure({
       // destination bands partition the day's migrated value — the inverse of pool-usage.
       return (
         <StackedAreaChart
-          compact={compact}
           series={poolBands({
             sprout: points.map((p) => p.toSproutZat),
             sapling: points.map((p) => p.toSaplingZat),
@@ -202,7 +244,6 @@ function Figure({
       const points = sliceRange(source, (p) => p.timestamp, range);
       return (
         <FlowBalanceChart
-          compact={compact}
           points={points.map((p) => ({
             label: axisLabel(p.timestamp, daily),
             inValue: p.shieldedZat,
@@ -222,7 +263,6 @@ function Figure({
       const m = sliceRange(source, (p) => p.timestamp, range);
       return (
         <MultiLineChart
-          compact={compact}
           labels={m.map((p) => readoutLabel(p.timestamp, daily))}
           series={[
             {
@@ -250,19 +290,12 @@ function Figure({
     case "shielded-supply": {
       if (!data.supply) return unavailable("The shielded supply series");
       // One published point per day and no timestamps on it, so the tail IS the window.
-      return (
-        <PoolAreaChart
-          points={sliceTail(data.supply, range)}
-          formatValue={formatZecWhole}
-          compact={compact}
-        />
-      );
+      return <PoolAreaChart points={sliceTail(data.supply, range)} formatValue={formatZecWhole} />;
     }
     case "ironwood-balance": {
       if (!data.ironwood) return unavailable("The Ironwood balance series");
       return (
         <MultiLineChart
-          compact={compact}
           labels={data.ironwood.balance.map((p) =>
             new Date(p.timestamp * 1000).toISOString().slice(5, 16).replace("T", " "),
           )}
@@ -283,7 +316,6 @@ function Figure({
       const days = sliceTail(Object.keys(data.prices).sort(), range);
       return (
         <MultiLineChart
-          compact={compact}
           labels={days}
           series={[
             {
@@ -307,7 +339,6 @@ function Figure({
       }
       return (
         <MultiLineChart
-          compact={compact}
           labels={points.map((p) => utcDayFromSeconds(p.timestamp))}
           series={[
             {
@@ -328,7 +359,6 @@ function Figure({
       const points = sliceRange(source, (p) => p.timestamp, range);
       return (
         <MultiLineChart
-          compact={compact}
           labels={points.map((p) => readoutLabel(p.timestamp, daily))}
           series={[
             {
@@ -368,7 +398,6 @@ function Figure({
       // between the bars IS the net, which a net-only line would hide entirely.
       return (
         <FlowBalanceChart
-          compact={compact}
           points={points.map((p) => ({
             label: axisLabel(p.timestamp, daily),
             inValue: p.inZat,
@@ -392,7 +421,6 @@ function Figure({
       if (points.length === 0) return unavailable("The block size series");
       return (
         <MultiLineChart
-          compact={compact}
           labels={points.map((p) => utcDayFromSeconds(p.timestamp))}
           series={[
             {
@@ -403,6 +431,239 @@ function Figure({
           ]}
           formatValue={(v) => `${v.toLocaleString("en-US", { maximumFractionDigits: 1 })} kB`}
           ariaLabel="Daily average block size in kilobytes"
+        />
+      );
+    }
+    case "privacy-share": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The activity series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[
+            { name: "Fully shielded", values: column(t, 0), className: "text-green" },
+            { name: "Mixed", values: column(t, 1), className: "text-green", opacity: 0.55 },
+            { name: "Transparent", values: column(t, 2), className: "text-ink-dim" },
+          ]}
+          yMax={100}
+          formatValue={(v) => formatSharePct(v)}
+          // The denominator of every share at that point.
+          contextRows={[
+            {
+              name: "Transactions",
+              values: column(t, 3).map((v) => (v === null ? "—" : formatCount(v))),
+            },
+          ]}
+          ariaLabel={`Share of transactions per ${t.period} by privacy kind`}
+        />
+      );
+    }
+    case "anonymity-set": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The note commitment tree series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={[
+            {
+              name: "Sapling",
+              values: column(t, 0),
+              className: POOL_CLASSES.sapling,
+              omitNullFromReadout: true,
+            },
+            {
+              name: "Orchard",
+              values: column(t, 1),
+              className: POOL_CLASSES.orchard,
+              omitNullFromReadout: true,
+            },
+            {
+              name: "Ironwood",
+              values: column(t, 2),
+              className: POOL_CLASSES.ironwood,
+              omitNullFromReadout: true,
+            },
+          ]}
+          formatValue={compactCount}
+          ariaLabel="Notes in each shielded pool's commitment tree, per day"
+        />
+      );
+    }
+    case "fee-spread": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The fee spread series");
+      // Columns per kind, in the table's order: p25, median, p75, transactions.
+      const kind = (k: number) => ({
+        p25: column(t, k * 4),
+        median: column(t, k * 4 + 1),
+        p75: column(t, k * 4 + 2),
+        txs: column(t, k * 4 + 3),
+      });
+      const [shielded, mixed, transparent] = [kind(0), kind(1), kind(2)];
+      const count = (v: number | null) => (v === null ? "—" : formatCount(v));
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          bands={[
+            {
+              name: "Fully shielded, p25–p75",
+              lower: shielded.p25,
+              upper: shielded.p75,
+              className: "text-green",
+              opacity: 0.16,
+            },
+            {
+              name: "Mixed, p25–p75",
+              lower: mixed.p25,
+              upper: mixed.p75,
+              className: "text-green",
+              opacity: 0.07,
+            },
+            {
+              name: "Transparent, p25–p75",
+              lower: transparent.p25,
+              upper: transparent.p75,
+              className: "text-ink-dim",
+              opacity: 0.12,
+            },
+          ]}
+          series={[
+            { name: "Fully shielded, median", values: shielded.median, className: "text-green" },
+            { name: "Mixed, median", values: mixed.median, className: "text-green", opacity: 0.55 },
+            { name: "Transparent, median", values: transparent.median, className: "text-ink-dim" },
+          ]}
+          formatValue={formatZec}
+          contextRows={[
+            {
+              name: "Transactions (shielded · mixed · transparent)",
+              values: shielded.txs.map(
+                (v, i) =>
+                  `${count(v)} · ${count(mixed.txs[i] ?? null)} · ${count(transparent.txs[i] ?? null)}`,
+              ),
+            },
+          ]}
+          ariaLabel={`Fee percentiles per ${t.period} by privacy kind: the middle half of fees around each median`}
+        />
+      );
+    }
+    case "blocks-per-day": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The blocks per day series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={[
+            { name: "Blocks", values: column(t, 0), className: "text-green" },
+            { name: "Target", values: column(t, 1), className: "text-ink-faint", dashed: true },
+          ]}
+          formatValue={wholeCount}
+          ariaLabel="Blocks mined per day, against the protocol's daily target"
+        />
+      );
+    }
+    case "transparent-activity": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.filter((r) => r[0] !== null).length < 2) {
+        return unavailable("The transparent activity series");
+      }
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={[{ name: "Active addresses", values: column(t, 0), className: "text-ink-dim" }]}
+          formatValue={compactCount}
+          contextRows={[
+            {
+              name: "Paid to outputs, change included",
+              values: column(t, 1).map((v) => (v === null ? "—" : formatZecCompact(v))),
+            },
+          ]}
+          ariaLabel="Distinct transparent addresses active per day"
+        />
+      );
+    }
+    case "upgrade-readiness": {
+      if (!data.releases) return unavailable("The release record");
+      // Windowed on the same days the table keeps, so the CSV and the lines agree.
+      const t = chartTable(slug, data, range);
+      const kept = new Set(t?.timestamps.map((ts) => utcDayFromSeconds(ts)) ?? []);
+      const { chart } = readinessChart(
+        { ...data.releases, history: data.releases.history.filter((d) => kept.has(d.day)) },
+        NU7,
+        NU7_RELEASES,
+      );
+      if (!chart) return unavailable("The release record");
+      return <MultiLineChart {...chart} />;
+    }
+    case "miner-concentration": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The mining series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[
+            { name: "Largest address", values: column(t, 0), className: "text-green" },
+            { name: "Largest 3", values: column(t, 1), className: "text-green", opacity: 0.55 },
+            { name: "Largest 10", values: column(t, 2), className: "text-ink-dim" },
+          ]}
+          yMax={100}
+          formatValue={(v) => formatSharePct(v)}
+          contextRows={[
+            {
+              // The denominator, and whether the month is complete in the index.
+              name: "Blocks",
+              values: t.rows.map((r, i) => {
+                const blocks = r[3] ?? null;
+                if (blocks === null) return "—";
+                const partial = (r[4] ?? 0) < daysInMonth(t.timestamps[i]!);
+                return `${formatCount(blocks)}${partial ? " · partial month" : ""}`;
+              }),
+            },
+          ]}
+          ariaLabel="Share of each month's blocks paid to the largest one, three and ten payout addresses"
+        />
+      );
+    }
+    case "reorgs": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length === 0) return unavailable("The reorg record");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          series={[{ name: "Reorgs", values: column(t, 0), className: "text-series" }]}
+          // Each week is a count: a dot per week says so, where a bare line would imply a rate.
+          markers
+          formatValue={wholeCount}
+          contextRows={[
+            {
+              name: "Deepest",
+              values: column(t, 1).map((v) =>
+                !v ? "—" : `${formatCount(v)} block${v === 1 ? "" : "s"}`,
+              ),
+            },
+          ]}
+          ariaLabel="Reorganisations this explorer's node observed per week"
+        />
+      );
+    }
+    case "inflow-by-chain": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The cross-chain inflow series");
+      return (
+        <StackedAreaChart
+          series={(t.keys ?? []).map((key, i) => ({
+            key,
+            label: key === INFLOW_OTHER ? "Other chains" : chainName(key),
+            colorClass: key === INFLOW_OTHER ? FOLDED_FLOW_CLASS : flowPaletteClass(key),
+            values: column(t, i).map((v) => v ?? 0),
+          }))}
+          labels={tableLabels(t)}
+          readoutLabels={tableReadout(t)}
+          formatValue={formatZecCompact}
+          ariaLabel="ZEC arriving on Zcash per month, by source chain"
         />
       );
     }
