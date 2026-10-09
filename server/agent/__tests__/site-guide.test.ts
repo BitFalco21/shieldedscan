@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ADDRESS_LABELS } from "@/domain";
 import { DONATION_ADDRESS } from "@/lib/donation";
+import { formatZec } from "@/lib/format";
 import { STATIC_PATHS } from "@/app/sitemap";
 import { API_GROUPS } from "@/api-catalogue";
 import { apiBaseUrl } from "@/lib/site";
@@ -11,6 +12,7 @@ import {
   renderPages,
   renderPrivacy,
   renderLabels,
+  asLabelledBalances,
 } from "../site-guide";
 import {
   PRIVACY_LEGAL_BASIS,
@@ -27,7 +29,13 @@ import {
   privacyEgressFor,
 } from "@/content/privacy-facts";
 import { AgentTools, sourceLinkFor } from "../tools";
-import { makeChain, makeV1, FIXTURE_NOW_MS } from "../testing/fixture-world";
+import {
+  makeChain,
+  makeV1,
+  FIXTURE_NOW_MS,
+  LABEL_BALANCES_KEY,
+  LABELLED_BALANCES_FIXTURE,
+} from "../testing/fixture-world";
 
 const tools = () => new AgentTools(makeV1(), makeChain(), () => FIXTURE_NOW_MS);
 const ask = (args: Record<string, unknown>) => tools().dispatch("site_guide", JSON.stringify(args));
@@ -338,23 +346,49 @@ describe("the privacy policy section", () => {
 describe("the labels section", () => {
   /*
    * A label is otherwise reachable only from its address; this section makes the label table
-   * reachable from a name.
+   * reachable from a name, with each address's balance, so an entity question is one read.
    */
-  it("lists every labelled address under the name the pages print", () => {
-    const text = renderLabels();
-    for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
-      const line = text.split("\n").find((l) => l.includes(address));
-      expect(line, address).toBeDefined();
-      expect(line, address).toContain(`"${label.name}"`);
+  const AT = "2026-10-09T12:00:00.000Z";
+  const withBalances = renderLabels(LABELLED_BALANCES_FIXTURE, AT);
+  const withoutBalances = renderLabels(null, AT);
+
+  it("lists every labelled address under the name the pages print, in both modes", () => {
+    for (const text of [withBalances, withoutBalances]) {
+      for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
+        // The address sits on its name's line, or on a line below it before the next name.
+        const at = text.indexOf(address);
+        expect(at, address).toBeGreaterThan(-1);
+        const head = text.lastIndexOf('- "', at);
+        expect(text.slice(head, at), address).toContain(`"${label.name}"`);
+      }
+      expect(text).toContain(`${Object.keys(ADDRESS_LABELS).length} labelled addresses in all`);
     }
-    expect(text).toContain(`${Object.keys(ADDRESS_LABELS).length} labelled addresses in all`);
+  });
+
+  it("prints each address's balance and rank beside it, with the height ranks are as of", () => {
+    for (const item of LABELLED_BALANCES_FIXTURE.items) {
+      const line = withBalances.split("\n").find((l) => l.includes(item.address));
+      expect(line, item.address).toContain(formatZec(item.balanceZat));
+      if (item.rank === null) expect(line, item.address).not.toContain("rank");
+      else expect(line, item.address).toContain(`rank ${item.rank} on the transparent rich list`);
+    }
+    expect(withBalances).toContain(`as of block ${LABELLED_BALANCES_FIXTURE.rankAsOfHeight}`);
+    expect(withBalances).toContain(`read at ${AT}`);
+  });
+
+  it("states a failed read and prints no balance in its place", () => {
+    expect(withoutBalances).toContain("BALANCES UNAVAILABLE");
+    expect(withoutBalances).not.toMatch(/\d ZEC/);
+  });
+
+  it("says a balance is transparent and a wallet's total, not one holder's", () => {
+    expect(withBalances).toMatch(/TRANSPARENT balance and a wallet's total/);
   });
 
   it("files the exploit addresses as flagged, and names who flagged them", () => {
-    const text = renderLabels();
-    const flaggedPart = text.slice(
-      text.indexOf("Addresses flagged"),
-      text.indexOf("Other named addresses"),
+    const flaggedPart = withBalances.slice(
+      withBalances.indexOf("Addresses flagged"),
+      withBalances.indexOf("Other named addresses"),
     );
     expect(flaggedPart).toContain("t1WgMdtND8NF7NDUuYmq8MpMj1NTCXkMDVG");
     expect(flaggedPart).toContain('"BitGet Exploit Sept 2026"');
@@ -363,24 +397,51 @@ describe("the labels section", () => {
   });
 
   it("carries no URL, which the answer sanitiser would strip anyway", () => {
-    expect(renderLabels()).not.toMatch(/https?:\/\//);
+    expect(withBalances).not.toMatch(/https?:\/\//);
   });
 
   it("forbids extending a label to an address it does not list", () => {
-    expect(renderLabels()).toMatch(/Never extend it to another address/);
+    expect(withBalances).toMatch(/Never extend it to another address/);
   });
 
   it("does not let an absent label answer whether an incident happened", () => {
     // Absence from the label table means unlabelled, never "did not occur", so a bare "No." about
     // an incident is a claim the table cannot support.
-    expect(renderLabels()).toMatch(/never answer "no" to whether an incident happened/);
+    expect(withBalances).toMatch(/never answer "no" to whether an incident happened/);
   });
 
-  it("is dispatched as a site_guide section, citing no page", async () => {
+  it("rejects a malformed balances payload whole, rather than printing what parsed", () => {
+    expect(asLabelledBalances(LABELLED_BALANCES_FIXTURE)).toEqual(LABELLED_BALANCES_FIXTURE);
+    const [first, ...rest] = LABELLED_BALANCES_FIXTURE.items;
+    for (const bad of [
+      null,
+      { items: [] },
+      { rankAsOfHeight: 1, items: "no" },
+      { rankAsOfHeight: 1, items: [{ ...first, balanceZat: -1 }, ...rest] },
+      { rankAsOfHeight: 1, items: [{ ...first, balanceZat: "5" }, ...rest] },
+      { rankAsOfHeight: 1, items: [{ ...first, rank: 0 }, ...rest] },
+    ]) {
+      expect(asLabelledBalances(bad), JSON.stringify(bad).slice(0, 80)).toBeNull();
+    }
+  });
+
+  it("is dispatched as a site_guide section, citing the balances it read", async () => {
     const t = new AgentTools(makeV1(), makeChain(), () => FIXTURE_NOW_MS);
     const result = await t.dispatch("site_guide", JSON.stringify({ section: "labels" }));
     expect(result.content).toContain('<site-guide section="labels">');
-    expect(result.endpoints).toEqual(["site:labels"]);
+    expect(result.content).toContain(formatZec(LABELLED_BALANCES_FIXTURE.items[0]!.balanceZat));
+    expect(result.endpoints).toEqual(["site:labels", "GET /chain/labels/balances"]);
     expect(sourceLinkFor("site:labels")).toBeNull();
+  });
+
+  it("still serves the table when the balances read fails, and cites only the table", async () => {
+    const t = new AgentTools(
+      makeV1(),
+      makeChain({ [LABEL_BALANCES_KEY]: null }),
+      () => FIXTURE_NOW_MS,
+    );
+    const result = await t.dispatch("site_guide", JSON.stringify({ section: "labels" }));
+    expect(result.content).toContain("BALANCES UNAVAILABLE");
+    expect(result.endpoints).toEqual(["site:labels"]);
   });
 });

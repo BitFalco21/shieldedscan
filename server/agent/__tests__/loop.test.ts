@@ -421,9 +421,12 @@ describe("the tool budget", () => {
           toolCalls: [blockCall(`call_${n}a`), blockCall(`call_${n}b`)],
         }),
       ] as StreamEvent[];
+    // Two calls a round, so the last round may ask for one more than the budget has left.
+    const rounds = Array.from({ length: Math.ceil(MAX_TOOL_CALLS_PER_TURN / 2) }, (_, i) =>
+      greedy(i + 1),
+    );
     const { events, recorded } = await collect([
-      greedy(1),
-      greedy(2),
+      ...rounds,
       [content("with what I have: …"), done()],
     ]);
 
@@ -436,15 +439,10 @@ describe("the tool budget", () => {
 
   it("hard-stops a model that keeps asking for tools it does not have", async () => {
     const insist = () => [done({ finishReason: "tool_calls", toolCalls: [blockCall("x")] })];
-    const { events } = await collect([
-      insist(),
-      insist(),
-      insist(),
-      insist(),
-      insist(),
-      insist(),
-      insist(),
-    ]);
+    // More rounds than the loop will ever make, so the script cannot run out first.
+    const { events } = await collect(
+      Array.from({ length: MAX_TOOL_CALLS_PER_TURN + 3 }, () => insist()),
+    );
     expect(events.at(-1)).toEqual({ event: "done", data: { stopReason: "tool-limit" } });
   });
 });
@@ -1092,6 +1090,12 @@ describe("the mid-stream idle clock", () => {
     expect(TURN_TIMEOUT_MS).toBeGreaterThan(WORST_MEASURED_HEALTHY_TURN_MS * 1.5);
     // A stall retry plus a full idle window must both be able to fire before the wall clock.
     expect(TURN_TIMEOUT_MS).toBeGreaterThan(2 * STALL_RETRY_MS + MODEL_IDLE_MS);
+    // A turn that spends every lookup must fit too. The four-lookup turn above is ~23 s a lookup,
+    // so a full turn scales from it.
+    const WORST_OBSERVED_LOOKUP_MS = WORST_OBSERVED_HEALTHY_TURN_MS_V28 / 4;
+    expect(TURN_TIMEOUT_MS).toBeGreaterThan(
+      MAX_TOOL_CALLS_PER_TURN * WORST_OBSERVED_LOOKUP_MS * 1.5,
+    );
   });
 
   it("the stall window clears the worst MEASURED whole round of the model in service by 1.5×", () => {

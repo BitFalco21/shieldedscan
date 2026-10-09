@@ -13,7 +13,12 @@ import type {
   SupplyBreakdown,
   Transaction,
 } from "@/domain";
-import { parseChainWindowGroupBy, parseUtcDayStart } from "@/domain";
+import {
+  ADDRESS_LABELS,
+  parseChainWindowGroupBy,
+  parseUtcDayStart,
+  type LabelledBalances,
+} from "@/domain";
 import type { ChainIndexStore } from "../../chain-index-store";
 import { selectWrappedZecPools, type WrappedZecPoolSnapshot } from "@/data/defillama/zec-pools";
 import { bearerAuth } from "../../auth";
@@ -30,6 +35,7 @@ import type { MinerWindow } from "../../mining-daily";
 import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
+import { LABEL_BALANCES_PATH } from "../tools/specs";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
 
 /**
@@ -1111,6 +1117,23 @@ export const TX_COUNTS_KEY = "tx-counts";
 
 export const ADDRESS_ACTIVITY_KEY = "address-activity";
 
+/** `chainApp`'s key for the labelled-address balances. */
+export const LABEL_BALANCES_KEY = "label-balances";
+
+/**
+ * Every labelled address with a made-up balance, shaped as `/chain/labels/balances` serves it. The
+ * last holds nothing, so the zero-balance, no-rank case is always in the payload. Ranked at the
+ * rich-list summary's height, like the real list.
+ */
+export const LABELLED_BALANCES_FIXTURE: LabelledBalances = {
+  rankAsOfHeight: 3_428_100,
+  items: Object.keys(ADDRESS_LABELS).map((address, i, all) =>
+    i === all.length - 1
+      ? { address, balanceZat: 0, rank: null }
+      : { address, balanceZat: (i + 1) * 1_234_567_891, rank: i + 1 },
+  ),
+};
+
 /**
  * One address's activity over a period, shaped as `/chain/addresses/:address/activity` serves it.
  * 412 transactions against a lifetime 9,120, so a windowed count without its denominator is visibly
@@ -1464,6 +1487,7 @@ export function chainApp(
     [TX_COUNTS_KEY]: TX_COUNTS_FIXTURE,
     [ADDRESS_EXTREMES_KEY]: ADDRESS_VALUE_EXTREMES_FIXTURE,
     [ADDRESS_ACTIVITY_KEY]: ADDRESS_ACTIVITY_FIXTURE,
+    [LABEL_BALANCES_KEY]: LABELLED_BALANCES_FIXTURE,
     ...overrides,
   };
   // The per-address extrema drill-down `lookup_address` fetches behind its flag.
@@ -1499,6 +1523,13 @@ export function chainApp(
   // The ZIP index, from the same fixture the /zips page renders, mounted from the route's own
   // constant.
   app.get(ZIP_INDEX_PATH, (c) => c.json(payloads[ZIP_INDEX_KEY] as never));
+  // The label guide's balances, from the tools' own path constant. A null override stands in for a
+  // failed read.
+  app.get(LABEL_BALANCES_PATH, (c) => {
+    const body = payloads[LABEL_BALANCES_KEY];
+    if (body === null) return c.json({ error: "unavailable" }, 503);
+    return c.json(body as never);
+  });
   // The tx-count and market routes are mounted from their route modules' own constants, so a rename
   // breaks these tests. A 503 stands in for the cold market tracker and for testnet, where it never
   // starts.

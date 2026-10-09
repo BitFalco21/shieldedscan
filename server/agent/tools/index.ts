@@ -7,7 +7,14 @@ import {
   type ReferenceTopicName,
   renderReferenceTopic,
 } from "../reference";
-import { renderApiEndpointSection, renderLabels, renderPages, renderPrivacy } from "../site-guide";
+import type { LabelledBalances } from "@/domain";
+import {
+  asLabelledBalances,
+  renderApiEndpointSection,
+  renderLabels,
+  renderPages,
+  renderPrivacy,
+} from "../site-guide";
 import { callsFor } from "./calls";
 import { toolDefinitions } from "./definitions";
 import { entityBlock, spotPriceUsdFrom } from "./entities";
@@ -18,6 +25,7 @@ import { dataBlock, insightJson, unreadableAggregate } from "./payload";
 import {
   API_DOCS_SOURCE,
   COVERAGE_SOURCE,
+  LABEL_BALANCES_PATH,
   LABELS_SOURCE,
   MAX_EXPRESSIONS_PER_CALL,
   PRIVACY_SOURCE,
@@ -80,6 +88,27 @@ export class AgentTools {
   /** OpenAI-format tool definitions, closed schemas throughout. */
   defs() {
     return toolDefinitions();
+  }
+
+  /**
+   * The label table with every labelled address's balance beside it, so a question about an
+   * entity costs one read rather than one per address.
+   *
+   * The table is committed and always renders. Only the balances are live, and a failed read prints
+   * the table without them, saying so; a balance is never filled in from anywhere else.
+   */
+  async #labels(): Promise<ToolResult> {
+    let balances: LabelledBalances | null = null;
+    try {
+      const res = await this.#chain.request(LABEL_BALANCES_PATH);
+      if (res.ok) balances = asLabelledBalances(parseJson(await res.text()));
+    } catch {
+      balances = null;
+    }
+    return {
+      content: renderLabels(balances, new Date(this.#now()).toISOString()),
+      endpoints: balances ? [LABELS_SOURCE, `GET ${LABEL_BALANCES_PATH}`] : [LABELS_SOURCE],
+    };
   }
 
   /**
@@ -170,7 +199,7 @@ export class AgentTools {
       if (section === "coverage")
         return { content: renderCoverage(), endpoints: [COVERAGE_SOURCE] };
       if (section === "privacy") return { content: renderPrivacy(), endpoints: [PRIVACY_SOURCE] };
-      if (section === "labels") return { content: renderLabels(), endpoints: [LABELS_SOURCE] };
+      if (section === "labels") return this.#labels();
       if (section === "api-endpoint") {
         const endpoint = typeof args.endpoint === "string" ? args.endpoint.trim() : "";
         return {

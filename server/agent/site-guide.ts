@@ -1,5 +1,7 @@
 import { API_CONVENTIONS, API_GROUPS, curlCommand, type ApiEndpoint } from "@/api-catalogue";
-import { ADDRESS_LABELS } from "@/domain";
+import { ADDRESS_LABELS, type LabelledBalance, type LabelledBalances } from "@/domain";
+import { formatZec } from "@/lib/format";
+import { asRecord } from "./tools/json";
 import { DONATION_ADDRESS } from "@/lib/donation";
 import { STATIC_PATHS } from "@/app/sitemap";
 import { REACHABLE_WINDOW_SEC } from "../netmap/snapshot";
@@ -326,17 +328,22 @@ const PRIVACY_RULES = `Answer ONLY from the claims below — this is the policy'
 `;
 
 /**
- * Every address this site names, grouped by name, with whose attribution each is.
+ * Every address this site names, grouped by name, with whose attribution each is and, when the read
+ * succeeded, its current balance.
  *
  * Without this a label is reachable only by already knowing the address, so a question that starts
- * from a name (an exchange, an exploit) has nowhere to go.
+ * from a name (an exchange, an exploit) has nowhere to go. The balances ride along so that question
+ * costs one read: an entity can hold twenty addresses, far more than a turn's lookups.
  *
  * Read from `ADDRESS_LABELS`, the table the pages render, so the guide cannot list a name the site
  * does not print or miss one it does. A flag's post URL is deliberately not rendered: the answer
  * sanitiser allowlists what may be linked, and the address page already links it.
+ *
+ * `balances` is null when the read failed. The table still renders, and the section says the
+ * balances are unavailable rather than leaving them out silently.
  */
-export function renderLabels(): string {
-  const byName = new Map<string, { addresses: string[]; source: string; flaggedBy?: string }>();
+export function renderLabels(balances: LabelledBalances | null, retrievedAt: string): string {
+  const byName = new Map<string, LabelGroup>();
   for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
     const group = byName.get(label.name) ?? {
       addresses: [],
@@ -346,20 +353,70 @@ export function renderLabels(): string {
     group.addresses.push(address);
     byName.set(label.name, group);
   }
+  const byAddress = new Map(balances?.items.map((item) => [item.address, item]) ?? []);
   const flagged = [...byName].filter(([, g]) => g.flaggedBy !== undefined);
   const plain = [...byName].filter(([, g]) => g.flaggedBy === undefined);
-  const row = ([name, g]: [string, { addresses: string[]; source: string; flaggedBy?: string }]) =>
-    `- "${name}" — ${g.addresses.join(", ")} (attribution: ${g.source}${
+  const row = ([name, g]: [string, LabelGroup]) => {
+    const head = `- "${name}" (attribution: ${g.source}${
       g.flaggedBy
         ? `; the address page says it was flagged by ${g.flaggedBy} and links the post`
         : ""
     })`;
+    if (balances === null) return `${head}: ${g.addresses.join(", ")}`;
+    const lines = g.addresses.map((address) => {
+      const item = byAddress.get(address);
+      if (!item) return `  - ${address}: balance not read`;
+      const rank = item.rank === null ? "" : `, rank ${item.rank} on the transparent rich list`;
+      return `  - ${address}: ${formatZec(item.balanceZat)}${rank}`;
+    });
+    return `${head}\n${lines.join("\n")}`;
+  };
+  const balanceLine =
+    balances === null
+      ? `BALANCES UNAVAILABLE: the read of these addresses' balances failed this turn. Say so, give no balance from anywhere else, and look an address up for its figures.`
+      : `Balances are current transparent balances from this explorer's index, read at ${retrievedAt}. Ranks are as of block ${balances.rankAsOfHeight}, when the hourly rich list was last built: quote that height beside a rank, never the tip.`;
   return (
-    `<site-guide section="labels">\n${GUIDE_NOTICE}\n${LABEL_RULES}\n` +
+    `<site-guide section="labels">\n${GUIDE_NOTICE}\n${LABEL_RULES}\n${balanceLine}\n\n` +
     `Addresses flagged in public investigations of thefts and exploits:\n${flagged.map(row).join("\n")}\n\n` +
     `Other named addresses (exchanges, custodians, funds):\n${plain.map(row).join("\n")}\n` +
     `${Object.keys(ADDRESS_LABELS).length} labelled addresses in all.\n</site-guide>`
   );
+}
+
+interface LabelGroup {
+  addresses: string[];
+  source: string;
+  flaggedBy?: string;
+}
+
+/**
+ * The balances payload, or null if it is not the shape the endpoint serves. A malformed payload
+ * prints no balance at all, rather than whichever entries happened to parse.
+ */
+export function asLabelledBalances(parsed: unknown): LabelledBalances | null {
+  const body = asRecord(parsed);
+  if (body === null || !Number.isInteger(body.rankAsOfHeight) || !Array.isArray(body.items)) {
+    return null;
+  }
+  const items: LabelledBalance[] = [];
+  for (const raw of body.items) {
+    const item = asRecord(raw);
+    if (
+      item === null ||
+      typeof item.address !== "string" ||
+      !Number.isSafeInteger(item.balanceZat) ||
+      (item.balanceZat as number) < 0 ||
+      !(item.rank === null || (Number.isInteger(item.rank) && (item.rank as number) > 0))
+    ) {
+      return null;
+    }
+    items.push({
+      address: item.address,
+      balanceZat: item.balanceZat as number,
+      rank: item.rank as number | null,
+    });
+  }
+  return { rankAsOfHeight: body.rankAsOfHeight as number, items };
 }
 
 /**
@@ -369,6 +426,7 @@ export function renderLabels(): string {
  * happen", keep "one address is one address" (no clustering) true in an answer as on the page,
  * and keep a third party's attribution from being restated as something this explorer established.
  */
-const LABEL_RULES = `This is the COMPLETE list of addresses this site names; each name is printed on that address's page. Use it for any question about an exchange, custodian, fund, theft, hack or exploit: if the entity or incident appears here, say this explorer labels those addresses and name them, then look an address up for its figures. If it does not appear, say this explorer names no address for it — never that the explorer has no data about exchanges at all, and never answer "no" to whether an incident happened: an incident missing here is one this site has not labelled, not one that did not occur.
+const LABEL_RULES = `This is the COMPLETE list of addresses this site names; each name is printed on that address's page. Use it for any question about an exchange, custodian, fund, theft, hack or exploit: if the entity or incident appears here, say this explorer labels those addresses and name them. Each address's current balance is listed with it: quote those, address by address, and look an address up only for what is not here, such as its history or transaction count. If it does not appear, say this explorer names no address for it — never that the explorer has no data about exchanges at all, and never answer "no" to whether an incident happened: an incident missing here is one this site has not labelled, not one that did not occur.
 A label covers exactly the addresses listed with it. Never extend it to another address — not one that sent to or received from a labelled address, not one that looks related.
-Every name is someone's attribution, given in brackets: repeat it as this site's label, attributed when asked, never as a fact this explorer verified. Say "labelled" or "flagged by", never that you identified anyone.`;
+Every name is someone's attribution, given in brackets: repeat it as this site's label, attributed when asked, never as a fact this explorer verified. Say "labelled" or "flagged by", never that you identified anyone.
+A balance here is a TRANSPARENT balance and a wallet's total: one exchange address holds many customers' coins, and anything the same party holds in shielded addresses cannot be enumerated by anyone.`;

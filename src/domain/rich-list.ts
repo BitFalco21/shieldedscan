@@ -79,3 +79,25 @@ export const BAND_BOUNDARIES_ZEC = [0, 1, 10, 100, 1_000, 10_000, 100_000] as co
 export function shareOfTransparent(zat: number, totalZat: number): number {
   return totalZat > 0 ? zat / totalZat : 0;
 }
+
+/**
+ * One labelled address's current transparent balance: what the agent's label guide prints beside
+ * each name, so a question about a labelled entity is one read rather than one per address.
+ */
+export interface LabelledBalance {
+  address: string;
+  /**
+   * Current, from the chain index. Zero when the address has no balance row, which is a
+   * measurement: the index keeps a row only while the balance is positive.
+   */
+  balanceZat: number;
+  /** Place on the transparent rich list as of `rankAsOfHeight`. Null when the address holds nothing or ranking has not run. */
+  rank: number | null;
+}
+
+/** Every labelled address, in `ADDRESS_LABELS` order, with the height the ranks are as of. */
+export interface LabelledBalances {
+  /** The height the hourly rich-list pass ranked at, never the tip. 0 when it has never run. */
+  rankAsOfHeight: number;
+  items: LabelledBalance[];
+}

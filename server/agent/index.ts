@@ -113,7 +113,7 @@ export interface AgentRouteDeps {
  * bound spend; `MAX_IN_FLIGHT` bounds the process. An actively streaming answer costs its tokens
  * whether or not it is aborted, and the visitor always has `stop`.
  */
-export const TURN_TIMEOUT_MS = 300_000;
+export const TURN_TIMEOUT_MS = 600_000;
 /** Concurrent turns per process; beyond it a caller WAITS briefly, then is told "busy". */
 export const MAX_IN_FLIGHT = 8;
 /**

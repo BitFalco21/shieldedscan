@@ -404,6 +404,9 @@ export const PRIVACY_SOURCE = "site:privacy";
 
 export const LABELS_SOURCE = "site:labels";
 
+/** Every labelled address's balance and rank, read beside the label table (`site_guide` labels). */
+export const LABEL_BALANCES_PATH = "/chain/labels/balances";
+
 export const API_DESCRIPTOR: AggregateSpec = {
   upstream: "the public API's own descriptor",
   note: `THIS EXPLORER'S PUBLIC API, described by the API ITSELF — fetched just now from its keyless descriptor, not recalled. Every figure here is current and a reader can fetch the same document.

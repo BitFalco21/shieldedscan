@@ -36,7 +36,7 @@ export interface Exchange {
   /**
    * What the agent did to reach this answer, in order — see `AgentTrail`. Kept per exchange so
    * scrolling back to an earlier turn still shows how that turn was answered; a turn makes at
-   * most `MAX_TOOL_CALLS_PER_TURN` lookups, so this is never more than a handful of rows.
+   * most `MAX_TOOL_CALLS_PER_TURN` lookups, so the rows are bounded by it.
    */
   steps: AgentStep[];
   status: "streaming" | "complete" | "truncated" | "failed";
