@@ -1,7 +1,8 @@
 import Link from "@/components/Link";
+import { GitHubMark } from "@/components/GitHubMark";
 import { NetworkSwitchLink } from "@/components/NetworkSwitchLink";
 import { ZakuraMark } from "@/components/ZakuraMark";
-import { X_PROJECT_URL, ZAKURA_URL } from "@/lib/links";
+import { GITHUB_REPO_URL, X_PROJECT_URL, ZAKURA_URL } from "@/lib/links";
 import { isTestnet, siblingNetworkName } from "@/lib/network";
 
 /**
@@ -9,9 +10,6 @@ import { isTestnet, siblingNetworkName } from "@/lib/network";
  * 404s on testnet too (`app/donate/page.tsx`).
  */
 const FOOTER_PAGES: ReadonlyArray<readonly [href: string, label: string]> = [
-  // First, because it is the one a newcomer is looking for. Mainnet-only: it teaches buying and
-  // moving real ZEC, and the route 404s on testnet (`app/learn/page.tsx`).
-  ...(isTestnet ? [] : ([["/learn", "learn"]] as const)),
   ["/about", "about"],
   ["/brand", "brand"],
   ...(isTestnet ? [] : ([["/donate", "donate"]] as const)),
@@ -64,7 +62,17 @@ export function SiteFooter() {
             rel="noopener noreferrer"
             className="text-ink-dim hover:text-green"
           >
-            X ↗
+            X
+          </a>
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub"
+            title="GitHub"
+            className="inline-flex items-center text-ink-dim hover:text-green"
+          >
+            <GitHubMark className="h-4 w-4" />
           </a>
         </nav>
 

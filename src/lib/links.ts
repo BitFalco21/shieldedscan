@@ -9,6 +9,9 @@
 export const X_PROJECT_URL = "https://x.com/shieldedscanxyz";
 export const X_PROJECT_HANDLE = "@shieldedscanxyz";
 
+/** The source code. */
+export const GITHUB_REPO_URL = "https://github.com/BitFalco21/shieldedscan";
+
 /** The person who builds it. */
 export const X_AUTHOR_URL = "https://x.com/0xfalcoo";
 export const X_AUTHOR_HANDLE = "@0xfalcoo";

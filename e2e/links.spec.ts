@@ -245,3 +245,19 @@ test.describe("invalid routes must not render confident pages", () => {
     }
   });
 });
+
+test.describe("the footer's off-site links", () => {
+  test("name their destination, open a new tab, and hand it no opener", async ({ page }) => {
+    await page.goto("/");
+    const footer = page.locator("footer");
+    for (const [name, href] of [
+      ["X", "https://x.com/shieldedscanxyz"],
+      ["GitHub", "https://github.com/BitFalco21/shieldedscan"],
+    ] as const) {
+      const link = footer.getByRole("link", { name, exact: true });
+      await expect(link).toHaveAttribute("href", href);
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", /noopener/);
+    }
+  });
+});
