@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { Pool } from "pg";
 import {
+  ADDRESS_LABELS,
   BAND_BOUNDARIES_ZEC,
   BLOSSOM_HEIGHT,
   PAST_HALVING_HEIGHTS,
@@ -9,6 +10,7 @@ import {
   type DistributionBand,
   type HalvingEvent,
   type HalvingSchedule,
+  type LabelledBalances,
   type RichListEntry,
   type RichListSummary,
   type SubsidySplit,
@@ -254,6 +256,38 @@ export async function richListComputedHeight(pool: Pool): Promise<number> {
   return rows[0]?.computed_height ?? 0;
 }
 
+/**
+ * The current balance and rank of each given address, in the order given: one indexed read.
+ *
+ * An address with no row holds nothing, and says so as zero with no rank. The index keeps a row
+ * only while the balance is positive, so the absence is a measurement, as in `RichListStanding`.
+ * A rank of 0 is the column's default before the first ranking pass, and reads as no rank.
+ */
+export async function loadLabelledBalances(
+  pool: Pool,
+  addresses: readonly string[],
+): Promise<LabelledBalances> {
+  const [balances, rankAsOfHeight] = await Promise.all([
+    pool.query<{ address: string; balance_zat: number; rank: number }>(
+      "SELECT address, balance_zat, rank FROM chain_address_balance WHERE address = ANY($1::text[])",
+      [addresses],
+    ),
+    richListComputedHeight(pool),
+  ]);
+  const byAddress = new Map(balances.rows.map((row) => [row.address, row]));
+  return {
+    rankAsOfHeight,
+    items: addresses.map((address) => {
+      const row = byAddress.get(address);
+      return {
+        address,
+        balanceZat: row?.balance_zat ?? 0,
+        rank: row && row.rank > 0 ? row.rank : null,
+      };
+    }),
+  };
+}
+
 /** Where one address stands on the transparent rich list, at the height that list covers. */
 export interface RichListStanding {
   /**
@@ -497,6 +531,14 @@ export function networkRoutes(chain: HalvingChainSource, connection?: string): H
     const body: RichListSummary = await loadRichListSummary(pool);
     return c.json(body);
   });
+
+  /**
+   * Every labelled address's balance and rank, for the agent's label guide. No parameters: the
+   * address set is `ADDRESS_LABELS`, so a caller cannot widen the query.
+   */
+  app.get("/chain/labels/balances", async (c) =>
+    c.json(await loadLabelledBalances(pool, Object.keys(ADDRESS_LABELS))),
+  );
 
   /**
    * One address's value extrema, the agent's per-address "biggest transaction" read. Bounded by

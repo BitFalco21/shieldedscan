@@ -24,7 +24,13 @@ import { describeToolCall, sourceLinkFor, type AgentTools, type SourceLink } fro
  * later turns.
  */
 
-export const MAX_TOOL_CALLS_PER_TURN = 4;
+/**
+ * Lookups per turn. Generous on purpose: a question that compares several things legitimately needs
+ * one read each, and a cap that cuts it off leaves an honest but unfinished answer. Spend is bounded
+ * by the daily budget, not here. Each lookup re-sends the turn so far, so the cost of a long turn
+ * grows faster than its lookups; `TURN_TIMEOUT_MS` is sized from this.
+ */
+export const MAX_TOOL_CALLS_PER_TURN = 15;
 /**
  * Per model call, not per turn: a turn may make up to `MAX_MODEL_CALLS` of them, and usually only
  * the last is prose.

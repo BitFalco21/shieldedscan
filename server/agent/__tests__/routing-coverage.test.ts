@@ -434,9 +434,10 @@ describe("a tool description names the quantities its payload carries", () => {
       // and that the two deliberate absences (a retention figure, a named supervisory authority)
       // appear in neither.
       "site_guide:privacy",
-      // 'labels' is the label table as prose, with no quantities. Its gate is `site-guide.test.ts`,
-      // which derives from `ADDRESS_LABELS` so every printed name appears with every address it
-      // covers.
+      // 'labels' is the label table as prose. Its quantities (balances, ranks, the rank height) are
+      // written into the prose, not passed as a payload. Its gate is `site-guide.test.ts`, which
+      // derives from `ADDRESS_LABELS` so every printed name appears with every address it covers,
+      // and checks each address's printed balance and rank against the payload.
       "site_guide:labels",
     ]);
     const unexcused = missing.filter((m) => !shapeOnly.has(m));
