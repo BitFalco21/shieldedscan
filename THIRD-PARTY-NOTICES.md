@@ -18,6 +18,9 @@ below is included under its own terms, which continue to apply.
   constructions or traces of the owner's published artwork, as noted beside each entry.
 - **Zebra** badge — derived from the Zcash Foundation's published artwork.
 - **zcashd** badge — derived from the ASCII art in zcashd's `src/metrics.h` (MIT).
+- **GitHub** mark (`src/components/GitHubMark.tsx`) — path data from
+  [simple-icons](https://github.com/simple-icons/simple-icons) (CC0 1.0), linking to this
+  project's source.
 - **Zakura** mark — reproduced from the project's published logo to credit the node software.
 - **Ecosystem project icons** (`public/ecosystem/logos/`) — each is the named project's own mark,
   shown to identify it on the ecosystem map.

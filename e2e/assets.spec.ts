@@ -144,7 +144,8 @@ test.describe("site identity", () => {
   test("the Zakura mark in the footer is drawn, not merely present", async ({ page }) => {
     await page.goto("/about");
     await page.waitForLoadState("networkidle");
-    const mark = page.locator("footer svg").first();
+    // Found by its link, not by position: the footer carries other marks too.
+    const mark = page.locator('footer a[href="https://zakura.com/"] svg');
     await expect(mark).toBeVisible();
 
     const box = await mark.boundingBox();
