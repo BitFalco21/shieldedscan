@@ -154,14 +154,15 @@ describe("the MCP tools are the /api-docs catalogue", () => {
     });
   });
 
-  it("costs an assistant at most 44 KB of tool definitions", () => {
-    // The tool list is paid for in every conversation that connects (~42 KB for 35 tools). A
+  it("costs an assistant at most 45 KB of tool definitions", () => {
+    // The tool list is paid for in every conversation that connects (~44.2 KB for 35 tools since
+    // rich_list gained view=labels; that view was cut to ~180 bytes before the guard moved). A
     // regression guard set just above the measured size, not a target: a new tool must be paid
     // for by trimming another.
     const bytes = new TextEncoder().encode(
       JSON.stringify({ tools: tools.map((t) => t.tool) }),
     ).length;
-    expect(bytes).toBeLessThan(44 * 1024);
+    expect(bytes).toBeLessThan(45 * 1024);
   });
 });
 

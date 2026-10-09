@@ -3,6 +3,9 @@ import { Pool } from "pg";
 import type { Hono } from "hono";
 import { ADDRESS_LABELS, type LabelledBalances } from "@/domain";
 import { loadLabelledBalances, networkRoutes } from "../network-routes";
+import { MemoryStorePort } from "../crosschain-store";
+import { v1Routes } from "../v1/routes";
+import type { V1Labels } from "../v1/dto";
 
 /**
  * The labelled-address balances behind the agent's label guide, against a real database.
@@ -42,6 +45,7 @@ async function createTestDatabase(url: string): Promise<string> {
 
 describeDb("labelled-address balances", () => {
   let app: Hono;
+  let v1: Hono;
   let pool: Pool;
   const [ranked, unranked, absent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
   /** Unlike any plausible tip, so a route that substituted the chain height would fail. */
@@ -71,6 +75,7 @@ describeDb("labelled-address balances", () => {
         unattributed_zat BIGINT NOT NULL)`);
     await pool.query("INSERT INTO chain_rich_list_meta VALUES ($1, 0)", [RANK_HEIGHT]);
     app = networkRoutes({} as never, url);
+    v1 = v1Routes({ store: new MemoryStorePort(), pool, enabledProtocols: {} });
   });
 
   afterAll(async () => {
@@ -95,5 +100,21 @@ describeDb("labelled-address balances", () => {
     const body = (await response.json()) as LabelledBalances;
     expect(body.items.map((item) => item.address)).toEqual(Object.keys(ADDRESS_LABELS));
     expect(body.rankAsOfHeight).toBe(RANK_HEIGHT);
+  });
+
+  it("serves the same figures publicly at /v1/labels, each with its source", async () => {
+    const response = await v1.request("/v1/labels");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as V1Labels;
+    expect(body.labels.map((label) => label.address)).toEqual(Object.keys(ADDRESS_LABELS));
+    const byAddress = new Map(body.labels.map((label) => [label.address, label]));
+    expect(byAddress.get(ranked)).toMatchObject({ balanceZat: 43_892_090_013_445, rank: 1 });
+    expect(byAddress.get(unranked)).toMatchObject({ rank: null, unknowns: { rank: "unmeasured" } });
+    expect(byAddress.get(absent)).toMatchObject({
+      balanceZat: 0,
+      unknowns: { rank: "nonexistent" },
+    });
+    expect(byAddress.get(ranked)!.source).toBe(ADDRESS_LABELS[ranked]!.source);
+    expect(body.rankHeight).toBe(RANK_HEIGHT);
   });
 });

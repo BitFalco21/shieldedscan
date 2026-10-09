@@ -5,6 +5,7 @@ import { getReorgSummary, listReorgEvents } from "../reorg-routes";
 import { loadMonthlySeries } from "../analytics-routes";
 import { Cached } from "../cached";
 import {
+  loadLabelledBalances,
   loadRichListPage,
   loadRichListSummary,
   loadHalvingEvents,
@@ -18,6 +19,7 @@ import {
   classifyZcashAddress,
   decodeUnifiedAddress,
   nextHalvingHeight,
+  ADDRESS_LABELS,
   type AddressInfo,
   type Block,
   type MempoolStats,
@@ -31,6 +33,7 @@ import type {
   V1ChainInfo,
   V1Fees,
   V1Halving,
+  V1Labels,
   V1RichListPage,
   V1SearchResult,
   V1Status,
@@ -72,6 +75,7 @@ import {
   toTransactionDetail,
   toRichListEntry,
   toRichListDistribution,
+  toLabels,
 } from "./map";
 
 /**
@@ -789,6 +793,23 @@ export function v1Routes(deps: V1Deps): Hono {
     if (!deps.pool) return upstreamDown(c, "the rich list");
     setCache(c, "aggregate");
     return c.json(toRichListDistribution(await loadRichListSummary(deps.pool)));
+  });
+
+  /**
+   * Every address this explorer names, with whose claim each name is, its current balance and its
+   * rank. No parameters: the set is the label table, 45 rows, one indexed read. The names leave
+   * this API only here, beside their source and a notice that travels on every response.
+   */
+  app.get("/v1/labels", async (c) => {
+    rejectUnknownParams(c, []);
+    if (!deps.pool) return upstreamDown(c, "the labelled-address balances");
+    const balances = await loadLabelledBalances(deps.pool, Object.keys(ADDRESS_LABELS));
+    // `aggregate`: the balances move with the chain and the ranks hourly, so neither tip-coupled
+    // nor immutable.
+    setCache(c, "aggregate");
+    return c.json(
+      toLabels(balances, ADDRESS_LABELS, Math.floor(Date.now() / 1000)) satisfies V1Labels,
+    );
   });
 
   app.get("/v1/search", async (c) => {

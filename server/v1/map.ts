@@ -8,6 +8,8 @@ import {
   type MempoolStats,
   type ReorgEvent,
   type ReorgSummary,
+  type AddressLabel,
+  type LabelledBalances,
   type RichListEntry,
   type RichListSummary,
   type SupplyBreakdown,
@@ -33,6 +35,8 @@ import {
 } from "@/domain";
 import type { AddressKindBucket, VenueHealth } from "@/data/crosschain/store";
 import type {
+  V1Label,
+  V1Labels,
   V1Destinations,
   V1FloorCoverage,
   V1Flows,
@@ -680,11 +684,55 @@ export function toHalving(
 // --------------------------------------------------------------------------- rich list
 
 /**
+ * What a label is and is not. Carried on every `/v1/labels` response, so the names never travel
+ * without it: a name is someone's claim about a real company or person, not a chain fact.
+ */
+export const LABELS_NOTICE =
+  "Each name is a third-party attribution, repeated as its source states it and not verified by this explorer; `source` says whose claim it is. A label covers exactly its address: never extend it to addresses that transact with it. Balances are transparent only, and one address can hold many people's coins, so a balance is a wallet's total, not one holder's. Anything held in shielded addresses cannot be enumerated by anyone.";
+
+/**
+ * The labelled addresses, domain → wire, in the label table's order.
+ *
+ * A null rank says why. With no balance the address is on no rich list (`nonexistent`, a
+ * measurement); with a balance but no rank, the hourly pass has not ranked it yet (`unmeasured`).
+ */
+export function toLabels(
+  balances: LabelledBalances,
+  labels: Readonly<Record<string, AddressLabel>>,
+  asOf: number,
+): V1Labels {
+  const items: V1Label[] = balances.items.flatMap((item) => {
+    const label = labels[item.address];
+    if (!label) return [];
+    return [
+      withUnknowns(
+        {
+          address: item.address,
+          name: label.name,
+          basis: label.basis,
+          source: label.source,
+          flag: label.flag ? { by: label.flag.by, url: label.flag.href } : null,
+          balanceZat: item.balanceZat,
+          rank: item.rank,
+        },
+        item.rank === null ? { rank: item.balanceZat === 0 ? "nonexistent" : "unmeasured" } : {},
+      ),
+    ];
+  });
+  return {
+    notice: LABELS_NOTICE,
+    count: items.length,
+    labels: items,
+    rankHeight: balances.rankAsOfHeight,
+    asOf,
+  };
+}
+
+/**
  * One holder, domain → wire.
  *
- * No name on the wire: a label is an editorial judgement resolved from `ADDRESS_LABELS` at
- * render time, and a name published without the basis that qualifies it would look like a chain
- * fact.
+ * No name on this row: names travel only through `/v1/labels`, where each carries its source and
+ * the notice that qualifies it. A bare name on a balance row would read as a chain fact.
  *
  * `txCount` keeps its null and states why. `Number(null)` is 0, and a fabricated 0 passes every
  * downstream `typeof x === "number"` check exactly as a measurement does.

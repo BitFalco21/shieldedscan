@@ -544,6 +544,36 @@ export interface V1RichListPage extends V1Page<V1RichListEntry> {
   asOf: number;
 }
 
+/**
+ * One labelled address. The name never travels without whose claim it is: `source` names the
+ * attribution, and `flag` the investigator behind a theft label.
+ */
+export interface V1Label {
+  address: string;
+  name: string;
+  /** `external`: a third party attributes it and this explorer repeats them, unverified. */
+  basis: "external" | "self-declared";
+  /** Whose attribution the name is, and when it was read, e.g. Arkham's entity labels. */
+  source: string;
+  /** Present on an address a named investigator flagged in a theft; null otherwise. */
+  flag: { by: string; url: string } | null;
+  /** Current transparent balance. Zero is a measurement: the address holds nothing. */
+  balanceZat: number;
+  /** Place on the transparent rich list as of `rankHeight`. Null carries its reason in `unknowns`. */
+  rank: number | null;
+  unknowns?: V1Unknowns;
+}
+
+export interface V1Labels {
+  /** What a label is and is not, carried on every response so it travels with the names. */
+  notice: string;
+  count: number;
+  labels: V1Label[];
+  /** The height the ranks were computed at (the hourly rich list), never the tip. */
+  rankHeight: number;
+  asOf: number;
+}
+
 /** One balance band: how many addresses are in it and how much they hold between them. */
 export interface V1DistributionBand {
   /** Inclusive lower bound in zatoshi. The top band has no upper bound. */
