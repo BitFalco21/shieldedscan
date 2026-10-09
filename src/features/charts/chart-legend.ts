@@ -59,7 +59,8 @@ export function chartLegend(slug: ChartSlug, data: ChartData): LegendItem[] {
     case "fee-spread":
       return [
         ...KIND_LINES.map((k) => ({ ...k, label: `${k.label} median` })),
-        { label: "Middle half, p25–p75", className: "text-green", mark: "band" },
+        // Each kind's band is drawn in that kind's ink, so the swatch stands for all three.
+        { label: "Middle half, p25–p75", className: "text-ink-dim", mark: "band" },
       ];
     case "blocks-per-day":
       return [
