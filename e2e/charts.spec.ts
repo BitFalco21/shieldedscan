@@ -32,7 +32,6 @@ const CHART_ROUTES = [
   "/charts/volume-by-venue",
   "/charts/shielded-capable-swaps",
   "/charts/shielded-share",
-  "/charts/lockbox-balance",
   "/charts/upgrade-readiness",
   "/charts/anonymity-set",
   "/charts",

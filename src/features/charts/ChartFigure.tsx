@@ -693,18 +693,5 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
         />
       );
     }
-    case "lockbox-balance": {
-      const t = chartTable(slug, data, range);
-      if (!t || t.rows.length < 2) return unavailable("The supply series");
-      return (
-        <MultiLineChart
-          labels={tableLabels(t)}
-          readoutLabels={tableReadout(t)}
-          series={[{ name: "Lockbox", values: column(t, 0), className: "text-series" }]}
-          formatValue={formatZecWhole}
-          ariaLabel="ZEC held in the NU6 dev-fund lockbox at each day's close"
-        />
-      );
-    }
   }
 }

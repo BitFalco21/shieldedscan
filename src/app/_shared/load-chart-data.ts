@@ -31,7 +31,6 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "volume-by-venue": ["venueMonths"],
   "shielded-capable-swaps": ["inflowKinds"],
   "shielded-share": ["supplyDays"],
-  "lockbox-balance": ["supplyDays"],
 };
 
 /**

@@ -173,8 +173,6 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
       };
     case "shielded-share":
       return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.shielded }] };
-    case "lockbox-balance":
-      return { kind: "area", series: { values: col(0), className: "text-series" } };
   }
 }
 
@@ -373,15 +371,6 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: formatSharePct(t.rows[i]![0]!),
         caption: `of circulating ZEC shielded, ${utcDayFromSeconds(t.timestamps[i]!)}`,
-      };
-    }
-    case "lockbox-balance": {
-      const t = chartTable(slug, data, "30d");
-      const i = t && lastWithValue(t, 0);
-      if (!t || i === null || i === undefined) return null;
-      return {
-        value: formatZecTwo(t.rows[i]![0]!),
-        caption: `in the lockbox, ${utcDayFromSeconds(t.timestamps[i]!)}`,
       };
     }
     case "shielded-capable-swaps": {

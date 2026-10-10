@@ -477,17 +477,6 @@ export function chartTable(
         { name: "circulating_zat", value: (p) => split(p)?.circulatingZat ?? null },
       ]);
     }
-    case "lockbox-balance": {
-      if (!data.supplyDays) return null;
-      // From the day NU6 created it: before then there was no lockbox, not an empty one.
-      const from = data.supplyDays.findIndex((p) => p.lockboxZat !== null);
-      if (from < 0) return null;
-      return table(
-        "day",
-        sliceRange(data.supplyDays.slice(from), (p) => p.timestamp, range),
-        [{ name: "lockbox_zat", value: (p) => p.lockboxZat }],
-      );
-    }
   }
 }
 

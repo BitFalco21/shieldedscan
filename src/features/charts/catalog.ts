@@ -41,8 +41,7 @@ export type ChartSlug =
   | "outflow-by-chain"
   | "volume-by-venue"
   | "shielded-capable-swaps"
-  | "shielded-share"
-  | "lockbox-balance";
+  | "shielded-share";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -138,16 +137,6 @@ export const CHARTS: ChartEntry[] = [
     blurb: "Shielded ZEC as a share of circulating supply, every day since 2016.",
     description: [
       "Every shielded pool's balance at each day's last block, as a share of circulating ZEC at the same block: all mined ZEC except the dev-fund lockbox. A pool counts as empty before it existed.",
-    ],
-  },
-  {
-    slug: "lockbox-balance",
-    title: "Dev-fund lockbox",
-    category: "Supply",
-    api: null,
-    blurb: "ZEC held in the lockbox NU6 created for deferred development funding.",
-    description: [
-      "Since NU6, 12% of every block's subsidy goes into a lockbox that no transaction can spend: only a network upgrade can pay it out. The one fall so far is the payout NU6.1 made at its activation.",
     ],
   },
   {

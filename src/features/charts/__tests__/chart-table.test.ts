@@ -99,8 +99,8 @@ describe("the catalogue", () => {
     for (const c of CHARTS) {
       if (c.api === null) {
         // The series the public API does not carry yet: no endpoint serves the release record, or
-        // the transparent and lockbox balances by day. Each page says so.
-        expect(["upgrade-readiness", "shielded-share", "lockbox-balance"]).toContain(c.slug);
+        // the transparent balance by day. Each page says so.
+        expect(["upgrade-readiness", "shielded-share"]).toContain(c.slug);
         continue;
       }
       expect(documented.get(c.api.docsId), c.slug).toBe(c.api.path);
@@ -272,15 +272,5 @@ describe("the newer charts' tables", () => {
     // January closes on the 31st, February (the 32nd of January) on its only day.
     expect(t.timestamps).toEqual([Date.UTC(2026, 0, 1) / 1000, Date.UTC(2026, 1, 1) / 1000]);
     expect(t.rows.map((r) => r[1])).toEqual([400, 1_000]);
-  });
-
-  it("starts the lockbox on the day NU6 created it, not as an empty lockbox before", () => {
-    const supplyDays = [
-      supplyDay(1),
-      supplyDay(2, { lockboxZat: 10 }),
-      supplyDay(3, { lockboxZat: 20 }),
-    ];
-    const t = chartTable("lockbox-balance", chartData({ supplyDays }), "all")!;
-    expect(t.rows).toEqual([[10], [20]]);
   });
 });
