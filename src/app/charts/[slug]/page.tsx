@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPrerenderedDataSource } from "@/data";
+import { CopyButton } from "@/components/CopyButton";
 import Link from "@/components/Link";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
@@ -55,6 +56,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     ...related.map((c) => c.slug),
   ]);
   const nowSec = nowSeconds();
+  const curl = chart.api ? `curl "${apiBaseUrl}${chart.api.path}"` : null;
   return (
     <>
       <PageHeader
@@ -76,7 +78,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
       <Panel className="mt-6">
         <h2 className="microlabel mb-2">Get this data</h2>
-        {chart.api ? (
+        {chart.api && curl ? (
           <>
             <p className="text-sm text-ink-dim">
               Keyless, from the public API:{" "}
@@ -87,9 +89,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
                 GET {chart.api.path}
               </Link>
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-xs border border-edge-faint bg-bg px-3 py-2 text-xs text-ink">
-              {`curl "${apiBaseUrl}${chart.api.path}"`}
-            </pre>
+            <div className="mt-2 flex items-center gap-3 rounded-xs border border-edge-faint bg-bg px-3 py-2">
+              <code className="min-w-0 flex-1 overflow-x-auto text-xs whitespace-nowrap text-ink">
+                {curl}
+              </code>
+              <CopyButton value={curl} label="curl command" withLabel />
+            </div>
           </>
         ) : (
           <p className="text-sm text-ink-dim">

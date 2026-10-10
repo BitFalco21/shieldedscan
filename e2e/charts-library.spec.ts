@@ -66,6 +66,12 @@ test.describe("a chart's own page", () => {
     const api = page.getByRole("link", { name: "GET /v1/analytics/fees" });
     await expect(api).toHaveAttribute("href", "/api-docs#analytics-fees");
     await expect(page.getByText(/curl "https:\/\/.+\/v1\/analytics\/fees"/)).toBeVisible();
+    // The command copies whole, exactly as shown.
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: /curl command/i }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+      /^curl "https:\/\/.+\/v1\/analytics\/fees"$/,
+    );
     const related = page.locator("section", { hasText: "Related charts" }).locator("a");
     await expect(related).toHaveCount(3);
   });
