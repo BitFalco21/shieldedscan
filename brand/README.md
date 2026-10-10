@@ -21,6 +21,9 @@ ALT_MARK=facetshield node brand/generate.mjs   # another alternate avatar
 SEED=11 node brand/generate.mjs                # another roll of the banner's skyline
 ```
 
+Only the avatar and the X header are committed; the other files below render locally and are
+ignored, so a run never adds them back.
+
 | File                                        | Use                                                                        |
 | ------------------------------------------- | -------------------------------------------------------------------------- |
 | `shieldedscan-avatar-400.png`               | profile picture; also the source of the favicon                            |
