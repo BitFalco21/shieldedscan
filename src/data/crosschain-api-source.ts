@@ -3,6 +3,10 @@ import { createStaleMemo } from "@/lib/stale-memo";
 import { cursorSearchParams } from "./cursor";
 import type {
   CrossChainVolume,
+  ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  VenueMonthPoint,
   CrossChainVolumeSeries,
   CrossChainFlow,
   CrossChainFlowSummary,
@@ -336,6 +340,80 @@ export function createCrossChainApiSource(config: CrossChainApiConfig) {
         throw new Error("cross-chain API returned an unrecognised volume series shape");
       }
       return body;
+    },
+
+    async getChainInflow(): Promise<ChainInflowPoint[]> {
+      const res = await request(config, "/crosschain/inflow-by-chain");
+      if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for inflow by chain`);
+      const body = (await res.json()) as unknown;
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: ChainInflowPoint) =>
+            typeof p.timestamp === "number" &&
+            typeof p.chain === "string" &&
+            typeof p.inZat === "number",
+        )
+      ) {
+        throw new Error("cross-chain API returned an unrecognised inflow by chain shape");
+      }
+      return body as ChainInflowPoint[];
+    },
+
+    async getChainOutflow(): Promise<ChainOutflowPoint[]> {
+      const res = await request(config, "/crosschain/outflow-by-chain");
+      if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for outflow by chain`);
+      const body = (await res.json()) as unknown;
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: ChainOutflowPoint) =>
+            typeof p.timestamp === "number" &&
+            typeof p.chain === "string" &&
+            typeof p.outZat === "number",
+        )
+      ) {
+        throw new Error("cross-chain API returned an unrecognised outflow by chain shape");
+      }
+      return body as ChainOutflowPoint[];
+    },
+
+    async getVenueMonths(): Promise<VenueMonthPoint[]> {
+      const res = await request(config, "/crosschain/venue-months");
+      if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for venue months`);
+      const body = (await res.json()) as unknown;
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: VenueMonthPoint) =>
+            typeof p.timestamp === "number" &&
+            typeof p.protocol === "string" &&
+            typeof p.inZat === "number" &&
+            typeof p.outZat === "number",
+        )
+      ) {
+        throw new Error("cross-chain API returned an unrecognised venue months shape");
+      }
+      return body as VenueMonthPoint[];
+    },
+
+    async getInflowKinds(): Promise<InflowKindMonthPoint[]> {
+      const res = await request(config, "/crosschain/inflow-kinds");
+      if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for inflow kinds`);
+      const body = (await res.json()) as unknown;
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: InflowKindMonthPoint) =>
+            typeof p.timestamp === "number" &&
+            (p.kind === null || typeof p.kind === "string") &&
+            typeof p.transfers === "number" &&
+            typeof p.zat === "number",
+        )
+      ) {
+        throw new Error("cross-chain API returned an unrecognised inflow kinds shape");
+      }
+      return body as InflowKindMonthPoint[];
     },
 
     async countCrossChainTransfers(filters: CrossChainFilters = {}): Promise<number> {

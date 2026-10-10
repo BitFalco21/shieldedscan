@@ -25,12 +25,6 @@ export const CHART_GUTTER_GAP = 14;
 /** Tick text size in SVG units — renders ~1:1 on a full-width chart page. */
 export const TICK_FONT = 11;
 /**
- * The /charts gallery's tick size. The gallery renders each chart at roughly half the content
- * column and the whole viewBox scales with it, so 22 units land at ~11 rendered px.
- * Compensating in the geometry rather than CSS keeps the self-sizing gutter correct.
- */
-export const COMPACT_TICK_FONT = 22;
-/**
  * A phone's chart: ~285px of panel for a 1000-unit frame, so a tick needs ~40 units to land
  * near 11px, and the frame is taller (`PHONE_CHART_H`) so the plot is not a strip the hover
  * readout covers whole.

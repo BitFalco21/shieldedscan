@@ -357,7 +357,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
       path: "/v1/crosschain/destinations",
       title: "Where inbound ZEC lands — the shielded-capable rate",
       description:
-        "Of the ZEC arriving from other chains, the share landing on a shielded-capable address. `shieldedCapable`, never `shielded`: which receiver a unified address paid into is not public. Unclassified addresses stay in the denominator.",
+        "Of the transfers arriving from other chains, the share landing on a shielded-capable address. `shieldedCapable`, never `shielded`: which receiver a unified address paid into is not public. A transfer whose venue published no Zcash-side address is in neither term of the share, and its bucket is marked unmeasured.",
       params: [
         {
           name: "direction",

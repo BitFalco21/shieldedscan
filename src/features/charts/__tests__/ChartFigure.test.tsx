@@ -46,16 +46,6 @@ describe("ChartFigure range toggle", () => {
     expect(screen.getByRole("img", { name: /per month by privacy kind/i })).toBeTruthy();
   });
 
-  it("forwards compact to the chart it renders, so the gallery's axes stay readable", () => {
-    // Forwarding is asserted, not just the prop's existence: a range dropped here would render
-    // perfectly and fix nothing.
-    const { container } = render(
-      <ChartFigure slug="transactions-by-kind" data={chartData({ months, days })} compact />,
-    );
-    const tick = container.querySelector("text.chart-tick");
-    expect(Number(tick?.getAttribute("font-size"))).toBeGreaterThan(11);
-  });
-
   it("gives ironwood-balance no toggle — its whole series is narrower than 30D", () => {
     render(
       <ChartFigure
@@ -118,11 +108,13 @@ describe("fee-totals coverage", () => {
     );
   }
 
-  it("states blocks covered against blocks contained, per period", () => {
+  it("states the blocks a complete period covers, once", () => {
     renderChart([feePoint(1_700_000_000, 35_000, 35_000), feePoint(1_702_600_000, 35_000, 35_000)]);
     const readout = readoutAt("first");
     expect(readout).toContain("Blocks");
-    expect(readout).toContain("35,000 of 35,000");
+    expect(readout).toContain("35,000");
+    // "35,000 of 35,000" says nothing the count alone does not.
+    expect(readout).not.toContain(" of ");
     // The quantity is still the headline; the denominator sits under it.
     expect(readout.indexOf("Fees paid")).toBeLessThan(readout.indexOf("Blocks"));
   });
@@ -131,7 +123,7 @@ describe("fee-totals coverage", () => {
     // The failure the row exists for: this period's total is smaller than the truth, and
     // nothing else on the chart would say so — the line simply dips.
     renderChart([feePoint(1_700_000_000, 35_000, 35_000), feePoint(1_702_600_000, 35_000, 34_100)]);
-    expect(readoutAt("last")).toContain("34,100 of 35,000 blocks · partial");
+    expect(readoutAt("last")).toContain("34,100 of 35,000 · partial");
   });
 
   it("does not brand a complete period partial", () => {
@@ -348,5 +340,33 @@ describe("pool-migrations stacks by destination", () => {
   it("says unavailable when the series is unreadable", () => {
     render(<ChartFigure slug="pool-migrations" data={chartData({ poolMigrations: null })} />);
     expect(screen.getByText(/TEMPORARILY UNAVAILABLE/)).toBeTruthy();
+  });
+});
+
+describe("ChartFigure on a chart's own page", () => {
+  it("opens on the range in the URL, and writes a new range back to it", () => {
+    window.history.replaceState(null, "", "/charts/transactions-by-kind?range=90d");
+    render(<ChartFigure slug="transactions-by-kind" data={chartData({ months, days })} detail />);
+    expect(screen.getByRole("button", { name: "90D" }).getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "30D" }));
+    expect(window.location.search).toBe("?range=30d");
+    expect(screen.getByRole("button", { name: "30D" }).getAttribute("aria-pressed")).toBe("true");
+
+    // ALL is the default, so it leaves no parameter behind: the plain URL means ALL.
+    fireEvent.click(screen.getByRole("button", { name: "ALL" }));
+    expect(window.location.search).toBe("");
+  });
+
+  it("offers the CSV and the link, and keeps them off the gallery", () => {
+    window.history.replaceState(null, "", "/charts/transactions-by-kind");
+    const { unmount } = render(
+      <ChartFigure slug="transactions-by-kind" data={chartData({ months, days })} detail />,
+    );
+    expect(screen.getByRole("button", { name: /csv/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /copy link to this chart/i })).toBeTruthy();
+    unmount();
+    render(<ChartFigure slug="transactions-by-kind" data={chartData({ months, days })} />);
+    expect(screen.queryByRole("button", { name: /csv/i })).toBeNull();
   });
 });

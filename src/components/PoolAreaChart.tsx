@@ -1,14 +1,6 @@
 import type { ShieldedSupplyPoint } from "@/domain";
 import { ChartHover } from "@/components/ChartHover";
-import {
-  CHART_H,
-  CHART_W,
-  COMPACT_TICK_FONT,
-  TICK_FONT,
-  XAxis,
-  YAxis,
-  axisFrame,
-} from "@/components/chart-axes";
+import { CHART_H, CHART_W, TICK_FONT, XAxis, YAxis, axisFrame } from "@/components/chart-axes";
 
 export interface PoolAreaChartProps {
   points: ShieldedSupplyPoint[];
@@ -17,23 +9,15 @@ export interface PoolAreaChartProps {
    * pool balance defeats the point of a readout.
    */
   formatValue: (zat: number) => string;
-  /** Gallery-size axes — see `COMPACT_TICK_FONT`. */
-  compact?: boolean;
 }
 
 /** Total shielded supply over time — the amber series, on the shared axis frame. */
-export function PoolAreaChart({ points, formatValue, compact = false }: PoolAreaChartProps) {
+export function PoolAreaChart({ points, formatValue }: PoolAreaChartProps) {
   if (points.length < 2) return null;
   const max = Math.max(...points.map((p) => p.totalZat));
   // Anchored at zero, deliberately: a min-clipped axis on a SUPPLY chart exaggerates every
   // wiggle into a cliff, and "how much ZEC is shielded" is a zero-based question.
-  const frame = axisFrame(
-    points.length,
-    max,
-    formatValue,
-    0,
-    compact ? COMPACT_TICK_FONT : TICK_FONT,
-  );
+  const frame = axisFrame(points.length, max, formatValue, 0, TICK_FONT);
   const line = points
     .map((p, i) => `${i ? "L" : "M"}${frame.x(i).toFixed(1)},${frame.y(p.totalZat).toFixed(1)}`)
     .join(" ");

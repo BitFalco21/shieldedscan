@@ -1,4 +1,10 @@
+import { classifyZcashAddress } from "@/domain";
+import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import type {
+  ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  VenueMonthPoint,
   CrossChainAggregate,
   CrossChainDirection,
   CrossChainFlowSummary,
@@ -101,6 +107,17 @@ export interface CrossChainStorePort {
   volume(): Promise<CrossChainVolume>;
   /** ZEC crossing per month and per day, both grains — see `volumeSeries` in the store. */
   volumeSeries(): Promise<CrossChainVolumeSeries>;
+  /**
+   * ZEC arriving per source chain per month, settlement-asset legs excluded as in `volumeSeries`.
+   * One row per (month, chain) that saw an inbound transfer, oldest first.
+   */
+  inflowByChain(): Promise<ChainInflowPoint[]>;
+  /** ZEC leaving per destination chain per month, on `inflowByChain`'s rules. */
+  outflowByChain(): Promise<ChainOutflowPoint[]>;
+  /** ZEC per swap venue per month, both directions as separate sums, settlement legs excluded. */
+  volumeByVenue(): Promise<VenueMonthPoint[]>;
+  /** Inbound ZEC and transfers per Zcash address kind per month, settlement legs excluded. */
+  inflowByAddressKind(): Promise<InflowKindMonthPoint[]>;
   markSuccess(protocol: CrossChainProtocol, atSeconds: number): Promise<void>;
   markFailure(protocol: CrossChainProtocol, error: string): Promise<void>;
   health(protocols: readonly CrossChainProtocol[], nowSeconds: number): Promise<VenueHealth[]>;
@@ -109,6 +126,12 @@ export interface CrossChainStorePort {
   writeIngestState(key: string, state: unknown): Promise<void>;
   close(): Promise<void>;
 }
+
+/** The first instant of the UTC month holding `seconds`. */
+const monthOf = (seconds: number): number => {
+  const d = new Date(seconds * 1000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth()) / 1000;
+};
 
 /**
  * The memory-backed adapter, for local development and running without a database.
@@ -186,6 +209,80 @@ export class MemoryStorePort implements CrossChainStorePort {
     }
     return out;
   }
+  /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
+  async inflowByChain(): Promise<ChainInflowPoint[]> {
+    const by = new Map<string, ChainInflowPoint>();
+    for (const t of this.#swaps("in")) {
+      const timestamp = monthOf(t.timestamp);
+      const key = `${timestamp}:${t.counterpartChain}`;
+      const point = by.get(key) ?? { timestamp, chain: t.counterpartChain, inZat: 0 };
+      point.inZat += t.zecAmountZat;
+      by.set(key, point);
+    }
+    return [...by.values()].sort(
+      (a, b) => a.timestamp - b.timestamp || a.chain.localeCompare(b.chain),
+    );
+  }
+
+  /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
+  async outflowByChain(): Promise<ChainOutflowPoint[]> {
+    const by = new Map<string, ChainOutflowPoint>();
+    for (const t of this.#swaps("out")) {
+      const timestamp = monthOf(t.timestamp);
+      const key = `${timestamp}:${t.counterpartChain}`;
+      const point = by.get(key) ?? { timestamp, chain: t.counterpartChain, outZat: 0 };
+      point.outZat += t.zecAmountZat;
+      by.set(key, point);
+    }
+    return [...by.values()].sort(
+      (a, b) => a.timestamp - b.timestamp || a.chain.localeCompare(b.chain),
+    );
+  }
+
+  /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
+  async volumeByVenue(): Promise<VenueMonthPoint[]> {
+    const by = new Map<string, VenueMonthPoint>();
+    for (const t of this.#swaps(null)) {
+      const timestamp = monthOf(t.timestamp);
+      const key = `${timestamp}:${t.protocol}`;
+      const point = by.get(key) ?? { timestamp, protocol: t.protocol, inZat: 0, outZat: 0 };
+      if (t.direction === "in") point.inZat += t.zecAmountZat;
+      else point.outZat += t.zecAmountZat;
+      by.set(key, point);
+    }
+    return [...by.values()].sort(
+      (a, b) => a.timestamp - b.timestamp || a.protocol.localeCompare(b.protocol),
+    );
+  }
+
+  /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
+  async inflowByAddressKind(): Promise<InflowKindMonthPoint[]> {
+    const by = new Map<string, InflowKindMonthPoint>();
+    for (const t of this.#swaps("in")) {
+      const timestamp = monthOf(t.timestamp);
+      const kind = classifyZcashAddress(t.zcashAddress);
+      const key = `${timestamp}:${kind}`;
+      const point = by.get(key) ?? { timestamp, kind, transfers: 0, zat: 0 };
+      point.transfers += 1;
+      point.zat += t.zecAmountZat;
+      by.set(key, point);
+    }
+    return [...by.values()].sort(
+      (a, b) => a.timestamp - b.timestamp || String(a.kind).localeCompare(String(b.kind)),
+    );
+  }
+
+  /** Every transfer in one direction (or both), settlement legs excluded. */
+  #swaps(direction: "in" | "out" | null): CrossChainTransfer[] {
+    return this.#store
+      .list({ limit: 1_000_000 })
+      .items.filter(
+        (t) =>
+          (direction === null || t.direction === direction) &&
+          !SETTLEMENT_ASSETS.includes(t.counterpartAsset),
+      );
+  }
+
   /** Same buckets as the Postgres store, computed in memory for tests and fixture mode. */
   async volumeSeries(): Promise<CrossChainVolumeSeries> {
     const bucket = (seconds: number, unit: "month" | "day") => {

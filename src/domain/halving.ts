@@ -70,6 +70,9 @@ export const FUNDING_EXPIRY_BEFORE_NU61 = 3_146_400;
  */
 export const BLOCK_TARGET_SECONDS = 75;
 
+/** The block-time target before Blossom (`BLOSSOM_HEIGHT`) halved it. */
+export const PRE_BLOSSOM_TARGET_SECONDS = 150;
+
 /** A subsidy split, in zatoshi, exactly as the node reported it for one height. */
 export interface SubsidySplit {
   totalZat: number;

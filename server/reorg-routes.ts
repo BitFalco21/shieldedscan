@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { Pool } from "pg";
-import type { ReorgEvent, ReorgSummary } from "@/domain";
+import type { ReorgEvent, ReorgSummary, ReorgWeekSeries } from "@/domain";
 import type { CursorPage, CursorQuery } from "@/data/source";
 import { decodeCursorForColumn, encodeCursor, INT8_SORT_KEY_MAX } from "@/data/cursor";
 import { createPool } from "./pg-pool";
@@ -118,6 +118,40 @@ export async function getReorgSummary(pool: Pool): Promise<ReorgSummary> {
   };
 }
 
+export const REORG_WEEKS_PATH = "/chain/reorgs/weekly";
+
+/**
+ * Reorganisations per ISO week (Monday, UTC), every week from the one observation began in to the
+ * current one. A week with none is a zero only because the follower was watching: no week before
+ * `observingSince` exists here, so an unobserved stretch can never read as a quiet one.
+ */
+export async function loadReorgWeeks(pool: Pool): Promise<ReorgWeekSeries> {
+  const meta = await pool.query<{ observing_since: number }>(
+    "SELECT observing_since FROM reorg_observation",
+  );
+  const since = meta.rows[0]?.observing_since;
+  if (since === undefined) return { observingSince: null, weeks: [] };
+  const { rows } = await pool.query<{ ts: string; reorgs: number; deepest: number }>(
+    `SELECT EXTRACT(EPOCH FROM w)::bigint AS ts,
+            count(e.id)::int AS reorgs,
+            COALESCE(max(e.depth), 0)::int AS deepest
+       FROM generate_series(
+              date_trunc('week', to_timestamp($1) AT TIME ZONE 'UTC'),
+              date_trunc('week', now() AT TIME ZONE 'UTC'),
+              interval '1 week') AS w
+       LEFT JOIN reorg_event e
+              ON e.detected_at >= EXTRACT(EPOCH FROM w)
+             AND e.detected_at <  EXTRACT(EPOCH FROM w + interval '1 week')
+      GROUP BY w
+      ORDER BY w`,
+    [since],
+  );
+  return {
+    observingSince: Number(since),
+    weeks: rows.map((r) => ({ timestamp: Number(r.ts), reorgs: r.reorgs, deepest: r.deepest })),
+  };
+}
+
 export function reorgRoutes(connection?: string): Hono {
   // A statement_timeout, as on the analytics pool: a query with no deadline holds a connection
   // indefinitely, which on a small pool is indistinguishable from an outage. These reads are
@@ -137,6 +171,7 @@ export function reorgRoutes(connection?: string): Hono {
   });
 
   app.get("/chain/reorgs/summary", async (c) => c.json(await getReorgSummary(pool)));
+  app.get(REORG_WEEKS_PATH, async (c) => c.json(await loadReorgWeeks(pool)));
 
   return app;
 }

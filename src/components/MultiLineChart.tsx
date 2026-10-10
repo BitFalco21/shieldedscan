@@ -2,7 +2,6 @@ import { ChartHover, type ChartHoverRow } from "@/components/ChartHover";
 import {
   CHART_H,
   CHART_W,
-  COMPACT_TICK_FONT,
   PHONE_CHART_H,
   PHONE_TICK_FONT,
   TICK_FONT,
@@ -26,6 +25,8 @@ export interface MultiLineSeries {
    * plotted line gaps identically either way.
    */
   omitNullFromReadout?: boolean;
+  /** A reference rather than a measurement (a target, a threshold): drawn dashed. */
+  dashed?: boolean;
 }
 
 export interface MultiLineChartProps {
@@ -33,6 +34,12 @@ export interface MultiLineChartProps {
   series: MultiLineSeries[];
   ariaLabel: string;
   formatValue?: (value: number) => string;
+  /**
+   * The y-axis labels, where they need less precision than a stated value: a tick is a reference
+   * line at a fraction of the maximum, so eight decimals there are noise. Defaults to
+   * `formatValue`; the hover readout always uses `formatValue`.
+   */
+  formatTick?: (value: number) => string;
   readoutLabels?: string[];
   /**
    * Facts about each point that are not plotted, appended below the series in the readout —
@@ -55,14 +62,8 @@ export interface MultiLineChartProps {
    */
   baseline?: "zero" | "data";
   /**
-   * Gallery-size axes: the /charts grid renders this chart at ~half width, scaling the whole
-   * viewBox down, so ticks are drawn larger to land back at a readable size. See
-   * `COMPACT_TICK_FONT`.
-   */
-  compact?: boolean;
-  /**
-   * Phone-size axes and a taller frame, for a chart rendered across a phone's width. Takes
-   * precedence over `compact`. See `PHONE_TICK_FONT`.
+   * Phone-size axes and a taller frame, for a chart rendered across a phone's width. See
+   * `PHONE_TICK_FONT`.
    */
   phone?: boolean;
   /**
@@ -97,17 +98,17 @@ export function MultiLineChart({
   series,
   ariaLabel,
   formatValue = String,
+  formatTick = formatValue,
   readoutLabels,
   contextRows = [],
   baseline = "zero",
-  compact = false,
   phone = false,
   yMax,
   markers = false,
 }: MultiLineChartProps) {
   if (labels.length === 0 || series.length === 0) return null;
 
-  const values = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
+  const values = series.flatMap((s) => s.values).filter((v): v is number => v !== null);
   const max = Math.max(...values, yMax ?? 0, 0) || 1;
   /*
    * A clipped axis gets a margin below the lowest point (a tenth of the visible span): a line
@@ -123,9 +124,9 @@ export function MultiLineChart({
   const frame = axisFrame(
     labels.length,
     max,
-    formatValue,
+    formatTick,
     min,
-    phone ? PHONE_TICK_FONT : compact ? COMPACT_TICK_FONT : TICK_FONT,
+    phone ? PHONE_TICK_FONT : TICK_FONT,
     phone ? PHONE_CHART_H : CHART_H,
   );
 
@@ -175,7 +176,7 @@ export function MultiLineChart({
         role="img"
         aria-label={ariaLabel}
       >
-        <YAxis frame={frame} ticks={frame.ticks} formatValue={formatValue} />
+        <YAxis frame={frame} ticks={frame.ticks} formatValue={formatTick} />
         <XAxis frame={frame} labels={labels} />
         {series.map((s) =>
           segments(s.values).map((d, i) => (
@@ -187,6 +188,7 @@ export function MultiLineChart({
               strokeWidth={1.5}
               className={s.className}
               opacity={s.opacity ?? 1}
+              strokeDasharray={s.dashed ? "5 4" : undefined}
               vectorEffect="non-scaling-stroke"
             />
           )),
@@ -199,7 +201,7 @@ export function MultiLineChart({
                     key={`${s.name}-dot-${i}`}
                     cx={frame.x(i)}
                     cy={frame.y(v)}
-                    r={phone ? 10 : compact ? 6 : 4}
+                    r={phone ? 10 : 4}
                     fill="currentColor"
                     className={s.className}
                     opacity={s.opacity ?? 1}

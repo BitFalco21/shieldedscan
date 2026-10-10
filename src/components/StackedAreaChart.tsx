@@ -6,7 +6,6 @@ import {
   CHART_PAD_R,
   CHART_PAD_T,
   CHART_W,
-  COMPACT_TICK_FONT,
   TICK_FONT,
   XAxis,
 } from "@/components/chart-axes";
@@ -42,12 +41,16 @@ export interface StackedAreaChartProps {
   /** Formats the y-axis ticks and the peak callout. */
   formatValue: (value: number) => string;
   /**
+   * The y-axis labels, where they need less precision than a stated value: a tick is a reference
+   * line at a fraction of the peak, so eight decimals there are noise. Defaults to `formatValue`;
+   * the hover readout always uses `formatValue`.
+   */
+  formatTick?: (value: number) => string;
+  /**
    * Labels for the hover readout, where they stand alone and must be unambiguous — "Jun 2022"
    * rather than the axis's cramped "Jun 22". Falls back to `labels`.
    */
   readoutLabels?: string[];
-  /** Gallery-size axes — see `COMPACT_TICK_FONT`. */
-  compact?: boolean;
 }
 
 /**
@@ -74,12 +77,12 @@ export function StackedAreaChart({
   ariaLabel,
   markers = [],
   formatValue,
+  formatTick = formatValue,
   readoutLabels,
-  compact = false,
 }: StackedAreaChartProps) {
   const n = labels.length;
   if (n < 2 || series.length === 0) return null;
-  const tickFont = compact ? COMPACT_TICK_FONT : TICK_FONT;
+  const tickFont = TICK_FONT;
   // Marker labels keep their slightly-smaller-than-tick relationship at either size.
   const markerFont = Math.round(tickFont * (10 / 11));
 
@@ -96,7 +99,7 @@ export function StackedAreaChart({
   // "1.18M ZEC" to ".18M ZEC".
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => peak * f);
   const padL =
-    Math.max(...ticks.map((t) => formatValue(t).length)) * (TICK_CHAR_W / TICK_FONT) * tickFont +
+    Math.max(...ticks.map((t) => formatTick(t).length)) * (TICK_CHAR_W / TICK_FONT) * tickFont +
     CHART_GUTTER_GAP;
 
   const x = (i: number) => padL + (i / (n - 1)) * (CHART_W - padL - CHART_PAD_R);
@@ -161,7 +164,7 @@ export function StackedAreaChart({
               fontSize={tickFont}
               className="chart-tick"
             >
-              {formatValue(t)}
+              {formatTick(t)}
             </text>
           </g>
         ))}

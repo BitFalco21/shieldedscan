@@ -1,3 +1,5 @@
+import type { CrossChainProtocol } from "@/domain";
+
 /**
  * Which of the flow palette's colours a chain takes in the cross-chain Sankey.
  *
@@ -53,10 +55,23 @@ export function chainHash(text: string): number {
   return h;
 }
 
+/** The folded tail's class: not a chain, so it takes the palette's neutral rather than a hue. */
+export const FOLDED_FLOW_CLASS = "flow-rest";
+
+/**
+ * Each swap venue's colour where venues are the categories. Fixed rather than hashed: three venues
+ * need three clearly different hues, and their brand marks give two near-identical turquoises.
+ */
+export const VENUE_CLASSES: Readonly<Record<CrossChainProtocol, string>> = {
+  "near-intents": "flow-2",
+  maya: "flow-1",
+  thorchain: "flow-6",
+};
+
 export function flowPaletteClass(chain: string): string {
   const ticker = chain.toUpperCase();
   // The folded tail is not a chain and should not look like one.
-  if (ticker === "UNKNOWN") return "flow-rest";
+  if (ticker === "UNKNOWN") return FOLDED_FLOW_CLASS;
   const known = KNOWN.indexOf(ticker);
   const index = known >= 0 ? known : chainHash(ticker);
   return `flow-${(index % PALETTE_SIZE) + 1}`;

@@ -789,14 +789,14 @@
     letter-spacing: 0.1em;
   }
 
-  /* Privacy kinds keep the ink grammar rather than the flow palette: green intensity is
-     already this site's language for how shielded something is, and a categorical hue here
-     would say "these are unrelated categories" when they are a spectrum. */
+  /* Privacy kinds in the ranked inks (`ranked-palette.ts`), private to public: the accent,
+     then two that differ in lightness as well as hue. Shades of one green read as one series
+     when the lines cross; these stay apart without colour vision. */
   .band-transparent {
-    color: var(--ink-faint);
+    color: var(--line-3);
   }
   .band-mixed {
-    color: var(--green-dim);
+    color: var(--line-2);
   }
   .band-shielded {
     color: var(--green);

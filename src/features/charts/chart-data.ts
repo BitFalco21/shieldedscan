@@ -1,4 +1,15 @@
 import type {
+  BlocksDayPoint,
+  ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  SupplyDayPoint,
+  VenueMonthPoint,
+  MinerShareMonth,
+  NetReleases,
+  NoteTreeDayPoint,
+  ReorgWeekSeries,
+  TransparentDayPoint,
   CrossChainVolumeSeries,
   PoolMigrationDayPoint,
   PoolUsageDayPoint,
@@ -41,6 +52,24 @@ export interface ChartData {
   /** Both grains in one object — see the note on `FeeTotalSeries`. */
   feeTotals: FeeTotalSeries | null;
   crosschainVolume: CrossChainVolumeSeries | null;
+  noteTrees: NoteTreeDayPoint[] | null;
+  transparentDays: TransparentDayPoint[] | null;
+  minerShares: MinerShareMonth[] | null;
+  reorgWeeks: ReorgWeekSeries | null;
+  chainInflow: ChainInflowPoint[] | null;
+  chainOutflow: ChainOutflowPoint[] | null;
+  venueMonths: VenueMonthPoint[] | null;
+  inflowKinds: InflowKindMonthPoint[] | null;
+  supplyDays: SupplyDayPoint[] | null;
+  blocksDaily: BlocksDayPoint[] | null;
+  /** The crawler's daily release record, for the upgrade readiness trend. */
+  releases: NetReleases | null;
+  /**
+   * When these series were read, Unix seconds: what a period still running is measured against.
+   * Stamped with the data rather than read in the browser, so a cached page never calls a month
+   * partial that its data had finished, or the reverse. 0 means unknown: no period is partial.
+   */
+  asOf: number;
 }
 
 /** A fully-null `ChartData` with the given members filled — for single-chart call sites. */
@@ -60,6 +89,18 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     feesDaily: null,
     feeTotals: null,
     crosschainVolume: null,
+    noteTrees: null,
+    transparentDays: null,
+    minerShares: null,
+    reorgWeeks: null,
+    chainInflow: null,
+    chainOutflow: null,
+    venueMonths: null,
+    inflowKinds: null,
+    supplyDays: null,
+    blocksDaily: null,
+    releases: null,
+    asOf: 0,
     ...partial,
   };
 }

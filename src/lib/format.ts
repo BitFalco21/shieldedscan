@@ -157,6 +157,25 @@ function zecCompactTier(zat: number): string | null {
   return null;
 }
 
+/**
+ * A ZEC axis tick: compact, and only as precise as a reference line needs. A tick sits at a
+ * fraction of the axis maximum, so full eight-decimal precision there is noise ("1,021.34378535").
+ * Never for an amount a reader is told: that is `formatZec` or `formatZecCompact`.
+ */
+export function formatZecTick(zat: number): string {
+  const tier = zecCompactTier(zat);
+  if (tier !== null) return `${tier} ${coinTicker}`;
+  const zec = zat / ZATS_PER_ZEC;
+  if (zec === 0) return `0 ${coinTicker}`;
+  const digits: Intl.NumberFormatOptions =
+    zec >= 100
+      ? { maximumFractionDigits: 0 }
+      : zec >= 1
+        ? { maximumFractionDigits: 2 }
+        : { maximumSignificantDigits: 2 };
+  return `${zec.toLocaleString("en-US", digits)} ${coinTicker}`;
+}
+
 export function formatZecCompact(zat: number): string {
   const tier = zecCompactTier(zat);
   return tier === null ? formatZec(zat) : `${tier} ${coinTicker}`;

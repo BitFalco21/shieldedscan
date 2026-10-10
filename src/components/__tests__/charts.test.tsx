@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CHART_PAD_R, CHART_W, COMPACT_TICK_FONT, TICK_FONT, tickCharW } from "../chart-axes";
+import { CHART_PAD_R, CHART_W, PHONE_TICK_FONT, TICK_FONT, tickCharW } from "../chart-axes";
 import { MultiLineChart } from "../MultiLineChart";
 import { StackedAreaChart } from "../StackedAreaChart";
 
@@ -13,14 +13,14 @@ function yAxisTicks(container: HTMLElement): number[] {
   return [...container.querySelectorAll("g > text.chart-tick")].map((t) => Number(t.textContent));
 }
 
-describe("compact axes (the /charts gallery)", () => {
+describe("phone axes", () => {
   /*
-   * Every chart draws in a 1000-unit viewBox that scales to its container, so on the /charts
-   * gallery an 11-unit tick would render at ~5.5px. Compact mode draws the ticks larger in SVG
-   * units so they land back at a readable size, and the gutter and label density derive from
-   * the same font so nothing clips or collides.
+   * Every chart draws in a 1000-unit viewBox that scales to its container, so across a phone an
+   * 11-unit tick would render at ~3px. Phone mode draws the ticks larger in SVG units so they
+   * land back at a readable size, and the gutter and label density derive from the same font so
+   * nothing clips or collides.
    */
-  const lineChart = (compact: boolean) => (
+  const lineChart = (phone: boolean) => (
     <MultiLineChart
       labels={Array.from(
         { length: 40 },
@@ -34,7 +34,7 @@ describe("compact axes (the /charts gallery)", () => {
         },
       ]}
       ariaLabel="counts"
-      compact={compact}
+      phone={phone}
     />
   );
   const tickFonts = (container: HTMLElement): string[] =>
@@ -47,11 +47,11 @@ describe("compact axes (the /charts gallery)", () => {
       (t) => t.parentElement?.tagName !== "g",
     );
 
-  it("draws every tick at the compact size, as an attribute the gutter arithmetic can agree with", () => {
+  it("draws every tick at the phone size, as an attribute the gutter arithmetic can agree with", () => {
     const { container } = render(lineChart(true));
     const fonts = new Set(tickFonts(container));
-    expect(fonts).toEqual(new Set([String(COMPACT_TICK_FONT)]));
-    expect(COMPACT_TICK_FONT).toBeGreaterThan(TICK_FONT);
+    expect(fonts).toEqual(new Set([String(PHONE_TICK_FONT)]));
+    expect(PHONE_TICK_FONT).toBeGreaterThan(TICK_FONT);
   });
 
   it("keeps the base size everywhere else", () => {
@@ -59,20 +59,20 @@ describe("compact axes (the /charts gallery)", () => {
     expect(new Set(tickFonts(container))).toEqual(new Set([String(TICK_FONT)]));
   });
 
-  it("widens the gutter with the font, so a compact tick is not clipped at the left edge", () => {
+  it("widens the gutter with the font, so a large tick is not clipped at the left edge", () => {
     const normal = render(lineChart(false)).container;
-    const compact = render(lineChart(true)).container;
+    const phone = render(lineChart(true)).container;
     const gutter = (c: HTMLElement) =>
       Number(c.querySelector("line.chart-grid")?.getAttribute("x1"));
-    expect(gutter(compact)).toBeGreaterThan(gutter(normal));
+    expect(gutter(phone)).toBeGreaterThan(gutter(normal));
   });
 
   it("draws fewer x labels, because each one is wider", () => {
     const normal = render(lineChart(false)).container;
-    const compact = render(lineChart(true)).container;
-    expect(xLabels(compact).length).toBeLessThan(xLabels(normal).length);
+    const phone = render(lineChart(true)).container;
+    expect(xLabels(phone).length).toBeLessThan(xLabels(normal).length);
     // First and last stay — an axis whose ends are unlabelled states no range at all.
-    expect(xLabels(compact).length).toBeGreaterThanOrEqual(2);
+    expect(xLabels(phone).length).toBeGreaterThanOrEqual(2);
   });
 
   /** Horizontal extent of an x label from its anchor and measured character width. */
@@ -87,8 +87,8 @@ describe("compact axes (the /charts gallery)", () => {
       })
       .sort((a, b) => a.start - b.start);
 
-  it("keeps compact labels apart — the fused dates the first rendered gallery showed", () => {
-    // 10-character dates at the compact font are the widest labels any chart draws; a fixed
+  it("keeps large labels apart, where a fixed label count would fuse them", () => {
+    // 10-character dates at the phone font are the widest labels any chart draws; a fixed
     // label count would fuse two of them into one run.
     const extents = extentsOf(render(lineChart(true)).container);
     expect(extents.length).toBeGreaterThanOrEqual(2);
@@ -104,29 +104,12 @@ describe("compact axes (the /charts gallery)", () => {
         series={[{ key: "a", label: "A", colorClass: "band-shielded", values: [1, 2] }]}
         labels={["Jun 26", "Jul 26"]}
         formatValue={String}
-        compact
       />,
     );
     for (const { start, end } of extentsOf(container)) {
       expect(start).toBeGreaterThanOrEqual(0);
       expect(end).toBeLessThanOrEqual(CHART_W);
     }
-  });
-
-  it("applies to the stacked chart's own geometry too, marker labels included", () => {
-    const { container } = render(
-      <StackedAreaChart
-        ariaLabel="stacked"
-        series={[{ key: "a", label: "A", colorClass: "band-shielded", values: [1, 2, 3, 4] }]}
-        labels={["Jan 26", "Feb 26", "Mar 26", "Apr 26"]}
-        markers={[{ index: 1, label: "NU6.3" }]}
-        formatValue={String}
-        compact
-      />,
-    );
-    expect(new Set(tickFonts(container))).toEqual(new Set([String(COMPACT_TICK_FONT)]));
-    const marker = container.querySelector("text.chart-marker-label");
-    expect(Number(marker?.getAttribute("font-size"))).toBeGreaterThan(TICK_FONT);
   });
 });
 

@@ -3,7 +3,6 @@ import {
   NET_UNIDENTIFIED_CLIENT,
   NU7_RELEASES,
   compareVersionsDesc,
-  readinessHistory,
   summarizeUpgradeReadiness,
   type ClassifiedRelease,
   type NetReleases,
@@ -12,7 +11,8 @@ import {
   type UpgradeRelease,
 } from "@/domain";
 import { ClientMark } from "@/components/ClientMark";
-import { MultiLineChart, type MultiLineChartProps } from "@/components/MultiLineChart";
+import { MultiLineChart } from "@/components/MultiLineChart";
+import { readinessChart } from "./readiness-chart";
 import { Panel } from "@/components/Panel";
 import { netPct } from "../net-format";
 import { clientToneClass, isStripedClient } from "../net-palette";
@@ -224,18 +224,6 @@ function ReleaseRows({
   );
 }
 
-/** Dots on each day while the record is short enough that each day is worth seeing. */
-const MARKER_DAYS = 45;
-
-/** "Oct 3": the axis names days the way a reader does; the readout keeps the full date. */
-function dayLabel(day: string): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 function Trend({
   releases,
   upgrade,
@@ -245,9 +233,9 @@ function Trend({
   upgrade: NetworkUpgrade;
   upgradeReleases: readonly UpgradeRelease[];
 }) {
-  const days = readinessHistory(releases.history, upgrade, "mainnet", upgradeReleases);
+  const { days, chart } = readinessChart(releases, upgrade, upgradeReleases);
   const first = days[0];
-  if (!first || days.length < 2) {
+  if (!first || !chart) {
     return (
       <EmptyState inset>
         {first
@@ -256,33 +244,6 @@ function Trend({
       </EmptyState>
     );
   }
-  const pct = (part: number, whole: number) => (whole === 0 ? null : (100 * part) / whole);
-  const chart: MultiLineChartProps = {
-    labels: days.map((d) => dayLabel(d.day)),
-    readoutLabels: days.map((d) => d.day),
-    series: [
-      {
-        name: "Ready",
-        values: days.map((d) => pct(d.ready, d.answering)),
-        className: "text-green",
-      },
-      {
-        name: `Declare ${upgrade.minProtocolVersion.mainnet}+`,
-        values: days.map((d) => pct(d.ready + d.declares, d.answering)),
-        className: "text-green-dim",
-      },
-      {
-        name: "Behind our tip",
-        values: days.map((d) => pct(d.behindTip, d.tipKnown)),
-        className: "text-series",
-      },
-    ],
-    formatValue: (v) => `${v.toFixed(1)}%`,
-    yMax: 100,
-    markers: days.length <= MARKER_DAYS,
-    contextRows: [{ name: "Answering", values: days.map((d) => formatCount(d.answering)) }],
-    ariaLabel: `Share of answering nodes ready for ${upgrade.name}, declaring its protocol version, and behind our tip, by day since ${first.day}`,
-  };
   return (
     <>
       {/* Two renderings of one chart, by width: the drawing scales its 1000-unit frame to

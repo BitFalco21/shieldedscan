@@ -57,6 +57,16 @@ import type {
   CrossChainVolumeSeries,
   ZipIndex,
   ZnsLookup,
+  BlocksDayPoint,
+  ChainInflowPoint,
+  ChainOutflowPoint,
+  InflowKindMonthPoint,
+  SupplyDayPoint,
+  VenueMonthPoint,
+  MinerShareMonth,
+  NoteTreeDayPoint,
+  ReorgWeekSeries,
+  TransparentDayPoint,
 } from "@/domain";
 // Not part of the `@/domain` barrel; every consumer imports it from its own module.
 import type { SocialPost, SocialSnapshot } from "@/domain/social";
@@ -283,6 +293,26 @@ export interface ExplorerDataSource {
    */
   getFeeTotals(): Promise<FeeTotalSeries>;
   getCrossChainVolumeSeries(): Promise<CrossChainVolumeSeries>;
+  /** ZEC arriving per source chain per month, through the public swap venues indexed. */
+  getChainInflow(): Promise<ChainInflowPoint[]>;
+  /** ZEC leaving per destination chain per month, on the inflow's rules. */
+  getChainOutflow(): Promise<ChainOutflowPoint[]>;
+  /** ZEC per swap venue per month, both directions as separate sums. */
+  getVenueMonths(): Promise<VenueMonthPoint[]>;
+  /** Inbound ZEC and transfers per Zcash address kind per month. */
+  getInflowKinds(): Promise<InflowKindMonthPoint[]>;
+  /** Every value pool's balance at each complete UTC day's close, all history. */
+  getSupplyDays(): Promise<SupplyDayPoint[]>;
+  /** Each shielded pool's note commitment tree size at every day's close. */
+  getNoteTrees(): Promise<NoteTreeDayPoint[]>;
+  /** Transparent active addresses per complete day, with gaps where not computed. */
+  getTransparentDays(): Promise<TransparentDayPoint[]>;
+  /** The largest payout addresses' share of each month's blocks. */
+  getMinerShares(): Promise<MinerShareMonth[]>;
+  /** Blocks per complete UTC day, with each day's top height. */
+  getBlocksDaily(): Promise<BlocksDayPoint[]>;
+  /** Reorganisations this node observed per ISO week, from when it began observing. */
+  getReorgWeeks(): Promise<ReorgWeekSeries>;
   /** The mempool is unbounded on a busy chain — always paginated. */
   listMempool(page: number, pageSize: number): Promise<Paginated<MempoolEntry>>;
   /** Reorgs our own node observed, newest first — keyset over (detectedAt, id). */

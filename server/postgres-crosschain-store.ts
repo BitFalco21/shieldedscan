@@ -25,7 +25,15 @@ import {
   type ListOptions,
   type VenueHealth,
 } from "@/data/crosschain/store";
-import type { CrossChainVolumePoint, CrossChainVolumeSeries } from "@/domain";
+import type {
+  ChainInflowPoint,
+  ChainOutflowPoint,
+  CrossChainVolumePoint,
+  CrossChainVolumeSeries,
+  InflowKindMonthPoint,
+  VenueMonthPoint,
+  ZcashAddressKind,
+} from "@/domain";
 import type {
   AddressKindBucket,
   CrossChainEdgeRow,
@@ -151,6 +159,15 @@ interface AggregateRow {
  * `toISOString()`, which is UTC, so a server in another timezone would otherwise file a midnight
  * transfer under a different month than the in-memory path does.
  */
+/**
+ * The UTC start of a transfer's month or day, in unix seconds. `AT TIME ZONE 'UTC'` makes the
+ * bucket independent of the session's time zone, so a period starts where the client's
+ * `Date.UTC` says it does and a late-evening transfer stays in its own UTC month.
+ */
+function utcBucketEpoch(unit: "month" | "day"): string {
+  return `EXTRACT(EPOCH FROM date_trunc('${unit}', to_timestamp(timestamp) AT TIME ZONE 'UTC'))::bigint`;
+}
+
 function groupKeyExpression(groupBy: CrossChainGroupBy): string | null {
   switch (groupBy) {
     case "none":
@@ -713,7 +730,7 @@ export class PostgresStorePort implements CrossChainStorePort {
    */
   async volumeSeries(): Promise<CrossChainVolumeSeries> {
     const bucket = (unit: "month" | "day", extraWhere: string) => `
-      SELECT EXTRACT(EPOCH FROM date_trunc('${unit}', to_timestamp(timestamp)))::bigint AS ts,
+      SELECT ${utcBucketEpoch(unit)} AS ts,
              COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'in'), 0)::bigint  AS in_zat,
              COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'out'), 0)::bigint AS out_zat,
              count(*)::int AS transfers,
@@ -747,6 +764,88 @@ export class PostgresStorePort implements CrossChainStorePort {
       outUsdCoveredTransfers: Number(r.out_usd_covered),
     });
     return { monthly: monthly.rows.map(toPoint), daily: daily.rows.map(toPoint) };
+  }
+
+  async inflowByChain(): Promise<ChainInflowPoint[]> {
+    const { rows } = await this.#pool.query<{ ts: string; chain: string; in_zat: string }>(
+      `SELECT ${utcBucketEpoch("month")} AS ts,
+              counterpart_chain AS chain,
+              SUM(zec_amount_zat)::bigint AS in_zat
+         FROM crosschain_transfer
+        WHERE direction = 'in' AND counterpart_asset <> ALL($1)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({ timestamp: Number(r.ts), chain: r.chain, inZat: Number(r.in_zat) }));
+  }
+
+  async outflowByChain(): Promise<ChainOutflowPoint[]> {
+    const { rows } = await this.#pool.query<{ ts: string; chain: string; out_zat: string }>(
+      `SELECT ${utcBucketEpoch("month")} AS ts,
+              counterpart_chain AS chain,
+              SUM(zec_amount_zat)::bigint AS out_zat
+         FROM crosschain_transfer
+        WHERE direction = 'out' AND counterpart_asset <> ALL($1)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({
+      timestamp: Number(r.ts),
+      chain: r.chain,
+      outZat: Number(r.out_zat),
+    }));
+  }
+
+  async volumeByVenue(): Promise<VenueMonthPoint[]> {
+    const { rows } = await this.#pool.query<{
+      ts: string;
+      protocol: string;
+      in_zat: string;
+      out_zat: string;
+    }>(
+      `SELECT ${utcBucketEpoch("month")} AS ts,
+              protocol,
+              COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'in'), 0)::bigint AS in_zat,
+              COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'out'), 0)::bigint AS out_zat
+         FROM crosschain_transfer
+        WHERE counterpart_asset <> ALL($1)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({
+      timestamp: Number(r.ts),
+      protocol: r.protocol,
+      inZat: Number(r.in_zat),
+      outZat: Number(r.out_zat),
+    }));
+  }
+
+  async inflowByAddressKind(): Promise<InflowKindMonthPoint[]> {
+    const { rows } = await this.#pool.query<{
+      ts: string;
+      kind: ZcashAddressKind | null;
+      transfers: string;
+      zat: string;
+    }>(
+      `SELECT ${utcBucketEpoch("month")} AS ts,
+              zcash_address_kind AS kind,
+              count(*)::bigint AS transfers,
+              SUM(zec_amount_zat)::bigint AS zat
+         FROM crosschain_transfer
+        WHERE direction = 'in' AND counterpart_asset <> ALL($1)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({
+      timestamp: Number(r.ts),
+      kind: r.kind,
+      transfers: Number(r.transfers),
+      zat: Number(r.zat),
+    }));
   }
 
   async markSuccess(protocol: CrossChainProtocol, atSeconds: number): Promise<void> {

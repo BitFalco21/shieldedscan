@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface ChartHoverRow {
   /** Series name, as it appears in the legend. */
@@ -40,6 +40,8 @@ export interface ChartHoverProps {
    * index 0 is a bar occupying the first slice). Using the wrong one is a half-slice error.
    */
   mode?: "points" | "bands";
+  /** Told which index the readout is on, null when none, for a companion that follows it. */
+  onActiveChange?: (index: number | null) => void;
   children: React.ReactNode;
 }
 
@@ -62,9 +64,11 @@ export function ChartHover({
   plotStart = 0,
   plotEnd = 1,
   mode = "points",
+  onActiveChange,
   children,
 }: ChartHoverProps) {
   const [active, setActive] = useState<number | null>(null);
+  useEffect(() => onActiveChange?.(active), [active, onActiveChange]);
   const wrapper = useRef<HTMLDivElement>(null);
   const count = labels.length;
 
