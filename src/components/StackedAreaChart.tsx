@@ -6,7 +6,6 @@ import {
   CHART_PAD_R,
   CHART_PAD_T,
   CHART_W,
-  COMPACT_TICK_FONT,
   TICK_FONT,
   XAxis,
 } from "@/components/chart-axes";
@@ -52,8 +51,6 @@ export interface StackedAreaChartProps {
    * rather than the axis's cramped "Jun 22". Falls back to `labels`.
    */
   readoutLabels?: string[];
-  /** Gallery-size axes — see `COMPACT_TICK_FONT`. */
-  compact?: boolean;
 }
 
 /**
@@ -82,11 +79,10 @@ export function StackedAreaChart({
   formatValue,
   formatTick = formatValue,
   readoutLabels,
-  compact = false,
 }: StackedAreaChartProps) {
   const n = labels.length;
   if (n < 2 || series.length === 0) return null;
-  const tickFont = compact ? COMPACT_TICK_FONT : TICK_FONT;
+  const tickFont = TICK_FONT;
   // Marker labels keep their slightly-smaller-than-tick relationship at either size.
   const markerFont = Math.round(tickFont * (10 / 11));
 

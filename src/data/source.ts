@@ -305,7 +305,7 @@ export interface ExplorerDataSource {
   getSupplyDays(): Promise<SupplyDayPoint[]>;
   /** Each shielded pool's note commitment tree size at every day's close. */
   getNoteTrees(): Promise<NoteTreeDayPoint[]>;
-  /** Transparent active addresses and output value per day, with gaps where not computed. */
+  /** Transparent active addresses per complete day, with gaps where not computed. */
   getTransparentDays(): Promise<TransparentDayPoint[]>;
   /** The largest payout addresses' share of each month's blocks. */
   getMinerShares(): Promise<MinerShareMonth[]>;

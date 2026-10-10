@@ -212,10 +212,8 @@ export class MemoryStorePort implements CrossChainStorePort {
   /** Same rows as the Postgres store's, computed in memory for tests and fixture mode. */
   async inflowByChain(): Promise<ChainInflowPoint[]> {
     const by = new Map<string, ChainInflowPoint>();
-    for (const t of this.#store.list({ limit: 1_000_000 }).items) {
-      if (t.direction !== "in" || SETTLEMENT_ASSETS.includes(t.counterpartAsset)) continue;
-      const d = new Date(t.timestamp * 1000);
-      const timestamp = Date.UTC(d.getUTCFullYear(), d.getUTCMonth()) / 1000;
+    for (const t of this.#swaps("in")) {
+      const timestamp = monthOf(t.timestamp);
       const key = `${timestamp}:${t.counterpartChain}`;
       const point = by.get(key) ?? { timestamp, chain: t.counterpartChain, inZat: 0 };
       point.inZat += t.zecAmountZat;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fixtureDataSource } from "@/data/fixture-source";
 import { utcDayFromSeconds, type SupplyDayPoint } from "@/domain";
 import { API_GROUPS } from "@/api-catalogue";
-import { loadChartData } from "@/app/_shared/load-chart-data";
+import { chartDataFor, loadChartData } from "@/app/_shared/load-chart-data";
 import { CHART_CATEGORIES, CHARTS, VISIBLE_CHARTS, relatedCharts } from "../catalog";
 import { chartData } from "../chart-data";
 import { chartPreview, sampleEvenly, SPARK_POINTS } from "../chart-preview";
@@ -30,6 +30,16 @@ describe("every chart's table", async () => {
       expect(csv).toHaveLength(t!.rows.length + 1);
     });
   }
+
+  it("is drawn the same from the series the chart is handed alone", () => {
+    // A detail page passes the chart only its own series: a series missing from its needs
+    // would draw as unavailable there and nowhere else.
+    for (const { slug } of VISIBLE_CHARTS) {
+      expect(chartTable(slug, chartDataFor(slug, data), "all"), slug).toEqual(
+        chartTable(slug, data, "all"),
+      );
+    }
+  });
 
   it("is null exactly when the series is unreadable, as the chart says unavailable", () => {
     for (const { slug } of VISIBLE_CHARTS)
@@ -85,6 +95,18 @@ describe("previews", () => {
       daily: [{ timestamp: now - DAY, feeZat: 1_000, blocks: 1_150, blocksCovered: 1_100 }],
     };
     expect(chartPreview("fee-totals", chartData({ feeTotals } as never), now).headline).toBeNull();
+  });
+
+  it("leaves a month still running out of the miniature, so it never ends in a collapse", () => {
+    const chainInflow = [8, 9].map((month) => ({
+      timestamp: Date.UTC(2026, month, 1) / 1000,
+      chain: "BTC",
+      inZat: 100,
+    }));
+    chainInflow.push({ timestamp: Date.UTC(2026, 10, 1) / 1000, chain: "BTC", inZat: 1 });
+    const asOf = Date.UTC(2026, 10, 3) / 1000;
+    const { thumb } = chartPreview("inflow-by-chain", chartData({ chainInflow, asOf }), asOf);
+    expect(thumb?.kind === "stacked-bars" && thumb.series[0]!.values).toEqual([100, 100]);
   });
 
   it("carries neither a figure nor a shape when the series is unreadable", () => {
@@ -259,6 +281,18 @@ describe("the newer charts' tables", () => {
       "30d",
     )!;
     expect(unread.rows[0]).toEqual([null, null, null]);
+  });
+
+  it("gives no share for a close where a pool that existed reads null, rather than a dip", () => {
+    const supplyDays = [
+      supplyDay(1, { orchardZat: 300 }),
+      supplyDay(2, { orchardZat: null }),
+      supplyDay(3, { orchardZat: 310 }),
+    ];
+    // The gap is judged over the whole history, so a range starting at the gap still sees it.
+    const t = chartTable("shielded-share", chartData({ supplyDays }), "30d")!;
+    // 600 of 1,300, then nothing for the unread close, then 610 of 1,310.
+    expect(t.rows.map((r) => r[0])).toEqual([46.15, null, 46.56]);
   });
 
   it("reads the whole history at each month's close", () => {

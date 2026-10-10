@@ -115,8 +115,11 @@ describeDb("the chart library's newer series", () => {
     await pool.end();
   });
 
-  it("pivots tree sizes per pool, never reading Sprout's", async () => {
+  it("pivots tree sizes per pool, never reading Sprout's, and leaves out today", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    await pool.query("INSERT INTO pool_usage_daily VALUES ($1, 'sapling', 999)", [today]);
     const body = await get<NoteTreeDayPoint[]>(NOTE_TREES_PATH);
+    await pool.query("DELETE FROM pool_usage_daily WHERE day = $1", [today]);
     expect(body).toEqual([
       { timestamp: SEP, saplingNotes: 100, orchardNotes: 50, ironwoodNotes: null },
       { timestamp: SEP + DAY, saplingNotes: 110, orchardNotes: 55, ironwoodNotes: 3 },
@@ -237,6 +240,29 @@ describeDb("the chart library's newer series", () => {
       ]);
     } finally {
       await store.close();
+    }
+  });
+
+  it("buckets months in UTC whatever the session's time zone", async () => {
+    // 23:30 UTC on 30 September is already 1 October in Paris.
+    const lateSeptember = Date.UTC(2026, 8, 30, 23, 30) / 1000;
+    await pool.query(
+      `INSERT INTO crosschain_transfer VALUES
+        ('tz', 'maya', 'out', 'SOL', 'SOL', 'transparent', 42, $1)`,
+      [lateSeptember],
+    );
+    const paris = new URL(url);
+    paris.searchParams.set("options", "-c TimeZone=Europe/Paris");
+    const store = new PostgresStorePort(paris.toString());
+    try {
+      expect(await store.outflowByChain()).toContainEqual({
+        timestamp: SEP,
+        chain: "SOL",
+        outZat: 42,
+      });
+    } finally {
+      await store.close();
+      await pool.query("DELETE FROM crosschain_transfer WHERE id = 'tz'");
     }
   });
 });

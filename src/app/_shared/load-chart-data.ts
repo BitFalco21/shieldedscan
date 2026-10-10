@@ -1,7 +1,7 @@
 import type { ExplorerDataSource } from "@/data/source";
 import { nowSeconds } from "@/lib/clock";
 import { nullIfTransient } from "@/lib/transient-upstream";
-import type { ChartData } from "@/features/charts/chart-data";
+import { chartData, type ChartData } from "@/features/charts/chart-data";
 import type { ChartSlug } from "@/features/charts/catalog";
 
 /** Which series each chart needs — the loader fetches only these for a detail page. */
@@ -32,6 +32,16 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "shielded-capable-swaps": ["inflowKinds"],
   "shielded-share": ["supplyDays"],
 };
+
+/**
+ * `data` narrowed to the series `slug` draws, every other member null. A detail page loads its
+ * related charts' series for their cards; handing all of them to the client chart would
+ * serialise every one into the page for nothing.
+ */
+export function chartDataFor(slug: ChartSlug, data: ChartData): ChartData {
+  const pick = <K extends keyof ChartData>(key: K) => ({ [key]: data[key] }) as Pick<ChartData, K>;
+  return chartData(Object.assign({ asOf: data.asOf }, ...NEEDS[slug].map(pick)));
+}
 
 /**
  * Load the series a set of charts needs, each guarded independently.

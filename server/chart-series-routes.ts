@@ -35,7 +35,10 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   const blocksDaily = new Cached<BlocksDayPoint[]>();
   const supplyDays = new Cached<SupplyDayPoint[]>();
 
-  /** Each shielded pool's note commitment tree size at every day's close, all history. */
+  /**
+   * Each shielded pool's note commitment tree size at every complete day's close, all history.
+   * Today is left out: its row is a close not yet made.
+   */
   app.get(NOTE_TREES_PATH, async (c) =>
     c.json(
       await noteTrees.get(async () => {
@@ -50,6 +53,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
                   max(notes_at_close) FILTER (WHERE pool = 'orchard')  AS orchard,
                   max(notes_at_close) FILTER (WHERE pool = 'ironwood') AS ironwood
              FROM pool_usage_daily
+            WHERE day < (now() AT TIME ZONE 'UTC')::date
             GROUP BY day
             ORDER BY day`,
         );

@@ -2,7 +2,6 @@ import { ChartHover, type ChartHoverRow } from "@/components/ChartHover";
 import {
   CHART_H,
   CHART_W,
-  COMPACT_TICK_FONT,
   PHONE_CHART_H,
   PHONE_TICK_FONT,
   TICK_FONT,
@@ -63,14 +62,8 @@ export interface MultiLineChartProps {
    */
   baseline?: "zero" | "data";
   /**
-   * Gallery-size axes: the /charts grid renders this chart at ~half width, scaling the whole
-   * viewBox down, so ticks are drawn larger to land back at a readable size. See
-   * `COMPACT_TICK_FONT`.
-   */
-  compact?: boolean;
-  /**
-   * Phone-size axes and a taller frame, for a chart rendered across a phone's width. Takes
-   * precedence over `compact`. See `PHONE_TICK_FONT`.
+   * Phone-size axes and a taller frame, for a chart rendered across a phone's width. See
+   * `PHONE_TICK_FONT`.
    */
   phone?: boolean;
   /**
@@ -109,7 +102,6 @@ export function MultiLineChart({
   readoutLabels,
   contextRows = [],
   baseline = "zero",
-  compact = false,
   phone = false,
   yMax,
   markers = false,
@@ -134,7 +126,7 @@ export function MultiLineChart({
     max,
     formatTick,
     min,
-    phone ? PHONE_TICK_FONT : compact ? COMPACT_TICK_FONT : TICK_FONT,
+    phone ? PHONE_TICK_FONT : TICK_FONT,
     phone ? PHONE_CHART_H : CHART_H,
   );
 
@@ -209,7 +201,7 @@ export function MultiLineChart({
                     key={`${s.name}-dot-${i}`}
                     cx={frame.x(i)}
                     cy={frame.y(v)}
-                    r={phone ? 10 : compact ? 6 : 4}
+                    r={phone ? 10 : 4}
                     fill="currentColor"
                     className={s.className}
                     opacity={s.opacity ?? 1}

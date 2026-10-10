@@ -10,7 +10,7 @@ import { ChartFigure } from "@/features/charts/ChartFigure";
 import { VISIBLE_CHARTS, chartBySlug, relatedCharts } from "@/features/charts/catalog";
 import { chartPreview } from "@/features/charts/chart-preview";
 import { nowSeconds } from "@/lib/clock";
-import { loadChartData } from "@/app/_shared/load-chart-data";
+import { chartDataFor, loadChartData } from "@/app/_shared/load-chart-data";
 import { apiBaseUrl } from "@/lib/site";
 
 export function generateStaticParams() {
@@ -65,7 +65,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       />
 
       <Panel>
-        <ChartFigure slug={chart.slug} data={data} detail />
+        <ChartFigure slug={chart.slug} data={chartDataFor(chart.slug, data)} detail />
       </Panel>
 
       <div className="mt-3 max-w-2xl space-y-3">

@@ -12,7 +12,7 @@ import {
 } from "@/lib/format";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
-import { chartTable, FOLDED_KEY, type ChartTable } from "./chart-table";
+import { chartTable, FOLDED_KEY, runningMonth, type ChartTable } from "./chart-table";
 import { POOL_STACK } from "./pool-series";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 
@@ -176,6 +176,12 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
   }
 }
 
+const withoutLastRow = (t: ChartTable): ChartTable => ({
+  ...t,
+  timestamps: t.timestamps.slice(0, -1),
+  rows: t.rows.slice(0, -1),
+});
+
 /**
  * The index of the newest row covering a COMPLETE UTC day: today's row is still filling, and a
  * headline read from it would report a drop that has not happened.
@@ -186,6 +192,17 @@ function lastCompleteDay(t: ChartTable, nowSec: number): number | null {
     if (utcDayFromSeconds(t.timestamps[i]!) < today) return i;
   }
   return null;
+}
+
+/**
+ * The index of the newest month that has ended at `nowSec`: a share of a month still filling
+ * moves as it fills, so a headline never reads one.
+ */
+function lastEndedMonth(t: ChartTable, nowSec: number): number | null {
+  const now = new Date(nowSec * 1000);
+  const thisMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth()) / 1000;
+  const i = t.timestamps.findLastIndex((ts) => ts < thisMonth);
+  return i >= 0 ? i : null;
 }
 
 /** The newest row with a value in `column`, for stocks (a balance, a price) read as they stand. */
@@ -330,14 +347,10 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       };
     }
     case "miner-concentration": {
-      // The newest month that has ended: a share of a half-mined month moves as it fills.
       const t = chartTable(slug, data, "all");
-      if (!t) return null;
-      const now = new Date(nowSec * 1000);
-      const thisMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth()) / 1000;
-      const i = t.timestamps.findLastIndex((ts) => ts < thisMonth);
-      const pct = i >= 0 ? t.rows[i]![0] : null;
-      if (i < 0 || pct === null || pct === undefined) return null;
+      const i = t && lastEndedMonth(t, nowSec);
+      const pct = t && i !== null ? t.rows[i]![0] : null;
+      if (!t || i === null || pct === null || pct === undefined) return null;
       return {
         value: formatSharePct(pct),
         caption: `of blocks to the largest payout address, ${monthLong(t.timestamps[i]!)}`,
@@ -374,14 +387,10 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       };
     }
     case "shielded-capable-swaps": {
-      // The newest month that has ended: a share of a half-month moves as it fills.
       const t = chartTable(slug, data, "all");
-      if (!t) return null;
-      const now = new Date(nowSec * 1000);
-      const thisMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth()) / 1000;
-      const i = t.timestamps.findLastIndex((ts) => ts < thisMonth);
-      const pct = i >= 0 ? t.rows[i]![0] : null;
-      if (i < 0 || pct === null || pct === undefined) return null;
+      const i = t && lastEndedMonth(t, nowSec);
+      const pct = t && i !== null ? t.rows[i]![0] : null;
+      if (!t || i === null || pct === null || pct === undefined) return null;
       return {
         value: formatSharePct(pct),
         caption: `of incoming swaps went to a shielded-capable address, ${monthLong(t.timestamps[i]!)}`,
@@ -392,6 +401,9 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
 
 export function chartPreview(slug: ChartSlug, data: ChartData, nowSec: number): ChartPreview {
   const t = chartTable(slug, data, "all");
-  const thumb = t && t.rows.length >= 2 ? thumbOf(slug, t) : null;
+  // A month still running would end the miniature in a collapse; the full chart hatches it, and
+  // a sketch too small to carry the hatching leaves it out.
+  const shown = t && runningMonth(t, data.asOf) ? withoutLastRow(t) : t;
+  const thumb = shown && shown.rows.length >= 2 ? thumbOf(slug, shown) : null;
   return { thumb, headline: headline(slug, data, nowSec) };
 }

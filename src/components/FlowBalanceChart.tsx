@@ -6,7 +6,6 @@ import {
   CHART_PAD_R,
   CHART_PAD_T,
   CHART_W,
-  COMPACT_TICK_FONT,
   TICK_FONT,
   tickCharW,
   XAxis,
@@ -31,8 +30,6 @@ export interface FlowBalanceChartProps {
   formatTick?: (value: number) => string;
   /** Unambiguous labels for the readout; falls back to each point's axis label. */
   readoutLabels?: string[];
-  /** Gallery-size axes — see `COMPACT_TICK_FONT`. */
-  compact?: boolean;
 }
 
 /**
@@ -56,7 +53,6 @@ export function FlowBalanceChart({
   formatValue = String,
   formatTick = formatValue,
   readoutLabels,
-  compact = false,
 }: FlowBalanceChartProps) {
   if (points.length === 0) return null;
 
@@ -72,7 +68,7 @@ export function FlowBalanceChart({
   // The readout's net is a stated amount and keeps full precision; the axis ticks need less.
   const signed = signedWith(formatValue);
   const signedTick = signedWith(formatTick);
-  const tickFont = compact ? COMPACT_TICK_FONT : TICK_FONT;
+  const tickFont = TICK_FONT;
   const ticks = [-1, -0.5, 0, 0.5, 1].map((f) => maxAbs * f);
   const padL =
     Math.max(...ticks.map((t) => signedTick(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;

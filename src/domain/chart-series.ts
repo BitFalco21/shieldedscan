@@ -79,7 +79,8 @@ export interface VenueMonthPoint {
 /**
  * ZEC arriving in one month at one kind of Zcash address. A unified address is shielded-capable
  * only: it may carry a transparent receiver, and which receiver a payout used is not public.
- * Null is an address the indexer could not classify; it stays in every denominator.
+ * Null is a transfer whose venue published no Zcash address: the shielded-capable share leaves it
+ * out of both terms, as `/v1/crosschain/destinations` does.
  */
 export interface InflowKindMonthPoint {
   timestamp: number;
@@ -115,6 +116,23 @@ export function shieldedOfCirculating(
   const shieldedZat =
     p.sproutZat + (p.saplingZat ?? 0) + (p.orchardZat ?? 0) + (p.ironwoodZat ?? 0);
   return { shieldedZat, circulatingZat: p.transparentZat + shieldedZat };
+}
+
+/**
+ * `shieldedOfCirculating` over closes in time order. A null pool counts as empty only before it
+ * first held a balance: one that has, then reads null, is an unread close, and that close gets
+ * no split rather than a share that dips by a whole pool.
+ */
+export function shieldedSplits(
+  points: readonly SupplyDayPoint[],
+): ({ shieldedZat: number; circulatingZat: number } | null)[] {
+  const pools = ["saplingZat", "orchardZat", "ironwoodZat"] as const;
+  const existed = new Set<(typeof pools)[number]>();
+  return points.map((p) => {
+    const gap = pools.some((pool) => existed.has(pool) && p[pool] === null);
+    for (const pool of pools) if (p[pool] !== null) existed.add(pool);
+    return gap ? null : shieldedOfCirculating(p);
+  });
 }
 
 /**

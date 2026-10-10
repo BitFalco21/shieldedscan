@@ -1,7 +1,7 @@
-import type { ChartRange, SupplyDayPoint } from "@/domain";
+import type { ChartRange } from "@/domain";
 import {
   blocksTargetForDay,
-  shieldedOfCirculating,
+  shieldedSplits,
   NU7,
   NU7_RELEASES,
   readinessHistory,
@@ -462,19 +462,21 @@ export function chartTable(
       ]);
     }
     case "shielded-share": {
-      if (!data.supplyDays) return null;
-      const days = sliceRange(data.supplyDays, (p) => p.timestamp, range);
-      const split = (p: SupplyDayPoint) => shieldedOfCirculating(p);
+      const supply = data.supplyDays;
+      if (!supply) return null;
+      // Split over the whole history first, so a gap is a gap whatever range is shown.
+      const closes = shieldedSplits(supply).map((split, i) => ({
+        timestamp: supply[i]!.timestamp,
+        split,
+      }));
+      const days = sliceRange(closes, (p) => p.timestamp, range);
       return table(grain, daily ? days : monthCloses(days), [
         {
           name: "shielded_pct",
-          value: (p) => {
-            const s = split(p);
-            return s ? share(s.shieldedZat, s.circulatingZat) : null;
-          },
+          value: (p) => (p.split ? share(p.split.shieldedZat, p.split.circulatingZat) : null),
         },
-        { name: "shielded_zat", value: (p) => split(p)?.shieldedZat ?? null },
-        { name: "circulating_zat", value: (p) => split(p)?.circulatingZat ?? null },
+        { name: "shielded_zat", value: (p) => p.split?.shieldedZat ?? null },
+        { name: "circulating_zat", value: (p) => p.split?.circulatingZat ?? null },
       ]);
     }
   }
