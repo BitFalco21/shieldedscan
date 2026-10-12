@@ -233,9 +233,11 @@ describe("addressRun", () => {
     expect(run(["t1A", "t1B", "t1C"], "output")).toBe("<t1A>, <t1B> and <t1C>");
   });
 
-  it("past three, names two and counts the rest, so none is dropped", () => {
-    expect(run(["t1A", "t1B", "t1C", "t1D", "t1E"], "output")).toBe(
-      "<t1A>, <t1B> and 3 more addresses",
+  it("past three, counts them all rather than naming some", () => {
+    // Naming two of five would single those two out; the flow panel lists every one.
+    expect(run(["t1A", "t1B", "t1C", "t1D", "t1E"], "output")).toBe("5 transparent addresses");
+    expect(run(["t1A", "t1B", "t1C", "t1D", ""], "output")).toBe(
+      "4 transparent addresses and 1 output with no address",
     );
   });
 

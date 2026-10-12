@@ -1,5 +1,6 @@
 import type { CrossChainTransfer, ZcashTxCrossings } from "@/domain";
 import { ActionSentence } from "@/components/ActionSentence";
+import { SwapIcon } from "@/components/SwapIcon";
 import Link from "@/components/Link";
 import { formatCount } from "@/lib/format";
 import { transferAction } from "./transferAction";
@@ -30,8 +31,9 @@ export function SwapLegLines({ crossings, placement, zecUsd }: SwapLegLinesProps
   if (transfers.length === 0) return null;
   const shown = transfers.slice(0, SWAP_LINES_SHOWN);
   const folded = transfers.slice(SWAP_LINES_SHOWN);
-  // Counted from the total, not the list: an API that capped the list still reported every swap.
-  const more = total - shown.length;
+  // Counted from the total, not the list, since an API that capped the list still reported every
+  // swap; and never fewer than the list holds, so a lagging total drops none of it.
+  const more = Math.max(total, transfers.length) - shown.length;
   return (
     <div
       className={`border-dashed border-edge-faint ${placement === "before" ? "border-b" : "border-t"}`}
@@ -65,17 +67,7 @@ function SwapLegLine({ transfer, zecUsd }: { transfer: CrossChainTransfer; zecUs
   const action = transferAction(transfer);
   return (
     <div className="flex items-start gap-3 px-4 py-3 not-first:border-t not-first:border-dashed not-first:border-edge-faint sm:px-5">
-      <svg
-        aria-hidden
-        viewBox="0 0 24 24"
-        className="mt-1 h-3.5 w-3.5 shrink-0 text-ink-dim"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      >
-        <path d="M4 12h15M15 8l4 4-4 4M12 3v3M12 18v3" />
-      </svg>
+      <SwapIcon className="mt-1 h-3.5 w-3.5 shrink-0 text-ink-dim" />
       <div className="min-w-0 flex-1">
         {/* One inline line with a real separator: a flex row would discard the whitespace and
             the label and link would copy as one word. */}

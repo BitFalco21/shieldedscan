@@ -4,6 +4,7 @@ import type { ZcashTxCrossings } from "@/domain";
 import { getDataSource } from "@/data";
 import type { ExplorerDataSource } from "@/data/source";
 import { TxDetailPage } from "@/features/transactions/TxDetailPage";
+import { nowSeconds } from "@/lib/clock";
 import { shortHash, usdAtDay } from "@/lib/format";
 import { isTestnet } from "@/lib/network";
 import { isTransientUpstream } from "@/lib/transient-upstream";
@@ -30,11 +31,14 @@ export default async function Page({ params }: { params: Promise<{ txid: string 
     data.getDailyPriceMap().catch(() => ({}) as Record<string, number>),
   ]);
   if (!tx) notFound();
+  // A pending transaction has no block time yet: it is valued as of now, at the current price.
+  const now = nowSeconds();
+  const at = tx.blockHeight === null ? now : tx.timestamp;
   return (
     <TxDetailPage
       tx={tx}
       tipHeight={chain.height}
-      priceUsd={usdAtDay(tx.timestamp, dailyUsd, chain.priceUsd, chain.lastBlockTimestamp)}
+      priceUsd={usdAtDay(at, dailyUsd, chain.priceUsd, now)}
       crossings={crossings}
     />
   );

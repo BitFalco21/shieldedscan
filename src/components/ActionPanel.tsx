@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ActionPart } from "@/domain";
 import { ActionSentence } from "@/components/ActionSentence";
+import { SwapIcon } from "@/components/SwapIcon";
 import { PrivacyShield, type PrivacyVariant } from "@/components/PrivacyShield";
 
 export interface ActionPanelProps {
@@ -24,7 +25,8 @@ export interface ActionPanelProps {
   lead?: ReactNode;
   /**
    * Lines another source states about an event that came AFTER this action, drawn inside its box
-   * under the sentence: a swap out of Zcash this transaction deposited for.
+   * at the bottom: a swap out of Zcash this transaction deposited for. Below the closing line, so
+   * that line stays with the sentence it qualifies and never reads as a caveat about the swap.
    */
   children?: ReactNode;
   className?: string;
@@ -52,18 +54,9 @@ export function ActionPanel({
       <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
         <span className="mt-2.5 shrink-0">
           {icon === "swap" ? (
-            <svg
-              role="img"
-              aria-label="a crossing between chains"
-              viewBox="0 0 24 24"
-              className="h-3.5 w-3.5 text-ink-dim"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            >
-              <path d="M4 12h15M15 8l4 4-4 4M12 3v3M12 18v3" />
-            </svg>
+            <span role="img" aria-label="a crossing between chains" className="text-ink-dim">
+              <SwapIcon className="h-3.5 w-3.5" />
+            </span>
           ) : (
             <PrivacyShield variant={icon} />
           )}
@@ -72,7 +65,6 @@ export function ActionPanel({
           <ActionSentence parts={parts} zecUsd={zecUsd} />
         </div>
       </div>
-      {children}
       {/* Inline, not flex: a flex row discards the whitespace-only text node, and the label
           would then copy as one word with the sentence ("NOT ON CHAINWhich output…"). */}
       {limit === undefined ? null : (
@@ -80,6 +72,7 @@ export function ActionPanel({
           <span className="microlabel mr-2 text-green-dim">{limitLabel}</span> {limit}
         </p>
       )}
+      {children}
     </section>
   );
 }

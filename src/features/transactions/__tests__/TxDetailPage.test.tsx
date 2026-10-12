@@ -340,8 +340,8 @@ describe("TxDetailPage swap leg", () => {
     const text = panelFor({ ...crossing, direction: "out" }).textContent ?? "";
     expect(text).toContain("Swap out of Zcash");
     expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("Swapped"));
-    // Both before what the chain does not record, which closes the box.
-    expect(text.indexOf("Swapped")).toBeLessThan(text.indexOf("NOT ON CHAIN"));
+    // What the chain does not record stays under the transaction's sentence, not the swap's.
+    expect(text.indexOf("NOT ON CHAIN")).toBeLessThan(text.indexOf("Swapped"));
   });
 
   it("values every public ZEC amount in the panel at one price, the swap's included", () => {
@@ -380,6 +380,21 @@ describe("TxDetailPage swap leg", () => {
     // All five listed render (two open, three inside the disclosure): none is dropped.
     expect(screen.getAllByRole("link", { name: "view the transfer →", hidden: true })).toHaveLength(
       5,
+    );
+  });
+
+  it("drops no listed swap when the reported total lags the list", () => {
+    const batch = Array.from({ length: 4 }, (_, i) => ({ ...crossing, id: `near-l${i}` }));
+    render(
+      <TxDetailPage
+        tx={fullyShielded}
+        tipHeight={2_481_040}
+        priceUsd={null}
+        crossings={{ transfers: batch, total: 2 }}
+      />,
+    );
+    expect(screen.getAllByRole("link", { name: "view the transfer →", hidden: true })).toHaveLength(
+      4,
     );
   });
 

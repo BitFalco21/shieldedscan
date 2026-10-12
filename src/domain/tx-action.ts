@@ -6,7 +6,7 @@ import { poolMigration, txPools } from "./pool";
 import type { Transaction } from "./transaction";
 import type { FlowEnd, TxTypeName } from "./tx-flow-path";
 import { txFlowPath } from "./tx-flow-path";
-import { publicValueZat } from "./value";
+import { publicValueZat, sideZat } from "./value";
 import { capitalise, formatZecAmount } from "@/lib/format";
 
 /**
@@ -111,14 +111,14 @@ export type AddressRunItem =
   | { kind: "count"; text: string }
   | { kind: "separator"; text: string };
 
-/** Past this many distinct addresses, the page names two and counts the rest. */
+/** Past this many distinct addresses, the page counts them rather than naming some of them. */
 const ADDRESSES_NAMED = 3;
 
 /**
  * A transparent side as the page names it: each distinct address once, in order (forty inputs
- * from one address are that address), every one of them up to three, past that the first two
- * and a count; then the inputs or outputs that name no address, counted. Joined the way prose
- * joins words, so nothing is dropped and none is singled out.
+ * from one address are that address), every one of them up to three. Past three it counts them
+ * all: naming only some would single those out, and the flow panel lists every one. The inputs
+ * or outputs that name no address are counted too. Joined the way prose joins words.
  */
 export function addressRun(
   addresses: readonly string[],
@@ -126,11 +126,11 @@ export function addressRun(
 ): AddressRunItem[] {
   const distinct = [...new Set(addresses.filter((a) => a !== ""))];
   const unnamed = addresses.length - addresses.filter((a) => a !== "").length;
-  const named = distinct.length <= ADDRESSES_NAMED ? distinct : distinct.slice(0, 2);
-  const rest = distinct.length - named.length;
+  const named = distinct.length <= ADDRESSES_NAMED;
   const pieces: AddressRunItem[] = [
-    ...named.map((address): AddressRunItem => ({ kind: "address", address })),
-    ...(rest > 0 ? [{ kind: "count" as const, text: `${rest} more addresses` }] : []),
+    ...(named
+      ? distinct.map((address): AddressRunItem => ({ kind: "address", address }))
+      : [{ kind: "count" as const, text: `${distinct.length} transparent addresses` }]),
     ...(unnamed > 0
       ? [
           {
@@ -150,16 +150,14 @@ export function addressRun(
 export function txAction(tx: Transaction): TxAction {
   const kind = txKind(tx);
   const pools = txPools(tx);
-  const ins = tx.transparentInputs.length;
-  const outs = tx.transparentOutputs.length;
   const inputs = tx.transparentInputs;
   const outputs = tx.transparentOutputs;
 
   if (kind === "coinbase") {
     // Issued value: the transparent outputs plus whatever a ZIP-213 coinbase paid into a pool,
     // which that pool's own balance publishes. Both public, so the total is a fact.
-    const paidOut = outputs.reduce((s, o) => s + o.valueZat, 0);
-    const total = paidOut + (reportsValueBalance(tx) ? Math.max(0, netShieldedZat(tx)) : 0);
+    const total =
+      sideZat(outputs) + (reportsValueBalance(tx) ? Math.max(0, netShieldedZat(tx)) : 0);
     const to = txFlowPath(tx)?.to ?? [];
     const paidTo = to.flatMap((e, i) => [
       ...(i === 0 ? [] : [text(" and ")]),
@@ -220,7 +218,7 @@ export function txAction(tx: Transaction): TxAction {
 
   if (kind === "transparent") {
     const value = publicValueZat(tx);
-    if (value === null || outs === 0) {
+    if (value === null || outputs.length === 0) {
       return {
         parts: [
           verb("Spent"),
@@ -256,11 +254,9 @@ export function txAction(tx: Transaction): TxAction {
   // "value" rather than a fabricated 0.00.
   const crossedZat = reportsValueBalance(tx) ? Math.abs(netShieldedZat(tx)) : null;
   const amount = crossedZat === null ? [text("value")] : [zec(crossedZat)];
-  const bothSides = ins > 0 && outs > 0;
-  // The other transparent side's own total, so the clause beside the crossing states an amount
-  // rather than a bare address: both are public, and neither is called change.
-  const sideZat = (side: readonly { valueZat: number }[]) =>
-    side.reduce((t, o) => t + o.valueZat, 0);
+  // With both transparent sides present, the side beside the crossing states its own total, so
+  // the clause names an amount rather than a bare address: both are public, neither is change.
+  const bothSides = inputs.length > 0 && outputs.length > 0;
   const opposite = (): ActionPart[] => [
     text(" net, while "),
     ...ends(["transparent", ...pools]),

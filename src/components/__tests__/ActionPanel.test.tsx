@@ -52,19 +52,21 @@ describe("ActionPanel", () => {
     expect(container.querySelector(".border-dashed")).toBeNull();
   });
 
-  it("draws its lines between the sentence and the closing line, inside the one box", () => {
+  it("draws what came before above the sentence, and what came after below its closing line", () => {
     const { container } = render(
       <ActionPanel
         icon="transparent"
         parts={[{ kind: "verb", text: "Moved", tone: "plain" }]}
         limit="Which output is the payment and which is change."
+        lead={<p>earlier</p>}
       >
-        <p>the venue’s report</p>
+        <p>later</p>
       </ActionPanel>,
     );
     const text = container.textContent ?? "";
     expect(container.querySelectorAll("section")).toHaveLength(1);
-    expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("the venue’s report"));
-    expect(text.indexOf("the venue’s report")).toBeLessThan(text.indexOf("NOT ON CHAIN"));
+    // The closing line stays with the sentence it qualifies, never under someone else's report.
+    const order = ["earlier", "Moved", "NOT ON CHAIN", "later"].map((t) => text.indexOf(t));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 });

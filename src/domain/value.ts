@@ -18,11 +18,16 @@ export function totalFeeZat(txs: readonly Transaction[]): number | null {
 }
 
 /** Public transparent value of a tx, or null when nothing is public (fully shielded). */
+/** The ZEC on one transparent side of a transaction: its inputs' or its outputs' total. */
+export function sideZat(side: readonly { valueZat: number }[]): number {
+  return side.reduce((sum, entry) => sum + entry.valueZat, 0);
+}
+
 export function publicValueZat(tx: Transaction): number | null {
   if (txKind(tx) === "shielded") return null;
-  const out = tx.transparentOutputs.reduce((s, o) => s + o.valueZat, 0);
+  const out = sideZat(tx.transparentOutputs);
   if (out > 0) return out;
-  const inn = tx.transparentInputs.reduce((s, i) => s + i.valueZat, 0);
+  const inn = sideZat(tx.transparentInputs);
   if (inn > 0) return inn;
   return null;
 }

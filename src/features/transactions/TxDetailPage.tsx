@@ -114,9 +114,20 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
   // In the order things happened: a swap into Zcash came before the transaction that paid it out,
   // so its lines lead; a swap out came after the deposit, so its lines follow. A batch is one
   // direction in practice; a mixed one follows the sentence.
-  const swaps = crossings !== undefined && crossings.transfers.length > 0;
-  const swapsIn = swaps && crossings.transfers.every((t) => t.direction === "in");
-  const swapsOut = swaps && !swapsIn;
+  const swapPlacement =
+    crossings === undefined || crossings.transfers.length === 0
+      ? null
+      : crossings.transfers.every((t) => t.direction === "in")
+        ? "before"
+        : "after";
+  const swapLines =
+    crossings === undefined || swapPlacement === null ? null : (
+      <SwapLegLines
+        crossings={crossings}
+        placement={swapPlacement}
+        zecUsd={priceUsd ?? undefined}
+      />
+    );
   // Derived at render time, never carried on the transaction: a stored count would go
   // stale inside the CDN's cache window.
   const confirmations = tx.blockHeight !== null ? tipHeight - tx.blockHeight + 1 : null;
@@ -271,19 +282,9 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           zecUsd={priceUsd ?? undefined}
           limit={action.limit}
           limitLabel={action.limitLabel}
-          lead={
-            swapsIn && crossings ? (
-              <SwapLegLines
-                crossings={crossings}
-                placement="before"
-                zecUsd={priceUsd ?? undefined}
-              />
-            ) : undefined
-          }
+          lead={swapPlacement === "before" ? swapLines : undefined}
         >
-          {swapsOut && crossings ? (
-            <SwapLegLines crossings={crossings} placement="after" zecUsd={priceUsd ?? undefined} />
-          ) : null}
+          {swapPlacement === "after" ? swapLines : null}
         </ActionPanel>
       </PageHeader>
 
