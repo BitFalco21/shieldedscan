@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import type { ActionPart } from "@/domain";
 import { ZCASH_CHAIN, addressRun, assetTickerIsKnown, protocolLabel } from "@/domain";
-import { formatZecAmount } from "@/lib/format";
+import { formatZatUsd, formatZecAmount } from "@/lib/format";
 import { coinTicker, isTestnet } from "@/lib/network";
 import { ChainLogo } from "@/components/ChainLogo";
 import { AddressLink } from "@/components/AddressLink";
@@ -13,10 +13,11 @@ import { Redacted } from "@/components/Redacted";
 export interface ActionSentenceProps {
   parts: readonly ActionPart[];
   /**
-   * The dollar value of one amount the sentence states, drawn right after that amount: a figure
-   * under the whole sentence would read as the value of whatever it ends on.
+   * ZEC's dollar price for the sentence's day. Every public ZEC amount it states gets its value
+   * right after it: a figure under the whole sentence would read as the value of whatever the
+   * sentence ends on. An encrypted amount is never priced.
    */
-  price?: { zat: number; usd: string };
+  zecUsd?: number;
 }
 
 /**
@@ -27,19 +28,16 @@ export interface ActionSentenceProps {
  * CSS — copy-paste and a screen reader get the text, not the layout. Marks are decorative
  * (`aria-hidden`): the word beside each one already names it.
  */
-export function ActionSentence({ parts, price }: ActionSentenceProps) {
-  // The first statement of the priced amount; a sentence that repeats a figure prices it once.
-  const priced =
-    price === undefined ? -1 : parts.findIndex((p) => p.kind === "zec" && p.zat === price.zat);
+export function ActionSentence({ parts, zecUsd }: ActionSentenceProps) {
   return (
     <p className="text-[15px] leading-8 text-ink">
       {parts.map((part, index) => (
         <Fragment key={index}>
           <Part part={part} />
-          {index === priced ? (
+          {part.kind === "zec" && part.zat !== null && zecUsd !== undefined ? (
             <span className="text-xs whitespace-nowrap text-ink-dim">
               {" ("}
-              <span>{price!.usd}</span>)
+              <span>{formatZatUsd(part.zat, zecUsd)}</span>)
             </span>
           ) : null}
         </Fragment>

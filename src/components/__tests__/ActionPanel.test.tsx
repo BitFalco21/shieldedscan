@@ -14,7 +14,7 @@ describe("ActionPanel", () => {
           { kind: "text", text: " from " },
           { kind: "end", end: "transparent", before: "3 ", after: " inputs" },
         ]}
-        price={{ zat: 71_212_516, usd: "≈ $932.98" }}
+        zecUsd={100}
         limit="Which output is the payment and which is change."
       />,
     );
@@ -22,7 +22,7 @@ describe("ActionPanel", () => {
     expect(container.textContent).toContain("from 3 transparent inputs");
     expect(container.textContent).toContain("NOT ON CHAIN Which output is the payment");
     // The dollar figure beside the amount it prices, not under the whole sentence.
-    expect(container.textContent).toContain("Moved 0.71212516 ZEC (≈ $932.98) from 3");
+    expect(container.textContent).toContain("Moved 0.71212516 ZEC (≈ $71.21) from 3");
   });
 
   it("draws an encrypted amount as the Veil and never prices it", () => {

@@ -8,6 +8,8 @@ export interface SwapLegLinesProps {
   crossings: ZcashTxCrossings;
   /** Above the transaction's sentence (the swap came first) or below it; the rule falls between. */
   placement: "before" | "after";
+  /** ZEC's dollar price for the transaction's day, so a swap's ZEC is valued as the sentence's is. */
+  zecUsd?: number;
 }
 
 /** How many swap lines show before the rest fold away; venues batch, up to 20 seen. */
@@ -23,7 +25,7 @@ const SWAP_LINES_SHOWN = 2;
  * below the fold. The count is the exact total the API reported, and a list the API capped says
  * so, since a bounded list is only honest beside the number it was cut from.
  */
-export function SwapLegLines({ crossings, placement }: SwapLegLinesProps) {
+export function SwapLegLines({ crossings, placement, zecUsd }: SwapLegLinesProps) {
   const { transfers, total } = crossings;
   if (transfers.length === 0) return null;
   const shown = transfers.slice(0, SWAP_LINES_SHOWN);
@@ -35,7 +37,7 @@ export function SwapLegLines({ crossings, placement }: SwapLegLinesProps) {
       className={`border-dashed border-edge-faint ${placement === "before" ? "border-b" : "border-t"}`}
     >
       {shown.map((transfer) => (
-        <SwapLegLine key={transfer.id} transfer={transfer} />
+        <SwapLegLine key={transfer.id} transfer={transfer} zecUsd={zecUsd} />
       ))}
       {more > 0 ? (
         <details className="border-t border-dashed border-edge-faint px-4 py-2.5 sm:px-5">
@@ -44,7 +46,7 @@ export function SwapLegLines({ crossings, placement }: SwapLegLinesProps) {
           </summary>
           <div className="-mx-4 mt-2 sm:-mx-5">
             {folded.map((transfer) => (
-              <SwapLegLine key={transfer.id} transfer={transfer} />
+              <SwapLegLine key={transfer.id} transfer={transfer} zecUsd={zecUsd} />
             ))}
           </div>
           {transfers.length < total ? (
@@ -59,7 +61,7 @@ export function SwapLegLines({ crossings, placement }: SwapLegLinesProps) {
 }
 
 /** One swap: which way it crossed and where its page is, then the venue's sentence. */
-function SwapLegLine({ transfer }: { transfer: CrossChainTransfer }) {
+function SwapLegLine({ transfer, zecUsd }: { transfer: CrossChainTransfer; zecUsd?: number }) {
   const action = transferAction(transfer);
   return (
     <div className="flex items-start gap-3 px-4 py-3 not-first:border-t not-first:border-dashed not-first:border-edge-faint sm:px-5">
@@ -84,7 +86,7 @@ function SwapLegLine({ transfer }: { transfer: CrossChainTransfer }) {
             view the transfer →
           </Link>
         </p>
-        <ActionSentence parts={action.parts} />
+        <ActionSentence parts={action.parts} zecUsd={zecUsd} />
       </div>
     </div>
   );

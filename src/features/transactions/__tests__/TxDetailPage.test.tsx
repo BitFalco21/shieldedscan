@@ -344,6 +344,26 @@ describe("TxDetailPage swap leg", () => {
     expect(text.indexOf("Swapped")).toBeLessThan(text.indexOf("NOT ON CHAIN"));
   });
 
+  it("values every public ZEC amount in the panel at one price, the swap's included", () => {
+    render(
+      <TxDetailPage
+        tx={{
+          ...base,
+          transparentInputs: [{ address: "t1Venue", valueZat: 40_000_000 }],
+          transparentOutputs: [{ address: "t1Venue", valueZat: 33_985_000 }],
+          orchard: { actions: 2, valueBalanceZat: 6_000_000 },
+        }}
+        tipHeight={2_481_040}
+        priceUsd={100}
+        crossings={{ transfers: [{ ...crossing, zecAmountZat: 6_000_000 }], total: 1 }}
+      />,
+    );
+    const text = screen.getByRole("region", { name: "What happened" }).textContent ?? "";
+    // The swap's 0.06 ZEC and the shielded 0.06 ZEC are one figure; the output is its own.
+    expect(text.match(/\(≈ \$6\.00\)/g)).toHaveLength(2);
+    expect(text).toContain("0.33985 ZEC (≈ $33.99)");
+  });
+
   it("folds a batch past two lines, counting every swap the API reported", () => {
     const batch = Array.from({ length: 5 }, (_, i) => ({ ...crossing, id: `near-b${i}` }));
     render(

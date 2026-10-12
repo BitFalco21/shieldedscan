@@ -19,8 +19,9 @@ export interface TxDetailPageProps {
   tx: Transaction;
   tipHeight: number;
   /**
-   * Spot ZEC price, for the approximate USD figures beside public amounts. `null` when the
-   * price feed has nothing — the ZEC amount then stands alone.
+   * ZEC's price on the transaction's day (its close; the current price for today's), for the
+   * approximate USD figures beside public amounts. `null` when there is none: the ZEC amounts
+   * then stand alone.
    */
   priceUsd: number | null;
   /**
@@ -267,20 +268,22 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           className="mt-3"
           icon={privacyVariantFor(tx)}
           parts={action.parts}
-          price={
-            action.amountZat !== null && priceUsd !== null
-              ? { zat: action.amountZat, usd: formatZatUsd(action.amountZat, priceUsd) }
-              : undefined
-          }
+          zecUsd={priceUsd ?? undefined}
           limit={action.limit}
           limitLabel={action.limitLabel}
           lead={
             swapsIn && crossings ? (
-              <SwapLegLines crossings={crossings} placement="before" />
+              <SwapLegLines
+                crossings={crossings}
+                placement="before"
+                zecUsd={priceUsd ?? undefined}
+              />
             ) : undefined
           }
         >
-          {swapsOut && crossings ? <SwapLegLines crossings={crossings} placement="after" /> : null}
+          {swapsOut && crossings ? (
+            <SwapLegLines crossings={crossings} placement="after" zecUsd={priceUsd ?? undefined} />
+          ) : null}
         </ActionPanel>
       </PageHeader>
 

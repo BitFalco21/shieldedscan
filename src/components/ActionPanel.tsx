@@ -7,8 +7,8 @@ export interface ActionPanelProps {
   /** The shield grammar for an on-chain transaction; `swap` for a crossing between chains. */
   icon: PrivacyVariant | "swap";
   parts: readonly ActionPart[];
-  /** The dollar value of the amount the sentence states, drawn beside that amount. */
-  price?: { zat: number; usd: string };
+  /** ZEC's dollar price for the action's day: every public ZEC amount is valued beside itself. */
+  zecUsd?: number;
   /**
    * What the chain does not record about this action, said rather than left to inference.
    * Omitted where that caveat belongs elsewhere: a cross-chain transfer's far-side note sits in
@@ -39,7 +39,7 @@ export interface ActionPanelProps {
 export function ActionPanel({
   icon,
   parts,
-  price,
+  zecUsd,
   limit,
   limitLabel = "NOT ON CHAIN",
   lead,
@@ -69,7 +69,7 @@ export function ActionPanel({
           )}
         </span>
         <div className="min-w-0">
-          <ActionSentence parts={parts} price={price} />
+          <ActionSentence parts={parts} zecUsd={zecUsd} />
         </div>
       </div>
       {children}
