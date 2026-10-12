@@ -7,8 +7,8 @@ export interface ActionPanelProps {
   /** The shield grammar for an on-chain transaction; `swap` for a crossing between chains. */
   icon: PrivacyVariant | "swap";
   parts: readonly ActionPart[];
-  /** Pre-formatted facts under the sentence — the dollar value, the fee — joined by a dot. */
-  details: readonly string[];
+  /** The dollar value of the amount the sentence states, drawn beside that amount. */
+  price?: { zat: number; usd: string };
   /**
    * What the chain does not record about this action, said rather than left to inference.
    * Omitted where that caveat belongs elsewhere: a cross-chain transfer's far-side note sits in
@@ -34,7 +34,7 @@ export interface ActionPanelProps {
 export function ActionPanel({
   icon,
   parts,
-  details,
+  price,
   limit,
   limitLabel = "NOT ON CHAIN",
   children,
@@ -62,10 +62,7 @@ export function ActionPanel({
           )}
         </span>
         <div className="min-w-0">
-          <ActionSentence parts={parts} />
-          {details.length > 0 ? (
-            <p className="text-xs text-ink-faint tabular-nums">{details.join(" · ")}</p>
-          ) : null}
+          <ActionSentence parts={parts} price={price} />
         </div>
       </div>
       {children}

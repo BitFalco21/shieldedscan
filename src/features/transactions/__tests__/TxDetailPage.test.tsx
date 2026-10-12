@@ -49,7 +49,7 @@ describe("TxDetailPage USD figures", () => {
     // 4.19911 ZEC × $38.42 ≈ $161.33 — shown whole-dollar, since cents on a spot-price
     // approximation above $100 are noise (formatUsd's rule). The fee stays sub-cent.
     //
-    // Twice, as one figure: under the action sentence (the amount it states) and in PUBLIC VALUE.
+    // Twice, as one figure: beside the amount the action sentence states, and in PUBLIC VALUE.
     expect(screen.getAllByText("≈ $161")).toHaveLength(2);
     expect(screen.getByText("≈ <$0.01")).toBeDefined();
   });
@@ -324,7 +324,7 @@ describe("TxDetailPage swap leg", () => {
     );
     const panel = screen.getByRole("region", { name: "What happened" });
     const text = panel.textContent ?? "";
-    expect(text).toContain("Swap into Zcash · the venue’s report");
+    expect(text).toContain("Swap into Zcash · view the transfer");
     // The transaction's own sentence first, the venue's report of the swap after it.
     expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("Swapped 0.5"));
     const link = within(panel).getByRole("link", { name: "view the transfer →" });
@@ -352,6 +352,6 @@ describe("TxDetailPage swap leg", () => {
 
   it("draws no swap line for a transaction that crossed nothing", () => {
     renderPage(fullyShielded);
-    expect(screen.queryByText(/the venue’s report/)).toBeNull();
+    expect(screen.queryByText(/Swap (into|out of) Zcash/)).toBeNull();
   });
 });

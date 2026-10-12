@@ -261,10 +261,10 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           className="mt-3"
           icon={privacyVariantFor(tx)}
           parts={action.parts}
-          details={
+          price={
             action.amountZat !== null && priceUsd !== null
-              ? [formatZatUsd(action.amountZat, priceUsd)]
-              : []
+              ? { zat: action.amountZat, usd: formatZatUsd(action.amountZat, priceUsd) }
+              : undefined
           }
           limit={action.limit}
           limitLabel={action.limitLabel}

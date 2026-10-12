@@ -12,6 +12,11 @@ import { Redacted } from "@/components/Redacted";
 
 export interface ActionSentenceProps {
   parts: readonly ActionPart[];
+  /**
+   * The dollar value of one amount the sentence states, drawn right after that amount: a figure
+   * under the whole sentence would read as the value of whatever it ends on.
+   */
+  price?: { zat: number; usd: string };
 }
 
 /**
@@ -22,11 +27,22 @@ export interface ActionSentenceProps {
  * CSS — copy-paste and a screen reader get the text, not the layout. Marks are decorative
  * (`aria-hidden`): the word beside each one already names it.
  */
-export function ActionSentence({ parts }: ActionSentenceProps) {
+export function ActionSentence({ parts, price }: ActionSentenceProps) {
+  // The first statement of the priced amount; a sentence that repeats a figure prices it once.
+  const priced =
+    price === undefined ? -1 : parts.findIndex((p) => p.kind === "zec" && p.zat === price.zat);
   return (
     <p className="text-[15px] leading-8 text-ink">
       {parts.map((part, index) => (
-        <Part key={index} part={part} />
+        <Fragment key={index}>
+          <Part part={part} />
+          {index === priced ? (
+            <span className="text-xs whitespace-nowrap text-ink-dim">
+              {" ("}
+              <span>{price!.usd}</span>)
+            </span>
+          ) : null}
+        </Fragment>
       ))}
     </p>
   );

@@ -13,9 +13,9 @@ const SWAP_LINES_SHOWN = 2;
 
 /**
  * The swaps a transaction is the Zcash leg of, as lines inside its action panel, under what the
- * chain shows. Each line is the venue's report and says so: the far leg is not checked here, and
- * its amount can differ from the transaction's (a fee, a venue's change), so it stays a statement
- * of its own rather than a clause of the sentence above.
+ * chain shows. Each is the venue's report, its far chain dashed as everything not indexed here
+ * is, and its amount can differ from the transaction's (a fee, a venue's change), so it stays a
+ * statement of its own rather than a clause of the sentence above.
  *
  * Batches fold: a transaction that settled twenty swaps would otherwise push the rest of the page
  * below the fold. The count is the exact total the API reported, and a list the API capped says
@@ -54,7 +54,7 @@ export function SwapLegLines({ crossings }: SwapLegLinesProps) {
   );
 }
 
-/** One swap: whose report it is and where its page is, then the venue's sentence. */
+/** One swap: which way it crossed and where its page is, then the venue's sentence. */
 function SwapLegLine({ transfer }: { transfer: CrossChainTransfer }) {
   const action = transferAction(transfer);
   return (
@@ -75,8 +75,6 @@ function SwapLegLine({ transfer }: { transfer: CrossChainTransfer }) {
             the label and link would copy as one word. */}
         <p className="microlabel">
           Swap {transfer.direction === "in" ? "into" : "out of"} Zcash
-          <span className="text-ink-faint"> · </span>
-          the venue’s report
           <span className="text-ink-faint"> · </span>
           <Link href={`/cross-chain/${transfer.id}`} className="text-green hover:text-ink-bright">
             view the transfer →
