@@ -6,6 +6,8 @@ import { transferAction } from "./transferAction";
 
 export interface SwapLegLinesProps {
   crossings: ZcashTxCrossings;
+  /** Above the transaction's sentence (the swap came first) or below it; the rule falls between. */
+  placement: "before" | "after";
 }
 
 /** How many swap lines show before the rest fold away; venues batch, up to 20 seen. */
@@ -21,7 +23,7 @@ const SWAP_LINES_SHOWN = 2;
  * below the fold. The count is the exact total the API reported, and a list the API capped says
  * so, since a bounded list is only honest beside the number it was cut from.
  */
-export function SwapLegLines({ crossings }: SwapLegLinesProps) {
+export function SwapLegLines({ crossings, placement }: SwapLegLinesProps) {
   const { transfers, total } = crossings;
   if (transfers.length === 0) return null;
   const shown = transfers.slice(0, SWAP_LINES_SHOWN);
@@ -29,7 +31,9 @@ export function SwapLegLines({ crossings }: SwapLegLinesProps) {
   // Counted from the total, not the list: an API that capped the list still reported every swap.
   const more = total - shown.length;
   return (
-    <div className="border-t border-dashed border-edge-faint">
+    <div
+      className={`border-dashed border-edge-faint ${placement === "before" ? "border-b" : "border-t"}`}
+    >
       {shown.map((transfer) => (
         <SwapLegLine key={transfer.id} transfer={transfer} />
       ))}

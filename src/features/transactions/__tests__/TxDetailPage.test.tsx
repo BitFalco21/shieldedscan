@@ -313,22 +313,35 @@ describe("TxDetailPage swap leg", () => {
     timestamp: 1_783_875_480,
   };
 
-  it("states the swap inside the action panel, after what the transaction did", () => {
+  /** The action panel's text, the swap lines and the sentence in the order drawn. */
+  const panelFor = (transfer: CrossChainTransfer) => {
     render(
       <TxDetailPage
         tx={fullyShielded}
         tipHeight={2_481_040}
         priceUsd={null}
-        crossings={{ transfers: [crossing], total: 1 }}
+        crossings={{ transfers: [transfer], total: 1 }}
       />,
     );
-    const panel = screen.getByRole("region", { name: "What happened" });
+    return screen.getByRole("region", { name: "What happened" });
+  };
+
+  it("puts a swap into Zcash before the transaction that paid it out", () => {
+    const panel = panelFor(crossing);
     const text = panel.textContent ?? "";
     expect(text).toContain("Swap into Zcash · view the transfer");
-    // The transaction's own sentence first, the venue's report of the swap after it.
-    expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("Swapped 0.5"));
+    // The swap happened first, on the other chain; this transaction paid the ZEC out after it.
+    expect(text.indexOf("Swapped 0.5")).toBeLessThan(text.indexOf("Moved"));
     const link = within(panel).getByRole("link", { name: "view the transfer →" });
     expect(link.getAttribute("href")).toBe("/cross-chain/near-5502");
+  });
+
+  it("puts a swap out of Zcash after the transaction that deposited for it", () => {
+    const text = panelFor({ ...crossing, direction: "out" }).textContent ?? "";
+    expect(text).toContain("Swap out of Zcash");
+    expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("Swapped"));
+    // Both before what the chain does not record, which closes the box.
+    expect(text.indexOf("Swapped")).toBeLessThan(text.indexOf("NOT ON CHAIN"));
   });
 
   it("folds a batch past two lines, counting every swap the API reported", () => {

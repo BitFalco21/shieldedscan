@@ -18,8 +18,13 @@ export interface ActionPanelProps {
   /** `NOT ON CHAIN` by default; a coinbase withholds nothing and says `ON CHAIN`. */
   limitLabel?: string;
   /**
-   * Lines another source states about the same action, drawn inside its box under the sentence:
-   * a venue's report of a swap this transaction is a leg of. Each says whose account it is.
+   * Lines another source states about an event that came BEFORE this action, drawn inside its
+   * box above the sentence: a swap into Zcash this transaction paid out.
+   */
+  lead?: ReactNode;
+  /**
+   * Lines another source states about an event that came AFTER this action, drawn inside its box
+   * under the sentence: a swap out of Zcash this transaction deposited for.
    */
   children?: ReactNode;
   className?: string;
@@ -37,11 +42,13 @@ export function ActionPanel({
   price,
   limit,
   limitLabel = "NOT ON CHAIN",
+  lead,
   children,
   className = "",
 }: ActionPanelProps) {
   return (
     <section aria-label="What happened" className={`panel ${className}`}>
+      {lead}
       <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
         <span className="mt-2.5 shrink-0">
           {icon === "swap" ? (

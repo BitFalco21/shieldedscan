@@ -110,6 +110,12 @@ function BlockFact({ height, hash }: { height: number | null; hash: string | nul
 const RAW_HEX_ID = "raw-hex";
 
 export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPageProps) {
+  // In the order things happened: a swap into Zcash came before the transaction that paid it out,
+  // so its lines lead; a swap out came after the deposit, so its lines follow. A batch is one
+  // direction in practice; a mixed one follows the sentence.
+  const swaps = crossings !== undefined && crossings.transfers.length > 0;
+  const swapsIn = swaps && crossings.transfers.every((t) => t.direction === "in");
+  const swapsOut = swaps && !swapsIn;
   // Derived at render time, never carried on the transaction: a stored count would go
   // stale inside the CDN's cache window.
   const confirmations = tx.blockHeight !== null ? tipHeight - tx.blockHeight + 1 : null;
@@ -268,10 +274,13 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           }
           limit={action.limit}
           limitLabel={action.limitLabel}
+          lead={
+            swapsIn && crossings ? (
+              <SwapLegLines crossings={crossings} placement="before" />
+            ) : undefined
+          }
         >
-          {/* The transaction first, then the swaps it is a leg of: for a swap out of Zcash this
-              transaction is also the earlier event, and its sentence keeps one place on every page. */}
-          {crossings === undefined ? null : <SwapLegLines crossings={crossings} />}
+          {swapsOut && crossings ? <SwapLegLines crossings={crossings} placement="after" /> : null}
         </ActionPanel>
       </PageHeader>
 
