@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ActionPart } from "@/domain";
 import { ActionSentence } from "@/components/ActionSentence";
 import { PrivacyShield, type PrivacyVariant } from "@/components/PrivacyShield";
@@ -16,6 +17,11 @@ export interface ActionPanelProps {
   limit?: string;
   /** `NOT ON CHAIN` by default; a coinbase withholds nothing and says `ON CHAIN`. */
   limitLabel?: string;
+  /**
+   * Lines another source states about the same action, drawn inside its box under the sentence:
+   * a venue's report of a swap this transaction is a leg of. Each says whose account it is.
+   */
+  children?: ReactNode;
   className?: string;
 }
 
@@ -31,6 +37,7 @@ export function ActionPanel({
   details,
   limit,
   limitLabel = "NOT ON CHAIN",
+  children,
   className = "",
 }: ActionPanelProps) {
   return (
@@ -61,6 +68,7 @@ export function ActionPanel({
           ) : null}
         </div>
       </div>
+      {children}
       {/* Inline, not flex: a flex row discards the whitespace-only text node, and the label
           would then copy as one word with the sentence ("NOT ON CHAINWhich output…"). */}
       {limit === undefined ? null : (

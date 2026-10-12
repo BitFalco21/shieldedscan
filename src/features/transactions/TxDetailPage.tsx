@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { privacyVariantFor } from "@/components/PrivacyShield";
 import { formatBytes, formatCount, formatUtc, formatZatUsd, formatZec } from "@/lib/format";
 import { TxFlow } from "./TxFlow";
-import { SwapLegStrip } from "@/features/crosschain/SwapLegStrip";
+import { SwapLegLines } from "@/features/crosschain/SwapLegLines";
 import Link from "@/components/Link";
 
 export interface TxDetailPageProps {
@@ -103,51 +103,6 @@ function BlockFact({ height, hash }: { height: number | null; hash: string | nul
         </span>
       )}
     </span>
-  );
-}
-
-/** How many swap strips show before the rest fold away; venues batch, up to 20 seen. */
-const SWAP_LEGS_SHOWN = 2;
-
-/**
- * The swap strips, with batches folded: a transaction that settled twenty crossings would
- * otherwise push the page's own subject below the fold. The count is always the exact total
- * the API reported, and a list the API capped says so — a bounded list is only honest beside
- * the number it was cut from.
- */
-function SwapLegs({ crossings }: { crossings: ZcashTxCrossings }) {
-  const { transfers, total } = crossings;
-  const shown = transfers.slice(0, SWAP_LEGS_SHOWN);
-  const folded = transfers.slice(SWAP_LEGS_SHOWN);
-  const unlisted = total - transfers.length;
-  return (
-    <div className="mt-3 flex flex-col gap-2">
-      {total > 1 ? (
-        <p className="microlabel text-ink-dim">
-          This transaction settled {formatCount(total)} crossings
-        </p>
-      ) : null}
-      {shown.map((transfer) => (
-        <SwapLegStrip key={transfer.id} transfer={transfer} />
-      ))}
-      {folded.length > 0 ? (
-        <details>
-          <summary className="disclosure microlabel text-green">
-            {folded.length} more {folded.length === 1 ? "crossing" : "crossings"}
-          </summary>
-          <div className="mt-2 flex flex-col gap-2">
-            {folded.map((transfer) => (
-              <SwapLegStrip key={transfer.id} transfer={transfer} />
-            ))}
-          </div>
-        </details>
-      ) : null}
-      {unlisted > 0 ? (
-        <p className="text-xs text-ink-faint">
-          Showing {transfers.length} of {formatCount(total)}.
-        </p>
-      ) : null}
-    </div>
   );
 }
 
@@ -298,9 +253,6 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           </>
         }
       >
-        {crossings !== undefined && crossings.transfers.length > 0 ? (
-          <SwapLegs crossings={crossings} />
-        ) : null}
         {/* What it did, as one sentence with the pools drawn inline, and what the chain does not
             record on its own line. The dollar figure prices only the amount the sentence states
             — a veiled amount is never priced. The fee is stated once, in FEE below; the flow's
@@ -316,7 +268,11 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           }
           limit={action.limit}
           limitLabel={action.limitLabel}
-        />
+        >
+          {/* The transaction first, then the swaps it is a leg of: for a swap out of Zcash this
+              transaction is also the earlier event, and its sentence keeps one place on every page. */}
+          {crossings === undefined ? null : <SwapLegLines crossings={crossings} />}
+        </ActionPanel>
       </PageHeader>
 
       <TxFlow tx={tx} />

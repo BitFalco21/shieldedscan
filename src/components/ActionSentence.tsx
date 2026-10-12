@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { ActionPart } from "@/domain";
-import { ZCASH_CHAIN, assetTickerIsKnown, protocolLabel } from "@/domain";
+import { ZCASH_CHAIN, addressRun, assetTickerIsKnown, protocolLabel } from "@/domain";
 import { formatZecAmount } from "@/lib/format";
 import { coinTicker, isTestnet } from "@/lib/network";
 import { ChainLogo } from "@/components/ChainLogo";
+import { AddressLink } from "@/components/AddressLink";
 import { Badge } from "@/components/Badge";
 import { PoolBadge } from "@/components/PoolBadge";
 import { ProtocolLogo } from "@/components/ProtocolLogo";
@@ -95,6 +96,25 @@ function Part({ part }: { part: ActionPart }) {
           </span>
           {part.after}
         </span>
+      );
+    case "addresses":
+      // Every address on the side, each a link a known label replaces; the rest counted.
+      return (
+        <>
+          {addressRun(part.addresses, part.noun).map((item, i) =>
+            item.kind === "address" ? (
+              <span key={i} className="inline-flex align-baseline">
+                <AddressLink address={item.address} />
+              </span>
+            ) : item.kind === "count" ? (
+              <span key={i} className="text-ink-dim">
+                {item.text}
+              </span>
+            ) : (
+              <Fragment key={i}>{item.text}</Fragment>
+            ),
+          )}
+        </>
       );
     case "asset":
       return (

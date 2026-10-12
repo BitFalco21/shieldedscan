@@ -29,6 +29,13 @@ export type ActionPart =
    * `nowrap` span with the chip.
    */
   | { kind: "end"; end: TxTypeName; before?: string; after?: string }
+  /**
+   * One transparent side of a transaction: every input's or output's address, in order, `""` for
+   * a script that names none. All of them, never one singled out: which output is the payment is
+   * not on chain. The page names the addresses; `words` is the same side in plain text ("2
+   * transparent outputs"), which an API answer reads instead.
+   */
+  | { kind: "addresses"; addresses: readonly string[]; noun: "input" | "output"; words: string }
   /** An amount of an asset on another chain, as the venue published it. */
   | { kind: "asset"; amount: string; ticker: string; chain: string }
   /** A chain, as a chip with its brand mark. Dashed when it is not Zcash: not indexed here. */
@@ -43,8 +50,9 @@ export type ActionPart =
  *
  * No guessing at recipients. A transparent transaction's outputs usually split into payment and
  * change, and picking which is which is the heuristic chain-analysis uses to deanonymise people. So
- * the transparent sentence counts inputs and outputs and totals the public value, never names one
- * output as "the" payment, and `limit` says the split is not knowable.
+ * the transparent sentence names every address on a side (or, in words, counts them) and totals
+ * the public value, never names one output as "the" payment, and `limit` says the split is not
+ * knowable.
  *
  * Every amount is a published figure: an output total, a pool's own value balance, or a migration's
  * destination balance. Directional words (`from`, `into`, `to`) appear only where `txFlowPath`
@@ -85,11 +93,58 @@ function poolWords(pools: readonly PoolName[]): string {
     : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-/** `N [transparent] output(s)` / `input(s)`, the transparent side counted, never addressed. */
-function transparentSide(n: number, noun: "input" | "output"): ActionPart[] {
-  return [
-    { kind: "end", end: "transparent", before: `${n} `, after: ` ${noun}${n === 1 ? "" : "s"}` },
+/** A transparent side, every address on it; in words, `N transparent output(s)` / `input(s)`. */
+function transparentSide(
+  side: readonly { address: string }[],
+  noun: "input" | "output",
+  words = `${side.length} transparent ${noun}${side.length === 1 ? "" : "s"}`,
+): ActionPart[] {
+  return [{ kind: "addresses", addresses: side.map((s) => s.address), noun, words }];
+}
+
+/**
+ * One piece of a transparent side as the page names it: an address, a count of the rest, or the
+ * prose that joins them.
+ */
+export type AddressRunItem =
+  | { kind: "address"; address: string }
+  | { kind: "count"; text: string }
+  | { kind: "separator"; text: string };
+
+/** Past this many distinct addresses, the page names two and counts the rest. */
+const ADDRESSES_NAMED = 3;
+
+/**
+ * A transparent side as the page names it: each distinct address once, in order (forty inputs
+ * from one address are that address), every one of them up to three, past that the first two
+ * and a count; then the inputs or outputs that name no address, counted. Joined the way prose
+ * joins words, so nothing is dropped and none is singled out.
+ */
+export function addressRun(
+  addresses: readonly string[],
+  noun: "input" | "output",
+): AddressRunItem[] {
+  const distinct = [...new Set(addresses.filter((a) => a !== ""))];
+  const unnamed = addresses.length - addresses.filter((a) => a !== "").length;
+  const named = distinct.length <= ADDRESSES_NAMED ? distinct : distinct.slice(0, 2);
+  const rest = distinct.length - named.length;
+  const pieces: AddressRunItem[] = [
+    ...named.map((address): AddressRunItem => ({ kind: "address", address })),
+    ...(rest > 0 ? [{ kind: "count" as const, text: `${rest} more addresses` }] : []),
+    ...(unnamed > 0
+      ? [
+          {
+            kind: "count" as const,
+            text: `${unnamed} ${noun}${unnamed === 1 ? "" : "s"} with no address`,
+          },
+        ]
+      : []),
   ];
+  return pieces.flatMap((piece, i): AddressRunItem[] =>
+    i === 0
+      ? [piece]
+      : [{ kind: "separator", text: i === pieces.length - 1 ? " and " : ", " }, piece],
+  );
 }
 
 export function txAction(tx: Transaction): TxAction {
@@ -97,16 +152,18 @@ export function txAction(tx: Transaction): TxAction {
   const pools = txPools(tx);
   const ins = tx.transparentInputs.length;
   const outs = tx.transparentOutputs.length;
+  const inputs = tx.transparentInputs;
+  const outputs = tx.transparentOutputs;
 
   if (kind === "coinbase") {
     // Issued value: the transparent outputs plus whatever a ZIP-213 coinbase paid into a pool,
     // which that pool's own balance publishes. Both public, so the total is a fact.
-    const outputs = tx.transparentOutputs.reduce((s, o) => s + o.valueZat, 0);
-    const total = outputs + (reportsValueBalance(tx) ? Math.max(0, netShieldedZat(tx)) : 0);
+    const paidOut = outputs.reduce((s, o) => s + o.valueZat, 0);
+    const total = paidOut + (reportsValueBalance(tx) ? Math.max(0, netShieldedZat(tx)) : 0);
     const to = txFlowPath(tx)?.to ?? [];
     const paidTo = to.flatMap((e, i) => [
       ...(i === 0 ? [] : [text(" and ")]),
-      ...(e === "transparent" ? transparentSide(outs, "output") : [end(e)]),
+      ...(e === "transparent" ? transparentSide(outputs, "output") : [end(e)]),
     ]);
     return {
       parts: [
@@ -168,7 +225,7 @@ export function txAction(tx: Transaction): TxAction {
         parts: [
           verb("Spent"),
           text(" "),
-          ...transparentSide(ins, "input"),
+          ...transparentSide(inputs, "input"),
           text(" with no standard-addressed output"),
         ],
         amountZat: null,
@@ -182,9 +239,9 @@ export function txAction(tx: Transaction): TxAction {
         text(" "),
         zec(value),
         text(" from "),
-        ...transparentSide(ins, "input"),
+        ...transparentSide(inputs, "input"),
         text(" to "),
-        ...transparentSide(outs, "output"),
+        ...transparentSide(outputs, "output"),
       ],
       amountZat: value,
       limitLabel: "NOT ON CHAIN",
@@ -217,10 +274,11 @@ export function txAction(tx: Transaction): TxAction {
           ? opposite()
           : [
               text(" from "),
-              end("transparent"),
+              // The inputs named on the page; "transparent" alone in words, as it always read.
+              ...transparentSide(inputs, "input", "transparent"),
               text(" into "),
               ...ends(path.to),
-              ...(bothSides ? [text(", and paid "), ...transparentSide(outs, "output")] : []),
+              ...(bothSides ? [text(", and paid "), ...transparentSide(outputs, "output")] : []),
             ]),
       ],
       amountZat: crossedZat,
@@ -246,8 +304,8 @@ export function txAction(tx: Transaction): TxAction {
               text(" from "),
               ...ends(path.from),
               text(" to "),
-              ...transparentSide(outs, "output"),
-              ...(bothSides ? [text(", alongside "), ...transparentSide(ins, "input")] : []),
+              ...transparentSide(outputs, "output"),
+              ...(bothSides ? [text(", alongside "), ...transparentSide(inputs, "input")] : []),
             ]),
       ],
       amountZat: crossedZat,
@@ -285,6 +343,8 @@ function partText(p: ActionPart): string {
             : capitalise(p.end);
       return `${p.before ?? ""}${name}${p.after ?? ""}`;
     }
+    case "addresses":
+      return p.words;
     case "asset":
       return `${p.amount} ${p.ticker}`;
     case "chain":

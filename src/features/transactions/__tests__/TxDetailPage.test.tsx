@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { CrossChainTransfer, Transaction } from "@/domain";
 import { TxDetailPage } from "../TxDetailPage";
@@ -247,24 +247,29 @@ describe("named addresses in the flow panels", () => {
 
   it("shows the name in place of the address on both sides", () => {
     renderPage(deposit);
-    expect(screen.getByRole("link", { name: "Binance Cold Wallet" })).toBeDefined();
+    // Once in the action sentence and once in the flow panel: one rule names it everywhere.
+    expect(screen.getAllByRole("link", { name: "Binance Cold Wallet" })).toHaveLength(2);
     // …and leaves the unnamed side as an address, which is the whole point of the fallback.
-    expect(screen.getByRole("link", { name: /t1cpC/ })).toBeDefined();
+    const unnamed = screen
+      .getAllByRole("link")
+      .filter((a) => a.getAttribute("href") === `/address/${UNNAMED}`);
+    expect(unnamed).toHaveLength(2);
+    for (const link of unnamed) expect(link.textContent).not.toBe("Binance Cold Wallet");
   });
 
   it("keeps the address checkable behind the name", () => {
     // A third-party attribution a reader cannot check against the address is a bare claim.
     renderPage(deposit);
-    expect(screen.getByRole("link", { name: "Binance Cold Wallet" }).getAttribute("title")).toBe(
-      EXCHANGE,
-    );
+    for (const link of screen.getAllByRole("link", { name: "Binance Cold Wallet" })) {
+      expect(link.getAttribute("title")).toBe(EXCHANGE);
+    }
   });
 
   it("still links the name to the address's own page", () => {
     renderPage(deposit);
-    expect(screen.getByRole("link", { name: "Binance Cold Wallet" }).getAttribute("href")).toBe(
-      `/address/${EXCHANGE}`,
-    );
+    for (const link of screen.getAllByRole("link", { name: "Binance Cold Wallet" })) {
+      expect(link.getAttribute("href")).toBe(`/address/${EXCHANGE}`);
+    }
   });
 
   it("prints no basis beside the name", () => {
@@ -308,7 +313,7 @@ describe("TxDetailPage swap leg", () => {
     timestamp: 1_783_875_480,
   };
 
-  it("names the swap this transaction is a leg of and links to it", () => {
+  it("states the swap inside the action panel, after what the transaction did", () => {
     render(
       <TxDetailPage
         tx={fullyShielded}
@@ -317,12 +322,16 @@ describe("TxDetailPage swap leg", () => {
         crossings={{ transfers: [crossing], total: 1 }}
       />,
     );
-    const link = screen.getByRole("link", { name: /Zcash leg of a swap into Zcash/i });
+    const panel = screen.getByRole("region", { name: "What happened" });
+    const text = panel.textContent ?? "";
+    expect(text).toContain("Swap into Zcash · the venue’s report");
+    // The transaction's own sentence first, the venue's report of the swap after it.
+    expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("Swapped 0.5"));
+    const link = within(panel).getByRole("link", { name: "view the transfer →" });
     expect(link.getAttribute("href")).toBe("/cross-chain/near-5502");
-    expect(link.textContent).toContain("Swapped 0.5");
   });
 
-  it("folds a batch past two strips, and states the exact total even when capped", () => {
+  it("folds a batch past two lines, counting every swap the API reported", () => {
     const batch = Array.from({ length: 5 }, (_, i) => ({ ...crossing, id: `near-b${i}` }));
     render(
       <TxDetailPage
@@ -332,17 +341,17 @@ describe("TxDetailPage swap leg", () => {
         crossings={{ transfers: batch, total: 30 }}
       />,
     );
-    expect(screen.getByText(/settled 30 crossings/)).toBeDefined();
-    expect(screen.getByText("3 more crossings")).toBeDefined();
-    expect(screen.getByText("Showing 5 of 30.")).toBeDefined();
-    // All five render (two open, three inside the disclosure) — none is dropped.
-    expect(
-      screen.getAllByRole("link", { name: /Zcash leg of a swap/i, hidden: true }),
-    ).toHaveLength(5);
+    // 30 settled, 2 shown: 28 more, though the capped list holds only 3 of them.
+    expect(screen.getByText("28 more swaps settled by this transaction")).toBeDefined();
+    expect(screen.getByText("Showing 5 of 30 swaps.")).toBeDefined();
+    // All five listed render (two open, three inside the disclosure): none is dropped.
+    expect(screen.getAllByRole("link", { name: "view the transfer →", hidden: true })).toHaveLength(
+      5,
+    );
   });
 
-  it("draws no strip for a transaction that crossed nothing", () => {
+  it("draws no swap line for a transaction that crossed nothing", () => {
     renderPage(fullyShielded);
-    expect(screen.queryByText(/Zcash leg of a swap/i)).toBeNull();
+    expect(screen.queryByText(/the venue’s report/)).toBeNull();
   });
 });

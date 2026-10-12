@@ -55,4 +55,21 @@ describe("ActionPanel", () => {
     expect(container.textContent).not.toContain("NOT ON CHAIN");
     expect(container.querySelector(".border-dashed")).toBeNull();
   });
+
+  it("draws its lines between the sentence and the closing line, inside the one box", () => {
+    const { container } = render(
+      <ActionPanel
+        icon="transparent"
+        parts={[{ kind: "verb", text: "Moved", tone: "plain" }]}
+        details={[]}
+        limit="Which output is the payment and which is change."
+      >
+        <p>the venue’s report</p>
+      </ActionPanel>,
+    );
+    const text = container.textContent ?? "";
+    expect(container.querySelectorAll("section")).toHaveLength(1);
+    expect(text.indexOf("Moved")).toBeLessThan(text.indexOf("the venue’s report"));
+    expect(text.indexOf("the venue’s report")).toBeLessThan(text.indexOf("NOT ON CHAIN"));
+  });
 });
