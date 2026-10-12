@@ -1,13 +1,15 @@
+import type { ReactNode } from "react";
 import type { ActionPart } from "@/domain";
 import { ActionSentence } from "@/components/ActionSentence";
+import { SwapIcon } from "@/components/SwapIcon";
 import { PrivacyShield, type PrivacyVariant } from "@/components/PrivacyShield";
 
 export interface ActionPanelProps {
   /** The shield grammar for an on-chain transaction; `swap` for a crossing between chains. */
   icon: PrivacyVariant | "swap";
   parts: readonly ActionPart[];
-  /** Pre-formatted facts under the sentence — the dollar value, the fee — joined by a dot. */
-  details: readonly string[];
+  /** ZEC's dollar price for the action's day: every public ZEC amount is valued beside itself. */
+  zecUsd?: number;
   /**
    * What the chain does not record about this action, said rather than left to inference.
    * Omitted where that caveat belongs elsewhere: a cross-chain transfer's far-side note sits in
@@ -16,6 +18,17 @@ export interface ActionPanelProps {
   limit?: string;
   /** `NOT ON CHAIN` by default; a coinbase withholds nothing and says `ON CHAIN`. */
   limitLabel?: string;
+  /**
+   * Lines another source states about an event that came BEFORE this action, drawn inside its
+   * box above the sentence: a swap into Zcash this transaction paid out.
+   */
+  lead?: ReactNode;
+  /**
+   * Lines another source states about an event that came AFTER this action, drawn inside its box
+   * at the bottom: a swap out of Zcash this transaction deposited for. Below the closing line, so
+   * that line stays with the sentence it qualifies and never reads as a caveat about the swap.
+   */
+  children?: ReactNode;
   className?: string;
 }
 
@@ -28,37 +41,28 @@ export interface ActionPanelProps {
 export function ActionPanel({
   icon,
   parts,
-  details,
+  zecUsd,
   limit,
   limitLabel = "NOT ON CHAIN",
+  lead,
+  children,
   className = "",
 }: ActionPanelProps) {
   return (
     <section aria-label="What happened" className={`panel ${className}`}>
+      {lead}
       <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
         <span className="mt-2.5 shrink-0">
           {icon === "swap" ? (
-            <svg
-              role="img"
-              aria-label="a crossing between chains"
-              viewBox="0 0 24 24"
-              className="h-3.5 w-3.5 text-ink-dim"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            >
-              <path d="M4 12h15M15 8l4 4-4 4M12 3v3M12 18v3" />
-            </svg>
+            <span role="img" aria-label="a crossing between chains" className="text-ink-dim">
+              <SwapIcon className="h-3.5 w-3.5" />
+            </span>
           ) : (
             <PrivacyShield variant={icon} />
           )}
         </span>
         <div className="min-w-0">
-          <ActionSentence parts={parts} />
-          {details.length > 0 ? (
-            <p className="text-xs text-ink-faint tabular-nums">{details.join(" · ")}</p>
-          ) : null}
+          <ActionSentence parts={parts} zecUsd={zecUsd} />
         </div>
       </div>
       {/* Inline, not flex: a flex row discards the whitespace-only text node, and the label
@@ -68,6 +72,7 @@ export function ActionPanel({
           <span className="microlabel mr-2 text-green-dim">{limitLabel}</span> {limit}
         </p>
       )}
+      {children}
     </section>
   );
 }

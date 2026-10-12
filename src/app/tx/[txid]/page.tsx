@@ -4,7 +4,8 @@ import type { ZcashTxCrossings } from "@/domain";
 import { getDataSource } from "@/data";
 import type { ExplorerDataSource } from "@/data/source";
 import { TxDetailPage } from "@/features/transactions/TxDetailPage";
-import { shortHash } from "@/lib/format";
+import { nowSeconds } from "@/lib/clock";
+import { shortHash, usdAtDay } from "@/lib/format";
 import { isTestnet } from "@/lib/network";
 import { isTransientUpstream } from "@/lib/transient-upstream";
 
@@ -22,17 +23,22 @@ export default async function Page({ params }: { params: Promise<{ txid: string 
   const data = getDataSource();
   // All three reads at once: the chain facts and the swap lookup do not depend on whether the
   // transaction exists. A swap lookup for an absent transaction is simply discarded.
-  const [tx, chain, crossings] = await Promise.all([
+  const [tx, chain, crossings, dailyUsd] = await Promise.all([
     data.getTransaction(txid),
     data.getChainInfo(),
     swapLegs(data, txid),
+    // No price history degrades to no dollar figures; the ZEC amounts stand alone.
+    data.getDailyPriceMap().catch(() => ({}) as Record<string, number>),
   ]);
   if (!tx) notFound();
+  // A pending transaction has no block time yet: it is valued as of now, at the current price.
+  const now = nowSeconds();
+  const at = tx.blockHeight === null ? now : tx.timestamp;
   return (
     <TxDetailPage
       tx={tx}
       tipHeight={chain.height}
-      priceUsd={chain.priceUsd}
+      priceUsd={usdAtDay(at, dailyUsd, chain.priceUsd, now)}
       crossings={crossings}
     />
   );

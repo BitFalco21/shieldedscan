@@ -56,8 +56,9 @@ brand/          Reproducible generators for the site's brand assets.
 5. **Every shielded pool is a term in the fee equation.** `feeFromTermsZat` is the only fee
    formula. Sprout publishes its public values per JoinSplit, not as a value balance.
 6. **Never narrate who paid whom.** Choosing which transparent output is the payment and which is
-   change is a chain-analysis heuristic, not a chain fact. An address's net change per transaction
-   is arithmetic and is allowed.
+   change is a chain-analysis heuristic, not a chain fact. Naming every address on a transparent
+   side is a chain fact; singling one out is the heuristic. An address's net change per
+   transaction is arithmetic and is allowed.
 7. **A USD figure sits only beside a public ZEC amount.** Historical values use that day's close,
    never today's price.
 8. **A percentage names its denominator.** No privacy scores. Sampled figures carry their sample

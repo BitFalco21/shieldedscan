@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Transaction } from "@/domain";
 import { formatZecAmount } from "@/lib/format";
-import { txAction, type ActionPart } from "../tx-action";
+import { addressRun, txAction, txActionText, type ActionPart } from "../tx-action";
 
-/** The sentence as a reader hears it, with each chip written as `[name]`. */
+/** The sentence as a reader hears it: each chip as `[name]`, a transparent side as `{addresses}`. */
 function read(parts: readonly ActionPart[]): string {
   return parts
     .map((p) => {
@@ -15,6 +15,8 @@ function read(parts: readonly ActionPart[]): string {
           return `${p.zat === null ? "▓▓▓▓▓▓" : formatZecAmount(p.zat)} ZEC`;
         case "end":
           return `${p.before ?? ""}[${p.end}]${p.after ?? ""}`;
+        case "addresses":
+          return `{${p.addresses.join(",")}}`;
         default:
           return `<${p.kind}>`;
       }
@@ -63,14 +65,21 @@ describe("txAction", () => {
       ],
     });
     const sentence = read(action.parts);
-    // The outputs total — never one output picked as "the" payment.
-    expect(sentence).toBe(
-      "Moved 4.19911 ZEC from 1 [transparent] input to 2 [transparent] outputs",
-    );
+    // The outputs total, and every output named: none picked as "the" payment.
+    expect(sentence).toBe("Moved 4.19911 ZEC from {t1Alice} to {t1Recipient,t1Alice}");
     expect(action.limit).toBe("Which output is the payment and which is change.");
-    // The exact framing chain-analysis relies on must never appear, nor any address.
+    // The exact framing chain-analysis relies on must never appear.
     expect(sentence).not.toMatch(/sent .* to/);
-    expect(sentence).not.toContain("t1");
+    // In words, for an API answer, the sides are counted and no address is spelled out.
+    const words = txActionText({
+      ...base,
+      transparentInputs: [{ address: "t1Alice", valueZat: 419_921_000 }],
+      transparentOutputs: [
+        { address: "t1Recipient", valueZat: 400_000_000 },
+        { address: "t1Alice", valueZat: 19_911_000 },
+      ],
+    }).text;
+    expect(words).toBe("Moved 4.19911 ZEC from 1 transparent input to 2 transparent outputs.");
   });
 
   it("uses the pool's own balance for a shielding, not the fee-inclusive input total", () => {
@@ -83,7 +92,7 @@ describe("txAction", () => {
       orchard: { actions: 2, valueBalanceZat: 300_000_000 },
     });
     // Inputs total 3.001 ZEC, but exactly 3.00 crossed into the pool.
-    expect(read(action.parts)).toBe("Shielded 3.00 ZEC from [transparent] into [orchard]");
+    expect(read(action.parts)).toBe("Shielded 3.00 ZEC from {t1Alice,t1Alice} into [orchard]");
     expect(action.amountZat).toBe(300_000_000);
   });
 
@@ -94,9 +103,7 @@ describe("txAction", () => {
       orchard: { actions: 3, valueBalanceZat: -550_010_000 },
     });
     // 5.5001 left the pool; 5.50 reached the output and 0.0001 was the fee.
-    expect(read(action.parts)).toBe(
-      "Unshielded 5.5001 ZEC from [orchard] to 1 [transparent] output",
-    );
+    expect(read(action.parts)).toBe("Unshielded 5.5001 ZEC from [orchard] to {t1Bob}");
     expect(action.limit).toBe("Where it came from inside Orchard.");
   });
 
@@ -110,10 +117,24 @@ describe("txAction", () => {
       ironwood: { actions: 2, valueBalanceZat: 159_649 },
     });
     expect(read(action.parts)).toBe(
-      "Shielded 0.00159649 ZEC from [transparent] into [ironwood], and paid 1 [transparent] output",
+      "Shielded 0.00159649 ZEC from {t1Ku2K} into [ironwood], and sent 169.91766291 ZEC to {t1Ku2K}",
     );
     expect(read(action.parts)).not.toMatch(/both ways/);
     expect(action.limit).toMatch(/which transparent output is a payment and which is change/);
+  });
+
+  it("states the transparent side beside an unshielding by its own total", () => {
+    const action = txAction({
+      ...base,
+      transparentInputs: [{ address: "t1Ann", valueZat: 50_000_000 }],
+      transparentOutputs: [{ address: "t1Bob", valueZat: 149_990_000 }],
+      orchard: { actions: 2, valueBalanceZat: -100_000_000 },
+    });
+    expect(read(action.parts)).toBe(
+      "Unshielded 1.00 ZEC from [orchard] to {t1Bob}, alongside 0.50 ZEC from {t1Ann}",
+    );
+    // The crossing is still the amount the sentence prices.
+    expect(action.amountZat).toBe(100_000_000);
   });
 
   it("names no direction when the pools moved opposite ways", () => {
@@ -151,7 +172,7 @@ describe("txAction", () => {
       ],
     });
     expect(read(action.parts)).toBe(
-      "Paid out 3.125 ZEC — new coins plus the block’s fees — from [mined] to 2 [transparent] outputs",
+      "Paid out 3.125 ZEC — new coins plus the block’s fees — from [mined] to {t1Miner,t3Stream}",
     );
     expect(action.limitLabel).toBe("ON CHAIN");
   });
@@ -196,5 +217,36 @@ describe("txAction for a pool migration", () => {
   it("still describes a same-pool shielded transfer as a transfer", () => {
     const inside: Transaction = { ...base, ironwood: { actions: 2, valueBalanceZat: -10_000 } };
     expect(read(txAction(inside).parts)).toBe("Moved ▓▓▓▓▓▓ ZEC privately inside [ironwood]");
+  });
+});
+
+/** The run as the page prints it, an address as `<address>`. */
+const run = (addresses: string[], noun: "input" | "output") =>
+  addressRun(addresses, noun)
+    .map((item) => (item.kind === "address" ? `<${item.address}>` : item.text))
+    .join("");
+
+describe("addressRun", () => {
+  it("names every address up to three, joined as prose", () => {
+    expect(run(["t1A"], "output")).toBe("<t1A>");
+    expect(run(["t1A", "t1B"], "output")).toBe("<t1A> and <t1B>");
+    expect(run(["t1A", "t1B", "t1C"], "output")).toBe("<t1A>, <t1B> and <t1C>");
+  });
+
+  it("past three, counts them all rather than naming some", () => {
+    // Naming two of five would single those two out; the flow panel lists every one.
+    expect(run(["t1A", "t1B", "t1C", "t1D", "t1E"], "output")).toBe("5 transparent addresses");
+    expect(run(["t1A", "t1B", "t1C", "t1D", ""], "output")).toBe(
+      "4 transparent addresses and 1 output with no address",
+    );
+  });
+
+  it("names an address once however many inputs it funded", () => {
+    expect(run(Array(40).fill("t1A"), "input")).toBe("<t1A>");
+  });
+
+  it("counts the outputs that name no address rather than dropping them", () => {
+    expect(run(["t1A", "t1B", ""], "output")).toBe("<t1A>, <t1B> and 1 output with no address");
+    expect(run(["", ""], "output")).toBe("2 outputs with no address");
   });
 });

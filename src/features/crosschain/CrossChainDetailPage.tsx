@@ -134,7 +134,7 @@ export function CrossChainDetailPage({ transfer, zcashTxHref }: CrossChainDetail
       {/* The same action box a transaction page opens with, so a crossing reads like every
           other action on the site. No dollar line under the sentence: VALUE AT SWAP below
           states the venue's figure, and each leg carries its own. */}
-      <ActionPanel icon="swap" parts={action.parts} details={[]} />
+      <ActionPanel icon="swap" parts={action.parts} />
 
       {/* The route, reading left to right, with the protocol that carried it in between. */}
       <Panel className="mt-3">

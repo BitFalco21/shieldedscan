@@ -14,14 +14,15 @@ describe("ActionPanel", () => {
           { kind: "text", text: " from " },
           { kind: "end", end: "transparent", before: "3 ", after: " inputs" },
         ]}
-        details={["≈ $932.98", "fee 0.00015 ZEC"]}
+        zecUsd={100}
         limit="Which output is the payment and which is change."
       />,
     );
     // A gap that exists only in CSS is not a gap the text contains.
-    expect(container.textContent).toContain("Moved 0.71212516 ZEC from 3 transparent inputs");
+    expect(container.textContent).toContain("from 3 transparent inputs");
     expect(container.textContent).toContain("NOT ON CHAIN Which output is the payment");
-    expect(container.textContent).toContain("≈ $932.98 · fee 0.00015 ZEC");
+    // The dollar figure beside the amount it prices, not under the whole sentence.
+    expect(container.textContent).toContain("Moved 0.71212516 ZEC (≈ $71.21) from 3");
   });
 
   it("draws an encrypted amount as the Veil and never prices it", () => {
@@ -35,7 +36,6 @@ describe("ActionPanel", () => {
           { kind: "text", text: " privately inside " },
           { kind: "end", end: "orchard" },
         ]}
-        details={[]}
         limit="The amount, the parties and the memo."
       />,
     );
@@ -46,13 +46,27 @@ describe("ActionPanel", () => {
   it("draws no closing line when it is given no limit", () => {
     // A cross-chain transfer's far-side note lives in a tip beside the foreign leg instead.
     const { container } = render(
-      <ActionPanel
-        icon="swap"
-        parts={[{ kind: "verb", text: "Swapped", tone: "plain" }]}
-        details={[]}
-      />,
+      <ActionPanel icon="swap" parts={[{ kind: "verb", text: "Swapped", tone: "plain" }]} />,
     );
     expect(container.textContent).not.toContain("NOT ON CHAIN");
     expect(container.querySelector(".border-dashed")).toBeNull();
+  });
+
+  it("draws what came before above the sentence, and what came after below its closing line", () => {
+    const { container } = render(
+      <ActionPanel
+        icon="transparent"
+        parts={[{ kind: "verb", text: "Moved", tone: "plain" }]}
+        limit="Which output is the payment and which is change."
+        lead={<p>earlier</p>}
+      >
+        <p>later</p>
+      </ActionPanel>,
+    );
+    const text = container.textContent ?? "";
+    expect(container.querySelectorAll("section")).toHaveLength(1);
+    // The closing line stays with the sentence it qualifies, never under someone else's report.
+    const order = ["earlier", "Moved", "NOT ON CHAIN", "later"].map((t) => text.indexOf(t));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 });

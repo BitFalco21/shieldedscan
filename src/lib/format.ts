@@ -305,12 +305,23 @@ export function formatUsdCompact(value: number): string {
 }
 
 /**
- * A fee's dollar value at its own date, from the daily-close map.
+ * ZEC's dollar price on the day of `timestamp`, from the daily-close map.
  *
- * Today's close does not exist yet, so rows from today fall back to the current price. Any
- * other missing day returns null and the caller renders nothing, never a spot price presented
- * as a historical one.
+ * Today's close does not exist yet, so today falls back to the current price. Any other missing
+ * day is null and the caller prints no dollar figure, never a spot price presented as a
+ * historical one.
  */
+export function usdAtDay(
+  timestamp: number,
+  dailyUsd: Record<string, number>,
+  currentUsd: number | null,
+  nowSeconds: number,
+): number | null {
+  const day = utcDayFromSeconds(timestamp);
+  return dailyUsd[day] ?? (day === utcDayFromSeconds(nowSeconds) ? currentUsd : null);
+}
+
+/** A fee's dollar value at its own date: `usdAtDay`, formatted. */
 export function feeUsdAtDay(
   zat: number,
   timestamp: number,
@@ -318,11 +329,8 @@ export function feeUsdAtDay(
   currentUsd: number | null,
   nowSeconds: number,
 ): string | null {
-  const day = utcDayFromSeconds(timestamp);
-  const today = utcDayFromSeconds(nowSeconds);
-  const price = dailyUsd[day] ?? (day === today ? currentUsd : null);
-  if (price === null || price === undefined) return null;
-  return formatZatUsd(zat, price);
+  const price = usdAtDay(timestamp, dailyUsd, currentUsd, nowSeconds);
+  return price === null ? null : formatZatUsd(zat, price);
 }
 
 /**

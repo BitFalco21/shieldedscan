@@ -9,6 +9,7 @@ import {
   formatZec,
   formatZecCompact,
   formatZecTick,
+  usdAtDay,
   shortHash,
   timeAgo,
 } from "../format";
@@ -224,5 +225,22 @@ describe("dailyUsdForRows", () => {
     expect(feeUsdAtDay(1_000_000, ts, pruned, 999, now)).toBe(
       feeUsdAtDay(1_000_000, ts, map, 999, now),
     );
+  });
+});
+
+describe("usdAtDay", () => {
+  const day = (d: number) => Date.UTC(2026, 9, d) / 1000;
+  const closes = { "2026-10-01": 1_200, "2026-10-02": 1_300 };
+
+  it("prices a day at its own close, never at today's price", () => {
+    expect(usdAtDay(day(1) + 3_600, closes, 999, day(12))).toBe(1_200);
+  });
+
+  it("uses the current price for today only, whose close does not exist yet", () => {
+    expect(usdAtDay(day(12) + 60, closes, 999, day(12) + 7_200)).toBe(999);
+  });
+
+  it("has no price for a past day without a close, rather than today's in its place", () => {
+    expect(usdAtDay(day(5), closes, 999, day(12))).toBeNull();
   });
 });
