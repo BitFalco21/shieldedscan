@@ -117,10 +117,24 @@ describe("txAction", () => {
       ironwood: { actions: 2, valueBalanceZat: 159_649 },
     });
     expect(read(action.parts)).toBe(
-      "Shielded 0.00159649 ZEC from {t1Ku2K} into [ironwood], and paid {t1Ku2K}",
+      "Shielded 0.00159649 ZEC from {t1Ku2K} into [ironwood], and sent 169.91766291 ZEC to {t1Ku2K}",
     );
     expect(read(action.parts)).not.toMatch(/both ways/);
     expect(action.limit).toMatch(/which transparent output is a payment and which is change/);
+  });
+
+  it("states the transparent side beside an unshielding by its own total", () => {
+    const action = txAction({
+      ...base,
+      transparentInputs: [{ address: "t1Ann", valueZat: 50_000_000 }],
+      transparentOutputs: [{ address: "t1Bob", valueZat: 149_990_000 }],
+      orchard: { actions: 2, valueBalanceZat: -100_000_000 },
+    });
+    expect(read(action.parts)).toBe(
+      "Unshielded 1.00 ZEC from [orchard] to {t1Bob}, alongside 0.50 ZEC from {t1Ann}",
+    );
+    // The crossing is still the amount the sentence prices.
+    expect(action.amountZat).toBe(100_000_000);
   });
 
   it("names no direction when the pools moved opposite ways", () => {

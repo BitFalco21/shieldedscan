@@ -257,6 +257,10 @@ export function txAction(tx: Transaction): TxAction {
   const crossedZat = reportsValueBalance(tx) ? Math.abs(netShieldedZat(tx)) : null;
   const amount = crossedZat === null ? [text("value")] : [zec(crossedZat)];
   const bothSides = ins > 0 && outs > 0;
+  // The other transparent side's own total, so the clause beside the crossing states an amount
+  // rather than a bare address: both are public, and neither is called change.
+  const sideZat = (side: readonly { valueZat: number }[]) =>
+    side.reduce((t, o) => t + o.valueZat, 0);
   const opposite = (): ActionPart[] => [
     text(" net, while "),
     ...ends(["transparent", ...pools]),
@@ -278,7 +282,14 @@ export function txAction(tx: Transaction): TxAction {
               ...transparentSide(inputs, "input", "transparent"),
               text(" into "),
               ...ends(path.to),
-              ...(bothSides ? [text(", and paid "), ...transparentSide(outputs, "output")] : []),
+              ...(bothSides
+                ? [
+                    text(", and sent "),
+                    zec(sideZat(outputs)),
+                    text(" to "),
+                    ...transparentSide(outputs, "output"),
+                  ]
+                : []),
             ]),
       ],
       amountZat: crossedZat,
@@ -305,7 +316,14 @@ export function txAction(tx: Transaction): TxAction {
               ...ends(path.from),
               text(" to "),
               ...transparentSide(outputs, "output"),
-              ...(bothSides ? [text(", alongside "), ...transparentSide(inputs, "input")] : []),
+              ...(bothSides
+                ? [
+                    text(", alongside "),
+                    zec(sideZat(inputs)),
+                    text(" from "),
+                    ...transparentSide(inputs, "input"),
+                  ]
+                : []),
             ]),
       ],
       amountZat: crossedZat,
