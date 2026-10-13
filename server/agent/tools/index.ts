@@ -302,7 +302,7 @@ export { type ToolResult, type SourceLink, type V1Requester, type ChainRequester
 export { CHAIN_STATUS_FACETS, INSIGHT_TOPICS } from "./specs";
 export { CHAIN_WINDOW_NOTE } from "./notes";
 export { MAX_TX_SIDE_ENTRIES, transactionJson } from "./entities";
-export { upgradeContextFor, groupedSibling } from "./payload";
+export { upgradeContextFor, groupedSibling, withFormattedZec } from "./payload";
 export {
   SUBJECT_PARTS,
   MAX_STEP_SUBJECT_CHARS,

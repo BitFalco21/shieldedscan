@@ -212,13 +212,20 @@ function isEmptyAggregate(parsed: unknown): boolean {
  * the page it cites.
  *
  * A null stays null and gains no sibling: "0.00" for an unknown fee would be a fabrication.
+ *
+ * A `/v1` payload already carries its own `…Zec` beside each `…Zat`: the same amount as a bare
+ * decimal ("13000.00000000"). The sibling computed here replaces it, so the model quotes the
+ * grouped form the pages print rather than eight trailing zeros.
  */
 export function withFormattedZec(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withFormattedZec);
   if (typeof value !== "object" || value === null) return value;
 
+  const record = value as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+  for (const [key, raw] of Object.entries(record)) {
+    const zatTwin = key.endsWith("Zec") ? record[`${key.slice(0, -3)}Zat`] : undefined;
+    if (typeof zatTwin === "number" && Number.isFinite(zatTwin)) continue;
     out[key] = withFormattedZec(raw);
     if (key.endsWith("Zat") && typeof raw === "number" && Number.isFinite(raw)) {
       // `…Zat` → `…Zec`, next to its source so the pairing is unmissable.
