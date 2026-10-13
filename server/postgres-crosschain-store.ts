@@ -13,6 +13,7 @@ import {
   type CrossChainTransfer,
   type ZcashTxCrossings,
   type CrossChainVolumeSide,
+  type ListedChain,
   SETTLEMENT_ASSETS,
   ZCASH_CHAIN,
   classifyZcashAddress,
@@ -905,6 +906,34 @@ export class PostgresStorePort implements CrossChainStorePort {
        ON CONFLICT (key) DO UPDATE SET state = EXCLUDED.state, updated_at = EXCLUDED.updated_at`,
       [key, JSON.stringify(state), Math.floor(Date.now() / 1000)],
     );
+  }
+
+  /**
+   * Every counterpart chain the list shows, per direction: `listedChains` in SQL. `transfers`
+   * counts every status, as the list does; the ZEC counts completed transfers only, as every
+   * total does, and only orders the menus.
+   */
+  async listedChains(): Promise<ListedChain[]> {
+    const { rows } = await this.#pool.query<{
+      chain: string;
+      direction: CrossChainDirection;
+      transfers: string;
+      zec: string;
+    }>(
+      `SELECT counterpart_chain AS chain, direction,
+              count(*)::bigint AS transfers,
+              COALESCE(SUM(zec_amount_zat) FILTER (WHERE ${COUNTED}), 0)::bigint AS zec
+         FROM crosschain_transfer
+        WHERE counterpart_asset <> ALL($1)
+        GROUP BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({
+      chain: r.chain,
+      direction: r.direction,
+      transfers: Number(r.transfers),
+      zecAmountZat: Number(r.zec),
+    }));
   }
 
   /**

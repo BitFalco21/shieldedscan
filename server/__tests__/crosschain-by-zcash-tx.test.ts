@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CrossChainTransfer } from "@/domain";
-import { crosschainRoutes } from "../crosschain-routes";
+import type { CrossChainTransfer, ListedChain } from "@/domain";
+import { crosschainRoutes, LISTED_CHAINS_PATH } from "../crosschain-routes";
 import { MemoryStorePort } from "../crosschain-store";
 
 const LEG = "ab".repeat(32);
@@ -76,5 +76,17 @@ describe("GET /crosschain/transfers/by-zcash-tx/:txid", () => {
     const res = await (await app([transfer("near-1")])).request("/crosschain/transfers/near-1");
     expect(res.status).toBe(200);
     expect(((await res.json()) as CrossChainTransfer).id).toBe("near-1");
+  });
+});
+
+describe(`GET ${LISTED_CHAINS_PATH}`, () => {
+  it("lists every chain the transfer list shows, with no settlement leg among them", async () => {
+    const routes = await app([
+      transfer("a"),
+      transfer("b", { counterpartChain: "ETH", counterpartAsset: "ETH", status: "pending" }),
+      transfer("c", { counterpartChain: "MAYA", counterpartAsset: "CACAO" }),
+    ]);
+    const body = (await (await routes.request(LISTED_CHAINS_PATH)).json()) as ListedChain[];
+    expect(body.map((c) => c.chain).sort()).toEqual(["BTC", "ETH"]);
   });
 });

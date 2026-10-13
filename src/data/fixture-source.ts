@@ -72,7 +72,7 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getCrossChainChains() {
     // Always all-time: a menu lists which chains exist, and narrowing it by the flows tab's
     // window would hide a chain from the list filter because it was quiet last month.
-    return fixtures.getCrossChainFlows().flows;
+    return fixtures.getCrossChainChains();
   },
   async getCrossChainTransfer(id) {
     return fixtures.getCrossChainTransfer(id);

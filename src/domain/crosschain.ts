@@ -455,25 +455,65 @@ export interface ChainFilterOptions {
 }
 
 /**
- * The chains that can appear in each column, largest first. Derived from the flow aggregate,
- * which applies the same settlement-leg exclusion as the transfer list, so a menu never
- * offers a chain with no rows.
+ * A counterpart chain the transfer list shows at one end, for the column menus.
+ *
+ * Two numbers, two populations, each named for its job: `transfers` counts every row the list
+ * shows there, whatever its status, so a chain is offered whenever filtering by it can match a
+ * row; `zecAmountZat` counts completed transfers only, as every total does, and only orders the
+ * menu. A chain whose every transfer is pending is offered, last.
+ */
+export interface ListedChain {
+  chain: string;
+  direction: CrossChainDirection;
+  transfers: number;
+  zecAmountZat: number;
+}
+
+/**
+ * The listed chains of an in-memory set of transfers. Settlement legs are the caller's to
+ * exclude, by asset, as for every aggregate here; the Postgres store has its own copy in SQL.
+ */
+export function listedChains(
+  transfers: Iterable<
+    Pick<CrossChainTransfer, "counterpartChain" | "direction" | "status" | "zecAmountZat">
+  >,
+): ListedChain[] {
+  const by = new Map<string, ListedChain>();
+  for (const t of transfers) {
+    const key = `${t.direction}:${t.counterpartChain}`;
+    const row = by.get(key) ?? {
+      chain: t.counterpartChain,
+      direction: t.direction,
+      transfers: 0,
+      zecAmountZat: 0,
+    };
+    row.transfers += 1;
+    if (countsTowardTotals(t)) row.zecAmountZat += t.zecAmountZat;
+    by.set(key, row);
+  }
+  return [...by.values()];
+}
+
+/**
+ * The chains that can appear in each column: every chain the list shows there, so a menu never
+ * offers a chain with no rows nor hides one that has some. Largest first by completed ZEC, ties
+ * by name.
  *
  * A side offers nothing (`[]`) when the direction pins it to Zcash or when no direction is
  * chosen, so at most one side ever offers a menu.
  */
 export function chainFilterOptions(
-  flows: readonly CrossChainFlow[],
+  chains: readonly ListedChain[],
   direction: CrossChainDirectionFilter,
 ): ChainFilterOptions {
   return {
-    source: sideOptions(flows, "in", direction),
-    destination: sideOptions(flows, "out", direction),
+    source: sideOptions(chains, "in", direction),
+    destination: sideOptions(chains, "out", direction),
   };
 }
 
 /**
- * One side's menu: the counterpart chains that can sit there, largest first.
+ * One side's menu: the counterpart chains that can sit there.
  *
  * `counterpartWhen` is the direction that puts the counterpart chain on this side. The
  * opposite direction puts Zcash here, and `[]` means no menu.
@@ -483,7 +523,7 @@ export function chainFilterOptions(
  * duplicate a direction and allow selections no row can satisfy.
  */
 function sideOptions(
-  flows: readonly CrossChainFlow[],
+  chains: readonly ListedChain[],
   counterpartWhen: CrossChainDirection,
   direction: CrossChainDirectionFilter,
 ): string[] {
@@ -492,10 +532,10 @@ function sideOptions(
   const opposite = counterpartWhen === "in" ? "out" : "in";
   if (direction === opposite) return [];
 
-  return flows
-    .filter((f) => f.direction === counterpartWhen && f.zecAmountZat > 0)
-    .sort((a, b) => b.zecAmountZat - a.zecAmountZat)
-    .map((f) => f.chain);
+  return chains
+    .filter((c) => c.direction === counterpartWhen && c.transfers > 0)
+    .sort((a, b) => b.zecAmountZat - a.zecAmountZat || a.chain.localeCompare(b.chain))
+    .map((c) => c.chain);
 }
 
 /**

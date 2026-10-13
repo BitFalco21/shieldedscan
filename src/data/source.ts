@@ -3,7 +3,7 @@ import type {
   ChainMonthPoint,
   FeeKindMonthPoint,
   SupplyBreakdown,
-  CrossChainFlow,
+  ListedChain,
   CrossChainFlowSummary,
   CrossChainProtocolSummary,
   CrossChainNarrowing,
@@ -219,14 +219,12 @@ export interface ExplorerDataSource {
    */
   getCrossChainProtocols(windowDays?: number | null): Promise<CrossChainProtocolSummary>;
   /**
-   * The per-direction chain lists the SOURCE/DESTINATION filter menus are built from.
-   *
-   * Separate from `getCrossChainFlows` although it reads the same aggregate, because the two
-   * have opposite freshness needs: the flows tab wants current numbers, while a menu only
-   * needs to know which chains exist. Keeping them apart lets the adapter memoise this one
-   * on a route that otherwise runs with no fetch cache.
+   * The per-direction chain lists the SOURCE/DESTINATION filter menus are built from: every
+   * chain the transfer list shows, in any status. Not the flows aggregate, which counts completed
+   * transfers only and would hide a chain whose transfers are all pending. Memoised by the
+   * adapter, since a menu only needs to know which chains exist.
    */
-  getCrossChainChains(): Promise<CrossChainFlow[]>;
+  getCrossChainChains(): Promise<ListedChain[]>;
 
   /**
    * Everything `/mining` shows for one window, in a single call: every panel is a projection

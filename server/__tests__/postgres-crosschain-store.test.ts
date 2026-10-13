@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { CrossChainGroupBy, CrossChainNarrowing, CrossChainTransfer } from "@/domain";
+import type {
+  CrossChainGroupBy,
+  CrossChainNarrowing,
+  CrossChainTransfer,
+  ListedChain,
+} from "@/domain";
 import { createPool } from "../pg-pool";
 import { PostgresStorePort } from "../postgres-crosschain-store";
 import { MemoryStorePort, type CrossChainStorePort } from "../crosschain-store";
@@ -541,6 +546,17 @@ describeDb("every total counts completed transfers only, in both stores", () => 
     const volume = await pg.volume();
     expect(volume.in).toMatchObject({ transfers: 1, zecAmountZat: 100 });
     expect(volume.out.transfers).toBe(0);
+  });
+
+  it("still offers every chain the list shows, in both stores", async () => {
+    const sorted = (rows: ListedChain[]) =>
+      [...rows].sort((a, b) => a.chain.localeCompare(b.chain));
+    const listed = sorted(await pg.listedChains());
+    expect(listed).toEqual(sorted(await memory.listedChains()));
+    expect(listed).toEqual([
+      { chain: "BTC", direction: "in", transfers: 2, zecAmountZat: 100 },
+      { chain: "ETH", direction: "out", transfers: 1, zecAmountZat: 0 },
+    ]);
   });
 
   it("still lists every transfer, with its status", async () => {

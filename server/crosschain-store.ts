@@ -1,4 +1,4 @@
-import { classifyZcashAddress, countsTowardTotals } from "@/domain";
+import { classifyZcashAddress, countsTowardTotals, listedChains } from "@/domain";
 import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import type {
   ChainInflowPoint,
@@ -17,6 +17,7 @@ import type {
   ZcashTxCrossings,
   CrossChainVolumePoint,
   CrossChainVolumeSeries,
+  ListedChain,
 } from "@/domain";
 import type { CursorPage, CursorQuery } from "@/data/source";
 import { CrossChainStore, type ListOptions, type VenueHealth } from "@/data/crosschain/store";
@@ -83,6 +84,8 @@ export interface CrossChainStorePort {
   ): Promise<CrossChainTransfer[]>;
   /** The shielded-capable-destination statistic. */
   countByAddressKind(direction: CrossChainDirection): Promise<AddressKindBucket[]>;
+  /** Every counterpart chain the list shows, per direction, for the column menus (`ListedChain`). */
+  listedChains(): Promise<ListedChain[]>;
   /**
    * Gross ZEC crossing per (counterpart chain, direction, Zcash address kind): one ribbon each on
    * `/pulse`.
@@ -180,6 +183,13 @@ export class MemoryStorePort implements CrossChainStorePort {
   }
   async countByAddressKind(direction: CrossChainDirection): Promise<AddressKindBucket[]> {
     return this.#store.countByAddressKind(direction);
+  }
+  async listedChains(): Promise<ListedChain[]> {
+    return listedChains(
+      this.#store
+        .list({ limit: 1_000_000 })
+        .items.filter((t) => !SETTLEMENT_ASSETS.includes(t.counterpartAsset)),
+    );
   }
   async crossChainEdges(fromTimestamp: number | null): Promise<CrossChainEdgeRow[]> {
     return this.#store.crossChainEdges(fromTimestamp);
