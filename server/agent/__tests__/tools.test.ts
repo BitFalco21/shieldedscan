@@ -15,6 +15,7 @@ import {
   AgentTools,
   CHAIN_STATUS_FACETS,
   groupedSibling,
+  withFormattedZec,
   INSIGHT_TOPICS,
   MAX_TX_SIDE_ENTRIES,
   sourceLinkFor,
@@ -1826,14 +1827,14 @@ describe("crosschain", () => {
       expect(result.content).toMatch(/"out": \{\s*"transfers": 0/);
     });
 
-    it("hands over the exact ZEC and a floor-marked dollar total", async () => {
+    it("hands over a formatted ZEC string and a floor-marked dollar total", async () => {
       const result = await call({
         mode: "aggregate",
         chain: "BTC",
         from: "2026-07-01",
         to: "2026-08-01",
       });
-      expect(result.content).toContain('"amountZec": "12000.00000000"');
+      expect(result.content).toContain('"amountZec": "12,000.00"');
       // One of the two July inbound legs was unpriced, so the dollars are a floor and the string
       // says so.
       expect(result.content).toContain('"usdAtSwapText": "≥ $36,000.00"');
@@ -2065,7 +2066,7 @@ describe("crosschain", () => {
         minUsdAtSwap: 10_000,
       });
       expect(above.content).toContain('"transfers": 1');
-      expect(above.content).toContain('"amountZec": "9000.00000000"');
+      expect(above.content).toContain('"amountZec": "9,000.00"');
     });
 
     /**
@@ -2219,7 +2220,7 @@ describe("crosschain", () => {
       // 33 days back from 2026-08-03 starts on 2026-07-01, which leaves June's last-second row
       // outside. One priced July crossing remains; the unpriced one never clears a threshold.
       expect(windowed.content).toContain('"transfers": 1');
-      expect(windowed.content).toContain('"amountZec": "9000.00000000"');
+      expect(windowed.content).toContain('"amountZec": "9,000.00"');
     });
 
     it("refuses a trailing window and an absolute one together, rather than picking", async () => {
@@ -2987,6 +2988,26 @@ describe("transactionJson", () => {
  * Grouped siblings for counts: a model regrouping a bare integer by eye can insert a digit (1410990
  * → "14,109,990"). Handing it the grouped string removes the step, as `…Zec` removes the division.
  */
+describe("formatted ZEC siblings", () => {
+  it("replaces a payload's own bare decimal with the grouped form the pages print", () => {
+    // `/v1` sends each amount twice; the bare decimal must not overwrite the formatted one.
+    const v1Side = { transfers: 3, amountZat: 1_300_000_000_000, amountZec: "13000.00000000" };
+    expect(withFormattedZec(v1Side)).toEqual({
+      transfers: 3,
+      amountZat: 1_300_000_000_000,
+      amountZec: "13,000.00",
+    });
+  });
+
+  it("keeps a payload's own ZEC string where no zatoshi figure stands beside it", () => {
+    expect(withFormattedZec({ amountZat: null, amountZec: null })).toEqual({
+      amountZat: null,
+      amountZec: null,
+    });
+    expect(withFormattedZec({ balanceZec: "1.5" })).toEqual({ balanceZec: "1.5" });
+  });
+});
+
 describe("grouped count siblings", () => {
   it("groups a count of 1,000 or more, and only a count", () => {
     expect(groupedSibling("txCount", 1_410_990)).toBe("1,410,990");
