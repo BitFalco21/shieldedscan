@@ -1875,6 +1875,16 @@ describe("crosschain", () => {
       expect(result.content).toContain('"firstAtUtc"');
     });
 
+    it("drops the direction a filter excluded, so its zeros cannot read as none crossing", async () => {
+      // Asked inbound only, the route still sends an outbound side of zeros; read as a measurement,
+      // they once became "no ZEC left for Bitcoin that month".
+      const inbound = await call({ mode: "aggregate", chain: "BTC", direction: "in" });
+      expect(inbound.content).toMatch(/"in": \{/);
+      expect(inbound.content).not.toMatch(/"out": \{/);
+      const both = await call({ mode: "aggregate", chain: "BTC", groupBy: "month" });
+      expect(both.content).toMatch(/"out": \{/);
+    });
+
     it("reads all of history when no edge is asked for, through the end of today", async () => {
       const result = await call({ mode: "aggregate" });
       // FIXTURE_NOW_MS is 2026-08-03; the exclusive upper edge keeps today in.
