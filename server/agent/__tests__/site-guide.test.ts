@@ -30,6 +30,7 @@ import {
 } from "@/content/privacy-facts";
 import { AgentTools, sourceLinkFor } from "../tools";
 import {
+  ADDRESS_INFO,
   makeChain,
   makeV1,
   FIXTURE_NOW_MS,
@@ -412,6 +413,17 @@ describe("the labels section", () => {
   it("reads the balances /v1/labels serves", async () => {
     const served = await (await makeV1().request("/v1/labels")).json();
     expect(asLabelledBalances(served)).toEqual(LABELLED_BALANCES_FIXTURE);
+  });
+
+  it("leaves one address's own rank to its own query in the same fixture world", async () => {
+    // The labels read and the one-address standing name the same two tables; answering the first
+    // must not answer the second, or every fixture address loses its rank.
+    const t = new AgentTools(makeV1(), makeChain(), () => FIXTURE_NOW_MS);
+    const result = await t.dispatch(
+      "lookup_address",
+      JSON.stringify({ address: ADDRESS_INFO.address }),
+    );
+    expect(result.content).toMatch(/"rank": 4127/);
   });
 
   it("rejects a malformed balances payload whole, rather than printing what parsed", () => {

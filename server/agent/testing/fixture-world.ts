@@ -281,7 +281,8 @@ function agentPool(
             })),
         };
       }
-      if (sql.includes("FROM chain_rich_list_meta")) {
+      // Exactly the bare height read: the one-address standing below also names this table.
+      if (sql.includes("SELECT computed_height FROM chain_rich_list_meta")) {
         return { rows: labelled === null ? [] : [{ computed_height: labelled.rankAsOfHeight }] };
       }
       /*
