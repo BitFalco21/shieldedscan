@@ -1,4 +1,4 @@
-import { classifyZcashAddress } from "@/domain";
+import { classifyZcashAddress, countsTowardTotals } from "@/domain";
 import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import type {
   ChainInflowPoint,
@@ -30,6 +30,9 @@ import { CrossChainStore, type ListOptions, type VenueHealth } from "@/data/cros
  * Deliberately narrow: every method is a read the API serves or a write the poller makes, with no
  * query builder or escape hatch. A new access pattern should be a named method so both adapters
  * have to implement it.
+ *
+ * Every total counts completed transfers only (`countsTowardTotals`); the lists show every transfer
+ * with its status.
  */
 export type { AddressKindBucket, CrossChainEdgeRow } from "@/data/crosschain/store";
 import type { AddressKindBucket, CrossChainEdgeRow } from "@/data/crosschain/store";
@@ -83,9 +86,6 @@ export interface CrossChainStorePort {
   /**
    * Gross ZEC crossing per (counterpart chain, direction, Zcash address kind): one ribbon each on
    * `/pulse`.
-   *
-   * Completed only, unlike `aggregate()` and `flows()`: a ribbon states value that crossed, and a
-   * `pending` crossing has not happened while a `refunded` one was undone.
    *
    * Split by address kind because the kinds land in different places: only a transparent delivery
    * demonstrably reached the transparent box. `pulseZcashEnd` is the one rule turning a kind into
@@ -198,7 +198,7 @@ export class MemoryStorePort implements CrossChainStorePort {
   async volume(): Promise<CrossChainVolume> {
     const empty = { transfers: 0, zecAmountZat: 0, usdAtSwap: 0, usdCoveredTransfers: 0 };
     const out = { in: { ...empty }, out: { ...empty } };
-    for (const t of this.#store.list({ limit: 1_000_000 }).items) {
+    for (const t of this.#swaps(null)) {
       const side = out[t.direction];
       side.transfers += 1;
       side.zecAmountZat += t.zecAmountZat;
@@ -272,12 +272,13 @@ export class MemoryStorePort implements CrossChainStorePort {
     );
   }
 
-  /** Every transfer in one direction (or both), settlement legs excluded. */
+  /** Every transfer a total counts, in one direction (or both): completed, settlement legs excluded. */
   #swaps(direction: "in" | "out" | null): CrossChainTransfer[] {
     return this.#store
       .list({ limit: 1_000_000 })
       .items.filter(
         (t) =>
+          countsTowardTotals(t) &&
           (direction === null || t.direction === direction) &&
           !SETTLEMENT_ASSETS.includes(t.counterpartAsset),
       );
@@ -293,7 +294,7 @@ export class MemoryStorePort implements CrossChainStorePort {
     };
     const roll = (unit: "month" | "day"): CrossChainVolumePoint[] => {
       const by = new Map<number, CrossChainVolumePoint>();
-      for (const t of this.#store.list({ limit: 1_000_000 }).items) {
+      for (const t of this.#swaps(null)) {
         const ts = bucket(t.timestamp, unit);
         const point = by.get(ts) ?? {
           timestamp: ts,

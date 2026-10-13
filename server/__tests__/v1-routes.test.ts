@@ -838,6 +838,48 @@ describe("GET /v1/transactions/{txid}/privacy", () => {
   });
 });
 
+describe("cross-chain totals and lists say which transfers they count", () => {
+  const row = (id: string, status: "completed" | "pending", zecAmountZat: number) => ({
+    id,
+    direction: "in" as const,
+    protocol: "maya" as const,
+    counterpartChain: "BTC",
+    counterpartAsset: "BTC",
+    counterpartAmount: 0.1,
+    counterpartIsSynthetic: false,
+    counterpartTxHash: null,
+    counterpartAddress: null,
+    zcashTxid: null,
+    zcashAddress: "t1Mv595nLBUxJxKAfAZAG9RjhibExEErmMf",
+    zecAmountZat,
+    usdValueAtSwap: null,
+    counterpartUsdAtSwap: null,
+    venueDepositAddress: null,
+    status,
+    timestamp: 1_785_000_000,
+  });
+  const app = async () => {
+    const store = new MemoryStorePort();
+    await store.upsert([row("done", "completed", 100), row("waiting", "pending", 10_000)]);
+    return v1Routes({ store, enabledProtocols: { maya: true } });
+  };
+
+  it("totals count the completed transfer only, and say so in their coverage", async () => {
+    const a = await app();
+    const flows = await (await a.request("/v1/crosschain/flows")).json();
+    expect(flows.in.zecAmountZat).toBe(100);
+    expect(flows.coverage.excludes).toContain("pending-or-refunded-transfers");
+    const landing = await (await a.request("/v1/crosschain/destinations")).json();
+    expect(landing.coverage.excludes).toContain("pending-or-refunded-transfers");
+  });
+
+  it("lists show every transfer, so their coverage does not claim the exclusion", async () => {
+    const body = await (await (await app()).request("/v1/crosschain/transfers")).json();
+    expect(body.items.map((t: { id: string }) => t.id).sort()).toEqual(["done", "waiting"]);
+    expect(body.coverage.excludes).not.toContain("pending-or-refunded-transfers");
+  });
+});
+
 describe("GET /v1/crosschain/transfers", () => {
   it("nulls a placeholder ticker with a reason instead of shipping it as an asset", async () => {
     const store = new MemoryStorePort();

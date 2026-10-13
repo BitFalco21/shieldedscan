@@ -339,7 +339,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
       path: "/v1/crosschain/flows",
       title: "All-time flows per chain",
       description:
-        "ZEC in and out per counterpart chain since observation began, the two directions as separate lists: unrelated transfers, never netted. `usdAtSwap` sums the protocols' own swap-time prices; `usdCoveredTransfers` says how many transfers had one, so a smaller count makes the dollar figure a floor.",
+        "ZEC in and out per counterpart chain since observation began, completed transfers only, the two directions as separate lists: unrelated transfers, never netted. `usdAtSwap` sums the protocols' own swap-time prices; `usdCoveredTransfers` says how many transfers had one, so a smaller count makes the dollar figure a floor.",
       params: [],
       exampleResponse: `{
   "coverage": { "basis": "floor", "scope": "public-swap-protocols", "…": "…" },
@@ -360,7 +360,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
       path: "/v1/crosschain/destinations",
       title: "Where inbound ZEC lands — the shielded-capable rate",
       description:
-        "Of the transfers arriving from other chains, the share landing on a shielded-capable address. `shieldedCapable`, never `shielded`: which receiver a unified address paid into is not public. A transfer whose venue published no Zcash-side address is in neither term of the share, and its bucket is marked unmeasured.",
+        "Of the completed transfers arriving from other chains, the share landing on a shielded-capable address. `shieldedCapable`, never `shielded`: which receiver a unified address paid into is not public. A transfer whose venue published no Zcash-side address is in neither term of the share, and its bucket is marked unmeasured.",
       params: [
         {
           name: "direction",

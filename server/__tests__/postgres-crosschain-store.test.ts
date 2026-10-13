@@ -506,3 +506,65 @@ describeDb("top transfers", () => {
     ]);
   });
 });
+
+describeDb("every total counts completed transfers only, in both stores", () => {
+  let pg: PostgresStorePort;
+  let memory: MemoryStorePort;
+  const yesterday = Math.floor(Date.now() / 1000) - 86_400;
+  /** One crossing that happened, and two of far larger size that did not. */
+  const ROWS_BY_STATUS: CrossChainTransfer[] = [
+    transfer("status-completed", yesterday, { zecAmountZat: 100 }),
+    transfer("status-pending", yesterday, { zecAmountZat: 10_000, status: "pending" }),
+    transfer("status-refunded", yesterday, {
+      direction: "out",
+      counterpartChain: "ETH",
+      counterpartAsset: "ETH",
+      zecAmountZat: 50_000,
+      status: "refunded",
+    }),
+  ];
+
+  beforeAll(async () => {
+    pg = new PostgresStorePort(DATABASE_URL as string);
+    await pg.migrate("server/schema.sql");
+    await truncate();
+    memory = new MemoryStorePort();
+    await pg.upsert(ROWS_BY_STATUS);
+    await memory.upsert(ROWS_BY_STATUS);
+  });
+
+  afterAll(async () => {
+    await pg?.close();
+  });
+
+  it("totals only the completed crossing", async () => {
+    const volume = await pg.volume();
+    expect(volume.in).toMatchObject({ transfers: 1, zecAmountZat: 100 });
+    expect(volume.out.transfers).toBe(0);
+  });
+
+  it("still lists every transfer, with its status", async () => {
+    const page = await pg.list({ limit: 10 });
+    expect(page.items.map((t) => t.status).sort()).toEqual(["completed", "pending", "refunded"]);
+  });
+
+  const TOTALS: [string, (s: CrossChainStorePort) => Promise<unknown>][] = [
+    ["volume", (s) => s.volume()],
+    ["volumeSeries", (s) => s.volumeSeries()],
+    ["flows, all-time", (s) => s.flows(null)],
+    ["aggregate", (s) => s.aggregate({}, "chain")],
+    ["inflowByChain", (s) => s.inflowByChain()],
+    ["outflowByChain", (s) => s.outflowByChain()],
+    ["volumeByVenue", (s) => s.volumeByVenue()],
+    ["inflowByAddressKind", (s) => s.inflowByAddressKind()],
+    ["countByAddressKind", (s) => s.countByAddressKind("in")],
+    ["crossChainEdges", (s) => s.crossChainEdges(null)],
+  ];
+  for (const [what, read] of TOTALS) {
+    it(`${what}: identical in both stores, the undone transfers left out`, async () => {
+      const total = await read(pg);
+      expect(total).toEqual(await read(memory));
+      expect(JSON.stringify(total)).not.toMatch(/\b(10000|50000)\b/);
+    });
+  }
+});

@@ -14,6 +14,7 @@ import {
   aggregateCrossChain,
   aggregateFlowWindows,
   classifyZcashAddress,
+  countsTowardTotals,
   matchesCrossChainFilters,
 } from "@/domain";
 import { type CursorPage, type CursorQuery } from "../source";
@@ -134,12 +135,12 @@ export class CrossChainStore {
   /**
    * Where transfers land, by Zcash address family — classified with the same
    * `classifyZcashAddress` the Postgres adapter applies at ingest, so the two stores agree.
-   * Settlement legs are excluded by asset.
+   * Completed transfers only, settlement legs excluded by asset.
    */
   countByAddressKind(direction: CrossChainDirection): AddressKindBucket[] {
     const buckets = new Map<string, AddressKindBucket>();
     for (const t of this.#sorted) {
-      if (t.direction !== direction || isSettlementLeg(t)) continue;
+      if (!countsTowardTotals(t) || t.direction !== direction || isSettlementLeg(t)) continue;
       const kind = classifyZcashAddress(t.zcashAddress);
       const key = kind ?? "none";
       const bucket = buckets.get(key) ?? { kind, transfers: 0, zecAmountZat: 0 };
@@ -158,7 +159,7 @@ export class CrossChainStore {
   crossChainEdges(fromTimestamp: number | null): CrossChainEdgeRow[] {
     const rows = new Map<string, CrossChainEdgeRow>();
     for (const t of this.#sorted) {
-      if (t.status !== "completed" || isSettlementLeg(t)) continue;
+      if (!countsTowardTotals(t) || isSettlementLeg(t)) continue;
       if (fromTimestamp !== null && t.timestamp < fromTimestamp) continue;
       const addressKind = classifyZcashAddress(t.zcashAddress);
       const key = `${t.counterpartChain}|${t.direction}|${addressKind ?? "none"}`;

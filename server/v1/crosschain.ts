@@ -149,7 +149,7 @@ export function v1CrossChainRoutes(
       items: page.items.map(toTransfer),
       nextCursor: page.nextCursor,
       prevCursor: page.prevCursor,
-      coverage: toFloorCoverage(await venueHealth(), null, null),
+      coverage: toFloorCoverage(await venueHealth(), null, null, "transfers"),
     });
   });
 
@@ -200,7 +200,7 @@ export function v1CrossChainRoutes(
        */
       basisExcludesUnpricedTransfers: by === "usd",
       items: items.map(toTransfer),
-      coverage: toFloorCoverage(await venueHealth(), null, null),
+      coverage: toFloorCoverage(await venueHealth(), null, null, "transfers"),
     });
   });
 

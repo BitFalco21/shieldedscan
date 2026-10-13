@@ -213,11 +213,15 @@ export interface CrossChainNarrowing {
    */
   fromTimestamp?: number;
   toTimestamp?: number;
-  /**
-   * Only transfers the venue reports as `completed`: a `pending` transfer has not happened
-   * and a `refunded` one was undone. Absent means every status.
-   */
-  completedOnly?: boolean;
+}
+
+/**
+ * Whether a transfer counts toward a total: only one the venue reports as completed. A pending
+ * transfer has not happened and a refunded one was undone, so either would put ZEC that never
+ * crossed into a figure. Lists show every transfer with its status; every total counts these.
+ */
+export function countsTowardTotals(t: Pick<CrossChainTransfer, "status">): boolean {
+  return t.status === "completed";
 }
 
 /**
@@ -248,8 +252,7 @@ export function matchesCrossChainFilters(
     (min === undefined || (t.usdValueAtSwap !== null && t.usdValueAtSwap >= min)) &&
     (minZec === undefined || t.zecAmountZat >= minZec) &&
     (fromTimestamp === undefined || t.timestamp >= fromTimestamp) &&
-    (toTimestamp === undefined || t.timestamp < toTimestamp) &&
-    (filters.completedOnly !== true || t.status === "completed")
+    (toTimestamp === undefined || t.timestamp < toTimestamp)
   );
 }
 
@@ -314,7 +317,7 @@ export type FlowTrend = { kind: "pct"; pct: number } | { kind: "new" } | { kind:
 /** The fields the flow aggregate reads; narrowed so callers can pass partial rows in tests. */
 type FlowRow = Pick<
   CrossChainTransfer,
-  "direction" | "counterpartChain" | "zecAmountZat" | "timestamp" | "usdValueAtSwap"
+  "direction" | "counterpartChain" | "zecAmountZat" | "timestamp" | "usdValueAtSwap" | "status"
 >;
 
 /**
@@ -340,7 +343,8 @@ function emptyFlow(chain: string, direction: CrossChainDirection): CrossChainFlo
  * fixtures). Postgres has its own copy in SQL, pinned to this one by `server/__tests__`.
  *
  * Settlement legs are the caller's to exclude, by asset and never by chain (wrapped ZEC
- * also lives on Maya).
+ * also lives on Maya). Only completed transfers are counted (`countsTowardTotals`), while every
+ * record still marks where the records begin.
  */
 export function aggregateFlowWindows(
   transfers: readonly FlowRow[],
@@ -358,6 +362,7 @@ export function aggregateFlowWindows(
 
   for (const t of transfers) {
     if (t.timestamp > 0) recordsBeginAt = Math.min(recordsBeginAt, t.timestamp);
+    if (!countsTowardTotals(t)) continue;
     const inCurrent = currentStart === null || t.timestamp >= currentStart;
     const inPrevious =
       previousStart !== null &&
@@ -637,7 +642,7 @@ function groupKeyOf(t: CrossChainTransfer, groupBy: CrossChainGroupBy): string |
  * in SQL, held to the same answers by a parity test.
  *
  * Settlement legs are the caller's to exclude, by asset and never by chain (wrapped ZEC also
- * lives on Maya).
+ * lives on Maya). Only completed transfers are counted (`countsTowardTotals`).
  *
  * A narrowing that matched nothing returns zeroed totals with `firstAt`/`lastAt` at 0. That
  * is a real answer, distinct from a failed read.
@@ -653,7 +658,7 @@ export function aggregateCrossChain(
   let lastAt = 0;
 
   for (const t of transfers) {
-    if (!matchesCrossChainFilters(t, filters)) continue;
+    if (!countsTowardTotals(t) || !matchesCrossChainFilters(t, filters)) continue;
     addToSide(totals[t.direction], t);
     const key = groupKeyOf(t, groupBy);
     if (key !== null) {

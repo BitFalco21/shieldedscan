@@ -335,17 +335,27 @@ export function toTransactionPrivacy(tx: Transaction): V1TransactionPrivacy {
 
 // --------------------------------------------------------------------------- cross-chain
 
+/**
+ * The floor every cross-chain response states. `of: "totals"` adds what a total leaves out and a
+ * list does not: a pending or refunded transfer moved no ZEC across (`countsTowardTotals`), while
+ * a list shows it with its status.
+ */
 export function toFloorCoverage(
   venues: (VenueHealth & { enabled: boolean })[],
   firstAt: number | null,
   lastAt: number | null,
+  of: "transfers" | "totals",
 ): V1FloorCoverage {
   return {
     basis: "floor",
     scope: "public-swap-protocols",
-    // Stated in the payload: no public per-transfer API for custodial routes, and
-    // aggregators settle on these same venues — counting them would double-count.
-    excludes: ["custodial-routes", "aggregators"],
+    // Stated in the payload: no public per-transfer API for custodial routes, and aggregators
+    // settle on these same venues — counting them would double-count.
+    excludes: [
+      "custodial-routes",
+      "aggregators",
+      ...(of === "totals" ? ["pending-or-refunded-transfers"] : []),
+    ],
     venues: venues.map((v) => ({ protocol: v.protocol, enabled: v.enabled, live: v.live })),
     firstAt,
     lastAt,
@@ -430,6 +440,7 @@ export function toFlows(
       venues,
       empty ? null : summary.firstAt,
       empty ? null : summary.lastAt,
+      "totals",
     ),
     in: side("in"),
     out: side("out"),
@@ -462,7 +473,7 @@ export function toDestinations(
   return withUnknowns(
     {
       direction,
-      coverage: toFloorCoverage(venues, null, null),
+      coverage: toFloorCoverage(venues, null, null, "totals"),
       buckets: buckets.map((b) => ({
         addressKind: b.kind,
         // A capability claim, not a privacy claim: unified is shielded-CAPABLE, and which
