@@ -149,8 +149,11 @@ const PRIVATE_READS: Readonly<Record<string, PrivateRead>> = {
     lacks:
       "`complete` and `fromHeight` as fields; the public payload states them in a coverage note",
   },
-  "/chain/labels/balances": { twin: "labels" },
-  "/chain/rich-list/summary": { twin: "rich-list-distribution" },
+  "/chain/rich-list/summary": {
+    twin: "rich-list-distribution",
+    lacks:
+      "the top addresses with the names this site prints beside them; /v1 gives names only through /v1/labels",
+  },
   "/chain/rich-list": {
     twin: "rich-list",
     lacks: "`fromRank`: the public list pages by cursor only, so rank 500 is many reads away",

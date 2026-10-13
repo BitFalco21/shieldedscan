@@ -25,7 +25,7 @@ import { dataBlock, insightJson, unreadableAggregate } from "./payload";
 import {
   API_DOCS_SOURCE,
   COVERAGE_SOURCE,
-  LABEL_BALANCES_PATH,
+  LABELS_PATH,
   LABELS_SOURCE,
   MAX_EXPRESSIONS_PER_CALL,
   PRIVACY_SOURCE,
@@ -100,14 +100,14 @@ export class AgentTools {
   async #labels(): Promise<ToolResult> {
     let balances: LabelledBalances | null = null;
     try {
-      const res = await this.#chain.request(LABEL_BALANCES_PATH);
+      const res = await this.#v1.request(LABELS_PATH);
       if (res.ok) balances = asLabelledBalances(parseJson(await res.text()));
     } catch {
       balances = null;
     }
     return {
       content: renderLabels(balances, new Date(this.#now()).toISOString()),
-      endpoints: balances ? [LABELS_SOURCE, `GET ${LABEL_BALANCES_PATH}`] : [LABELS_SOURCE],
+      endpoints: balances ? [LABELS_SOURCE, `GET ${LABELS_PATH}`] : [LABELS_SOURCE],
     };
   }
 

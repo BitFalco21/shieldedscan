@@ -404,8 +404,11 @@ export const PRIVACY_SOURCE = "site:privacy";
 
 export const LABELS_SOURCE = "site:labels";
 
-/** Every labelled address's balance and rank, read beside the label table (`site_guide` labels). */
-export const LABEL_BALANCES_PATH = "/chain/labels/balances";
+/**
+ * Every labelled address's balance and rank, read beside the label table (`site_guide` labels).
+ * The public endpoint, so Zeno quotes the figures an API or MCP reader gets.
+ */
+export const LABELS_PATH = "/v1/labels";
 
 export const API_DESCRIPTOR: AggregateSpec = {
   upstream: "the public API's own descriptor",

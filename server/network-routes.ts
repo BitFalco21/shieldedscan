@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { Pool } from "pg";
 import {
-  ADDRESS_LABELS,
   BAND_BOUNDARIES_ZEC,
   BLOSSOM_HEIGHT,
   PAST_HALVING_HEIGHTS,
@@ -531,14 +530,6 @@ export function networkRoutes(chain: HalvingChainSource, connection?: string): H
     const body: RichListSummary = await loadRichListSummary(pool);
     return c.json(body);
   });
-
-  /**
-   * Every labelled address's balance and rank, for the agent's label guide. No parameters: the
-   * address set is `ADDRESS_LABELS`, so a caller cannot widen the query.
-   */
-  app.get("/chain/labels/balances", async (c) =>
-    c.json(await loadLabelledBalances(pool, Object.keys(ADDRESS_LABELS))),
-  );
 
   /**
    * One address's value extrema, the agent's per-address "biggest transaction" read. Bounded by

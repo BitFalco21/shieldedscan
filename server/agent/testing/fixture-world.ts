@@ -35,7 +35,6 @@ import type { MinerWindow } from "../../mining-daily";
 import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
-import { LABEL_BALANCES_PATH } from "../tools/specs";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
 
 /**
@@ -257,9 +256,32 @@ export const REORG_OBSERVING_SINCE = 1_783_000_000;
  * store never asked the right question. `day` is a `Date` because the price route calls
  * `.toISOString()` on it; a string would pass here and fail in production.
  */
-function agentPool(rows: readonly { day: string; usd: number; source: string }[]) {
+function agentPool(
+  rows: readonly { day: string; usd: number; source: string }[],
+  labelled: LabelledBalances | null,
+) {
   return {
     query: async (sql: string, params: unknown[]) => {
+      /*
+       * `/v1/labels`: the labelled addresses' balances and the height they were ranked at. Before the
+       * one-address standing below, which names the same table. The index keeps a row only for a
+       * positive balance, so the fixture's empty address has none. Null is the read failing.
+       */
+      if (sql.includes("address = ANY")) {
+        if (labelled === null) throw new Error("labelled balances unavailable");
+        return {
+          rows: labelled.items
+            .filter((item) => item.balanceZat > 0)
+            .map((item) => ({
+              address: item.address,
+              balance_zat: item.balanceZat,
+              rank: item.rank ?? 0,
+            })),
+        };
+      }
+      if (sql.includes("FROM chain_rich_list_meta")) {
+        return { rows: labelled === null ? [] : [{ computed_height: labelled.rankAsOfHeight }] };
+      }
       /*
        * The series bounds. This branch must precede the page query below, since both name
        * `zec_price_daily` and the bounds query takes no parameters — falling into the page branch
@@ -420,6 +442,8 @@ export function makeV1(
     price: { usd: number; change24hPct: number } | null;
     /** The daily-close table. `[]` is a store with no rows, which must never read as "no price". */
     dailyPrices: readonly { day: string; usd: number; source: string }[];
+    /** What `/v1/labels` reads. `null` is the read failing. */
+    labelledBalances: LabelledBalances | null;
   }> = {},
 ) {
   const port = chainPort();
@@ -449,7 +473,12 @@ export function makeV1(
   return v1Routes({
     chain: port,
     store,
-    pool: agentPool(overrides.dailyPrices ?? DAILY_PRICES),
+    pool: agentPool(
+      overrides.dailyPrices ?? DAILY_PRICES,
+      overrides.labelledBalances === undefined
+        ? LABELLED_BALANCES_FIXTURE
+        : overrides.labelledBalances,
+    ),
     chainIndex: chainIndexStub(overrides.tx),
     reorgPollSeconds: 5,
     enabledProtocols: { maya: true, "near-intents": true, thorchain: false },
@@ -1117,11 +1146,8 @@ export const TX_COUNTS_KEY = "tx-counts";
 
 export const ADDRESS_ACTIVITY_KEY = "address-activity";
 
-/** `chainApp`'s key for the labelled-address balances. */
-export const LABEL_BALANCES_KEY = "label-balances";
-
 /**
- * Every labelled address with a made-up balance, shaped as `/chain/labels/balances` serves it. The
+ * Every labelled address with a made-up balance, as `/v1/labels` reads them. The
  * last holds nothing, so the zero-balance, no-rank case is always in the payload. Ranked at the
  * rich-list summary's height, like the real list.
  */
@@ -1487,7 +1513,6 @@ export function chainApp(
     [TX_COUNTS_KEY]: TX_COUNTS_FIXTURE,
     [ADDRESS_EXTREMES_KEY]: ADDRESS_VALUE_EXTREMES_FIXTURE,
     [ADDRESS_ACTIVITY_KEY]: ADDRESS_ACTIVITY_FIXTURE,
-    [LABEL_BALANCES_KEY]: LABELLED_BALANCES_FIXTURE,
     ...overrides,
   };
   // The per-address extrema drill-down `lookup_address` fetches behind its flag.
@@ -1523,13 +1548,6 @@ export function chainApp(
   // The ZIP index, from the same fixture the /zips page renders, mounted from the route's own
   // constant.
   app.get(ZIP_INDEX_PATH, (c) => c.json(payloads[ZIP_INDEX_KEY] as never));
-  // The label guide's balances, from the tools' own path constant. A null override stands in for a
-  // failed read.
-  app.get(LABEL_BALANCES_PATH, (c) => {
-    const body = payloads[LABEL_BALANCES_KEY];
-    if (body === null) return c.json({ error: "unavailable" }, 503);
-    return c.json(body as never);
-  });
   // The tx-count and market routes are mounted from their route modules' own constants, so a rename
   // breaks these tests. A 503 stands in for the cold market tracker and for testnet, where it never
   // starts.
