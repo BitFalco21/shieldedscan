@@ -71,8 +71,7 @@ export function callsFor(
         ? v1(`/v1/addresses/${enc}`, `/v1/addresses/${enc}/transactions?limit=${MAX_RECENT_ROWS}`)
         : v1(`/v1/addresses/${enc}`);
       // The extrema ride alongside the summary, never instead of it, so the true balance and lifetime
-      // count always frame them. Private surface, since /v1 does not serve this and there is no shielded
-      // null to mislabel.
+      // count always frame them. Private surface for the reason `ADDRESS_VALUE_EXTREMES` gives.
       if (flag("withValueExtremes")) {
         calls.push({
           path: `/chain/addresses/${enc}/value-extremes`,
