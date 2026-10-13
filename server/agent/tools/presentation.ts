@@ -293,7 +293,7 @@ export function sourceLinkFor(endpoint: string): SourceLink | null {
   if (path.startsWith(`${PRICE_HISTORY_PATH}?`) || path === PRICE_HISTORY_PATH) return null;
   /*
    * The `crosschain` modes carry query strings, and all cite a page a reader can open rather than the
-   * endpoint (the aggregate's endpoint is token-gated).
+   * endpoint.
    *
    * Not narrowed past the page: a pre-filtered URL would assert that the page can reproduce the exact
    * slice, which for an arbitrary month it cannot.

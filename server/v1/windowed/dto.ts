@@ -169,4 +169,10 @@ export interface CrossChainData {
   groupBy: CrossChainGroupKey;
   totals: { in: CrossChainSide; out: CrossChainSide };
   groups: { key: string; in: CrossChainSide; out: CrossChainSide }[];
+  /**
+   * The first and last transfer counted (unix seconds), which can sit well inside the window: the
+   * protocols' records begin years after Zcash's. Null, with `unknowns`, when none matched.
+   */
+  firstAt: number | null;
+  lastAt: number | null;
 }

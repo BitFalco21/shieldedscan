@@ -28,6 +28,8 @@ import { getZipIndex } from "@/fixtures/zips";
 import { MARKET_ASSETS_PATH } from "../../market-routes";
 import { TX_COUNTS_PATH } from "../../analytics-routes";
 import { MemoryStorePort } from "../../crosschain-store";
+import type { AnalyticsData } from "../../v1/windowed/data";
+import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../../v1/windowed/routes";
 import { crosschainRoutes } from "../../crosschain-routes";
 import { type V1ChainPort, v1Routes } from "../../v1/routes";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../../v1/miners";
@@ -466,9 +468,8 @@ export function makeV1(
   // `upsert` is async by the port's contract but runs synchronously, so the store is populated
   // before this function returns and no caller has to become async to seed a fixture.
   //
-  // Seeded with the same rows the private routes serve, so the `crosschain` tool's modes describe
-  // one dataset across two surfaces (`transfers` and `destinations` read /v1, `aggregate` reads the
-  // private API).
+  // Seeded with the same rows the private routes serve, so the site's cross-chain series and every
+  // `crosschain` mode describe one dataset.
   void store.upsert(overrides.transfers ?? CROSSCHAIN_TRANSFERS);
   return v1Routes({
     chain: port,
@@ -509,8 +510,35 @@ export function makeV1(
       },
       // The published series the records, mining, nodes and pool facets read.
       { routes: publishedSeriesRoutes(), endpoints: [...PUBLISHED_SERIES_PATHS] },
+      // The windowed analytics, as the agent container mounts them, over the same store.
+      {
+        routes: windowedAnalyticsRoutes({
+          data: crossChainAnalytics(store),
+          now: () => FIXTURE_NOW_MS,
+        }),
+        endpoints: [WINDOWED_ANALYTICS_PATHS.crosschain],
+      },
     ],
   });
+}
+
+/**
+ * The windowed analytics' data port with only its cross-chain read real: the agent reads no other
+ * windowed route, and a stub answering one would let a tool start depending on it unnoticed.
+ */
+function crossChainAnalytics(store: MemoryStorePort): AnalyticsData {
+  const absent = () => Promise.reject(new Error("not in the fixture world"));
+  return {
+    tip: async () => ({ height: 3_429_000, timestamp: Math.floor(FIXTURE_NOW_MS / 1000) }),
+    heights: async () => ({ lo: 3_400_000, hi: 3_429_000 }),
+    window: absent,
+    poolTxByBucket: absent,
+    flows: absent,
+    migrations: absent,
+    crosschain: (filters, groupBy) => store.aggregate(filters, groupBy),
+    dailyThrough: async () => null,
+    currencies: () => ["usd"],
+  };
 }
 
 const PUBLISHED_FIXED_PATHS = [

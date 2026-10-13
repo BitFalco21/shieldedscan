@@ -321,12 +321,15 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
           "usdPricedTransfers": 1587
         }
       }
-    ]
+    ],
+    "firstAt": 1788220854,
+    "lastAt": 1790812611
   },
   "unknowns": {}
 }`,
       notes: [
         "`coverage.status` is always `floor`: public swap protocols only, completed transfers only. Exchange withdrawals and aggregators are not included.",
+        "`firstAt` and `lastAt` are the first and last transfer counted, which can sit well inside the window; both are null when none matched.",
         "For a single transfer or the largest ones, use `/v1/crosschain/transfers` and `/v1/crosschain/transfers/top`.",
       ],
     },

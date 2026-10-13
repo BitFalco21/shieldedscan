@@ -514,6 +514,8 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
           "A transfer with no published dollar value is excluded by minUsd rather than assumed to clear it.",
         );
       }
+      // The store spells "no transfer matched" as 0 on both bounds.
+      const counted = agg.firstAt > 0;
       return {
         query,
         ...(await frame(w, null, floorNotes)),
@@ -526,8 +528,12 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
             in: crossSide(g.in),
             out: crossSide(g.out),
           })),
+          firstAt: counted ? agg.firstAt : null,
+          lastAt: counted ? agg.lastAt : null,
         },
-        unknowns: {},
+        unknowns: counted
+          ? {}
+          : { "data.firstAt": "nonexistent" as const, "data.lastAt": "nonexistent" as const },
       } satisfies AnalyticsEnvelope<CrossChainQuery, CrossChainData>;
     });
     return c.json(applyShape(body, shape));

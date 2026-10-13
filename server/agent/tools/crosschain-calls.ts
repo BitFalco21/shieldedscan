@@ -1,4 +1,4 @@
-import { ZATS_PER_ZEC } from "@/domain";
+import { DAY_MS, DAY_SECONDS, ZATS_PER_ZEC, parseUtcDayStart, utcDayFromMs } from "@/domain";
 import { type ToolArgs, windowDays } from "./args";
 import { isOneOf, orList } from "./json";
 import {
@@ -21,7 +21,30 @@ import {
   MAX_CROSSCHAIN_ROWS,
 } from "./specs";
 import type { ToolCall } from "./types";
-import { thresholdNote, verifyAggregateEcho, verifyRowsClearThreshold } from "./verify";
+import { thresholdNote, verifyCrossChainQueryEcho, verifyRowsClearThreshold } from "./verify";
+
+/** Zcash's first day: an aggregate with no lower edge starts here, so it misses no crossing. */
+const ZCASH_FIRST_DAY = "2016-10-28";
+
+/** The public route's cap on daily groups per request. */
+const MAX_CROSSCHAIN_DAY_GROUPS = 366;
+
+/** The public route calls a venue a protocol. */
+const V1_GROUP_BY: Readonly<Record<(typeof CROSSCHAIN_GROUP_BY)[number], string>> = {
+  none: "none",
+  chain: "chain",
+  venue: "protocol",
+  month: "month",
+  day: "day",
+};
+
+/**
+ * A threshold as the plain decimal the public route parses, never exponent notation. Eight places,
+ * the most a ZEC amount has; a dollar threshold finer than that is not a question anyone asks.
+ */
+function decimalText(value: number): string {
+  return value.toFixed(8).replace(/\.?0+$/, "");
+}
 
 /**
  * The `crosschain` tool's three modes, each turned into one fixed-template request.
@@ -87,23 +110,44 @@ export function crossChainCalls(args: ToolArgs, nowMs: number): ToolCall[] | str
       if (!isOneOf(CROSSCHAIN_GROUP_BY, groupBy)) {
         return `groupBy must be one of ${CROSSCHAIN_GROUP_BY.join(", ")}`;
       }
-      query.set("groupBy", groupBy);
+      // The public route takes only a threshold above zero. "Only the priced crossings" needs none:
+      // every total carries how many of its transfers were priced.
+      if (minUsdAtSwap === 0 || minZec === 0) {
+        return `a threshold for 'aggregate' must be above 0; omit it to count every crossing, and read usdPricedTransfers beside each total for how many carried a price`;
+      }
+      // The public route needs both edges. An open edge means all of history: from Zcash's first
+      // day, which no crossing predates, to the end of today.
+      const from = days.from ?? ZCASH_FIRST_DAY;
+      const to = days.to ?? utcDayFromMs(nowMs + DAY_MS);
+      const spanDays = ((parseUtcDayStart(to) ?? 0) - (parseUtcDayStart(from) ?? 0)) / DAY_SECONDS;
+      if (groupBy === "day" && spanDays > MAX_CROSSCHAIN_DAY_GROUPS) {
+        return `groupBy 'day' covers at most ${MAX_CROSSCHAIN_DAY_GROUPS} days: narrow the window with from/to or lastDays, or group by month`;
+      }
+      const minUsd = minUsdAtSwap === null ? null : decimalText(minUsdAtSwap);
+      const minZecText = minZec === null ? null : decimalText(minZec);
+      const v1Query = new URLSearchParams({ from, to, groupBy: V1_GROUP_BY[groupBy] });
+      if (direction !== null) v1Query.set("direction", direction);
+      if (venue !== null) v1Query.set("protocol", venue);
+      if (chain !== null) v1Query.set("chain", chain);
+      if (minUsd !== null) v1Query.set("minUsd", minUsd);
+      if (minZecText !== null) v1Query.set("minZec", minZecText);
       return [
         {
-          path: `${CROSSCHAIN_AGGREGATE_PATH}?${query.toString()}`,
-          surface: "chain",
+          path: `${CROSSCHAIN_AGGREGATE_PATH}?${v1Query.toString()}`,
+          surface: "v1",
           aggregate: {
             note: thresholdNote(CROSSCHAIN_AGGREGATE_NOTE, minUsdAtSwap, minZecZat),
             // A narrowing that matched nothing is a measurement, not an outage.
             emptyIsAnAnswer: true,
             verify: (payload) =>
-              verifyAggregateEcho(payload, {
+              verifyCrossChainQueryEcho(payload, {
+                from,
+                to,
                 chain,
                 venue,
                 direction,
-                days,
-                minUsdAtSwap,
-                minZecZat,
+                minUsd,
+                minZec: minZecText,
               }),
           },
         },

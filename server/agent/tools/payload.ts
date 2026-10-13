@@ -104,6 +104,7 @@ export function insightJson(parsed: unknown, spec: AggregateSpec, valuation: Val
  *
  * Three prefixes, because a payload may carry a combined figure, a per-direction pair, or both.
  * One combined dollar total beside direction-split ZEC invites the model to reconcile them out loud.
+ * The fourth spelling is `/v1`'s side, which states the dollars as a decimal string.
  */
 function withFlowUsdText(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withFlowUsdText);
@@ -112,17 +113,23 @@ function withFlowUsdText(value: unknown): unknown {
   for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
     out[key] = withFlowUsdText(raw);
   }
-  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  for (const [usd, covered, total, text] of [
+  const finite = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v)
+      ? v
+      : typeof v === "string" && /^\d+(\.\d+)?$/.test(v)
+        ? Number(v)
+        : null;
+  for (const [usdKey, coveredKey, totalKey, text] of [
     ["usdAtSwap", "usdCoveredTransfers", "transfers", "usdAtSwapText"],
     ["inUsdAtSwap", "inUsdCoveredTransfers", "inTransfers", "inUsdAtSwapText"],
     ["outUsdAtSwap", "outUsdCoveredTransfers", "outTransfers", "outUsdAtSwapText"],
+    ["usdAtSwap", "usdPricedTransfers", "transfers", "usdAtSwapText"],
   ] as const) {
-    if (!finite(out[usd]) || !finite(out[covered]) || !finite(out[total])) continue;
-    out[text] =
-      out[covered] === 0
-        ? null
-        : `${out[covered] < out[total] ? "≥ " : ""}${formatUsdExact(out[usd])}`;
+    const usd = finite(out[usdKey]);
+    const covered = typeof out[coveredKey] === "number" ? finite(out[coveredKey]) : null;
+    const total = typeof out[totalKey] === "number" ? finite(out[totalKey]) : null;
+    if (usd === null || covered === null || total === null) continue;
+    out[text] = covered === 0 ? null : `${covered < total ? "≥ " : ""}${formatUsdExact(usd)}`;
   }
   return out;
 }
