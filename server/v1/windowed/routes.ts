@@ -26,6 +26,7 @@ import {
   CROSSCHAIN_PROTOCOLS,
   MIGRATION_SOURCES,
   ANALYTICS_POOLS,
+  unmeasuredPoolCounts,
   zeroPoolCounts,
   parseAmount,
   parseChains,
@@ -273,7 +274,7 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
 
     const body = await cached(cacheKey("activity", c), w.toTimestamp, async () => {
       const groupBy = interval as ChainWindowGroupBy;
-      const [win, perBucket] = await Promise.all([
+      const [win, perBucket, poolDaysThrough] = await Promise.all([
         data.window(
           {
             fromTimestamp: w.fromTimestamp,
@@ -289,6 +290,7 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
         interval === "none"
           ? Promise.resolve(new Map())
           : data.poolTxByBucket(w.fromTimestamp, w.toTimestamp, groupBy),
+        interval === "none" ? Promise.resolve(null) : data.dailyThrough("chain_day_pool_tx"),
       ]);
 
       const unknowns: AnalyticsEnvelope<ActivityQuery, ActivityData>["unknowns"] = {};
@@ -301,24 +303,28 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
         pc !== null ? pc.transparentOnly : win.poolTxCountsUnavailable === "no-blocks" ? 0 : null;
       if (transparentOnly === null)
         unknowns["data.totals.transactions.byPool.transparentOnly"] = "unmeasured";
-      const totals = activityBucket(
-        win.totals,
-        {
-          sprout: pc?.sprout ?? 0,
-          sapling: pc?.sapling ?? 0,
-          orchard: pc?.orchard ?? 0,
-          ironwood: pc?.ironwood ?? 0,
-          transparentOnly,
-        },
-        null,
-      );
-      const buckets = win.groups.map((g) =>
-        activityBucket(
-          g,
-          perBucket.get(g.timestamp) ?? zeroPoolCounts(),
-          utcDayFromSeconds(g.timestamp),
-        ),
-      );
+      // Day totals missing for the whole window are our gap, not a chain where no transaction
+      // used a pool, so each count is unmeasured rather than zero.
+      const totalsByPool = unmeasuredPoolCounts();
+      for (const pool of ANALYTICS_POOLS) {
+        totalsByPool[pool] =
+          pc !== null ? pc[pool] : win.poolTxCountsUnavailable === "no-blocks" ? 0 : null;
+        if (totalsByPool[pool] === null)
+          unknowns[`data.totals.transactions.byPool.${pool}`] = "unmeasured";
+      }
+      const totals = activityBucket(win.totals, { ...totalsByPool, transparentOnly }, null);
+      // The day totals hold a row only where a pool was used, so within the days they cover a
+      // missing pool is a measured zero. A bucket starting after the last day they cover has not
+      // been counted yet: the same gap, bucket by bucket.
+      const buckets = win.groups.map((g, i) => {
+        if (poolDaysThrough !== null && g.timestamp <= poolDaysThrough) {
+          const byPool = perBucket.get(g.timestamp) ?? zeroPoolCounts();
+          return activityBucket(g, byPool, utcDayFromSeconds(g.timestamp));
+        }
+        for (const pool of ANALYTICS_POOLS)
+          unknowns[`data.buckets.${i}.transactions.byPool.${pool}`] = "unmeasured";
+        return activityBucket(g, unmeasuredPoolCounts(), utcDayFromSeconds(g.timestamp));
+      });
 
       const floorNotes: string[] = [];
       if (win.totals.blocksCovered < win.totals.blocks) {

@@ -69,11 +69,12 @@ export interface ActivityBucket {
     total: number;
     byKind: { transparent: number; mixed: number; fullyShielded: number };
     mixedByDirection: { shielding: number; unshielding: number; indeterminate: number };
+    /** A null count was not measured; `unknowns` names it. */
     byPool: {
-      sprout: number;
-      sapling: number;
-      orchard: number;
-      ironwood: number;
+      sprout: number | null;
+      sapling: number | null;
+      orchard: number | null;
+      ironwood: number | null;
       /** Window totals only, and null above the exact-count range (see `unknowns`). */
       transparentOnly?: number | null;
     };

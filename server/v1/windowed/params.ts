@@ -16,6 +16,13 @@ export const ANALYTICS_POOLS: readonly AnalyticsPool[] = [...POOL_NAMES].reverse
 export function zeroPoolCounts(): Record<AnalyticsPool, number> {
   return Object.fromEntries(ANALYTICS_POOLS.map((p) => [p, 0])) as Record<AnalyticsPool, number>;
 }
+/** Every pool's count unmeasured, each to be named in the payload's `unknowns`. */
+export function unmeasuredPoolCounts(): Record<AnalyticsPool, number | null> {
+  return Object.fromEntries(ANALYTICS_POOLS.map((p) => [p, null])) as Record<
+    AnalyticsPool,
+    number | null
+  >;
+}
 export const MIGRATION_SOURCES = [...ANALYTICS_POOLS, "multi"] as const;
 /** The `protocol` filter, in the order its 400 has always listed them. */
 export const CROSSCHAIN_PROTOCOLS = [
