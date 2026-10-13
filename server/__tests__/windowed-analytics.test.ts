@@ -218,6 +218,52 @@ describe("the envelope", () => {
     expect(body.unknowns["data.totals.transactions.byPool.transparentOnly"]).toBe("unmeasured");
   });
 
+  it("publishes per-pool counts as unmeasured — never zero — when no day totals cover the window", async () => {
+    const { get } = stub({
+      window: async () =>
+        windowAgg({ poolTxCounts: null, poolTxCountsUnavailable: "window-too-wide" }),
+    });
+    const body = await (await get(`/v1/analytics/activity?${SEPT}`)).json();
+    for (const pool of ANALYTICS_POOLS) {
+      expect(body.data.totals.transactions.byPool[pool]).toBeNull();
+      expect(body.unknowns[`data.totals.transactions.byPool.${pool}`]).toBe("unmeasured");
+    }
+  });
+
+  it("counts a window holding no block as a measured zero", async () => {
+    const { get } = stub({
+      window: async () => windowAgg({ poolTxCounts: null, poolTxCountsUnavailable: "no-blocks" }),
+    });
+    const body = await (await get(`/v1/analytics/activity?${SEPT}`)).json();
+    expect(body.data.totals.transactions.byPool).toEqual({
+      ...zeroPoolCounts(),
+      transparentOnly: 0,
+    });
+    expect(body.unknowns).toEqual({});
+  });
+
+  it("leaves a bucket past the last counted day unmeasured, and a pool absent before it at zero", async () => {
+    const [SEP_1_, SEP_2, SEP_3] = [SEP_1, SEP_1 + 86_400, SEP_1 + 2 * 86_400];
+    const { get } = stub({
+      window: async () =>
+        windowAgg({ groupBy: "day", groups: [bucket(SEP_1_), bucket(SEP_2), bucket(SEP_3)] }),
+      poolTxByBucket: async () => new Map([[SEP_1_, { ...zeroPoolCounts(), orchard: 7 }]]),
+      dailyThrough: async () => SEP_2,
+    });
+    const body = await (
+      await get("/v1/analytics/activity?from=2026-09-01&to=2026-09-04&interval=day")
+    ).json();
+    const byPool = body.data.buckets.map(
+      (b: { transactions: { byPool: unknown } }) => b.transactions.byPool,
+    );
+    expect(byPool[0]).toEqual({ ...zeroPoolCounts(), orchard: 7 });
+    expect(byPool[1]).toEqual(zeroPoolCounts());
+    expect(byPool[2]).toEqual({ sprout: null, sapling: null, orchard: null, ironwood: null });
+    expect(Object.keys(body.unknowns).sort()).toEqual(
+      ANALYTICS_POOLS.map((p) => `data.buckets.2.transactions.byPool.${p}`).sort(),
+    );
+  });
+
   it("caches a closed window: a repeat costs no second read", async () => {
     const { get, calls } = stub();
     await get(`/v1/analytics/activity?${SEPT}`);

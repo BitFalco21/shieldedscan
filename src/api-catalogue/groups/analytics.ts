@@ -218,7 +218,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
   "unknowns": {}
 }`,
       notes: [
-        "`byKind` partitions `total`; `byPool` does NOT — one transaction can use two pools. `transparentOnly` is null with reason `unmeasured` for windows longer than about 200 days, which are counted from daily totals that cannot express it.",
+        "`byKind` partitions `total`; `byPool` does NOT — one transaction can use two pools. `transparentOnly` is null with reason `unmeasured` for windows longer than about 200 days, which are counted from daily totals that cannot express it. A pool count is null with reason `unmeasured` where those daily totals do not reach yet, such as a bucket for a day not yet counted.",
         "`coverage.status` is `partial` when the window includes today's unfinished day, and `floor` when some blocks had no derivable fee total; `notes` say which.",
       ],
     },
