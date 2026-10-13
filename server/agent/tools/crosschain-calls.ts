@@ -21,6 +21,7 @@ import {
   MAX_CROSSCHAIN_ROWS,
 } from "./specs";
 import type { ToolCall } from "./types";
+import { withoutDirection } from "./enrich";
 import { thresholdNote, verifyCrossChainQueryEcho, verifyRowsClearThreshold } from "./verify";
 
 /** Zcash's first day: an aggregate with no lower edge starts here, so it misses no crossing. */
@@ -37,6 +38,8 @@ const V1_GROUP_BY: Readonly<Record<(typeof CROSSCHAIN_GROUP_BY)[number], string>
   month: "month",
   day: "day",
 };
+
+const opposite = (direction: "in" | "out"): "in" | "out" => (direction === "in" ? "out" : "in");
 
 /**
  * A threshold as the plain decimal the public route parses, never exponent notation. Eight places,
@@ -139,6 +142,9 @@ export function crossChainCalls(args: ToolArgs, nowMs: number): ToolCall[] | str
             note: thresholdNote(CROSSCHAIN_AGGREGATE_NOTE, minUsdAtSwap, minZecZat),
             // A narrowing that matched nothing is a measurement, not an outage.
             emptyIsAnAnswer: true,
+            ...(direction === null
+              ? {}
+              : { enrich: (payload: unknown) => withoutDirection(payload, opposite(direction)) }),
             verify: (payload) =>
               verifyCrossChainQueryEcho(payload, {
                 from,

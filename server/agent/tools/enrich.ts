@@ -753,3 +753,31 @@ function asFeeDistribution(payload: unknown): FeeDistribution | null {
   );
   return statsOk ? (p as unknown as FeeDistribution) : null;
 }
+
+/**
+ * A cross-chain total narrowed to one direction, without the other side.
+ *
+ * `/v1/crosschain/aggregate` keeps both sides on every row, so a filtered-out direction arrives as
+ * zeros. Beside a note saying zero is a measurement, the model reported those zeros as "no ZEC
+ * left for Bitcoin that month" when 1,587 transfers had. Dropping the side answers nothing it was
+ * not asked, which no wording of the note could guarantee.
+ */
+export function withoutDirection(payload: unknown, dropped: "in" | "out"): unknown {
+  const p = asRecord(payload);
+  const data = asRecord(p?.data);
+  if (p === null || data === null) return payload;
+  const without = (row: unknown): unknown => {
+    const r = asRecord(row);
+    if (r === null) return row;
+    const { [dropped]: _filtered, ...kept } = r;
+    return kept;
+  };
+  return {
+    ...p,
+    data: {
+      ...data,
+      totals: without(data.totals),
+      ...(Array.isArray(data.groups) ? { groups: data.groups.map(without) } : {}),
+    },
+  };
+}
