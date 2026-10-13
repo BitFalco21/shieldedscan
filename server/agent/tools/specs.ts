@@ -522,10 +522,12 @@ export const FACET_AGGREGATES: Readonly<Record<string, AggregateSpec>> = {
  * The per-address value extrema, riding along on `lookup_address` behind a flag.
  *
  * An aggregate rather than an entity payload, though it describes one address: its caveats are ours
- * (a bounded window, two easily conflated quantities), a failed read must become an explicit
- * unavailable block, and `/v1` does not serve it — so it dispatches privately, safely, since there
- * is no shielded null to arrive unlabelled. `emptyIsAnAnswer` because an address with no transparent
- * history has no extrema, which is a measurement.
+ * (a bounded window, two easily conflated quantities), and a failed read must become an explicit
+ * unavailable block. `/v1/addresses/{address}/extremes` serves the same figures, but states
+ * `complete` and `fromHeight` only in prose, and the note below quotes them as fields — so it
+ * dispatches privately, safely, since there is no shielded null to arrive unlabelled.
+ * `emptyIsAnAnswer` because an address with no transparent history has no extrema, which is a
+ * measurement.
  *
  * No citation: no page publishes an address's extrema, and citing the address page for a
  * superlative it never states would cite a page that cannot confirm the claim.
@@ -545,8 +547,9 @@ Coinbase outputs are INCLUDED here, unlike the chain-wide value range: for a min
 
 /**
  * What one address did over a period: the windowed counterpart of its lifetime totals. Private for
- * `ADDRESS_VALUE_EXTREMES`' reason. A shielded transaction has no address to file under, which the
- * note says before the figures.
+ * `ADDRESS_VALUE_EXTREMES`' reason, and for the `applied` echo `verifyWindowEcho` checks, which
+ * `/v1/addresses/{address}/activity` does not carry. A shielded transaction has no address to file
+ * under, which the note says before the figures.
  */
 export const ADDRESS_ACTIVITY: AggregateSpec = {
   note: `WHAT THIS ADDRESS DID IN THE PERIOD ASKED FOR — how many transactions, how much came in, how much went out.
