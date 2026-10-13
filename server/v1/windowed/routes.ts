@@ -497,7 +497,6 @@ export function windowedAnalyticsRoutes(deps: WindowedAnalyticsDeps): Hono {
         {
           fromTimestamp: w.fromTimestamp,
           toTimestamp: w.toTimestamp,
-          completedOnly: true,
           ...(direction === null ? {} : { direction }),
           ...(protocol === null ? {} : { protocol }),
           ...(chain.length === 0 ? {} : { counterpartChains: chain }),

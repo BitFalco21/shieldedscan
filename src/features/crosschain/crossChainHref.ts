@@ -1,7 +1,7 @@
 import type {
   ChartRange,
   CrossChainDirectionFilter,
-  CrossChainFlow,
+  ListedChain,
   CrossChainNarrowing,
   CrossChainProtocolFilter,
   CrossChainSide,
@@ -106,7 +106,7 @@ export function protocolsHref(range: ChartRange): string {
 export function withDirection(
   state: CrossChainFilterState,
   direction: CrossChainDirectionFilter,
-  chains: readonly CrossChainFlow[],
+  chains: readonly ListedChain[],
 ): CrossChainFilterState {
   const options = chainFilterOptions(chains, direction);
   return {

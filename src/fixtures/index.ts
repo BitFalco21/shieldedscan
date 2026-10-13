@@ -40,6 +40,8 @@ import type {
 import {
   buildProtocolSummary,
   aggregateFlowWindows,
+  listedChains,
+  type ListedChain,
   matchesCrossChainFilters,
   matchesTxKindFilter,
   txDirection,
@@ -227,6 +229,11 @@ export function listCrossChainTransfers(
  */
 export function getCrossChainFlows(windowDays: number | null = null): CrossChainFlowSummary {
   return aggregateFlowWindows(crossChainTransfers, windowDays, TIP_TIME);
+}
+
+/** The chains the transfer fixtures list, through the same `listedChains` the API's store uses. */
+export function getCrossChainChains(): ListedChain[] {
+  return listedChains(crossChainTransfers);
 }
 
 /**

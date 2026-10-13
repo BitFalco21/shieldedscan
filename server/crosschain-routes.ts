@@ -20,6 +20,8 @@ export const OUTFLOW_BY_CHAIN_PATH = "/crosschain/outflow-by-chain";
 export const VENUE_MONTHS_PATH = "/crosschain/venue-months";
 /** Inbound ZEC per Zcash address kind per month. */
 export const INFLOW_KINDS_PATH = "/crosschain/inflow-kinds";
+/** Every counterpart chain the transfer list shows, per direction: the list's column menus. */
+export const LISTED_CHAINS_PATH = "/crosschain/chains";
 /**
  * The private cross-chain surface: the transfer list, the aggregates and the lookups the frontend
  * and the agent read.
@@ -128,6 +130,7 @@ export function crosschainRoutes(store: CrossChainStorePort): Hono {
     return c.json(await store.aggregate(filters, groupBy));
   });
 
+  app.get(LISTED_CHAINS_PATH, async (c) => c.json(await store.listedChains()));
   app.get("/crosschain/volume", async (c) => c.json(await store.volume()));
   app.get("/crosschain/volume-series", async (c) => c.json(await store.volumeSeries()));
   app.get(INFLOW_BY_CHAIN_PATH, async (c) => c.json(await store.inflowByChain()));

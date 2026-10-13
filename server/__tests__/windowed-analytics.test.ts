@@ -6,7 +6,7 @@ import type {
   CrossChainGroupBy,
   CrossChainNarrowing,
 } from "@/domain";
-import { matchesCrossChainFilters } from "@/domain";
+import { aggregateCrossChain, matchesCrossChainFilters } from "@/domain";
 import type { DailyView, FlowRow, AnalyticsData } from "../v1/windowed/data";
 import { coverage, money } from "../v1/windowed/map";
 import { ANALYTICS_POOLS, zecTextToZat, zeroPoolCounts } from "../v1/windowed/params";
@@ -358,13 +358,12 @@ describe("migrations", () => {
 });
 
 describe("cross-chain", () => {
-  it("counts completed transfers only, maps protocol to the store's axis, and is always a floor", async () => {
+  it("maps protocol to the store's axis, and is always a floor", async () => {
     const { get, calls } = stub();
     const body = await (
       await get(`/v1/crosschain/aggregate?${SEPT}&groupBy=protocol&chain=eth,btc&minZec=1.5`)
     ).json();
     const [filters, groupBy] = calls.crosschain?.[0] as [CrossChainNarrowing, CrossChainGroupBy];
-    expect(filters.completedOnly).toBe(true);
     expect(filters.counterpartChains).toEqual(["BTC", "ETH"]);
     expect(filters.minZecZat).toBe(150_000_000);
     expect(groupBy).toBe("venue");
@@ -391,18 +390,23 @@ describe("cross-chain", () => {
     expect(none.unknowns).toEqual({ "data.firstAt": "nonexistent", "data.lastAt": "nonexistent" });
   });
 
-  it("completedOnly excludes pending and refunded transfers in the shared predicate", () => {
-    const t = {
-      status: "pending",
-      timestamp: 1,
-      protocol: "maya",
-      direction: "in",
-      counterpartChain: "BTC",
+  it("totals count completed transfers only, while a list's filter keeps every status", () => {
+    const t = (status: string, zecAmountZat: number) =>
+      ({
+        status,
+        timestamp: 1,
+        protocol: "maya",
+        direction: "in",
+        counterpartChain: "BTC",
+        zecAmountZat,
+        usdValueAtSwap: null,
+      }) as never;
+    const rows = [t("completed", 1), t("pending", 10), t("refunded", 100)];
+    expect(rows.every((r) => matchesCrossChainFilters(r, {}))).toBe(true);
+    expect(aggregateCrossChain(rows, {}, "none").totals.in).toMatchObject({
+      transfers: 1,
       zecAmountZat: 1,
-      usdValueAtSwap: null,
-    } as never;
-    expect(matchesCrossChainFilters(t, {})).toBe(true);
-    expect(matchesCrossChainFilters(t, { completedOnly: true })).toBe(false);
+    });
   });
 });
 

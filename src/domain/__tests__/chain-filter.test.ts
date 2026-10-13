@@ -3,6 +3,7 @@ import type { CrossChainDirection, CrossChainFlow, CrossChainTransfer } from "..
 import {
   ZCASH_CHAIN,
   chainFilterOptions,
+  listedChains,
   matchesCrossChainFilters,
   transferChainSide,
 } from "../crosschain";
@@ -200,6 +201,21 @@ describe("chainFilterOptions", () => {
   it("still offers the counterpart side once a direction is chosen", () => {
     expect(chainFilterOptions(flows, "in").source).toEqual(["BTC", "ETH"]);
     expect(chainFilterOptions(flows, "out").destination).toEqual(["SOL", "TRON"]);
+  });
+
+  it("offers a chain whose every transfer is pending, last, since the list shows its rows", () => {
+    const listed = listedChains([
+      { counterpartChain: "BTC", direction: "in", status: "completed", zecAmountZat: 900 },
+      { counterpartChain: "ETH", direction: "in", status: "pending", zecAmountZat: 5_000 },
+      { counterpartChain: "ETH", direction: "in", status: "refunded", zecAmountZat: 7_000 },
+    ]);
+    expect(listed.find((c) => c.chain === "ETH")).toEqual({
+      chain: "ETH",
+      direction: "in",
+      transfers: 2,
+      zecAmountZat: 0,
+    });
+    expect(chainFilterOptions(listed, "in").source).toEqual(["BTC", "ETH"]);
   });
 
   it("offers nothing when the chain list could not be read", () => {

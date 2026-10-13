@@ -8,7 +8,7 @@ import type {
   InflowKindMonthPoint,
   VenueMonthPoint,
   CrossChainVolumeSeries,
-  CrossChainFlow,
+  ListedChain,
   CrossChainFlowSummary,
   CrossChainPreviousWindow,
   CrossChainTransfer,
@@ -143,28 +143,29 @@ function isPreviousWindow(value: unknown): value is CrossChainPreviousWindow {
  * `getCrossChainFlows` uncached. With no list at all it rejects rather than returning `[]`,
  * which would read as "no cross-chain traffic"; the caller drops the menu.
  */
-const chainListMemo = createStaleMemo<CrossChainFlow[]>({
+const chainListMemo = createStaleMemo<ListedChain[]>({
   ttlMs: 600_000,
   failureCooldownMs: 60_000,
   unavailableMessage: "cross-chain chain list is temporarily unavailable",
 });
 
-function chainList(config: CrossChainApiConfig): Promise<CrossChainFlow[]> {
+function chainList(config: CrossChainApiConfig): Promise<ListedChain[]> {
   return chainListMemo.get(() => fetchChainList(config));
 }
 
-async function fetchChainList(config: CrossChainApiConfig): Promise<CrossChainFlow[]> {
-  const res = await request(config, "/crosschain/flows");
+async function fetchChainList(config: CrossChainApiConfig): Promise<ListedChain[]> {
+  const res = await request(config, "/crosschain/chains");
   if (!res.ok) throw new Error(`cross-chain API returned ${res.status} for chains`);
-  const body = (await res.json()) as Partial<CrossChainFlowSummary>;
-  if (!Array.isArray(body.flows)) {
-    throw new Error("cross-chain API returned an unrecognised flows shape");
+  const body: unknown = await res.json();
+  if (!Array.isArray(body)) {
+    throw new Error("cross-chain API returned an unrecognised chain list");
   }
-  return body.flows.filter(
-    (f): f is CrossChainFlow =>
-      typeof f?.chain === "string" &&
-      (f.direction === "in" || f.direction === "out") &&
-      typeof f.zecAmountZat === "number",
+  return body.filter(
+    (c): c is ListedChain =>
+      typeof c?.chain === "string" &&
+      (c.direction === "in" || c.direction === "out") &&
+      typeof c.transfers === "number" &&
+      typeof c.zecAmountZat === "number",
   );
 }
 
@@ -459,7 +460,7 @@ export function createCrossChainApiSource(config: CrossChainApiConfig) {
       };
     },
 
-    async getCrossChainChains(): Promise<CrossChainFlow[]> {
+    async getCrossChainChains(): Promise<ListedChain[]> {
       return chainList(config);
     },
 

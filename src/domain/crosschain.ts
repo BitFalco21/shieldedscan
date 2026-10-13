@@ -213,11 +213,15 @@ export interface CrossChainNarrowing {
    */
   fromTimestamp?: number;
   toTimestamp?: number;
-  /**
-   * Only transfers the venue reports as `completed`: a `pending` transfer has not happened
-   * and a `refunded` one was undone. Absent means every status.
-   */
-  completedOnly?: boolean;
+}
+
+/**
+ * Whether a transfer counts toward a total: only one the venue reports as completed. A pending
+ * transfer has not happened and a refunded one was undone, so either would put ZEC that never
+ * crossed into a figure. Lists show every transfer with its status; every total counts these.
+ */
+export function countsTowardTotals(t: Pick<CrossChainTransfer, "status">): boolean {
+  return t.status === "completed";
 }
 
 /**
@@ -248,8 +252,7 @@ export function matchesCrossChainFilters(
     (min === undefined || (t.usdValueAtSwap !== null && t.usdValueAtSwap >= min)) &&
     (minZec === undefined || t.zecAmountZat >= minZec) &&
     (fromTimestamp === undefined || t.timestamp >= fromTimestamp) &&
-    (toTimestamp === undefined || t.timestamp < toTimestamp) &&
-    (filters.completedOnly !== true || t.status === "completed")
+    (toTimestamp === undefined || t.timestamp < toTimestamp)
   );
 }
 
@@ -314,7 +317,7 @@ export type FlowTrend = { kind: "pct"; pct: number } | { kind: "new" } | { kind:
 /** The fields the flow aggregate reads; narrowed so callers can pass partial rows in tests. */
 type FlowRow = Pick<
   CrossChainTransfer,
-  "direction" | "counterpartChain" | "zecAmountZat" | "timestamp" | "usdValueAtSwap"
+  "direction" | "counterpartChain" | "zecAmountZat" | "timestamp" | "usdValueAtSwap" | "status"
 >;
 
 /**
@@ -340,7 +343,8 @@ function emptyFlow(chain: string, direction: CrossChainDirection): CrossChainFlo
  * fixtures). Postgres has its own copy in SQL, pinned to this one by `server/__tests__`.
  *
  * Settlement legs are the caller's to exclude, by asset and never by chain (wrapped ZEC
- * also lives on Maya).
+ * also lives on Maya). Only completed transfers are counted (`countsTowardTotals`), while every
+ * record still marks where the records begin.
  */
 export function aggregateFlowWindows(
   transfers: readonly FlowRow[],
@@ -358,6 +362,7 @@ export function aggregateFlowWindows(
 
   for (const t of transfers) {
     if (t.timestamp > 0) recordsBeginAt = Math.min(recordsBeginAt, t.timestamp);
+    if (!countsTowardTotals(t)) continue;
     const inCurrent = currentStart === null || t.timestamp >= currentStart;
     const inPrevious =
       previousStart !== null &&
@@ -450,25 +455,65 @@ export interface ChainFilterOptions {
 }
 
 /**
- * The chains that can appear in each column, largest first. Derived from the flow aggregate,
- * which applies the same settlement-leg exclusion as the transfer list, so a menu never
- * offers a chain with no rows.
+ * A counterpart chain the transfer list shows at one end, for the column menus.
+ *
+ * Two numbers, two populations, each named for its job: `transfers` counts every row the list
+ * shows there, whatever its status, so a chain is offered whenever filtering by it can match a
+ * row; `zecAmountZat` counts completed transfers only, as every total does, and only orders the
+ * menu. A chain whose every transfer is pending is offered, last.
+ */
+export interface ListedChain {
+  chain: string;
+  direction: CrossChainDirection;
+  transfers: number;
+  zecAmountZat: number;
+}
+
+/**
+ * The listed chains of an in-memory set of transfers. Settlement legs are the caller's to
+ * exclude, by asset, as for every aggregate here; the Postgres store has its own copy in SQL.
+ */
+export function listedChains(
+  transfers: Iterable<
+    Pick<CrossChainTransfer, "counterpartChain" | "direction" | "status" | "zecAmountZat">
+  >,
+): ListedChain[] {
+  const by = new Map<string, ListedChain>();
+  for (const t of transfers) {
+    const key = `${t.direction}:${t.counterpartChain}`;
+    const row = by.get(key) ?? {
+      chain: t.counterpartChain,
+      direction: t.direction,
+      transfers: 0,
+      zecAmountZat: 0,
+    };
+    row.transfers += 1;
+    if (countsTowardTotals(t)) row.zecAmountZat += t.zecAmountZat;
+    by.set(key, row);
+  }
+  return [...by.values()];
+}
+
+/**
+ * The chains that can appear in each column: every chain the list shows there, so a menu never
+ * offers a chain with no rows nor hides one that has some. Largest first by completed ZEC, ties
+ * by name.
  *
  * A side offers nothing (`[]`) when the direction pins it to Zcash or when no direction is
  * chosen, so at most one side ever offers a menu.
  */
 export function chainFilterOptions(
-  flows: readonly CrossChainFlow[],
+  chains: readonly ListedChain[],
   direction: CrossChainDirectionFilter,
 ): ChainFilterOptions {
   return {
-    source: sideOptions(flows, "in", direction),
-    destination: sideOptions(flows, "out", direction),
+    source: sideOptions(chains, "in", direction),
+    destination: sideOptions(chains, "out", direction),
   };
 }
 
 /**
- * One side's menu: the counterpart chains that can sit there, largest first.
+ * One side's menu: the counterpart chains that can sit there.
  *
  * `counterpartWhen` is the direction that puts the counterpart chain on this side. The
  * opposite direction puts Zcash here, and `[]` means no menu.
@@ -478,7 +523,7 @@ export function chainFilterOptions(
  * duplicate a direction and allow selections no row can satisfy.
  */
 function sideOptions(
-  flows: readonly CrossChainFlow[],
+  chains: readonly ListedChain[],
   counterpartWhen: CrossChainDirection,
   direction: CrossChainDirectionFilter,
 ): string[] {
@@ -487,10 +532,10 @@ function sideOptions(
   const opposite = counterpartWhen === "in" ? "out" : "in";
   if (direction === opposite) return [];
 
-  return flows
-    .filter((f) => f.direction === counterpartWhen && f.zecAmountZat > 0)
-    .sort((a, b) => b.zecAmountZat - a.zecAmountZat)
-    .map((f) => f.chain);
+  return chains
+    .filter((c) => c.direction === counterpartWhen && c.transfers > 0)
+    .sort((a, b) => b.zecAmountZat - a.zecAmountZat || a.chain.localeCompare(b.chain))
+    .map((c) => c.chain);
 }
 
 /**
@@ -637,7 +682,7 @@ function groupKeyOf(t: CrossChainTransfer, groupBy: CrossChainGroupBy): string |
  * in SQL, held to the same answers by a parity test.
  *
  * Settlement legs are the caller's to exclude, by asset and never by chain (wrapped ZEC also
- * lives on Maya).
+ * lives on Maya). Only completed transfers are counted (`countsTowardTotals`).
  *
  * A narrowing that matched nothing returns zeroed totals with `firstAt`/`lastAt` at 0. That
  * is a real answer, distinct from a failed read.
@@ -653,7 +698,7 @@ export function aggregateCrossChain(
   let lastAt = 0;
 
   for (const t of transfers) {
-    if (!matchesCrossChainFilters(t, filters)) continue;
+    if (!countsTowardTotals(t) || !matchesCrossChainFilters(t, filters)) continue;
     addToSide(totals[t.direction], t);
     const key = groupKeyOf(t, groupBy);
     if (key !== null) {

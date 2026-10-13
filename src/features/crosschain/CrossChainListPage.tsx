@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type {
-  CrossChainFlow,
+  ListedChain,
   CrossChainSide,
   CrossChainVolume,
   CrossChainVolumeSide,
@@ -81,7 +81,7 @@ const minUsdOptions = (state: CrossChainFilterState) =>
     href: crossChainHref({ ...state, minUsd: value }),
   }));
 
-const directionOptions = (state: CrossChainFilterState, chains: readonly CrossChainFlow[]) =>
+const directionOptions = (state: CrossChainFilterState, chains: readonly ListedChain[]) =>
   CROSSCHAIN_DIRECTION_FILTERS.map((value) => ({
     value,
     label: directionFilterLabel(value),
@@ -130,10 +130,7 @@ function chainFilterFor(
   );
 }
 
-function columnsFor(
-  state: CrossChainFilterState,
-  chains: readonly CrossChainFlow[],
-): TableColumn[] {
+function columnsFor(state: CrossChainFilterState, chains: readonly ListedChain[]): TableColumn[] {
   const options = chainFilterOptions(chains, state.direction);
   return [
     { label: "SOURCE", control: chainFilterFor("source", options.source, state) },
@@ -189,12 +186,12 @@ export interface CrossChainListPageProps {
   /** Every filter in force, and the single source every control's links are built from. */
   filters: CrossChainFilterState;
   /**
-   * Per-chain flow, used only to decide which chains each menu may offer. `[]` when the
+   * The chains the list shows at each end, used only to decide which each menu may offer. `[]` when the
    * list could not be read, which renders no chain menus at all — an empty menu would
    * claim there is nothing to filter by. The active-filter line still shows and can still
    * clear a selection, so a filter is never inescapable.
    */
-  chains: CrossChainFlow[];
+  chains: ListedChain[];
   /** Href for the previous (newer) page; null when already at the head of the list. */
   newerHref: string | null;
   /** Href for the next (older) page; null when there is no older page. */

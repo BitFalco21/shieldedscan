@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CrossChainFlow } from "../crosschain";
+import type { CrossChainFlow, CrossChainTransfer } from "../crosschain";
 import {
   aggregateFlowWindows,
   flowRowsWithPrevious,
@@ -32,13 +32,20 @@ describe("cross-chain labels", () => {
 describe("aggregateFlowWindows", () => {
   const DAY = 86_400;
   const NOW = 1_800_000_000;
-  const t = (chain: string, daysAgo: number, zat: number, direction: "in" | "out" = "out") => ({
+  const t = (
+    chain: string,
+    daysAgo: number,
+    zat: number,
+    direction: "in" | "out" = "out",
+    status: CrossChainTransfer["status"] = "completed",
+  ) => ({
     counterpartChain: chain,
     direction,
     zecAmountZat: zat,
     timestamp: NOW - daysAgo * DAY,
     // No published price: the ZEC still counts and the dollars stay a lower bound.
     usdValueAtSwap: null,
+    status,
   });
 
   // 400 days of records, so a 30-day comparison is covered and a 1-year one is not.
@@ -64,6 +71,25 @@ describe("aggregateFlowWindows", () => {
     const s = aggregateFlowWindows(rows, 30, NOW);
     expect(s.firstAt).toBe(NOW - 20 * DAY);
     expect(s.lastAt).toBe(NOW - 10 * DAY);
+  });
+
+  it("counts completed transfers only, while every record still marks where they begin", () => {
+    const withUndone = [
+      t("PENDING", 500, 7, "out", "pending"),
+      ...rows,
+      t("ETH", 5, 900, "out", "refunded"),
+    ];
+    // The refunded 900 ZEC five days ago is not in ETH's 400.
+    const s = aggregateFlowWindows(withUndone, 30, NOW);
+    expect(s.flows.find((f) => f.chain === "ETH")?.zecAmountZat).toBe(400);
+    // The pending record still dates the records' start, as the Postgres coverage query does.
+    expect(aggregateFlowWindows(withUndone, 365, NOW).previous).toEqual({
+      kind: "incomplete",
+      recordsBeginAt: NOW - 500 * DAY,
+    });
+    expect(aggregateFlowWindows(withUndone, null, NOW).flows.map((f) => f.chain)).not.toContain(
+      "PENDING",
+    );
   });
 
   it("has no previous window under all-time", () => {

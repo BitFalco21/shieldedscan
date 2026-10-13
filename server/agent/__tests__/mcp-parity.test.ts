@@ -161,7 +161,7 @@ const PRIVATE_READS: Readonly<Record<string, PrivateRead>> = {
   "/crosschain/volume-series": {
     twin: "crosschain-aggregate",
     lacks:
-      "both grains in one read, with no window. The figures differ too: this route counts pending transfers, the twin completed ones only",
+      "both grains in one read, with no window, and the trailing 7- and 30-day totals Zeno derives from it",
   },
   "/chain/analytics/window": {
     twin: "activity",

@@ -13,6 +13,7 @@ import {
   type CrossChainTransfer,
   type ZcashTxCrossings,
   type CrossChainVolumeSide,
+  type ListedChain,
   SETTLEMENT_ASSETS,
   ZCASH_CHAIN,
   classifyZcashAddress,
@@ -44,6 +45,12 @@ import { createPool } from "./pg-pool";
 import { keysetSlice } from "./keyset-page";
 import { clampPageSize, MAX_PAGE_SIZE } from "./page-size";
 import "./pg-types";
+
+/**
+ * The status every total counts: `countsTowardTotals` in SQL. A pending transfer has not happened
+ * and a refunded one was undone; lists still show both, with their status.
+ */
+const COUNTED = `status = 'completed'`;
 
 /**
  * The WHERE clauses for a narrowing, pushing bind parameters onto `params`.
@@ -116,10 +123,6 @@ export function narrowingClauses(options: ListOptions, params: unknown[]): strin
   if (options.minZecZat !== undefined) {
     params.push(options.minZecZat);
     clauses.push(`zec_amount_zat >= $${params.length}`);
-  }
-  // Mirrors `matchesCrossChainFilters`: only rows the venue reports as completed.
-  if (options.completedOnly === true) {
-    clauses.push(`status = 'completed'`);
   }
   // Half-open, matching `matchesCrossChainFilters`: `>=` on the lower edge and `<` on the upper,
   // so a calendar month counts its own midnight once and the next month's not at all.
@@ -404,7 +407,8 @@ export class PostgresStorePort implements CrossChainStorePort {
               min(timestamp) FILTER (WHERE $2::int IS NULL OR timestamp >= b.cur_start) AS first_at,
               max(timestamp) FILTER (WHERE $2::int IS NULL OR timestamp >= b.cur_start) AS last_at
          FROM crosschain_transfer, bounds b
-        WHERE counterpart_asset <> ALL($1)
+        WHERE ${COUNTED}
+          AND counterpart_asset <> ALL($1)
           AND ($2::int IS NULL OR timestamp >= b.prev_start)
         GROUP BY 1, 2`,
       [SETTLEMENT_ASSETS, windowDays],
@@ -592,8 +596,7 @@ export class PostgresStorePort implements CrossChainStorePort {
     groupBy: CrossChainGroupBy,
   ): Promise<CrossChainAggregate> {
     const params: unknown[] = [];
-    const clauses = narrowingClauses(filters, params);
-    const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+    const where = ` WHERE ${[COUNTED, ...narrowingClauses(filters, params)].join(" AND ")}`;
 
     // A fixed expression per axis, chosen by the enum and never interpolated from the caller.
     const keyExpr = groupKeyExpression(groupBy);
@@ -705,7 +708,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               SUM(usd_value_at_swap) AS usd,
               count(usd_value_at_swap)::bigint AS usd_covered
          FROM crosschain_transfer
-        WHERE counterpart_asset <> ALL($1)
+        WHERE ${COUNTED} AND counterpart_asset <> ALL($1)
         GROUP BY direction`,
       [SETTLEMENT_ASSETS],
     );
@@ -741,7 +744,7 @@ export class PostgresStorePort implements CrossChainStorePort {
              count(usd_value_at_swap) FILTER (WHERE direction = 'in')::int  AS in_usd_covered,
              count(usd_value_at_swap) FILTER (WHERE direction = 'out')::int AS out_usd_covered
         FROM crosschain_transfer
-       WHERE counterpart_asset <> ALL($1)${extraWhere}
+       WHERE ${COUNTED} AND counterpart_asset <> ALL($1)${extraWhere}
        GROUP BY 1 ORDER BY 1`;
     const [monthly, daily] = await Promise.all([
       this.#pool.query<VolumeSeriesRow>(bucket("month", ""), [SETTLEMENT_ASSETS]),
@@ -772,7 +775,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               counterpart_chain AS chain,
               SUM(zec_amount_zat)::bigint AS in_zat
          FROM crosschain_transfer
-        WHERE direction = 'in' AND counterpart_asset <> ALL($1)
+        WHERE ${COUNTED} AND direction = 'in' AND counterpart_asset <> ALL($1)
         GROUP BY 1, 2
         ORDER BY 1, 2`,
       [SETTLEMENT_ASSETS],
@@ -786,7 +789,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               counterpart_chain AS chain,
               SUM(zec_amount_zat)::bigint AS out_zat
          FROM crosschain_transfer
-        WHERE direction = 'out' AND counterpart_asset <> ALL($1)
+        WHERE ${COUNTED} AND direction = 'out' AND counterpart_asset <> ALL($1)
         GROUP BY 1, 2
         ORDER BY 1, 2`,
       [SETTLEMENT_ASSETS],
@@ -810,7 +813,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'in'), 0)::bigint AS in_zat,
               COALESCE(SUM(zec_amount_zat) FILTER (WHERE direction = 'out'), 0)::bigint AS out_zat
          FROM crosschain_transfer
-        WHERE counterpart_asset <> ALL($1)
+        WHERE ${COUNTED} AND counterpart_asset <> ALL($1)
         GROUP BY 1, 2
         ORDER BY 1, 2`,
       [SETTLEMENT_ASSETS],
@@ -835,7 +838,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               count(*)::bigint AS transfers,
               SUM(zec_amount_zat)::bigint AS zat
          FROM crosschain_transfer
-        WHERE direction = 'in' AND counterpart_asset <> ALL($1)
+        WHERE ${COUNTED} AND direction = 'in' AND counterpart_asset <> ALL($1)
         GROUP BY 1, 2
         ORDER BY 1, 2`,
       [SETTLEMENT_ASSETS],
@@ -906,6 +909,34 @@ export class PostgresStorePort implements CrossChainStorePort {
   }
 
   /**
+   * Every counterpart chain the list shows, per direction: `listedChains` in SQL. `transfers`
+   * counts every status, as the list does; the ZEC counts completed transfers only, as every
+   * total does, and only orders the menus.
+   */
+  async listedChains(): Promise<ListedChain[]> {
+    const { rows } = await this.#pool.query<{
+      chain: string;
+      direction: CrossChainDirection;
+      transfers: string;
+      zec: string;
+    }>(
+      `SELECT counterpart_chain AS chain, direction,
+              count(*)::bigint AS transfers,
+              COALESCE(SUM(zec_amount_zat) FILTER (WHERE ${COUNTED}), 0)::bigint AS zec
+         FROM crosschain_transfer
+        WHERE counterpart_asset <> ALL($1)
+        GROUP BY 1, 2`,
+      [SETTLEMENT_ASSETS],
+    );
+    return rows.map((r) => ({
+      chain: r.chain,
+      direction: r.direction,
+      transfers: Number(r.transfers),
+      zecAmountZat: Number(r.zec),
+    }));
+  }
+
+  /**
    * The shielded-capable-destination statistic, served by `crosschain_transfer_kind_idx`.
    * Settlement legs are excluded, by asset (a chain filter would drop every wrapped-ZEC crossing),
    * and the null bucket is a real null, never the string "null".
@@ -920,7 +951,8 @@ export class PostgresStorePort implements CrossChainStorePort {
               count(*)::bigint AS transfers,
               COALESCE(SUM(zec_amount_zat), 0)::bigint AS zec
          FROM crosschain_transfer
-        WHERE direction = $1
+        WHERE ${COUNTED}
+          AND direction = $1
           AND NOT (counterpart_asset = ANY($2))
         GROUP BY zcash_address_kind
         ORDER BY zec DESC`,
@@ -936,9 +968,7 @@ export class PostgresStorePort implements CrossChainStorePort {
   /**
    * Gross ZEC per (counterpart chain, direction, Zcash address kind): `/pulse`'s ribbons.
    *
-   * Completed only, unlike every other aggregate here: a ribbon states value that crossed, and
-   * `crosschain_transfer.status` also permits `pending` (has not happened) and `refunded` (was
-   * undone). Served by `crosschain_transfer_kind_idx (direction, zcash_address_kind)`, with the
+   * Completed only, like every total here (`COUNTED`). Served by `crosschain_transfer_kind_idx (direction, zcash_address_kind)`, with the
    * settlement filter by asset as everywhere else.
    */
   async crossChainEdges(fromTimestamp: number | null): Promise<CrossChainEdgeRow[]> {
@@ -953,7 +983,7 @@ export class PostgresStorePort implements CrossChainStorePort {
               count(*)::bigint AS transfers,
               COALESCE(SUM(zec_amount_zat), 0)::bigint AS zec
          FROM crosschain_transfer
-        WHERE status = 'completed'
+        WHERE ${COUNTED}
           AND NOT (counterpart_asset = ANY($1))
           AND ($2::bigint IS NULL OR timestamp >= $2)
         GROUP BY 1, 2, 3`,

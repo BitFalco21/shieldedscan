@@ -211,18 +211,19 @@ describe("chain filters", () => {
 });
 
 describe("getCrossChainChains", () => {
-  const FLOWS = {
-    flows: [{ chain: "BTC", direction: "in", transfers: 2, zecAmountZat: 100 }],
-    firstAt: 1,
-    lastAt: 2,
-  };
+  const CHAINS = [{ chain: "BTC", direction: "in", transfers: 2, zecAmountZat: 100 }];
 
   beforeEach(() => resetCrossChainChainListMemo());
 
-  it("reads the flows aggregate the menus are built from", async () => {
-    const calls = mockFetch(FLOWS);
-    expect(await source.getCrossChainChains()).toEqual(FLOWS.flows);
-    expect(calls[0]![0]).toContain("/crosschain/flows");
+  it("reads the listed chains, not the flows aggregate, which counts completed transfers only", async () => {
+    const calls = mockFetch(CHAINS);
+    expect(await source.getCrossChainChains()).toEqual(CHAINS);
+    expect(calls[0]![0]).toContain("/crosschain/chains");
+  });
+
+  it("refuses a body that is not a chain list", async () => {
+    mockFetch({ flows: CHAINS });
+    await expect(source.getCrossChainChains()).rejects.toThrow(/unrecognised chain list/);
   });
 
   /*
@@ -232,13 +233,13 @@ describe("getCrossChainChains", () => {
    * hit count.
    */
   it("memoises, so five page views cost one request", async () => {
-    const calls = mockFetch(FLOWS);
+    const calls = mockFetch(CHAINS);
     for (let i = 0; i < 5; i += 1) await source.getCrossChainChains();
     expect(calls).toHaveLength(1);
   });
 
   it("de-duplicates concurrent callers into one request", async () => {
-    const calls = mockFetch(FLOWS);
+    const calls = mockFetch(CHAINS);
     await Promise.all([source.getCrossChainChains(), source.getCrossChainChains()]);
     expect(calls).toHaveLength(1);
   });
@@ -251,12 +252,12 @@ describe("getCrossChainChains", () => {
   });
 
   it("serves the last good list through a failed refresh", async () => {
-    mockFetch(FLOWS);
+    mockFetch(CHAINS);
     await source.getCrossChainChains();
     // The TTL has not expired, so this is served from the memo without a request: an upstream
     // blip cannot empty a populated menu.
     mockFetch({}, { status: 503 });
-    expect(await source.getCrossChainChains()).toEqual(FLOWS.flows);
+    expect(await source.getCrossChainChains()).toEqual(CHAINS);
   });
 });
 
