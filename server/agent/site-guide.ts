@@ -390,16 +390,16 @@ interface LabelGroup {
 }
 
 /**
- * The balances payload, or null if it is not the shape the endpoint serves. A malformed payload
- * prints no balance at all, rather than whichever entries happened to parse.
+ * The balances in a `/v1/labels` payload, or null if it is not the shape that endpoint serves. A
+ * malformed payload prints no balance at all, rather than whichever entries happened to parse.
  */
 export function asLabelledBalances(parsed: unknown): LabelledBalances | null {
   const body = asRecord(parsed);
-  if (body === null || !Number.isInteger(body.rankAsOfHeight) || !Array.isArray(body.items)) {
+  if (body === null || !Number.isInteger(body.rankHeight) || !Array.isArray(body.labels)) {
     return null;
   }
   const items: LabelledBalance[] = [];
-  for (const raw of body.items) {
+  for (const raw of body.labels) {
     const item = asRecord(raw);
     if (
       item === null ||
@@ -416,7 +416,7 @@ export function asLabelledBalances(parsed: unknown): LabelledBalances | null {
       rank: item.rank as number | null,
     });
   }
-  return { rankAsOfHeight: body.rankAsOfHeight as number, items };
+  return { rankAsOfHeight: body.rankHeight as number, items };
 }
 
 /**

@@ -33,7 +33,6 @@ import {
   makeChain,
   makeV1,
   FIXTURE_NOW_MS,
-  LABEL_BALANCES_KEY,
   LABELLED_BALANCES_FIXTURE,
 } from "../testing/fixture-world";
 
@@ -410,16 +409,20 @@ describe("the labels section", () => {
     expect(withBalances).toMatch(/never answer "no" to whether an incident happened/);
   });
 
+  it("reads the balances /v1/labels serves", async () => {
+    const served = await (await makeV1().request("/v1/labels")).json();
+    expect(asLabelledBalances(served)).toEqual(LABELLED_BALANCES_FIXTURE);
+  });
+
   it("rejects a malformed balances payload whole, rather than printing what parsed", () => {
-    expect(asLabelledBalances(LABELLED_BALANCES_FIXTURE)).toEqual(LABELLED_BALANCES_FIXTURE);
     const [first, ...rest] = LABELLED_BALANCES_FIXTURE.items;
     for (const bad of [
       null,
-      { items: [] },
-      { rankAsOfHeight: 1, items: "no" },
-      { rankAsOfHeight: 1, items: [{ ...first, balanceZat: -1 }, ...rest] },
-      { rankAsOfHeight: 1, items: [{ ...first, balanceZat: "5" }, ...rest] },
-      { rankAsOfHeight: 1, items: [{ ...first, rank: 0 }, ...rest] },
+      { labels: [] },
+      { rankHeight: 1, labels: "no" },
+      { rankHeight: 1, labels: [{ ...first, balanceZat: -1 }, ...rest] },
+      { rankHeight: 1, labels: [{ ...first, balanceZat: "5" }, ...rest] },
+      { rankHeight: 1, labels: [{ ...first, rank: 0 }, ...rest] },
     ]) {
       expect(asLabelledBalances(bad), JSON.stringify(bad).slice(0, 80)).toBeNull();
     }
@@ -430,16 +433,12 @@ describe("the labels section", () => {
     const result = await t.dispatch("site_guide", JSON.stringify({ section: "labels" }));
     expect(result.content).toContain('<site-guide section="labels">');
     expect(result.content).toContain(formatZec(LABELLED_BALANCES_FIXTURE.items[0]!.balanceZat));
-    expect(result.endpoints).toEqual(["site:labels", "GET /chain/labels/balances"]);
+    expect(result.endpoints).toEqual(["site:labels", "GET /v1/labels"]);
     expect(sourceLinkFor("site:labels")).toBeNull();
   });
 
   it("still serves the table when the balances read fails, and cites only the table", async () => {
-    const t = new AgentTools(
-      makeV1(),
-      makeChain({ [LABEL_BALANCES_KEY]: null }),
-      () => FIXTURE_NOW_MS,
-    );
+    const t = new AgentTools(makeV1({ labelledBalances: null }), makeChain(), () => FIXTURE_NOW_MS);
     const result = await t.dispatch("site_guide", JSON.stringify({ section: "labels" }));
     expect(result.content).toContain("BALANCES UNAVAILABLE");
     expect(result.endpoints).toEqual(["site:labels"]);
