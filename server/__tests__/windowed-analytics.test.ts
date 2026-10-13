@@ -378,6 +378,19 @@ describe("cross-chain", () => {
     });
   });
 
+  it("states the first and last transfer counted, and null with a reason when none matched", async () => {
+    const counted = stub({
+      crosschain: async () => ({ ...emptyCross(), firstAt: SEP_1 + 600, lastAt: OCT_1 - 600 }),
+    });
+    const body = await (await counted.get(`/v1/crosschain/aggregate?${SEPT}`)).json();
+    expect([body.data.firstAt, body.data.lastAt]).toEqual([SEP_1 + 600, OCT_1 - 600]);
+    expect(body.unknowns).toEqual({});
+
+    const none = await (await stub().get(`/v1/crosschain/aggregate?${SEPT}`)).json();
+    expect([none.data.firstAt, none.data.lastAt]).toEqual([null, null]);
+    expect(none.unknowns).toEqual({ "data.firstAt": "nonexistent", "data.lastAt": "nonexistent" });
+  });
+
   it("completedOnly excludes pending and refunded transfers in the shared predicate", () => {
     const t = {
       status: "pending",

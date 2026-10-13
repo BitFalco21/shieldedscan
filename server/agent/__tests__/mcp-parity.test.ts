@@ -158,11 +158,6 @@ const PRIVATE_READS: Readonly<Record<string, PrivateRead>> = {
     twin: "rich-list",
     lacks: "`fromRank`: the public list pages by cursor only, so rank 500 is many reads away",
   },
-  "/crosschain/aggregate": {
-    twin: "crosschain-aggregate",
-    lacks:
-      "open-ended windows. The figures differ too: this route counts pending transfers, the twin completed ones only",
-  },
   "/crosschain/volume-series": {
     twin: "crosschain-aggregate",
     lacks:

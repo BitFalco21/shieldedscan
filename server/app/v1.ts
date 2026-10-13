@@ -41,7 +41,8 @@ export interface V1AppDeps {
 }
 
 /**
- * The windowed analytics on the public `/v1`. Mainnet and Postgres only.
+ * The windowed analytics on the public `/v1`. Mainnet and Postgres only. Mounted for the agent too,
+ * which reads its cross-chain totals in-process, so Zeno quotes what an API or MCP reader gets.
  *
  * Its own pool, so public traffic can never take a connection the site or ingestion need. The cost
  * bound is the admission gate in `windowedAnalyticsRoutes`, not the pool size: at most two uncached
@@ -50,7 +51,7 @@ export interface V1AppDeps {
  * per-address half.
  */
 function publicAnalytics(deps: V1AppDeps): Hono | undefined {
-  if (!(PUBLIC_API_ENABLED && USE_POSTGRES && !IS_TESTNET)) return undefined;
+  if (!((PUBLIC_API_ENABLED || AGENT_ENABLED) && USE_POSTGRES && !IS_TESTNET)) return undefined;
   // Sized for the admitted requests' own parallel sub-queries: the cost bound is the admission
   // gate, not this pool, because rationing connections would make each request starve waiting for
   // its own second connection.

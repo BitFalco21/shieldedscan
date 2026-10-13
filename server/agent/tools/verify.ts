@@ -130,64 +130,41 @@ export function verifyWindowEcho(
 }
 
 /**
- * Why the aggregate payload cannot be described as the answer to the question asked, or null.
+ * Why a cross-chain total cannot be described as the answer to the question asked, or null.
  *
- * Compares the `applied` block the store echoes, term by term, with what this call requested. A
- * stale API that ignores a parameter answers a wider question and says nothing about it (all-time
- * figures under a July heading, every chain under a Bitcoin one). Strict in both directions: a
- * missing echo fails too, because absence is what an older deployment sends.
+ * Compares the `query` block `/v1/crosschain/aggregate` echoes, term by term, with what this call
+ * requested. An API that ignored a parameter would answer a wider question and say nothing about it
+ * (all-time figures under a July heading, every chain under a Bitcoin one). A missing echo fails
+ * too, because absence is what such an API sends.
  */
-export function verifyAggregateEcho(
+export function verifyCrossChainQueryEcho(
   payload: unknown,
   asked: {
+    from: string;
+    to: string;
     chain: string | null;
     venue: string | null;
     direction: string | null;
-    days: { from: string | null; to: string | null };
-    minUsdAtSwap: number | null;
-    minZecZat: number | null;
+    /** The thresholds exactly as sent, which the route echoes as it parsed them. */
+    minUsd: string | null;
+    minZec: string | null;
   },
 ): string | null {
   const refuse = refuseWiderQuestion;
-
-  const a = asRecord(asRecord(payload)?.applied);
-  if (a === null) return refuse("narrowing");
-  const dayOf = (v: unknown): string | null =>
-    typeof v === "number" && Number.isFinite(v) ? utcDayFromSeconds(v) : null;
-
-  if (asked.direction !== null && a.direction !== asked.direction) return refuse("direction");
-  if (asked.venue !== null && a.protocol !== asked.venue) return refuse("venue");
+  const q = asRecord(asRecord(payload)?.query);
+  if (q === null) return refuse("narrowing");
+  if (q.from !== asked.from) return refuse("start of the window");
+  if (q.to !== asked.to) return refuse("end of the window");
+  if (asked.direction !== null && q.direction !== asked.direction) return refuse("direction");
+  if (asked.venue !== null && q.protocol !== asked.venue) return refuse("venue");
   if (asked.chain !== null) {
-    const chains = a.counterpartChains;
-    const named =
-      Array.isArray(chains) && chains.length === 1 && chains[0] === asked.chain
-        ? true
-        : // The private route maps a single chain onto both directional lists, so either shape
-          // counts as applied — what must never pass is the parameter having vanished.
-          Array.isArray(a.sourceChains) &&
-          Array.isArray(a.destinationChains) &&
-          a.sourceChains.includes(asked.chain) &&
-          a.destinationChains.includes(asked.chain);
-    if (!named) return refuse("chain filter");
+    const chains = q.chain;
+    if (!(Array.isArray(chains) && chains.length === 1 && chains[0] === asked.chain)) {
+      return refuse("chain filter");
+    }
   }
-  if (asked.days.from !== null && dayOf(a.fromTimestamp) !== asked.days.from) {
-    return refuse("start of the window");
-  }
-  if (asked.days.to !== null && dayOf(a.toTimestamp) !== asked.days.to) {
-    return refuse("end of the window");
-  }
-  /*
-   * A missing key fails: the route omits `minUsdAtSwap` when nothing was asked for, so a deployment
-   * that predates the threshold would otherwise be indistinguishable from one that applied it, while
-   * answering over every crossing under a heading naming a floor.
-   */
-  if (asked.minUsdAtSwap !== null && a.minUsdAtSwap !== asked.minUsdAtSwap) {
-    return refuse("value threshold");
-  }
-  // Same shape for the ZEC floor.
-  if (asked.minZecZat !== null && a.minZecZat !== asked.minZecZat) {
-    return refuse("ZEC threshold");
-  }
+  if (asked.minUsd !== null && q.minUsd !== asked.minUsd) return refuse("value threshold");
+  if (asked.minZec !== null && q.minZec !== asked.minZec) return refuse("ZEC threshold");
   return null;
 }
 

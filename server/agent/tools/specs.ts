@@ -480,7 +480,7 @@ export const CROSSCHAIN_RANK_UNITS = ["zec", "usd"] as const;
 
 export type CrossChainMode = (typeof CROSSCHAIN_MODES)[number];
 
-export const CROSSCHAIN_AGGREGATE_PATH = "/crosschain/aggregate";
+export const CROSSCHAIN_AGGREGATE_PATH = "/v1/crosschain/aggregate";
 
 export const CROSSCHAIN_TRANSFERS_PATH = "/v1/crosschain/transfers";
 

@@ -39,6 +39,7 @@ import {
   TX as TX_FIXTURE,
   TXID,
   FIXTURE_NOW_MS,
+  CROSSCHAIN_TRANSFERS,
 } from "../testing/fixture-world";
 import { marketRoutes, MARKET_ASSETS_PATH } from "../../market-routes";
 
@@ -1802,8 +1803,8 @@ describe("cross-chain swap-time USD reaches the model already formatted", () => 
 
 /**
  * The `crosschain` tool: the way to ask a cross-chain question with edges. Dispatched against the
- * real private routes over a real store (see `harness.ts`), because the property under test is that
- * the server applied the narrowing asked for, which a stub echoing its input could not show.
+ * real /v1 routes over a real store, because the property under test is that the server applied the
+ * narrowing asked for, which a stub echoing its input could not show.
  */
 describe("crosschain", () => {
   const call = (args: Record<string, unknown>) =>
@@ -1819,24 +1820,24 @@ describe("crosschain", () => {
       });
       // 900 + 300 ZEC inbound in July. The June row (last second of June) and the August row (first
       // instant of August) are outside, which a closed range would include.
-      expect(result.content).toContain('"zecAmountZat": 1200000000000');
+      expect(result.content).toContain('"amountZat": 1200000000000');
       expect(result.content).toContain('"transfers": 2');
       // The outbound side of that slice is genuinely empty rather than absent.
       expect(result.content).toMatch(/"out": \{\s*"transfers": 0/);
     });
 
-    it("hands over a formatted ZEC string and a floor-marked dollar total", async () => {
+    it("hands over the exact ZEC and a floor-marked dollar total", async () => {
       const result = await call({
         mode: "aggregate",
         chain: "BTC",
         from: "2026-07-01",
         to: "2026-08-01",
       });
-      expect(result.content).toContain('"zecAmountZec": "12,000.00"');
+      expect(result.content).toContain('"amountZec": "12000.00000000"');
       // One of the two July inbound legs was unpriced, so the dollars are a floor and the string
       // says so.
       expect(result.content).toContain('"usdAtSwapText": "≥ $36,000.00"');
-      expect(result.content).toContain('"usdCoveredTransfers": 1');
+      expect(result.content).toContain('"usdPricedTransfers": 1');
     });
 
     it("groups by venue, which no other cross-chain payload can do", async () => {
@@ -1874,9 +1875,54 @@ describe("crosschain", () => {
       expect(result.content).toContain('"firstAtUtc"');
     });
 
-    it("cites the page a reader can open, never the token-gated endpoint", async () => {
+    it("reads all of history when no edge is asked for, through the end of today", async () => {
+      const result = await call({ mode: "aggregate" });
+      // FIXTURE_NOW_MS is 2026-08-03; the exclusive upper edge keeps today in.
+      expect(result.endpoints[0]).toContain("from=2016-10-28");
+      expect(result.endpoints[0]).toContain("to=2026-08-04");
+      // The first transfer counted, so "since 2016" has something to be corrected by.
+      expect(result.content).toContain('"firstAtUtc": "2026-06-30T23:59:59.000Z"');
+    });
+
+    it("counts completed crossings only, as the public API does", async () => {
+      const pending = transfer({
+        id: "maya:july-btc-pending",
+        direction: "in",
+        protocol: "maya",
+        counterpartChain: "BTC",
+        counterpartAsset: "BTC",
+        zecAmountZat: 7_000_000_000_000,
+        status: "pending",
+        timestamp: Math.floor(Date.parse("2026-07-10T00:00:00Z") / 1000),
+      });
+      const result = await tools({ transfers: [...CROSSCHAIN_TRANSFERS, pending] }).dispatch(
+        "crosschain",
+        JSON.stringify({ mode: "aggregate", chain: "BTC", from: "2026-07-01", to: "2026-08-01" }),
+      );
+      expect(result.content).toContain('"amountZat": 1200000000000');
+    });
+
+    it("refuses daily groups over more than a year, with what to ask instead", async () => {
+      const result = await call({ mode: "aggregate", groupBy: "day" });
+      expect(result.content).toMatch(/at most 366 days/);
+      expect(result.endpoints).toEqual([]);
+    });
+
+    it("refuses a zero threshold, and says where the priced count already is", async () => {
+      const result = await call({ mode: "aggregate", minUsdAtSwap: 0 });
+      expect(result.content).toMatch(/usdPricedTransfers/);
+      expect(result.endpoints).toEqual([]);
+    });
+
+    it("sends a tiny ZEC threshold as a plain decimal, never exponent notation", async () => {
+      const result = await call({ mode: "aggregate", minZec: 0.0000001 });
+      expect(result.endpoints[0]).toContain("minZec=0.0000001");
+      expect(result.content).not.toMatch(/<unavailable source=/);
+    });
+
+    it("cites the page a reader can open, rather than the endpoint", async () => {
       const result = await call({ mode: "aggregate", groupBy: "chain" });
-      expect(result.endpoints[0]).toMatch(/^GET \/crosschain\/aggregate\?/);
+      expect(result.endpoints[0]).toMatch(/^GET \/v1\/crosschain\/aggregate\?/);
       expect(sourceLinkFor(result.endpoints[0]!)).toEqual({
         label: "cross-chain flows",
         href: "/cross-chain/flows",
@@ -1893,17 +1939,19 @@ describe("crosschain", () => {
     const staleApi = (body: unknown) => ({
       request: () => new Response(JSON.stringify(body), { status: 200 }),
     });
-    const withStale = (body: unknown) => new AgentTools(makeV1(), staleApi(body));
+    const withStale = (body: unknown) =>
+      new AgentTools(staleApi(body), makeChain(), () => FIXTURE_NOW_MS);
+    const totals = {
+      in: { transfers: 9, amountZat: 1, usdAtSwap: "0.00", usdPricedTransfers: 0 },
+    };
+    /** The edges an open window resolves to on the fixture's clock. */
+    const allOfHistory = { from: "2016-10-28", to: "2026-08-04" };
 
     it("refuses a payload whose window was not applied", async () => {
       const stale = withStale({
-        groupBy: "none",
-        totals: { in: { transfers: 9, zecAmountZat: 1, usdAtSwap: 0, usdCoveredTransfers: 0 } },
-        groups: [],
-        // The parameter vanished, which is what an older deployment sends.
-        applied: {},
-        firstAt: 1,
-        lastAt: 2,
+        // The window the server used is not the one asked for.
+        query: allOfHistory,
+        data: { groupBy: "none", totals, groups: [] },
       });
       const result = await stale.dispatch(
         "crosschain",
@@ -1917,12 +1965,8 @@ describe("crosschain", () => {
 
     it("refuses a payload whose chain filter was not applied", async () => {
       const stale = withStale({
-        groupBy: "none",
-        totals: { in: { transfers: 9, zecAmountZat: 1, usdAtSwap: 0, usdCoveredTransfers: 0 } },
-        groups: [],
-        applied: { counterpartChains: [] },
-        firstAt: 1,
-        lastAt: 2,
+        query: { ...allOfHistory, chain: [] },
+        data: { groupBy: "none", totals, groups: [] },
       });
       const result = await stale.dispatch(
         "crosschain",
@@ -2011,7 +2055,7 @@ describe("crosschain", () => {
         minUsdAtSwap: 10_000,
       });
       expect(above.content).toContain('"transfers": 1');
-      expect(above.content).toContain('"zecAmountZec": "9,000.00"');
+      expect(above.content).toContain('"amountZec": "9000.00000000"');
     });
 
     /**
@@ -2028,7 +2072,7 @@ describe("crosschain", () => {
         minUsdAtSwap: 1,
       });
       expect(result.content).toContain('"transfers": 1');
-      expect(result.content).toContain('"usdCoveredTransfers": 1');
+      expect(result.content).toContain('"usdPricedTransfers": 1');
     });
 
     it("narrows a ranked transfer list to the crossings above it", async () => {
@@ -2047,7 +2091,7 @@ describe("crosschain", () => {
 
     it("keeps a fractional threshold, which is a real question rather than a misreading", async () => {
       const result = await call({ mode: "aggregate", minUsdAtSwap: 12.5 });
-      expect(result.endpoints[0]).toContain("min=12.5");
+      expect(result.endpoints[0]).toContain("minUsd=12.5");
     });
 
     it("rejects a negative threshold with a message the model can act on", async () => {
@@ -2062,24 +2106,27 @@ describe("crosschain", () => {
      * swap-time dollars, so the rows themselves are a stronger check.
      */
     it("refuses an aggregate whose threshold the API did not apply", async () => {
-      const stale = new AgentTools(makeV1(), {
-        request: () =>
-          new Response(
-            JSON.stringify({
-              groupBy: "none",
-              totals: {
-                in: { transfers: 9, zecAmountZat: 1, usdAtSwap: 0, usdCoveredTransfers: 0 },
-              },
-              groups: [],
-              // Understood the chain and dropped the threshold — what a deployment one release
-              // behind sends.
-              applied: { counterpartChains: ["BTC"] },
-              firstAt: 1,
-              lastAt: 2,
-            }),
-            { status: 200 },
-          ),
-      });
+      const stale = new AgentTools(
+        {
+          request: () =>
+            new Response(
+              JSON.stringify({
+                // Understood the chain and dropped the threshold.
+                query: { from: "2016-10-28", to: "2026-08-04", chain: ["BTC"], minUsd: null },
+                data: {
+                  groupBy: "none",
+                  totals: {
+                    in: { transfers: 9, amountZat: 1, usdAtSwap: "0.00", usdPricedTransfers: 0 },
+                  },
+                  groups: [],
+                },
+              }),
+              { status: 200 },
+            ),
+        },
+        makeChain(),
+        () => FIXTURE_NOW_MS,
+      );
       const result = await stale.dispatch(
         "crosschain",
         JSON.stringify({ mode: "aggregate", chain: "BTC", minUsdAtSwap: 10_000 }),
@@ -2162,7 +2209,7 @@ describe("crosschain", () => {
       // 33 days back from 2026-08-03 starts on 2026-07-01, which leaves June's last-second row
       // outside. One priced July crossing remains; the unpriced one never clears a threshold.
       expect(windowed.content).toContain('"transfers": 1');
-      expect(windowed.content).toContain('"zecAmountZec": "9,000.00"');
+      expect(windowed.content).toContain('"amountZec": "9000.00000000"');
     });
 
     it("refuses a trailing window and an absolute one together, rather than picking", async () => {

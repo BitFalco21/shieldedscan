@@ -97,6 +97,7 @@ const CROSSCHAIN_CALLS: Record<string, unknown>[] = [
   { mode: "aggregate", lastDays: 46 },
   { mode: "aggregate", groupBy: "chain" },
   { mode: "aggregate", minUsdAtSwap: 10_000 },
+  { mode: "transfers", minUsdAtSwap: 10_000 },
   // The ZEC floor has no site equivalent (the chips are dollars); exercised so the schema check
   // reaches it.
   { mode: "aggregate", minZec: 5_000 },
