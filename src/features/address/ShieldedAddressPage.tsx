@@ -366,7 +366,6 @@ function SearchedName({ registration: r }: { registration: ZnsRegistration }) {
           {formatCount(r.height)}
         </Link>
       </span>
-      {r.listingPriceZat !== null ? <span>· listed for sale</span> : null}
       <InfoTip
         label="Zcash name"
         text="A Zcash name is chosen by whoever registers it. It shows where they pointed it, not who holds this address."

@@ -2,19 +2,18 @@
  * The Zcash Name System (ZNS, zcashnames.com): a human name such as `zenith` registered to a
  * unified address.
  *
- * A name says where its registrant pointed it, and nothing about who holds the address: a
- * CLAIM needs no proof of control (the registry asks for it only on update, list, delist and
- * release), so anyone can point a free name at anyone's address. Names therefore resolve
- * forward only (name → address); address pages carry no reverse label, where a planted name
- * would read as the holder's own. The API publishes a name only once its transaction is in our
- * index and its signature verifies (see `server/zns.ts`).
+ * A name says where its registrant pointed it, and nothing about who holds the address: nothing
+ * in a registration proves control of the address it names, so anyone can point a free name at
+ * anyone's address. Names therefore resolve forward only (name → address); address pages carry no
+ * reverse label, where a planted name would read as the holder's own. The API publishes a name
+ * only once its transaction is in our index (see `server/zns.ts`).
  *
  * Names never label a transparent receiver derived from the unified address, which would
  * attach a name to a transparent payment history.
  */
 
-/** The registry's own rule, as `zcashname-sdk` enforces it: lowercase letters and digits, 1–62. */
-const ZNS_NAME_RE = /^[a-z0-9]{1,62}$/;
+/** The registry's own rule: lowercase letters and digits, 1–63. */
+const ZNS_NAME_RE = /^[a-z0-9]{1,63}$/;
 
 /** How names are written on this site. The registry stores and resolves the bare name only. */
 export const ZNS_SUFFIX = ".zcash";
@@ -32,8 +31,11 @@ const ZNS_INPUT_SUFFIXES = [ZNS_SUFFIX, ".zec"] as const;
  */
 export const ZNS_MAX_LAG_BLOCKS = 100;
 
-/** The registry state a registration was last changed by. `LIST`/`DELIST` move the listing only. */
-export type ZnsLastAction = "CLAIM" | "UPDATE" | "BUY" | "DELIST" | "RELEASE";
+/** Every action the registry records. A release ends a registration; the other two bind one. */
+export type ZnsEventAction = "CLAIM" | "UPDATE" | "RELEASE";
+
+/** The action a registration in force was last changed by. */
+export type ZnsLastAction = Exclude<ZnsEventAction, "RELEASE">;
 
 export interface ZnsRegistration {
   /** The bare registered name, e.g. `zenith`. Render it through `formatZnsName`. */
@@ -49,16 +51,7 @@ export interface ZnsRegistration {
   /** That block's timestamp, unix seconds, read from our index rather than the registry. */
   timestamp: number;
   lastAction: ZnsLastAction;
-  /**
-   * The asking price in zatoshi while the name is on the ZNS marketplace, else null. A listed
-   * name may soon point elsewhere, which is why the page says so beside it.
-   */
-  listingPriceZat: number | null;
 }
-
-/** Every action the registry's event log records. */
-export type ZnsEventAction =
-  "CLAIM" | "UPDATE" | "BUY" | "LIST" | "SETPRICE" | "DELIST" | "RELEASE";
 
 /** One entry in a name's history, published only once its transaction is found on our chain. */
 export interface ZnsNameEvent {
@@ -67,10 +60,8 @@ export interface ZnsNameEvent {
   height: number;
   /** That block's timestamp, unix seconds, from our index. */
   timestamp: number;
-  /** The address the action pointed the name at (CLAIM, UPDATE, BUY), else null. */
+  /** The address the action pointed the name at; null for a release, which points it nowhere. */
   address: string | null;
-  /** The price in zatoshi for LIST, SETPRICE and BUY, else null. */
-  priceZat: number | null;
 }
 
 /**
@@ -115,21 +106,13 @@ export function formatZnsName(name: string): string {
   return `${name}${ZNS_SUFFIX}`;
 }
 
-/** The verb for an action, so a reader is never told a name was claimed when it was bought. */
+/** The verb for an action, so a reader is never told a name was claimed when it was updated. */
 export function znsActionVerb(action: ZnsEventAction): string {
   switch (action) {
-    case "LIST":
-      return "listed";
-    case "SETPRICE":
-      return "repriced";
     case "CLAIM":
       return "claimed";
     case "UPDATE":
       return "updated";
-    case "BUY":
-      return "bought";
-    case "DELIST":
-      return "delisted";
     case "RELEASE":
       return "released";
   }

@@ -14,7 +14,6 @@ describe("nameCardFacts", () => {
     const facts = nameCardFacts(getZnsName("abraham"))!;
     expect(facts.since).toMatch(/^UPDATED \d{1,2} [A-Z]+ \d{4}$/);
     expect(facts.since).not.toMatch(/AGO/);
-    expect(facts.stamp).toBe("ZCASH NAME · FOR SALE");
   });
 
   it("has nothing to state for a released name or a withheld registry", () => {
@@ -26,7 +25,7 @@ describe("nameCardFacts", () => {
     const short = nameCardFacts(getZnsName("zenith"))!.nameSize;
     const long = nameCardFacts({
       ...getZnsName("zenith"),
-      registrations: [{ ...getZnsName("zenith").registrations[0]!, name: "a".repeat(60) }],
+      registrations: [{ ...getZnsName("zenith").registrations[0]!, name: "a".repeat(63) }],
     })!.nameSize;
     expect(long).toBeLessThan(short);
   });

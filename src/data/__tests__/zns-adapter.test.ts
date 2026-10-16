@@ -20,7 +20,6 @@ const lookup = (query: string, extra: Record<string, unknown> = {}) => ({
       height: 3_412_748,
       timestamp: 1_784_087_489,
       lastAction: "CLAIM",
-      listingPriceZat: null,
     },
   ],
   history: [
@@ -30,7 +29,6 @@ const lookup = (query: string, extra: Record<string, unknown> = {}) => ({
       height: 3_412_748,
       timestamp: 1_784_087_489,
       address: ADDRESS,
-      priceZat: null,
     },
   ],
   withheld: false,
