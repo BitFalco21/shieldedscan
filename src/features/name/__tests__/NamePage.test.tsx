@@ -37,36 +37,20 @@ describe("NamePage", () => {
     expect(screen.getByText(/not who holds this address/)).toBeTruthy();
   });
 
-  it("shows the marketplace only when the name is for sale, with its price", () => {
-    const listed = render(<NamePage lookup={getZnsName("abraham")} />).container;
-    expect(listed.querySelector("[data-zns-status]")!.textContent).toBe("for sale");
-    expect(listed.querySelector("[data-zns-listing]")!.textContent).toContain("2.50 ZEC");
-    const buy = listed.querySelector("[data-zns-listing] [data-zns-explorer]")!;
-    expect(buy.getAttribute("href")).toBe("https://www.zcashnames.com/explorer?search=abraham");
-    expect(buy.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(buy.getAttribute("target")).toBe("_blank");
-    const plain = render(<NamePage lookup={zenith} />).container;
-    expect(plain.querySelector("[data-zns-listing]")).toBeNull();
-    expect(plain.querySelector("[data-zns-explorer]")).toBeNull();
-  });
-
-  it("lists the history as an explorer table: action, date, block, transaction, price", () => {
+  it("lists the history as an explorer table: action, date, block, transaction, address", () => {
     const { container } = render(<NamePage lookup={getZnsName("abraham")} />);
     const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent);
-    expect(headers).toEqual(["ACTION", "DATE", "BLOCK", "TRANSACTION", "POINTED AT", "PRICE"]);
+    expect(headers).toEqual(["ACTION", "DATE", "BLOCK", "TRANSACTION", "POINTED AT"]);
     const rows = [...container.querySelectorAll("[data-zns-event]")];
-    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual([
-      "listed",
-      "updated",
-      "claimed",
-    ]);
-    expect(rows[0]!.textContent).toContain("2.50 ZEC");
+    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual(["updated", "claimed"]);
     expect(rows[0]!.querySelector('a[href^="/tx/"]')).not.toBeNull();
     expect(rows[0]!.querySelector('a[href^="/block/"]')!.className).toContain("text-green");
-    // An action with no price says so with a dash, never an empty cell.
-    expect(rows[1]!.querySelector("td:last-child")!.textContent).toBe("—");
-    // …and so does a listing, which points the name nowhere.
-    expect(rows[0]!.querySelectorAll("td")[4]!.textContent).toBe("—");
+  });
+
+  it("shows a release as pointing nowhere, with a dash rather than an empty cell", () => {
+    const { container } = render(<NamePage lookup={getZnsName("kazecstan")} />);
+    const release = container.querySelector("[data-zns-event]")!;
+    expect(release.querySelectorAll("td")[4]!.textContent).toBe("—");
   });
 
   it("shows a released name as such, with no address and its history kept", () => {
@@ -85,18 +69,8 @@ describe("NamePage", () => {
   });
 
   it("gives each action its own colour, at the shared badge size", () => {
-    // The three actions that point the name at an address each get a hue, the two price events
-    // share gold, and the two undos stay neutral ink. The fixtures carry no BUY, SETPRICE or
-    // DELIST, so the whole set is built here.
-    const actions: ZnsEventAction[] = [
-      "CLAIM",
-      "UPDATE",
-      "BUY",
-      "LIST",
-      "SETPRICE",
-      "DELIST",
-      "RELEASE",
-    ];
+    // The two actions that point the name at an address each get a hue; a release stays neutral.
+    const actions: ZnsEventAction[] = ["CLAIM", "UPDATE", "RELEASE"];
     const base = zenith.history[0]!;
     const lookup = {
       ...zenith,
@@ -107,26 +81,18 @@ describe("NamePage", () => {
       container.querySelector(`[data-zns-action="${a}"]`)!.firstElementChild!;
     const colour = (a: ZnsEventAction) =>
       [...badge(a).classList].find((c) => /^(flow-\d|text-(green|ink))/.test(c));
-    expect(actions.map(colour)).toEqual([
-      "flow-4",
-      "flow-2",
-      "flow-5",
-      "flow-1",
-      "flow-1",
-      "text-ink-dim",
-      "text-ink-faint",
-    ]);
+    expect(actions.map(colour)).toEqual(["flow-4", "flow-2", "text-ink-faint"]);
     for (const a of actions) expect(badge(a).className).toContain(BADGE_BASE);
     // The word still names the action; the colour is a second channel, never the only one.
-    expect(container.querySelector('[data-zns-action="BUY"]')!.textContent).toBe("bought");
+    expect(container.querySelector('[data-zns-action="UPDATE"]')!.textContent).toBe("updated");
   });
 
   it("gives the status badge the same size as the history's badges", () => {
     const { container } = render(<NamePage lookup={getZnsName("abraham")} />);
     const status = container.querySelector("[data-zns-status]")!.firstElementChild!;
-    const listed = container.querySelector('[data-zns-action="LIST"]')!.firstElementChild!;
+    const updated = container.querySelector('[data-zns-action="UPDATE"]')!.firstElementChild!;
     expect(status.className).toContain(BADGE_BASE);
-    expect(listed.className).toContain(BADGE_BASE);
+    expect(updated.className).toContain(BADGE_BASE);
     // A live registration is in force, so the status reads in the accent.
     expect(status.className).toContain("text-green");
   });

@@ -68,8 +68,8 @@ export const ROUTES: readonly string[] = [
   "/mining-cost",
   // Prerendered reference page; zips.spec.ts covers the href-shape invariant.
   "/zips",
-  // A Zcash Name System name with a full history (listed, updated, claimed), so the table and
-  // the marketplace line are swept; `zns.spec.ts` covers search, the miss and the stale states.
+  // A Zcash Name System name with a history (updated, claimed), so the table is swept;
+  // `zns.spec.ts` covers search, the miss and the stale states.
   "/name/abraham",
   // The ecosystem map: static editorial data, every icon self-hosted, every project a link out.
   "/ecosystem",

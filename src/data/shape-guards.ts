@@ -652,8 +652,7 @@ export function isZnsRegistration(value: unknown): value is ZnsRegistration {
     typeof r.txid === "string" &&
     typeof r.height === "number" &&
     typeof r.timestamp === "number" &&
-    typeof r.lastAction === "string" &&
-    (r.listingPriceZat === null || typeof r.listingPriceZat === "number")
+    typeof r.lastAction === "string"
   );
 }
 
@@ -666,7 +665,6 @@ export function isZnsNameEvent(value: unknown): value is ZnsNameEvent {
     typeof e.txid === "string" &&
     typeof e.height === "number" &&
     typeof e.timestamp === "number" &&
-    (e.address === null || (typeof e.address === "string" && e.address.startsWith("u1"))) &&
-    (e.priceZat === null || typeof e.priceZat === "number")
+    (e.address === null || (typeof e.address === "string" && e.address.startsWith("u1")))
   );
 }

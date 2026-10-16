@@ -1,4 +1,3 @@
-import { createPublicKey, verify, type KeyObject } from "node:crypto";
 import {
   decodeUnifiedAddress,
   parseZnsName,
@@ -16,13 +15,16 @@ import { readJsonCapped } from "./body-limit";
  *
  * - A snapshot, never a per-query forward: the whole registry is read every two minutes and every
  *   lookup is answered from memory, so no visitor's search ever reaches the registry.
- * - No SDK: the parsers follow what the server actually sends (established by calling the
- *   endpoints), and the SDK defaults to testnet and carries runtime dependencies.
- * - A row is published only after three checks, any failure excluding and counting it: the
- *   registry identifies itself with the UIVK and admin key pinned here (a key taken from the
- *   server it vouches for proves nothing about that server); the row's Ed25519 signature verifies
- *   under the real preimage rules; and the transaction it rests on is in our index at the height it
- *   claims, which also drops a claim a reorg removed.
+ * - No SDK: the parsers follow what the resolver actually sends, and the SDK carries runtime
+ *   dependencies and pins keys of its own that have lagged the live registry.
+ * - A registration is a Name Note: a zero-value shielded note to the registry whose memo carries the
+ *   binding, which only the registry's viewing key can read. The resolver does that work; what we
+ *   can check, we do, and a row failing any check is excluded and counted: the resolver identifies
+ *   itself with the viewing key pinned here (a key taken from the server it vouches for proves
+ *   nothing about that server); the address is a mainnet unified address; and the transaction the
+ *   row rests on is in our index at the height it claims, which also drops a claim a reorg removed.
+ * - A name past its `expires_at` is answered as unregistered. The resolver keeps serving it, but an
+ *   expired registration is no longer a payment instruction.
  * - Freshness is a content check across the registry's backend pool, which has been observed
  *   rotating between current and stale backends. A poll reads status, the registry and the event
  *   log each READS_PER_ATTEMPT times in a row, so each kind of read spans the pool, and accepts the
@@ -33,21 +35,21 @@ import { readJsonCapped } from "./body-limit";
  *   backends that agree; only the registry can close that.
  */
 
-export const ZNS_MAINNET_URL = "https://main.zcashnames.com";
-/** Matches `NETWORKS.mainnet.uivk` in zcashname-sdk 0.12.0 and the live `status.uivk`. */
-export const ZNS_MAINNET_UIVK =
-  "uivk1gl26qy0xjja7lqhyg3pf0x4j4j66kqwewrjkdcg28eqq4wgtzjmujpee7x9cs2ec9xhnlgrm8ptlw8z80j2aryw8nqtssser2ys778a0s00uvgkdjnfr58sndhfvc3f4zqjs6ywva6";
+/** The mainnet endpoint `zcashname-sdk` presets; `main.zcashnames.com` fronts the same pool. */
+export const ZNS_MAINNET_URL = "https://light.zcash.me/zns-mainnet";
 /**
- * The registry's admin Ed25519 key, base64 (not hex). Every live mainnet name is OTP-controlled, so
- * this is the key every published signature verifies under.
+ * The registry's unified full viewing key, from the mainnet ceremony that relaunched the registry
+ * at block 3,518,764. Pinned from the `UFVK` constant in the resolver's own source
+ * (github.com/zcashme/zns-resolver, `src/main.rs`), which matches the live `status.viewing_key`.
  */
-export const ZNS_MAINNET_ADMIN_PUBKEY = "zobrGyAwpM3mtC0Vo4UOk0bc9Ygg0gdDeD8dCQAOXI4=";
+export const ZNS_MAINNET_VIEWING_KEY =
+  "uview1209ld9y4fr2sel9q87kfjg7xm2sy53e3qf7dvcw3w8jwhhjpldl8z0vk0a6hveg4jk7xcn0rc9mr8yg77djfpc0uxrm5pqzt8q7ul4w0nvs3x5q9vmk9nm2crywtqaealek4mp47ur7ywu7g4g4xcdlwv6gnqzvu5panv5je2ps6rxmx4856unlt5wde8fpz8uhrqchmwhn2j252h3cyx5phad877xezerm6ex8l5kcfjw02ll7m0nspfufamh3ae9ea48395elptspnv6vvc70j2gcjrdze9syt8kpr2kc67flvg8687thdkpha7lpt9r4p9wjty90q2v2yjanqsr2zrecrqs7lfx9cpkmshf7jyh2vvwfqnyzwtpuy7p72hm2mjhperdafvm9u5rwa6s6urcy0uw30f687e3jnmas45qfqtwyz39kf6kxklfrdn7t4hkz56jegmlr8s8hwmt9wa8vz8zlmm76lrmzyj82nzpeqfu572njq";
 
 const POLL_MS = 2 * 60_000;
 /** Past this the last good snapshot is withheld: a registry we cannot read is not a current one. */
 const MAX_SNAPSHOT_AGE_SECONDS = 10 * 60;
 const REQUEST_TIMEOUT_MS = 15_000;
-/** The registry's own `limit` ceiling. */
+/** The resolver's own `limit` ceiling. */
 const PAGE_SIZE = 500;
 /** A backstop on the page walk: 20,000 names, far above the registry's current size. */
 const MAX_PAGES = 40;
@@ -58,37 +60,37 @@ const ATTEMPTS_PER_POLL = 4;
  * distinct backends for any pool of up to N backends.
  */
 const READS_PER_ATTEMPT = 4;
-/** SPKI DER prefix for a raw 32-byte Ed25519 public key (RFC 8410). */
-const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 
 export interface ZnsStatus {
   syncedHeight: number;
-  uivk: string;
-  adminPubkey: string;
-  registered: number;
+  viewingKey: string;
 }
 
-/** A registration as the registry sends it, before verification. */
+/** A registration as the resolver sends it, before the chain check. */
 export interface ZnsRawRegistration {
   name: string;
   address: string;
   txid: string;
   height: number;
   lastAction: ZnsLastAction;
-  nonce: number;
-  signature: string | null;
-  listingPriceZat: number | null;
+  /** Unix seconds, or null for a registration that never expires. */
+  expiresAt: number | null;
 }
 
-/** An event-log entry as the registry sends it, before the chain check. */
+/** An event-log entry as the resolver sends it, before the chain check. */
 export interface ZnsRawEvent {
-  id: number;
   name: string;
   action: ZnsEventAction;
   txid: string;
   height: number;
-  address: string | null;
-  priceZat: number | null;
+  /** The address the action bound the name to or, for a release, the binding it ended. */
+  address: string;
+}
+
+/** A published registration and when it lapses, which is judged when a lookup is answered. */
+interface PublishedName {
+  registration: ZnsRegistration;
+  expiresAt: number | null;
 }
 
 export interface ZnsSnapshot {
@@ -97,12 +99,17 @@ export interface ZnsSnapshot {
   tipHeight: number;
   /** Rows the registry served that failed a check and are not published. */
   excludedCount: number;
-  byName: ReadonlyMap<string, ZnsRegistration>;
+  byName: ReadonlyMap<string, PublishedName>;
   /** Each name's history, newest first; events whose transaction is not on our chain are left out. */
   historyByName: ReadonlyMap<string, readonly ZnsNameEvent[]>;
 }
 
-const LAST_ACTIONS: readonly ZnsLastAction[] = ["CLAIM", "UPDATE", "BUY", "DELIST", "RELEASE"];
+/** The resolver's lowercase actions. A registration rests on a claim or an update, never a release. */
+const ACTIONS: Readonly<Record<string, ZnsEventAction>> = {
+  claim: "CLAIM",
+  update: "UPDATE",
+  release: "RELEASE",
+};
 
 function resultOf(body: unknown): unknown {
   if (typeof body !== "object" || body === null) return undefined;
@@ -111,49 +118,45 @@ function resultOf(body: unknown): unknown {
 }
 
 const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
+const isTxid = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
+
+/** `expires_at` is `"none"` or decimal unix seconds; undefined for anything else. */
+function parseExpiry(v: unknown): number | null | undefined {
+  if (v === "none") return null;
+  if (typeof v !== "string" || !/^(0|[1-9][0-9]{0,15})$/.test(v)) return undefined;
+  return Number(v);
+}
 
 export function parseZnsStatus(body: unknown): ZnsStatus | null {
   const r = resultOf(body) as Record<string, unknown> | undefined;
-  if (
-    !r ||
-    !isCount(r.synced_height) ||
-    typeof r.uivk !== "string" ||
-    typeof r.admin_pubkey !== "string" ||
-    !isCount(r.registered)
-  ) {
-    return null;
-  }
-  return {
-    syncedHeight: r.synced_height,
-    uivk: r.uivk,
-    adminPubkey: r.admin_pubkey,
-    registered: r.registered,
-  };
+  if (!r || !isCount(r.synced_height) || typeof r.viewing_key !== "string") return null;
+  return { syncedHeight: r.synced_height, viewingKey: r.viewing_key };
 }
 
 /**
- * One registry page. Malformed rows are dropped (and counted by the caller, which compares the page
- * length) rather than failing the page, so one bad row cannot hide every other name. A malformed
- * envelope is null: that is a broken response.
+ * One `list_names` page. Malformed rows are dropped (and counted by the caller, which compares the
+ * page length) rather than failing the page, so one bad row cannot hide every other name. A
+ * malformed envelope is null: that is a broken response.
  */
 export function parseZnsRegistrations(
   body: unknown,
-): { rows: ZnsRawRegistration[]; served: number } | null {
-  const result = resultOf(body);
-  if (!Array.isArray(result)) return null;
+): { rows: ZnsRawRegistration[]; served: number; total: number } | null {
+  const result = resultOf(body) as { items?: unknown; total?: unknown } | undefined;
+  if (!result || !Array.isArray(result.items) || !isCount(result.total)) return null;
   const rows: ZnsRawRegistration[] = [];
-  for (const raw of result) {
+  for (const raw of result.items) {
     if (typeof raw !== "object" || raw === null) continue;
     const r = raw as Record<string, unknown>;
+    const lastAction = ACTIONS[String(r.last_action)];
+    const expiresAt = parseExpiry(r.expires_at);
     if (
       typeof r.name !== "string" ||
       typeof r.address !== "string" ||
-      typeof r.txid !== "string" ||
-      !/^[0-9a-f]{64}$/.test(r.txid) ||
+      !isTxid(r.txid) ||
       !isCount(r.height) ||
-      !isCount(r.nonce) ||
-      !LAST_ACTIONS.includes(r.last_action as ZnsLastAction) ||
-      (r.signature !== null && typeof r.signature !== "string")
+      lastAction === undefined ||
+      lastAction === "RELEASE" ||
+      expiresAt === undefined
     ) {
       continue;
     }
@@ -162,30 +165,12 @@ export function parseZnsRegistrations(
       address: r.address,
       txid: r.txid,
       height: r.height,
-      lastAction: r.last_action as ZnsLastAction,
-      nonce: r.nonce,
-      signature: r.signature as string | null,
-      listingPriceZat: listingPrice(r.listing),
+      lastAction,
+      expiresAt,
     });
   }
-  return { rows, served: result.length };
+  return { rows, served: result.items.length, total: result.total };
 }
-
-function listingPrice(listing: unknown): number | null {
-  if (typeof listing !== "object" || listing === null) return null;
-  const price = (listing as { price?: unknown }).price;
-  return isCount(price) ? price : null;
-}
-
-const EVENT_ACTIONS: readonly ZnsEventAction[] = [
-  "CLAIM",
-  "UPDATE",
-  "BUY",
-  "LIST",
-  "SETPRICE",
-  "DELIST",
-  "RELEASE",
-];
 
 /** One event-log page, malformed entries dropped and counted like registry rows. */
 export function parseZnsEvents(
@@ -197,79 +182,24 @@ export function parseZnsEvents(
   for (const raw of result.events) {
     if (typeof raw !== "object" || raw === null) continue;
     const e = raw as Record<string, unknown>;
+    const action = ACTIONS[String(e.action)];
     if (
-      !isCount(e.id) ||
       typeof e.name !== "string" ||
-      !EVENT_ACTIONS.includes(e.action as ZnsEventAction) ||
-      typeof e.txid !== "string" ||
-      !/^[0-9a-f]{64}$/.test(e.txid) ||
+      action === undefined ||
+      !isTxid(e.txid) ||
       !isCount(e.height) ||
-      (e.ua !== null && typeof e.ua !== "string") ||
-      (e.price !== null && !isCount(e.price))
+      typeof e.address !== "string"
     ) {
       continue;
     }
-    events.push({
-      id: e.id,
-      name: e.name,
-      action: e.action as ZnsEventAction,
-      txid: e.txid,
-      height: e.height,
-      address: e.ua as string | null,
-      priceZat: e.price as number | null,
-    });
+    events.push({ name: e.name, action, txid: e.txid, height: e.height, address: e.address });
   }
   return { events, served: result.events.length, total: result.total };
 }
 
-export function znsAdminKey(base64: string): KeyObject {
-  const raw = Buffer.from(base64, "base64");
-  if (raw.length !== 32) throw new Error("ZNS admin key is not a 32-byte Ed25519 key");
-  return createPublicKey({
-    key: Buffer.concat([ED25519_SPKI_PREFIX, raw]),
-    format: "der",
-    type: "spki",
-  });
-}
-
-/**
- * The messages a row's signature may cover, as the registry actually signs them:
- *
- * - `CLAIM:{name}:{address}`.
- * - `BUY:{name}:{address}`, with the buyer's address.
- * - `UPDATE:{name}:{address}:{k}`, where `k` is the nonce at the time of the update, which a later
- *   LIST or DELIST moves on. The registry does not report `k`, so every value up to the current
- *   nonce is tried; each candidate still binds this name to this address, so a match states nothing
- *   the row does not.
- *
- * DELIST and RELEASE sign no address, so a row resting on one cannot be bound to the address it
- * reports and yields no candidates: it is excluded, not trusted.
- */
-export function registrationPreimages(r: ZnsRawRegistration): string[] {
-  switch (r.lastAction) {
-    case "CLAIM":
-      return [`CLAIM:${r.name}:${r.address}`];
-    case "BUY":
-      return [`BUY:${r.name}:${r.address}`];
-    case "UPDATE":
-      return Array.from({ length: r.nonce + 1 }, (_, k) => `UPDATE:${r.name}:${r.address}:${k}`);
-    case "DELIST":
-    case "RELEASE":
-      return [];
-  }
-}
-
-export function verifyRegistration(r: ZnsRawRegistration, key: KeyObject): boolean {
-  if (r.signature === null) return false;
-  const signature = Buffer.from(r.signature, "base64");
-  if (signature.length !== 64) return false;
-  return registrationPreimages(r).some((m) => verify(null, Buffer.from(m), key, signature));
-}
-
 export interface ZnsTrackerDeps {
   url: string;
-  pinnedUivk: string;
-  pinnedAdminPubkey: string;
+  pinnedViewingKey: string;
   /** The block (height, timestamp) each txid sits in on our index; absent when it is not there. */
   txBlocks: (
     txids: readonly string[],
@@ -286,12 +216,8 @@ export interface ZnsTrackerDeps {
 export class ZnsTracker {
   #snapshot: ZnsSnapshot | null = null;
   #timer: NodeJS.Timeout | null = null;
-  readonly #key: KeyObject;
 
-  constructor(private readonly deps: ZnsTrackerDeps) {
-    // Thrown at construction: a malformed pinned key is a deploy error, not a runtime state.
-    this.#key = znsAdminKey(deps.pinnedAdminPubkey);
-  }
+  constructor(private readonly deps: ZnsTrackerDeps) {}
 
   current(): ZnsSnapshot | null {
     return this.#snapshot;
@@ -301,10 +227,9 @@ export class ZnsTracker {
    * A forward lookup, name to registration; null while no snapshot has been taken (and for a string
    * that cannot be a name, which the route refuses before asking).
    *
-   * There is no reverse lookup. A CLAIM does not prove control of the address it names (the
-   * registry requires that proof only for update, list, delist and release), so a name found by
-   * address may have been pointed there by a stranger, and listing it would let anyone label
-   * anyone's address.
+   * There is no reverse lookup. Nothing in a registration proves control of the address it names,
+   * so a name found by address may have been pointed there by a stranger, and listing it would let
+   * anyone label anyone's address.
    */
   lookupName(raw: string): ZnsLookup | null {
     const name = parseZnsName(raw);
@@ -315,13 +240,15 @@ export class ZnsTracker {
   #answer(name: string): ZnsLookup | null {
     const s = this.#snapshot;
     if (s === null) return null;
-    const ageSeconds = Math.floor(this.deps.now() / 1000) - s.asOf;
+    const nowSeconds = Math.floor(this.deps.now() / 1000);
     const withheld =
-      ageSeconds > MAX_SNAPSHOT_AGE_SECONDS || s.tipHeight - s.indexerHeight > ZNS_MAX_LAG_BLOCKS;
+      nowSeconds - s.asOf > MAX_SNAPSHOT_AGE_SECONDS ||
+      s.tipHeight - s.indexerHeight > ZNS_MAX_LAG_BLOCKS;
     const hit = withheld ? undefined : s.byName.get(name);
+    const live = hit !== undefined && (hit.expiresAt === null || hit.expiresAt > nowSeconds);
     return {
       query: name,
-      registrations: hit ? [hit] : [],
+      registrations: live ? [hit.registration] : [],
       history: withheld ? [] : [...(s.historyByName.get(name) ?? [])],
       withheld,
       indexerHeight: s.indexerHeight,
@@ -345,38 +272,42 @@ export class ZnsTracker {
     const status = parseZnsStatus(await this.#rpc("status", {}));
     if (status === null) throw new Error("unrecognised status shape");
     // Not retried: a different key is a different registry, or a compromised one.
-    if (status.uivk !== this.deps.pinnedUivk)
-      throw new IdentityError("UIVK does not match the pin");
-    if (status.adminPubkey !== this.deps.pinnedAdminPubkey) {
-      throw new IdentityError("admin key does not match the pin");
+    if (status.viewingKey !== this.deps.pinnedViewingKey) {
+      throw new IdentityError("viewing key does not match the pin");
     }
     return status;
   }
 
+  /** The whole registry, or a throw: a walk that does not end at the reported total is partial. */
   async #registry(): Promise<{ rows: ZnsRawRegistration[]; served: number }> {
     const rows: ZnsRawRegistration[] = [];
     let served = 0;
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const parsed = parseZnsRegistrations(
-        await this.#rpc("resolve", { query: "", limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+        await this.#rpc("list_names", { limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
       );
       if (parsed === null) throw new Error("unrecognised registry page shape");
       rows.push(...parsed.rows);
       served += parsed.served;
-      if (parsed.served < PAGE_SIZE) return { rows, served };
+      if (parsed.served < PAGE_SIZE || served >= parsed.total) {
+        if (served !== parsed.total) throw new Error("registry walk does not match its total");
+        return { rows, served };
+      }
     }
     throw new Error(`registry exceeded ${MAX_PAGES} pages — refusing a partial snapshot`);
   }
 
   async #events(): Promise<ZnsRawEvent[]> {
     const events: ZnsRawEvent[] = [];
+    let served = 0;
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const parsed = parseZnsEvents(
         await this.#rpc("events", { limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
       );
       if (parsed === null) throw new Error("unrecognised events page shape");
       events.push(...parsed.events);
-      if (parsed.served < PAGE_SIZE || events.length >= parsed.total) return events;
+      served += parsed.served;
+      if (parsed.served < PAGE_SIZE || served >= parsed.total) return events;
     }
     throw new Error(`event log exceeded ${MAX_PAGES} pages — refusing a partial snapshot`);
   }
@@ -404,16 +335,11 @@ export class ZnsTracker {
       );
       return null;
     }
-    const registered = statuses[0]!.registered;
     const registry = registries[0]!;
-    const sameRegistry = registries.every((r) => JSON.stringify(r) === JSON.stringify(registry));
     const events = eventLogs[0]!;
-    const sameEvents = eventLogs.every((e) => JSON.stringify(e) === JSON.stringify(events));
     if (
-      !statuses.every((s) => s.registered === registered) ||
-      registry.served !== registered ||
-      !sameRegistry ||
-      !sameEvents
+      !registries.every((r) => JSON.stringify(r) === JSON.stringify(registry)) ||
+      !eventLogs.every((e) => JSON.stringify(e) === JSON.stringify(events))
     ) {
       this.deps.log("[zns] backends disagree on the registry's contents — not accepted");
       return null;
@@ -426,41 +352,51 @@ export class ZnsTracker {
     const nameCounts = new Map<string, number>();
     for (const r of registry.rows) nameCounts.set(r.name, (nameCounts.get(r.name) ?? 0) + 1);
 
-    const byName = new Map<string, ZnsRegistration>();
+    const byName = new Map<string, PublishedName>();
     for (const r of registry.rows) {
+      const block = onChain.get(r.txid);
       if (
         parseZnsName(r.name) !== r.name ||
         nameCounts.get(r.name) !== 1 ||
-        decodeUnifiedAddress(r.address)?.network !== "mainnet" ||
-        onChain.get(r.txid)?.height !== r.height ||
-        !verifyRegistration(r, this.#key)
+        !isMainnetAddress(r.address) ||
+        block?.height !== r.height
       ) {
         continue;
       }
       byName.set(r.name, {
-        name: r.name,
-        address: r.address,
-        txid: r.txid,
-        height: r.height,
-        timestamp: onChain.get(r.txid)!.timestamp,
-        lastAction: r.lastAction,
-        listingPriceZat: r.listingPriceZat,
+        registration: {
+          name: r.name,
+          address: r.address,
+          txid: r.txid,
+          height: r.height,
+          timestamp: block.timestamp,
+          lastAction: r.lastAction,
+        },
+        expiresAt: r.expiresAt,
       });
     }
 
+    // The log arrives newest first in the resolver's canonical order (height, then position in
+    // the block), which our data cannot reproduce, so it is kept as sent.
     const historyByName = new Map<string, ZnsNameEvent[]>();
-    const ordered = [...events].sort((a, b) => b.height - a.height || b.id - a.id);
-    for (const e of ordered) {
+    for (const e of events) {
       const block = onChain.get(e.txid);
-      if (parseZnsName(e.name) !== e.name || block?.height !== e.height) continue;
+      const bound = e.action !== "RELEASE";
+      if (
+        parseZnsName(e.name) !== e.name ||
+        block?.height !== e.height ||
+        (bound && !isMainnetAddress(e.address))
+      ) {
+        continue;
+      }
       const list = historyByName.get(e.name) ?? [];
       list.push({
         action: e.action,
         txid: e.txid,
         height: e.height,
         timestamp: block.timestamp,
-        address: e.address,
-        priceZat: e.priceZat,
+        // A release carries the address it ended; the history says where an action pointed.
+        address: bound ? e.address : null,
       });
       historyByName.set(e.name, list);
     }
@@ -513,6 +449,9 @@ export class ZnsTracker {
 }
 
 class IdentityError extends Error {}
+
+const isMainnetAddress = (address: string): boolean =>
+  decodeUnifiedAddress(address)?.network === "mainnet";
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -34,7 +34,7 @@ describe("search suggestions", () => {
     expect(searchSuggestions("")).toEqual([]);
     expect(searchSuggestions("   ")).toEqual([]);
     expect(searchSuggestions("hello world")).toEqual([]);
-    expect(searchSuggestions(`${"ab".repeat(31)}c`)).toEqual([]); // one byte short of a hash
+    expect(searchSuggestions(`${"ab".repeat(32)}c`)).toEqual([]); // too long for a name, and not a hash
     expect(searchSuggestions("<script>alert(1)</script>")).toEqual([]);
   });
 

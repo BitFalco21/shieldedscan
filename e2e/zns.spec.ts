@@ -4,8 +4,8 @@
  * reach it through.
  *
  * Runs against the fixture registry (`src/fixtures/zns.ts`): `zenith` is a plain claim, `abraham`
- * is listed for sale and was moved off zenith's address, `kazecstan` is released, and `stalename`
- * stands for a registry too far behind to trust.
+ * was moved off zenith's address by an update, `kazecstan` is released, and `stalename` stands
+ * for a registry too far behind to trust.
  */
 
 import { expect, test, type Page } from "@playwright/test";
@@ -64,10 +64,10 @@ test.describe("a Zcash name resolves forward", () => {
     await expect(dialog.getByText(/nobodyregisteredthis\.zcash/)).toHaveCount(0);
   });
 
-  test("a listed name shows its price and its history", async ({ page }) => {
+  test("an updated name says so, with its whole history", async ({ page }) => {
     await page.goto("/name/abraham");
-    await expect(page.locator("[data-zns-listing]")).toContainText("2.50 ZEC");
-    await expect(page.locator("[data-zns-event]")).toHaveCount(3);
+    await expect(page.locator("[data-zns-since]")).toContainText("updated");
+    await expect(page.locator("[data-zns-event]")).toHaveCount(2);
   });
 
   test("the copy button hands over the FULL address", async ({ page, context }) => {

@@ -139,7 +139,6 @@ describe("ShieldedAddressPage", () => {
           height: 3_412_748,
           timestamp: 1_784_087_489,
           lastAction: "UPDATE",
-          listingPriceZat: 250_000_000,
         }}
       />,
     );
@@ -148,7 +147,6 @@ describe("ShieldedAddressPage", () => {
     expect(chip.textContent).toContain("points here");
     // The verb follows the last action: this row was UPDATED there, not claimed.
     expect(chip.textContent).toContain("updated at block 3,412,748");
-    expect(chip.textContent).toContain("listed for sale");
     const hrefs = [...chip.querySelectorAll("a")].map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual(["/name/zenith", `/tx/${"a".repeat(64)}`]);
     // A name is not an identity, and the page says so where the name is.

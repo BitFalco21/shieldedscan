@@ -45,7 +45,8 @@ describe("classifySearchQuery", () => {
     expect(classifySearchQuery("u1exampleexampleexampleexample0").type).toBe("shielded-address");
   });
   it("anything the registry could not hold is still invalid", () => {
-    expect(classifySearchQuery("a".repeat(63)).type).toBe("invalid");
+    expect(classifySearchQuery("z".repeat(63))).toMatchObject({ type: "name" });
+    expect(classifySearchQuery("z".repeat(64)).type).toBe("invalid");
     expect(classifySearchQuery("zen_ith").type).toBe("invalid");
     expect(classifySearchQuery("zenith.zcash.zcash").type).toBe("invalid");
     expect(classifySearchQuery(".zcash").type).toBe("invalid");

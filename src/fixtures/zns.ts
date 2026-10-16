@@ -3,15 +3,13 @@ import { parseZnsName } from "@/domain";
 import { hex64, TIP_HEIGHT, TIP_TIME } from "./ids";
 
 /**
- * Names from the real mainnet beta registry, on their real unified addresses so the address page
- * decodes their receivers. The evidence txids and heights are fixture transactions instead, so
+ * Names on real mainnet unified addresses, so the address page decodes their receivers. The evidence txids and heights are fixture transactions instead, so
  * every block and transaction link on the name page resolves on a fixture build rather than
  * 404ing in the link sweep.
  *
  * Each covers a state that would otherwise render nowhere before production:
  * - `zenith` — a plain claim.
- * - `abraham` — listed for sale, with an UPDATE as its last action, so the marketplace caution and
- *   a verb other than "claimed" both render. (On mainnet it is a plain CLAIM.)
+ * - `abraham` — moved off zenith's address by an UPDATE, so a verb other than "claimed" renders.
  * - `kazecstan` — released: a history and no registration.
  * - `stalename` — a registry too far behind our chain to trust, the "unavailable" state.
  */
@@ -31,7 +29,6 @@ const REGISTRATIONS: readonly ZnsRegistration[] = [
     height: TIP_HEIGHT,
     timestamp: ts(TIP_HEIGHT),
     lastAction: "CLAIM",
-    listingPriceZat: null,
   },
   {
     name: "abraham",
@@ -40,7 +37,6 @@ const REGISTRATIONS: readonly ZnsRegistration[] = [
     height: TIP_HEIGHT - 1,
     timestamp: ts(TIP_HEIGHT - 1),
     lastAction: "UPDATE",
-    listingPriceZat: 250_000_000,
   },
 ];
 
@@ -53,25 +49,15 @@ const HISTORY: Readonly<Record<string, readonly ZnsNameEvent[]>> = {
       height: TIP_HEIGHT,
       timestamp: ts(TIP_HEIGHT),
       address: ZENITH,
-      priceZat: null,
     },
   ],
   abraham: [
-    {
-      action: "LIST",
-      txid: hex64("77d10b12"),
-      height: TIP_HEIGHT,
-      timestamp: ts(TIP_HEIGHT),
-      address: null,
-      priceZat: 250_000_000,
-    },
     {
       action: "UPDATE",
       txid: hex64("22d8e411"),
       height: TIP_HEIGHT - 1,
       timestamp: ts(TIP_HEIGHT - 1),
       address: ABRAHAM_NOW,
-      priceZat: null,
     },
     {
       action: "CLAIM",
@@ -79,7 +65,6 @@ const HISTORY: Readonly<Record<string, readonly ZnsNameEvent[]>> = {
       height: TIP_HEIGHT - 2,
       timestamp: ts(TIP_HEIGHT - 2),
       address: ZENITH,
-      priceZat: null,
     },
   ],
   kazecstan: [
@@ -89,7 +74,6 @@ const HISTORY: Readonly<Record<string, readonly ZnsNameEvent[]>> = {
       height: TIP_HEIGHT - 3,
       timestamp: ts(TIP_HEIGHT - 3),
       address: null,
-      priceZat: null,
     },
     {
       action: "CLAIM",
@@ -97,7 +81,6 @@ const HISTORY: Readonly<Record<string, readonly ZnsNameEvent[]>> = {
       height: TIP_HEIGHT - 5,
       timestamp: ts(TIP_HEIGHT - 5),
       address: ZENITH,
-      priceZat: null,
     },
   ],
 };

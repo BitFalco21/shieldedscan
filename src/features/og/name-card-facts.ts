@@ -4,7 +4,7 @@ import { siteUrl } from "@/lib/site";
 
 export interface NameCardFacts {
   name: string;
-  /** Point size for the name: a 62-character name has to fit the same line as a 3-character one. */
+  /** Point size for the name: a 63-character name has to fit the same line as a 3-character one. */
   nameSize: number;
   addressShort: string;
   /** "CLAIMED 15 JULY 2026" — the last action and its day, never a relative age. */
@@ -29,7 +29,7 @@ export function nameCardFacts(lookup: ZnsLookup): NameCardFacts | null {
     nameSize: name.length <= 14 ? 96 : name.length <= 22 ? 68 : name.length <= 36 ? 46 : 30,
     addressShort: shortHash(r.address, 10),
     since: `${znsActionVerb(r.lastAction)} ${formatDateLong(r.timestamp)}`.toUpperCase(),
-    stamp: r.listingPriceZat !== null ? "ZCASH NAME · FOR SALE" : "ZCASH NAME",
+    stamp: "ZCASH NAME",
     host: siteUrl.replace(/^https?:\/\//, ""),
   };
 }

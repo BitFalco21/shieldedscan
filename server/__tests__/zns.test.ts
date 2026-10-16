@@ -3,105 +3,81 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  parseZnsEvents,
   parseZnsRegistrations,
   parseZnsStatus,
-  verifyRegistration,
-  ZNS_MAINNET_ADMIN_PUBKEY,
-  ZNS_MAINNET_UIVK,
-  znsAdminKey,
+  ZNS_MAINNET_VIEWING_KEY,
   ZnsTracker,
-  type ZnsRawRegistration,
 } from "../zns";
 import { znsRoutes } from "../zns-routes";
 
-/**
- * Real captures of the mainnet registry (69 names). The status was served by a backend stuck at
- * 3,492,901, which is why the tests set our tip just above it.
- */
+/** Real captures of the mainnet resolver (81 names, every one a claim). */
 const capture = (name: string): unknown =>
   JSON.parse(readFileSync(join(__dirname, "..", "__fixtures__", "zns", name), "utf8"));
-const STATUS = capture("mainnet-status.json") as { result: Record<string, unknown> };
-const REGISTRY = capture("mainnet-registry.json") as { result: Record<string, unknown>[] };
-const EVENTS = capture("mainnet-events.json") as {
-  result: { events: Record<string, unknown>[]; total: number };
-};
+type Row = Record<string, unknown>;
+const STATUS = capture("mainnet-status.json") as { result: Row };
+const REGISTRY = capture("mainnet-registry.json") as { result: { items: Row[]; total: number } };
+const EVENTS = capture("mainnet-events.json") as { result: { events: Row[]; total: number } };
 const SYNCED = STATUS.result.synced_height as number;
-const KEY = znsAdminKey(ZNS_MAINNET_ADMIN_PUBKEY);
+const NOW_MS = 1_790_000_000_000;
 
-const rows = (): ZnsRawRegistration[] => parseZnsRegistrations(REGISTRY)!.rows;
-const row = (name: string): ZnsRawRegistration => rows().find((r) => r.name === name)!;
+const item = (name: string): Row => REGISTRY.result.items.find((r) => r.name === name)!;
+const registryOf = (items: Row[]) => ({ result: { items, total: items.length } });
+const eventLogOf = (events: Row[]) => ({ result: { events, total: events.length } });
 
 describe("parsing the live shapes", () => {
-  it("reads the status the registry actually sends — a base64 admin key, not the guide's hex", () => {
+  it("reads the status the resolver sends, and its viewing key is the pin", () => {
     const s = parseZnsStatus(STATUS)!;
-    expect(s.uivk).toBe(ZNS_MAINNET_UIVK);
-    expect(s.adminPubkey).toBe(ZNS_MAINNET_ADMIN_PUBKEY);
-    expect(s.registered).toBe(69);
+    expect(s.viewingKey).toBe(ZNS_MAINNET_VIEWING_KEY);
+    expect(s.syncedHeight).toBe(SYNCED);
   });
 
-  it("refuses a status missing the identity fields (the testnet shape) rather than guessing", () => {
-    expect(
-      parseZnsStatus({ result: { synced_height: 1, viewing_key: "x", registered: 5 } }),
-    ).toBeNull();
+  it("refuses a status without a viewing key (the beta shape) rather than guessing", () => {
+    expect(parseZnsStatus({ result: { synced_height: 1, uivk: "x", admin_pubkey: "y" } })).toBe(
+      null,
+    );
     expect(parseZnsStatus({ error: { code: -32601 } })).toBeNull();
   });
 
-  it("parses every row, though no row carries the `pubkey` key the guide documents", () => {
+  it("parses every row, with its action and expiry", () => {
     const parsed = parseZnsRegistrations(REGISTRY)!;
-    expect(parsed.served).toBe(69);
-    expect(parsed.rows).toHaveLength(69);
-    expect(REGISTRY.result.some((r) => "pubkey" in r)).toBe(false);
+    expect(parsed.served).toBe(81);
+    expect(parsed.total).toBe(81);
+    expect(parsed.rows).toHaveLength(81);
+    expect(parsed.rows.find((r) => r.name === "0xsahand")).toMatchObject({
+      lastAction: "CLAIM",
+      expiresAt: null,
+    });
+    expect(parsed.rows.find((r) => r.name === "adrian")!.expiresAt).toBe(1_823_651_421);
   });
 
   it("drops a malformed row and still reports what was served, so it is counted", () => {
-    const parsed = parseZnsRegistrations({ result: [...REGISTRY.result, { name: 7 }] })!;
-    expect(parsed.served).toBe(70);
-    expect(parsed.rows).toHaveLength(69);
-  });
-});
-
-describe("signatures, under the rules the registry actually signs", () => {
-  it("verifies every live row against the pinned admin key", () => {
-    expect(
-      rows()
-        .filter((r) => !verifyRegistration(r, KEY))
-        .map((r) => r.name),
-    ).toEqual([]);
+    const items = REGISTRY.result.items;
+    const odd = [
+      { name: 7 },
+      { ...items[0], expires_at: "soon" },
+      // A registration resting on a release is not one in force.
+      { ...items[1], last_action: "release" },
+    ];
+    const parsed = parseZnsRegistrations(registryOf([...items, ...odd]))!;
+    expect(parsed.served).toBe(84);
+    expect(parsed.rows).toHaveLength(81);
   });
 
-  it("verifies an UPDATE whose signature covers the nonce at update time, not the current one", () => {
-    const z = row("zechariah");
-    expect(z.lastAction).toBe("UPDATE");
-    expect(z.nonce).toBe(2); // a later LIST moved it on; the signature covers 1
-    expect(verifyRegistration(z, KEY)).toBe(true);
-  });
-
-  it("verifies a BUY over BUY:{name}:{buyer} — a preimage the guide says does not exist", () => {
-    const c = row("childish");
-    expect(c.lastAction).toBe("BUY");
-    expect(verifyRegistration(c, KEY)).toBe(true);
-  });
-
-  it("fails a row whose address was swapped, and one whose signature was altered", () => {
-    const z = row("zenith");
-    const other = row("grandma").address;
-    expect(verifyRegistration({ ...z, address: other }, KEY)).toBe(false);
-    const sig = Buffer.from(z.signature!, "base64");
-    sig[10] = sig[10]! ^ 1;
-    expect(verifyRegistration({ ...z, signature: sig.toString("base64") }, KEY)).toBe(false);
-  });
-
-  it("never trusts a row resting on a DELIST or RELEASE, which sign no address", () => {
-    expect(verifyRegistration({ ...row("zenith"), lastAction: "DELIST" }, KEY)).toBe(false);
+  it("reads the event log, including an implicit release's negative id", () => {
+    const release = { ...EVENTS.result.events[0], id: -1, action: "release" };
+    const parsed = parseZnsEvents(eventLogOf([release, ...EVENTS.result.events]))!;
+    expect(parsed.events).toHaveLength(82);
+    expect(parsed.events[0]!.action).toBe("RELEASE");
+    expect(parsed.events[1]!.action).toBe("CLAIM");
   });
 });
 
 interface StubOptions {
   /** synced_height per status call, in order; the last repeats. */
   heights?: number[];
-  uivk?: string;
-  registered?: number[];
-  /** Registry bodies per resolve call, in order; the last repeats. */
+  viewingKey?: string;
+  /** Registry bodies per list_names call, in order; the last repeats. */
   registries?: unknown[];
   /** Event-log bodies per events call, in order; the last repeats. */
   eventLogs?: unknown[];
@@ -111,7 +87,7 @@ const nth = <T>(list: T[], i: number): T => list[Math.min(i, list.length - 1)]!;
 
 function stubFetch(opts: StubOptions = {}): { fetch: typeof fetch; calls: string[] } {
   const calls: string[] = [];
-  const counts = { status: 0, resolve: 0, events: 0 };
+  const counts = { status: 0, list_names: 0, events: 0 };
   const fetchStub = (async (_url: string, init?: RequestInit) => {
     const { method } = JSON.parse(String(init?.body)) as { method: keyof typeof counts };
     calls.push(method);
@@ -121,8 +97,7 @@ function stubFetch(opts: StubOptions = {}): { fetch: typeof fetch; calls: string
         result: {
           ...STATUS.result,
           synced_height: nth(opts.heights ?? [SYNCED], i),
-          registered: nth(opts.registered ?? [69], i),
-          uivk: opts.uivk ?? ZNS_MAINNET_UIVK,
+          viewing_key: opts.viewingKey ?? ZNS_MAINNET_VIEWING_KEY,
         },
       });
     }
@@ -132,27 +107,38 @@ function stubFetch(opts: StubOptions = {}): { fetch: typeof fetch; calls: string
   return { fetch: fetchStub, calls };
 }
 
-/** Our chain's view of every txid the registry cites: its height and a timestamp. */
-const ALL_TXIDS = [
-  ...REGISTRY.result.map((r) => [r.txid as string, r.height as number] as const),
-  ...EVENTS.result.events.map((e) => [e.txid as string, e.height as number] as const),
-].map(([txid, height]) => [txid, { height, timestamp: 1_700_000_000 + height }] as const);
-
 function tracker(
-  opts: StubOptions & { now?: () => number; missing?: string[]; tip?: number } = {},
+  opts: StubOptions & {
+    now?: () => number;
+    missing?: string[];
+    tip?: number;
+    /** Extra txids on our chain, beyond those the captures cite. */
+    onChain?: Row[];
+    /** While this returns true, every request fails as a network error. */
+    down?: () => boolean;
+  } = {},
 ): { t: ZnsTracker; calls: string[]; log: string[] } {
-  const { fetch: f, calls } = stubFetch(opts);
-  const heights = new Map(ALL_TXIDS);
+  const { fetch: stub, calls } = stubFetch(opts);
+  const f = ((url: string, init?: RequestInit) =>
+    opts.down?.()
+      ? Promise.reject(new TypeError("fetch failed"))
+      : stub(url, init)) as typeof fetch;
+  // Our chain's view of every txid the registry cites: its height and a timestamp.
+  const heights = new Map(
+    [...REGISTRY.result.items, ...EVENTS.result.events, ...(opts.onChain ?? [])].map((r) => [
+      r.txid as string,
+      { height: r.height as number, timestamp: 1_700_000_000 + (r.height as number) },
+    ]),
+  );
   for (const txid of opts.missing ?? []) heights.delete(txid);
   const log: string[] = [];
   const t = new ZnsTracker({
     url: "https://zns.test",
-    pinnedUivk: ZNS_MAINNET_UIVK,
-    pinnedAdminPubkey: ZNS_MAINNET_ADMIN_PUBKEY,
+    pinnedViewingKey: ZNS_MAINNET_VIEWING_KEY,
     txBlocks: async () => heights,
     tipHeight: async () => opts.tip ?? SYNCED + 3,
     fetch: f,
-    now: opts.now ?? (() => 1_790_000_000_000),
+    now: opts.now ?? (() => NOW_MS),
     log: (m) => log.push(m),
     sleep: async () => {},
   });
@@ -161,58 +147,103 @@ function tracker(
 
 const ONE_ATTEMPT = [
   ...Array(4).fill("status"),
-  ...Array(4).fill("resolve"),
+  ...Array(4).fill("list_names"),
   ...Array(4).fill("events"),
 ];
 
 describe("ZnsTracker", () => {
-  it("publishes all 69 live names, and resolves any case or the .zcash form", async () => {
+  it("publishes all 81 live names, and resolves any case or the .zcash form", async () => {
     const { t, calls } = tracker();
     await t.refresh();
-    expect(t.current()!.byName.size).toBe(69);
+    expect(t.current()!.byName.size).toBe(81);
     expect(t.current()!.excludedCount).toBe(0);
     // Each kind of read four times IN A ROW, so each spans the backend pool.
     expect(calls).toEqual(ONE_ATTEMPT);
-    const hit = t.lookupName("  Zenith.ZCASH ")!;
-    expect(hit.query).toBe("zenith");
+    const hit = t.lookupName("  Adrian.ZCASH ")!;
+    expect(hit.query).toBe("adrian");
     expect(hit.withheld).toBe(false);
-    expect(hit.registrations.map((r) => r.name)).toEqual(["zenith"]);
-    // The date comes from OUR index's block, never from the registry.
-    expect(hit.registrations[0]!.timestamp).toBe(1_700_000_000 + hit.registrations[0]!.height);
+    expect(hit.registrations).toEqual([
+      {
+        name: "adrian",
+        address: item("adrian").address,
+        txid: item("adrian").txid,
+        height: item("adrian").height,
+        // The date comes from OUR index's block, never from the registry.
+        timestamp: 1_700_000_000 + (item("adrian").height as number),
+        lastAction: "CLAIM",
+      },
+    ]);
+    expect(hit.history.map((e) => e.action)).toEqual(["CLAIM"]);
     expect(t.lookupName("nobody")!.registrations).toEqual([]);
   });
 
-  it("carries the listing price of a name on the marketplace, and null otherwise", async () => {
-    const { t } = tracker();
+  it("answers a name past its expiry as unregistered, keeping its history", async () => {
+    const expiry = Number(item("adrian").expires_at) * 1000;
+    let now = expiry - 60_000;
+    const { t } = tracker({ now: () => now });
     await t.refresh();
-    expect(t.lookupName("bitcoin")!.registrations[0]!.listingPriceZat).toBe(55_500_000_000);
-    expect(t.lookupName("zenith")!.registrations[0]!.listingPriceZat).toBeNull();
+    now = expiry;
+    const lapsed = t.lookupName("adrian")!;
+    expect(lapsed.withheld).toBe(false);
+    expect(lapsed.registrations).toEqual([]);
+    expect(lapsed.history).toHaveLength(1);
+    // A name that never expires is unaffected.
+    expect(t.lookupName("0xsahand")!.registrations).toHaveLength(1);
   });
 
-  it("carries each name's history newest first, and a released name's history with no registration", async () => {
-    const { t } = tracker();
+  it("carries an update's verb, and a released name's history with no registration", async () => {
+    const claim = EVENTS.result.events.find((e) => e.name === "adrian")!;
+    const other = item("0xsahand").address;
+    const update = {
+      ...claim,
+      id: 900,
+      action: "update",
+      txid: "e".repeat(64),
+      height: SYNCED,
+      address: other,
+    };
+    const updated = REGISTRY.result.items.map((r) =>
+      r.name === "adrian"
+        ? { ...r, address: other, txid: update.txid, height: SYNCED, last_action: "update" }
+        : r,
+    );
+    const shmoko = EVENTS.result.events.find((e) => e.name === "shmoko")!;
+    const release = { ...shmoko, id: -1, action: "release", txid: "f".repeat(64), height: SYNCED };
+    const { t } = tracker({
+      registries: [registryOf(updated.filter((r) => r.name !== "shmoko"))],
+      eventLogs: [eventLogOf([update, release, ...EVENTS.result.events])],
+      onChain: [update, release],
+    });
     await t.refresh();
-    const childish = t.lookupName("childish")!.history.map((e) => e.action);
-    expect(childish).toEqual(["BUY", "LIST", "CLAIM"]);
-    const released = t.lookupName("kazecstan")!;
+    const adrian = t.lookupName("adrian")!;
+    expect(adrian.registrations[0]).toMatchObject({ lastAction: "UPDATE", address: other });
+    expect(adrian.history.map((e) => [e.action, e.address])).toEqual([
+      ["UPDATE", other],
+      ["CLAIM", claim.address],
+    ]);
+    const released = t.lookupName("shmoko")!;
     expect(released.registrations).toEqual([]);
-    expect(released.history[0]!.action).toBe("RELEASE");
+    // The release ended a binding; the history says it points nowhere.
+    expect(released.history.map((e) => [e.action, e.address])).toEqual([
+      ["RELEASE", null],
+      ["CLAIM", shmoko.address],
+    ]);
   });
 
   it("leaves out a history entry whose transaction is not on our chain", async () => {
-    const buy = EVENTS.result.events.find((e) => e.name === "childish" && e.action === "BUY")!;
-    const { t } = tracker({ missing: [buy.txid as string] });
+    const claim = EVENTS.result.events.find((e) => e.name === "adrian")!;
+    const { t } = tracker({ missing: [claim.txid as string] });
     await t.refresh();
-    expect(t.lookupName("childish")!.history.map((e) => e.action)).toEqual(["LIST", "CLAIM"]);
+    expect(t.lookupName("adrian")!.history).toEqual([]);
   });
 
   it("is cold (null) before its first good snapshot, which the route turns into a 503", () => {
     const { t } = tracker();
-    expect(t.lookupName("zenith")).toBeNull();
+    expect(t.lookupName("adrian")).toBeNull();
   });
 
-  it("refuses a registry whose UIVK is not the pin, without retrying", async () => {
-    const { t, calls } = tracker({ uivk: "uivk1somethingelse" });
+  it("refuses a resolver whose viewing key is not the pin, without retrying", async () => {
+    const { t, calls } = tracker({ viewingKey: "uview1somethingelse" });
     await t.refresh();
     expect(t.current()).toBeNull();
     expect(calls).toEqual(["status"]);
@@ -235,23 +266,20 @@ describe("ZnsTracker", () => {
   });
 
   it("refuses a read where one backend serves a different registry — the outdated-address case", async () => {
-    const zenith = REGISTRY.result.find((r) => r.name === "zenith")!;
-    const moved = {
-      result: REGISTRY.result.map((r) =>
-        r.name === "zenith" ? { ...zenith, address: REGISTRY.result[1]!.address } : r,
+    const moved = registryOf(
+      REGISTRY.result.items.map((r) =>
+        r.name === "adrian" ? { ...r, address: item("0xsahand").address } : r,
       ),
-    };
+    );
     const { t, log } = tracker({ registries: [REGISTRY, moved, REGISTRY, REGISTRY] });
     await t.refresh();
     // Refused on attempt one; the stub then serves agreeing copies, so attempt two is accepted.
     expect(log[0]).toMatch(/disagree/);
-    expect(t.lookupName("zenith")!.registrations[0]!.address).toBe(zenith.address);
+    expect(t.lookupName("adrian")!.registrations[0]!.address).toBe(item("adrian").address);
   });
 
   it("refuses a read where one backend's event log is behind", async () => {
-    const behind = {
-      result: { events: EVENTS.result.events.slice(1), total: EVENTS.result.total - 1 },
-    };
+    const behind = eventLogOf(EVENTS.result.events.slice(1));
     const { t, log } = tracker({
       eventLogs: Array.from({ length: 16 }, (_, i) => (i % 2 === 0 ? EVENTS : behind)),
     });
@@ -260,32 +288,43 @@ describe("ZnsTracker", () => {
     expect(t.current()).toBeNull();
   });
 
-  it("refuses a read where the backends disagree about how many names exist", async () => {
-    const { t } = tracker({ registered: [69, 70] });
+  it("refuses a registry walk that falls short of its own total", async () => {
+    const short = { result: { items: REGISTRY.result.items.slice(1), total: 81 } };
+    const { t, log } = tracker({ registries: [short] });
     await t.refresh();
     expect(t.current()).toBeNull();
+    expect(log[0]).toMatch(/does not match its total/);
   });
 
   it("excludes, and counts, a name whose transaction is not on our chain", async () => {
-    const zenith = REGISTRY.result.find((r) => r.name === "zenith")!;
-    const { t } = tracker({ missing: [zenith.txid as string] });
+    const { t } = tracker({ missing: [item("adrian").txid as string] });
     await t.refresh();
     expect(t.current()!.excludedCount).toBe(1);
-    expect(t.lookupName("zenith")!.registrations).toEqual([]);
+    expect(t.lookupName("adrian")!.registrations).toEqual([]);
+  });
+
+  it("excludes, and counts, a name on an address that is not a mainnet unified address", async () => {
+    const testnet = registryOf(
+      REGISTRY.result.items.map((r) => (r.name === "adrian" ? { ...r, address: "utest1abc" } : r)),
+    );
+    const { t } = tracker({ registries: [testnet] });
+    await t.refresh();
+    expect(t.current()!.excludedCount).toBe(1);
+    expect(t.lookupName("adrian")!.registrations).toEqual([]);
   });
 
   it("refuses an empty registry rather than publishing that no names exist", async () => {
-    const { t } = tracker({ registered: [0], registries: [{ result: [] }] });
+    const { t } = tracker({ registries: [registryOf([])] });
     await t.refresh();
     expect(t.current()).toBeNull();
   });
 
   it("withholds every answer once the last good snapshot is over ten minutes old", async () => {
-    let now = 1_790_000_000_000;
+    let now = NOW_MS;
     const { t } = tracker({ now: () => now });
     await t.refresh();
     now += 11 * 60_000;
-    const late = t.lookupName("zenith")!;
+    const late = t.lookupName("adrian")!;
     expect(late.withheld).toBe(true);
     expect(late.registrations).toEqual([]);
     expect(late.history).toEqual([]);
@@ -293,25 +332,13 @@ describe("ZnsTracker", () => {
 
   it("keeps the last good snapshot when a later poll fails", async () => {
     let down = false;
-    const { fetch: good } = stubFetch();
-    const t = new ZnsTracker({
-      url: "https://zns.test",
-      pinnedUivk: ZNS_MAINNET_UIVK,
-      pinnedAdminPubkey: ZNS_MAINNET_ADMIN_PUBKEY,
-      txBlocks: async () => new Map(ALL_TXIDS),
-      tipHeight: async () => SYNCED + 3,
-      fetch: ((url: string, init?: RequestInit) =>
-        down ? Promise.reject(new TypeError("fetch failed")) : good(url, init)) as typeof fetch,
-      now: () => 1_790_000_000_000,
-      log: () => {},
-      sleep: async () => {},
-    });
+    const { t } = tracker({ down: () => down });
     await t.refresh();
     const before = t.current();
     down = true;
     await t.refresh();
     expect(t.current()).toBe(before);
-    expect(t.lookupName("zenith")!.registrations).toHaveLength(1);
+    expect(t.lookupName("adrian")!.registrations).toHaveLength(1);
   });
 });
 
@@ -322,30 +349,29 @@ describe("zns routes", () => {
     expect((await znsRoutes(t).request("/chain/zns/name/not_a_name!")).status).toBe(400);
   });
 
-  it("serves no reverse lookup — a claim does not prove control of the address it names", async () => {
+  it("serves no reverse lookup — a registration does not prove control of its address", async () => {
     const { t } = tracker();
     await t.refresh();
-    expect((await znsRoutes(t).request(`/chain/zns/address/${row("zenith").address}`)).status).toBe(
-      404,
-    );
+    const address = item("adrian").address as string;
+    expect((await znsRoutes(t).request(`/chain/zns/address/${address}`)).status).toBe(404);
   });
 
   it("answers 503 while cold, and the lookup with its query echoed once warm", async () => {
     const { t } = tracker();
     const app = znsRoutes(t);
-    expect((await app.request("/chain/zns/name/zenith")).status).toBe(503);
+    expect((await app.request("/chain/zns/name/adrian")).status).toBe(503);
     await t.refresh();
-    const res = await app.request("/chain/zns/name/zenith.zcash");
+    const res = await app.request("/chain/zns/name/adrian.zcash");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { query: string; registrations: { address: string }[] };
-    expect(body.query).toBe("zenith");
-    expect(body.registrations[0]!.address).toBe(row("zenith").address);
+    expect(body.query).toBe("adrian");
+    expect(body.registrations[0]!.address).toBe(item("adrian").address);
   });
 
   it("answers a miss as an empty answer, never a 404", async () => {
     const { t } = tracker();
     await t.refresh();
-    const res = await znsRoutes(t).request("/chain/zns/name/nobodyhere");
+    const res = await znsRoutes(t).request("/chain/zns/name/zechariah");
     expect(res.status).toBe(200);
     expect(((await res.json()) as { registrations: unknown[] }).registrations).toEqual([]);
   });

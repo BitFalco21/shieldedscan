@@ -24,7 +24,7 @@ import { ALL_PROTOCOLS, type IngestDeps, startPolling } from "./venue-poll";
 import { INTENTS_MIN_INTERVAL_MS } from "./venues";
 import { ZipIndexTracker } from "./zips";
 import { ZIP_INDEX_PATH, zipsRoutes } from "./zips-routes";
-import { ZNS_MAINNET_ADMIN_PUBKEY, ZNS_MAINNET_UIVK, ZNS_MAINNET_URL, ZnsTracker } from "./zns";
+import { ZNS_MAINNET_URL, ZNS_MAINNET_VIEWING_KEY, ZnsTracker } from "./zns";
 import { znsRoutes } from "./zns-routes";
 import { mountAgent } from "./app/agent";
 import {
@@ -225,15 +225,14 @@ if (IS_PRIMARY) {
  * The Zcash Name System registry (zcashnames.com), for name search and the unified-address name
  * chip. Mainnet only: its names point at mainnet addresses. It needs the chain index, because a
  * name is published only once its transaction is found there; without Postgres it does not start.
- * The pins are configuration, so a key rotation is an env change, but they default to known values:
- * a missing variable must never mean "trust whatever the server says". Primary only: the tracker
+ * The pin is configuration, so a key rotation is an env change, but it defaults to the known key: a
+ * missing variable must never mean "trust whatever the server says". Primary only: the tracker
  * polls the registry.
  */
 if (IS_PRIMARY && !IS_TESTNET && chainIndex) {
   const zns = new ZnsTracker({
     url: (process.env.ZNS_URL ?? ZNS_MAINNET_URL).replace(/\/$/, ""),
-    pinnedUivk: process.env.ZNS_UIVK ?? ZNS_MAINNET_UIVK,
-    pinnedAdminPubkey: process.env.ZNS_ADMIN_PUBKEY ?? ZNS_MAINNET_ADMIN_PUBKEY,
+    pinnedViewingKey: process.env.ZNS_VIEWING_KEY ?? ZNS_MAINNET_VIEWING_KEY,
     txBlocks: (txids) => chainIndex.txBlocks(txids),
     tipHeight: () => chainIndex.tipHeight(),
     fetch: globalThis.fetch,

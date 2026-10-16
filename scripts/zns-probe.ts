@@ -11,9 +11,8 @@
  */
 import {
   parseZnsStatus,
-  ZNS_MAINNET_ADMIN_PUBKEY,
-  ZNS_MAINNET_UIVK,
   ZNS_MAINNET_URL,
+  ZNS_MAINNET_VIEWING_KEY,
   ZnsTracker,
 } from "../server/zns";
 
@@ -95,8 +94,7 @@ await sampleBackends(tip);
 console.log(`\n== the real tracker, three polls`);
 const tracker = new ZnsTracker({
   url: ZNS_MAINNET_URL,
-  pinnedUivk: ZNS_MAINNET_UIVK,
-  pinnedAdminPubkey: ZNS_MAINNET_ADMIN_PUBKEY,
+  pinnedViewingKey: ZNS_MAINNET_VIEWING_KEY,
   txBlocks,
   tipHeight: ourTip,
   fetch: globalThis.fetch,

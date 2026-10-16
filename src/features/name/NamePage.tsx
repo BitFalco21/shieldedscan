@@ -6,7 +6,6 @@ import { HashLink } from "@/components/HashLink";
 import { InfoTip } from "@/components/InfoTip";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
-import { ZnsExplorerChip } from "@/components/ZnsExplorerChip";
 import {
   formatZnsName,
   znsActionVerb,
@@ -15,15 +14,7 @@ import {
   type ZnsNameEvent,
   type ZnsRegistration,
 } from "@/domain";
-import {
-  formatCount,
-  formatDateLong,
-  formatUtc,
-  formatZecAmount,
-  shortHash,
-  timeAgo,
-} from "@/lib/format";
-import { coinTicker } from "@/lib/network";
+import { formatCount, formatDateLong, formatUtc, shortHash, timeAgo } from "@/lib/format";
 
 export interface NamePageProps {
   /** A lookup that found a registration, a history, or both — never a withheld one. */
@@ -32,8 +23,7 @@ export interface NamePageProps {
 
 /**
  * address and take it away. The address leads, whole and copyable; the dates read as dates;
- * the marketplace appears only when the name is for sale; and the history reads the same on a
- * phone as on a desktop.
+ * and the history reads the same on a phone as on a desktop.
  *
  * The trust caveat — a registration says where its REGISTRANT pointed the name, nothing about
  * who holds the address, because a claim needs no proof of control — sits behind the `?` on
@@ -44,9 +34,7 @@ export function NamePage({ lookup }: NamePageProps) {
   const name = lookup.query;
   const latest = lookup.history[0];
   const status: NameStatus = registration
-    ? registration.listingPriceZat !== null
-      ? "for sale"
-      : "registered"
+    ? "registered"
     : latest?.action === "RELEASE"
       ? "released"
       : "not registered";
@@ -106,20 +94,13 @@ export function NamePage({ lookup }: NamePageProps) {
   );
 }
 
-type NameStatus = "registered" | "for sale" | "released" | "not registered";
+type NameStatus = "registered" | "released" | "not registered";
 
-/**
- * Green only for a live registration: green on this site means something is in force. The
- * site's one badge size, so FOR SALE here and LISTED in the history read as the same mark.
- */
-function isLive(status: NameStatus): boolean {
-  return status === "registered" || status === "for sale";
-}
-
+/** Green only for a live registration: green on this site means something is in force. */
 function StatusBadge({ status }: { status: NameStatus }) {
   return (
     <span data-zns-status className="inline-flex">
-      <Badge tone={isLive(status) ? "accent" : "outline"}>{status}</Badge>
+      <Badge tone={status === "registered" ? "accent" : "outline"}>{status}</Badge>
     </span>
   );
 }
@@ -154,23 +135,6 @@ function AddressPanel({ registration: r }: { registration: ZnsRegistration }) {
           </Link>
         </span>
       </p>
-
-      {r.listingPriceZat !== null ? (
-        <div data-zns-listing className="mt-6 border-t border-edge-faint pt-5 text-sm">
-          <div className="microlabel">FOR SALE</div>
-          {/* The price and the way to act on it share a row; the link is a chip in the site's
-              primary-action style, since it is the one thing a reader can do here. It wraps
-              under the price on a narrow screen. */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span className="text-base whitespace-nowrap text-ink-bright tabular-nums">
-              {formatZecAmount(r.listingPriceZat)} {coinTicker}
-            </span>
-            {/* Their explorer, filtered to this name. Buying happens there, never here. */}
-            <ZnsExplorerChip name={r.name}>buy on zcashnames.com</ZnsExplorerChip>
-          </div>
-          <p className="mt-2 text-ink-dim">If bought, it will point wherever the buyer chooses.</p>
-        </div>
-      ) : null}
     </Panel>
   );
 }
@@ -181,10 +145,6 @@ function AddressPanel({ registration: r }: { registration: ZnsRegistration }) {
 const ACTION_BADGE: Record<ZnsEventAction, { tone: BadgeTone; hue?: BadgeHue }> = {
   CLAIM: { tone: "hue", hue: "flow-4" },
   UPDATE: { tone: "hue", hue: "flow-2" },
-  BUY: { tone: "hue", hue: "flow-5" },
-  LIST: { tone: "hue", hue: "flow-1" },
-  SETPRICE: { tone: "hue", hue: "flow-1" },
-  DELIST: { tone: "neutral" },
   RELEASE: { tone: "faint" },
 };
 
@@ -194,7 +154,6 @@ const HISTORY_COLUMNS: TableColumn[] = [
   { label: "BLOCK" },
   { label: "TRANSACTION" },
   { label: "POINTED AT", className: "hidden sm:table-cell" },
-  { label: "PRICE", align: "right" },
 ];
 
 /**
@@ -202,9 +161,8 @@ const HISTORY_COLUMNS: TableColumn[] = [
  * block and the transaction each a link to its own page. Every cell is one unbreakable unit, so a
  * narrow screen scrolls the table rather than splitting a height or a hash across lines.
  *
- * Each action's badge has its own colour: the three actions that point the name at an address
- * each get a hue (claimed emerald, updated azure, bought violet), the two price events share
- * the marketplace's gold, and the two that undo something stay neutral ink. The hues are the
+ * Each action's badge has its own colour: the two actions that point the name at an address each
+ * get a hue (claimed emerald, updated azure), and a release stays neutral ink. The hues are the
  * flow palette's, at the shared `Badge` size. The word always names the action; the colour
  * only helps a reader scan.
  */
@@ -253,17 +211,6 @@ function History({ events, name }: { events: ZnsNameEvent[]; name: string }) {
                 <span className="text-ink-faint" aria-label="no address">
                   —
                 </span>
-              )}
-            </td>
-            <td className="text-right whitespace-nowrap tabular-nums">
-              {/* A dash for "this action carries no price" — a claim or an update simply has
-                  none. Not a shielded value, which is never a dash; nothing is hidden here. */}
-              {e.priceZat === null ? (
-                <span className="text-ink-faint" aria-label="no price">
-                  —
-                </span>
-              ) : (
-                `${formatZecAmount(e.priceZat)} ${coinTicker}`
               )}
             </td>
           </tr>

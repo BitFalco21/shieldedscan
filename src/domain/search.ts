@@ -13,7 +13,7 @@ export type SearchQuery =
    * names can answer as it does for an unrecognised string.
    *
    * Classified after heights, hashes and addresses, so an all-digit name reads as a height and
-   * is unreachable by search. No name can read as a hash: names stop at 62 characters.
+   * is unreachable by search. No name can read as a hash: names stop at 63 characters.
    */
   | { type: "name"; name: string; query: string }
   | { type: "invalid"; query: string };
