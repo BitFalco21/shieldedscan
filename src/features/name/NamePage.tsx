@@ -7,7 +7,6 @@ import { InfoTip } from "@/components/InfoTip";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import {
-  formatZnsName,
   znsActionVerb,
   type ZnsLookup,
   type ZnsEventAction,
@@ -46,11 +45,12 @@ export function NamePage({ lookup }: NamePageProps) {
 
   return (
     <>
-      {/* The heading is the name alone; the badge sits on the line beneath, since inside the
-          <h1> it would fuse into the heading's text for screen readers and copy. */}
+      {/* The heading is the bare name, since the breadcrumb already says it is a Zcash name; the
+          badge sits on the line beneath, since inside the <h1> it would fuse into the heading's
+          text for screen readers and copy. */}
       <PageHeader
         breadcrumb={[{ label: "HOME", href: "/" }, { label: "ZCASH NAME" }]}
-        title={<span className="text-3xl break-all sm:text-4xl">{formatZnsName(name)}</span>}
+        title={<span className="text-3xl break-all sm:text-4xl">{name}</span>}
       >
         <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-dim">
           <StatusBadge status={status} />
@@ -169,10 +169,7 @@ const HISTORY_COLUMNS: TableColumn[] = [
 function History({ events, name }: { events: ZnsNameEvent[]; name: string }) {
   return (
     <Panel title="HISTORY" className="mt-3">
-      <DataTable
-        caption={`History of ${formatZnsName(name)}, newest first`}
-        columns={HISTORY_COLUMNS}
-      >
+      <DataTable caption={`History of ${name}, newest first`} columns={HISTORY_COLUMNS}>
         {events.map((e) => (
           <tr
             key={`${e.txid}-${e.action}`}

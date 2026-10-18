@@ -35,7 +35,7 @@ test.describe("a Zcash name resolves forward", () => {
     await field.fill("Zenith.zcash");
     await field.press("Enter");
     await expect(page).toHaveURL(/\/name\/zenith$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("zenith.zcash");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("zenith");
 
     await page.locator(`a[href="/address/${ZENITH}?name=zenith"]`).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(ZENITH);
@@ -86,7 +86,7 @@ test.describe("a Zcash name resolves forward", () => {
     expect(res.headers()["content-type"]).toBe("image/png");
     await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
       "content",
-      /zenith\.zcash/,
+      /^zenith · Zcash name/,
     );
   });
 

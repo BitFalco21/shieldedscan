@@ -11,7 +11,7 @@ describe("NamePage", () => {
   it("leads with the name, its status and when it last changed", () => {
     const { container } = render(<NamePage lookup={zenith} />);
     // The heading is the name ALONE — a badge inside it fuses into its text.
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("zenith.zcash");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("zenith");
     expect(container.querySelector("[data-zns-status]")!.textContent).toBe("registered");
     expect(container.querySelector("[data-zns-since]")!.textContent).toMatch(
       /^claimed \d{1,2} \w+ \d{4} · /,
