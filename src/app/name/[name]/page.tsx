@@ -19,7 +19,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const name = parseZnsName(decodeURIComponent((await params).name));
   if (name === null) return { title: "Zcash name" };
-  const title = `${formatZnsName(name)} · Zcash name`;
+  // The title labels the name itself, so the name goes bare, as in the page's heading.
+  const title = `${name} · Zcash name`;
   const description = `Where ${formatZnsName(name)} points in the Zcash Name System, with its history.`;
   // The preview's text and image are this name's. The image is set explicitly, because a
   // page's own `openGraph.images` outranks the route's `opengraph-image` file; relying on the
