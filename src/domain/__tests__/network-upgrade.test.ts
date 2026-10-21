@@ -30,15 +30,18 @@ const MAINNET_ZEBRA: UpgradeRelease = {
 };
 
 describe("NU7 constants", () => {
-  it("carry ZIP 259's values and no mainnet height yet", () => {
+  it("carry ZIP 259's values, the mainnet height included", () => {
     expect(NU7.minProtocolVersion).toEqual({ mainnet: 170_190, testnet: 170_180 });
-    expect(NU7.activationHeight).toEqual({ mainnet: null, testnet: 4_465_026 });
+    // zcash/zips#1405; a multiple of 3, as ZIP 214 Revision 3 requires.
+    expect(NU7.activationHeight).toEqual({ mainnet: 3_543_405, testnet: 4_465_026 });
+    expect(NU7.activationHeight.mainnet! % 3).toBe(0);
     expect(NU7.branchId).toBe("0x77190AD9");
   });
 
-  it("list no release that can activate NU7 on mainnet", () => {
-    // Remove this when a release's own notes carry the mainnet height — and not before.
-    expect(NU7_RELEASES.filter((r) => r.network === "mainnet")).toEqual([]);
+  it("list only releases whose own notes schedule NU7 on mainnet", () => {
+    expect(NU7_RELEASES.filter((r) => r.network === "mainnet").map((r) => r.client)).toEqual([
+      "Zakura",
+    ]);
   });
 });
 

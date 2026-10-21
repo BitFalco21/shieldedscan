@@ -111,7 +111,7 @@ export function UpgradePage({
         {carrying.length === 0
           ? " — none does yet."
           : `: ${carrying.map((r) => `${r.client} ${r.firstVersion}+`).join(", ")}.`}{" "}
-        {`The protocol version alone is not readiness: Zakura 1.5.0 and later already declare ${minProtocol} while their notes leave ${upgrade.name} unscheduled on mainnet. Both are what a node says about itself. “Behind” is the one measurement: the height a node declared, against the height our own node had when it answered. `}
+        {`The protocol version alone is not readiness: Zakura 1.5.0 and 1.6.0 already declare ${minProtocol} while their notes leave ${upgrade.name} unscheduled on mainnet. Both are what a node says about itself. “Behind” is the one measurement: the height a node declared, against the height our own node had when it answered. `}
         Rules from{" "}
         <a
           href={upgrade.source.href}
