@@ -20,8 +20,10 @@
     font-weight: 300;
     color: var(--green);
   }
+  /* A tile's figure scales with the tile, so a nine-digit height fits a phone's half-width
+     tile instead of spilling out of it; wide tiles stay at 28px. */
   .net-figure {
-    font-size: 28px;
+    font-size: clamp(18px, 15cqi, 28px);
     font-weight: 300;
     line-height: 1.1;
     color: var(--ink-bright);
@@ -59,6 +61,7 @@
     }
   }
   .net-stat {
+    container-type: inline-size;
     background: var(--panel);
     padding: 16px 18px 14px;
     min-width: 0;
