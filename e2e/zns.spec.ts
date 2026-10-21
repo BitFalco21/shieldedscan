@@ -120,6 +120,16 @@ test.describe("a name the registry cannot vouch for is never shown", () => {
       "href",
       "https://www.zcashnames.com/explorer?search=nobodyregisteredthis",
     );
+    // Reserving a name is the next step: the referral link, marked as one in rel and in words.
+    const referral = page.locator("a[data-zns-referral]");
+    await expect(referral).toHaveAttribute(
+      "href",
+      "https://www.zcashnames.com/?ref=shieldedscan-2",
+    );
+    await expect(referral).toHaveAttribute("rel", /\bsponsored\b/);
+    await expect(
+      page.getByText("Referral link: a name reserved through it credits ShieldedScan."),
+    ).toBeVisible();
     expect((await page.goto("/name/Not_A_Name"))?.status()).toBe(404);
     // Not a name, so nothing to filter by: their homepage.
     await expect(page.locator("a[data-zns-explorer]")).toHaveAttribute(
