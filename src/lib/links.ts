@@ -25,6 +25,13 @@ export const ZAKURA_URL = "https://zakura.com/";
 /** The Zcash Name System registry's site. */
 export const ZNS_SITE_URL = "https://www.zcashnames.com";
 
+/**
+ * This site's referral link to the registry: a name reserved through it credits ShieldedScan.
+ * Offered only where the reader's next step is reserving a name, and always labelled as a
+ * referral beside it.
+ */
+export const ZNS_REFERRAL_URL = `${ZNS_SITE_URL}/?ref=shieldedscan-2`;
+
 /** The registry's explorer, filtered to one name. */
 export function znsExplorerHref(name: string): string {
   return `${ZNS_SITE_URL}/explorer?search=${encodeURIComponent(name)}`;

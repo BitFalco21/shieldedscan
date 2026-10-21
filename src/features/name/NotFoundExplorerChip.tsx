@@ -13,7 +13,7 @@ import { parseZnsName } from "@/domain";
  * arrives as RSC payload and renders in the browser, so the chip is present exactly when the
  * heading is.
  */
-export function NotFoundExplorerChip() {
+export function NotFoundExplorerChip({ tone }: { tone?: "primary" | "secondary" }) {
   const segment = usePathname()?.split("/")[2] ?? "";
   let name: string | null = null;
   try {
@@ -22,8 +22,12 @@ export function NotFoundExplorerChip() {
     // A malformed percent-escape is not a name.
   }
   return name === null ? (
-    <ZnsExplorerChip name={null}>visit zcashnames.com</ZnsExplorerChip>
+    <ZnsExplorerChip name={null} tone={tone}>
+      visit zcashnames.com
+    </ZnsExplorerChip>
   ) : (
-    <ZnsExplorerChip name={name}>see it on zcashnames.com</ZnsExplorerChip>
+    <ZnsExplorerChip name={name} tone={tone}>
+      see it on zcashnames.com
+    </ZnsExplorerChip>
   );
 }
