@@ -11,11 +11,12 @@ describe("targetSpacingSeconds", () => {
     expect(targetSpacingSeconds("testnet", TESTNET_NU7)).toBe(25);
   });
 
-  it("is unchanged on mainnet while its NU7 height is unset — nothing visible moves early", () => {
-    expect(NU7.activationHeight.mainnet).toBeNull();
+  it("switches mainnet to 25 s at its NU7 height, and not one block before", () => {
+    const activation = NU7.activationHeight.mainnet!;
     expect(targetSpacingSeconds("mainnet", 653_599)).toBe(150);
     expect(targetSpacingSeconds("mainnet", 653_600)).toBe(75);
-    expect(targetSpacingSeconds("mainnet", 99_000_000)).toBe(75);
+    expect(targetSpacingSeconds("mainnet", activation - 1)).toBe(75);
+    expect(targetSpacingSeconds("mainnet", activation)).toBe(25);
   });
 });
 

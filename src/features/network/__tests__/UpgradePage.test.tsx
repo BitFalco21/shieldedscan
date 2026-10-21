@@ -7,11 +7,11 @@ import { UpgradePage } from "../upgrade/UpgradePage";
 const releases = await fixtureDataSource.getNetworkReleases();
 
 describe("UpgradePage", () => {
-  it("leads with the strict figure: no release can activate NU7 before the height exists", () => {
+  it("leads with the strict figure: declaring the protocol is not running a carrying release", () => {
     const { container } = render(<UpgradePage releases={releases} />);
     const headline = container.querySelector("[data-upgrade-headline]")!.textContent!;
     expect(headline).toMatch(/^0 of 40 answering nodes run a release that can activate NU7/);
-    expect(container.textContent).toContain("to be set on October 20");
+    expect(container.textContent).toContain("The mainnet activation height is 3,543,405.");
     // Fixture Zakura 1.5/1.6 declare 170190 without being ready — the case the tab exists for.
     expect(container.querySelectorAll('[data-release-state="ready"]')).toHaveLength(0);
     expect(container.querySelectorAll('[data-release-state="declares"]').length).toBeGreaterThan(0);

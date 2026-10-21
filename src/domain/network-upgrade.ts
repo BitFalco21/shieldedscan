@@ -38,19 +38,22 @@ export interface NetworkUpgrade {
   source: { title: string; href: string; verifiedOn: string };
 }
 
-/** NU7, from ZIP 259 (Draft). Re-read when the mainnet height is assigned. */
+/**
+ * NU7, from ZIP 259 (Draft). The mainnet height is the one zcash/zips#1405 assigns (open on
+ * 2026-10-21) and Zakura 1.7.0 carries in its consensus constants; re-read when the PR merges.
+ */
 export const NU7: NetworkUpgrade = {
   id: "nu7",
   name: "NU7",
   zip: 259,
   branchId: "0x77190AD9",
   minProtocolVersion: { mainnet: 170_190, testnet: 170_180 },
-  activationHeight: { mainnet: null, testnet: 4_465_026 },
+  activationHeight: { mainnet: 3_543_405, testnet: 4_465_026 },
   heightPending: "to be set on October 20",
   source: {
     title: "ZIP 259: Deployment of the NU7 Network Upgrade",
     href: "https://zips.z.cash/zip-0259",
-    verifiedOn: "2026-10-03",
+    verifiedOn: "2026-10-21",
   },
 };
 
@@ -66,9 +69,8 @@ export interface UpgradeRelease {
 }
 
 /**
- * Releases that can activate NU7. Mainnet has none: the height is assigned on October 20 and no
- * release can carry it before then. Zebra 7.0.0-rc.0 activates it on Testnet only, and says so;
- * it is listed because the rule is per network, and a testnet-only release must not count on
+ * Releases that can activate NU7. Zebra 7.0.0-rc.0 activates it on Testnet only, and says so; it
+ * is listed because the rule is per network, and a testnet-only release must not count on
  * mainnet. Add a mainnet entry only from the release's own notes, never from an announcement.
  */
 export const NU7_RELEASES: readonly UpgradeRelease[] = [
@@ -78,6 +80,13 @@ export const NU7_RELEASES: readonly UpgradeRelease[] = [
     network: "testnet",
     source: "https://github.com/ZcashFoundation/zebra/releases/tag/v7.0.0-rc.0",
     verifiedOn: "2026-10-03",
+  },
+  {
+    client: "Zakura",
+    firstVersion: "1.7.0-rc2",
+    network: "mainnet",
+    source: "https://github.com/zakura-core/zakura/releases/tag/v1.7.0-rc2",
+    verifiedOn: "2026-10-21",
   },
 ];
 

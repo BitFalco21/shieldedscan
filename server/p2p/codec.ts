@@ -28,9 +28,11 @@ export const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 /** The user agent this crawler announces: honest self-identification. */
 export const CRAWLER_USER_AGENT = "/shieldedscan-crawler:0.1.0/";
 
-/** NU6.3, the protocol version the live network speaks. Announcing the current version keeps
- * up-to-date peers from refusing the handshake as obsolete. */
-export const CRAWLER_PROTOCOL_VERSION = 170_160;
+/**
+ * NU7's mainnet minimum (ZIP 259). From activation, NU7 nodes disconnect a peer announcing less,
+ * and a node still on NU6.3 accepts a newer version, so announcing it early loses no one.
+ */
+export const CRAWLER_PROTOCOL_VERSION = 170_190;
 
 export class CodecError extends Error {}
 
