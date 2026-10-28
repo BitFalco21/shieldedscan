@@ -142,6 +142,8 @@ test.describe("grouped navigation", () => {
   const GROUPS = [
     { summary: "explore", child: "/blocks" },
     { summary: "analytics", child: "/shielded" },
+    { summary: "developers", child: "/api-docs" },
+    { summary: "developers", child: "/mcp" },
   ] as const;
 
   for (const group of GROUPS) {
@@ -243,7 +245,7 @@ test.describe("grouped navigation", () => {
           .trim(),
       ),
     );
-    const expected = ["home", "explore", "analytics", "api"];
+    const expected = ["home", "explore", "analytics", "developers"];
     if (process.env.NEXT_PUBLIC_AGENT_ENABLED === "1") expected.push("ask zeno");
     // Mainnet-only, like the route, so the expectation reads the same flag the nav does.
     if (process.env.NEXT_PUBLIC_NETWORK !== "testnet") expected.push("learn");
