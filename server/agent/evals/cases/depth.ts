@@ -209,7 +209,7 @@ export const DEPTH: EvalCase[] = [
     id: "reference-block-time",
     category: "reference",
     world: "live",
-    question: "Why are Zcash blocks 75 seconds apart, and what were they before?",
+    question: "Why were Zcash blocks 75 seconds apart after Blossom, and what were they before?",
     mustCall: ["zcash_reference"],
     mustContain: [/150/, /Blossom/i],
     // The post-Blossom halving interval is a formula in ZIP 208, not a number, so multiplying it

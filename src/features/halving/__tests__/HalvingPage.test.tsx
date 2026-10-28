@@ -233,13 +233,16 @@ describe("the schedule tail", () => {
   });
 
   it("calls the figures scheduled, because reissuance adds a bonus nobody can know yet", () => {
-    // From 8,939,664 a block pays the schedule plus ZIP 234's bonus; the page must not present
+    // From 8,939,664 a block pays the schedule plus ZIP 237's bonus; the page must not present
     // the schedule as the reward, nor say the subsidy ever reaches zero.
     const { container } = renderAt();
 
     expect(container.textContent).toMatch(
       /From block 8,939,664 every block also pays a reissuance bonus/,
     );
+    // ZIP 237, which NU7 deploys; ZIP 259 says NU7 does not deploy ZIP 234.
+    expect(container.textContent).toMatch(/\(ZIP 237\)/);
+    expect(container.textContent).not.toMatch(/ZIP 234/);
     expect(container.textContent).toMatch(/scheduled part only, a floor/);
     expect(screen.getByRole("columnheader", { name: "SCHEDULED SUBSIDY (ZEC)" })).toBeDefined();
     expect(container.textContent).not.toMatch(/the subsidy is zero/);

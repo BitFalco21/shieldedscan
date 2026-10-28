@@ -28,7 +28,7 @@ import { cursorSlice, encodeCursor } from "@/data/cursor";
 import { classifyUserAgent } from "../p2p/user-agent";
 import { anonId, subnet24 } from "./ids";
 import {
-  BEHIND_TIP_BLOCKS,
+  behindTipBlocks,
   classifyReleaseGroups,
   rawReleaseGroups,
   type RawReleaseGroup,
@@ -473,7 +473,8 @@ export function deriveReleases(snap: NetmapSnapshot): NetReleases {
     basis: "floor",
     windowSeconds: REACHABLE_WINDOW_SEC,
     answering: snap.live.length,
-    behindTipBlocks: BEHIND_TIP_BLOCKS,
+    // At our newest stored height: the threshold the page names is today's.
+    behindTipBlocks: behindTipBlocks(snap.recentBlocks.at(-1)?.height ?? 0),
     groups,
     history,
     asOf: snap.at,

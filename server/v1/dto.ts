@@ -219,7 +219,7 @@ export interface V1Halving {
   /** The next halving's activation height — a consensus constant, boundary-verified against the node. */
   halvingHeight: number;
   blocksRemaining: number;
-  /** blocksRemaining × the 75-second post-Blossom target. An estimate and labelled as one. */
+  /** Recent block time until NU7, its 25-second target after. An estimate and labelled as one. */
   estimatedSecondsRemaining: number;
   estimatedAt: string;
   /** Both read from the node's own `getblocksubsidy`, never recomputed here. */

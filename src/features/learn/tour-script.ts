@@ -1,4 +1,5 @@
 import type { ZenoExpression } from "@/features/agent/zeno-mood";
+import { POST_NU7_TARGET_SECONDS } from "@/domain";
 import { formatZec } from "@/lib/format";
 import { BUY_ZAT, DEFAULT_FRIEND_ZAT, initialSimState, simReducer } from "./sim-model";
 import type { SimAction, SimState } from "./sim-model";
@@ -80,7 +81,7 @@ export const TOUR: readonly TourBeat[] = [
     target: "withdraw",
     expression: "ready",
     press: () => ({ type: "useTransparent" }),
-    say: "Press “withdraw” again. On the real network a transaction lands in a new block about every 75 seconds.",
+    say: `Press “withdraw” again. On the real network a transaction lands in a new block about every ${POST_NU7_TARGET_SECONDS} seconds.`,
   },
   {
     target: "ledger-new",

@@ -568,6 +568,7 @@ const TIP_LAG: Record<number, number | null> = {
   36: 950,
   38: null,
 };
+/** Pre-NU7, like the fixture chain: 12½ minutes of 75-second blocks (`behindTipBlocks`). */
 const BEHIND_TIP_BLOCKS = 10;
 
 /** A hub's lag: level unless listed, and a listed null stays null — unknown is not level. */

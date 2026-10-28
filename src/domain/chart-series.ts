@@ -5,7 +5,7 @@
  */
 
 import type { ZcashAddressKind } from "./address";
-import { BLOCK_TARGET_SECONDS, BLOSSOM_HEIGHT, PRE_BLOSSOM_TARGET_SECONDS } from "./halving";
+import { targetSpacingAt } from "./halving";
 
 /**
  * Each pool's note commitment tree size at the day's last block, as the node reports it: every
@@ -151,12 +151,12 @@ export const blocksPerDayAt = (targetSeconds: number) => 86_400 / targetSeconds;
 
 /**
  * The day's target, from its heights rather than a calendar date: 576 blocks a day while the
- * target was 150 s, 1,152 once Blossom halved it to 75 s. Null on the activation day itself, whose
- * blocks fall under both targets: a single figure for it would be wrong either way.
+ * target was 150 s, 1,152 once Blossom halved it to 75 s, 3,456 from NU7's 25 s. Null on an
+ * activation day itself, whose blocks fall under two targets: a single figure for it would be
+ * wrong either way.
  */
 export function blocksTargetForDay(point: BlocksDayPoint): number | null {
   const first = point.topHeight - point.blocks + 1;
-  if (point.topHeight < BLOSSOM_HEIGHT) return blocksPerDayAt(PRE_BLOSSOM_TARGET_SECONDS);
-  if (first >= BLOSSOM_HEIGHT) return blocksPerDayAt(BLOCK_TARGET_SECONDS);
-  return null;
+  const spacing = targetSpacingAt(point.topHeight);
+  return targetSpacingAt(first) === spacing ? blocksPerDayAt(spacing) : null;
 }

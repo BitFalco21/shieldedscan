@@ -19,7 +19,9 @@ LOG=~/log/zakura-eos.log
 ALERT=~/ZAKURA_UPGRADE_ALERT
 # Only used if the node's own log cannot be read, so a log-rotation gap cannot silence the
 # monitor. Keep it at the halt height of the installed release.
-EOS_HEIGHT_FALLBACK=3528681
+EOS_HEIGHT_FALLBACK=3640098
+# NU7's mainnet activation: blocks before it take 75 s, blocks from it 25 s (ZIP 218).
+NU7_HEIGHT=3543405
 
 installed=$(docker exec explorer-api node -e '
 fetch("http://zakura:8232",{method:"POST",headers:{"content-type":"application/json"},
@@ -48,7 +50,15 @@ latest=$(curl -fsS --max-time 20 https://api.github.com/repos/zakura-core/zakura
 msgs=""
 if [ -n "$tip" ]; then
   remaining=$((eos - tip))
-  days=$((remaining * 75 / 86400))
+  # Each block at its own era's target: a flat 75 s would put a post-NU7 halt three times too far
+  # away and leave the alert silent until two days out.
+  if [ "$tip" -lt "$NU7_HEIGHT" ]; then
+    before=$(( (eos < NU7_HEIGHT ? eos : NU7_HEIGHT) - tip ))
+  else
+    before=0
+  fi
+  after=$(( remaining - before ))
+  days=$(( (before * 75 + after * 25) / 86400 ))
   [ "$days" -le 6 ] && msgs="${msgs}ONLY ${days} DAYS until node halts at block ${eos} — upgrade NOW. "
 else
   remaining=na; days=na

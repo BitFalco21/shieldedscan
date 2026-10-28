@@ -76,7 +76,8 @@ export const GOLDEN: EvalCase[] = [
     category: "protocol",
     world: "live",
     question: "How often does Zcash produce a block?",
-    mustContain: [/75/],
+    // Both targets: 75 seconds until NU7 and 25 from it. Right on either side of activation.
+    mustContain: [/75/, /25/],
   },
   {
     id: "protocol-zip317",
