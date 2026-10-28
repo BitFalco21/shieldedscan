@@ -317,8 +317,9 @@ export class HttpNodeRpc implements NodeRpcPort {
 
   /**
    * The consensus subsidy at a height, from the node's own schedule, never hand-computed here
-   * (recomputing it through the halvings and Blossom is error-prone). For example 4,406,399 →
-   * 1.5625 ZEC and 4,406,400 → 0.78125 ZEC.
+   * (recomputing it through the halvings, Blossom and NU7 is error-prone). For example 6,132,389 →
+   * 0.52083333 ZEC and 6,132,390 → 0.26041666 ZEC. From 8,939,664 the node refuses heights more
+   * than one block past its tip: ZIP 234's reissuance bonus needs the parent block.
    */
   getBlockSubsidy(height: number): Promise<RpcBlockSubsidy> {
     return this.#call<RpcBlockSubsidy>("getblocksubsidy", [height]);

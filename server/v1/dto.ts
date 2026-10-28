@@ -187,7 +187,7 @@ export interface V1SubsidyBreakdown {
   lockboxShare: V1Share | null;
   /**
    * Every active stream, named. `[]` means the node reported none at this height: true before
-   * Canopy and again at or past 4,406,400, where ZIP 214 revision 2's streams end. An empty array
+   * Canopy and again at or past 6,132,390, where ZIP 214 revision 2's streams end. An empty array
    * there means the streams as currently legislated have run out, not that the miner keeps the
    * whole subsidy for good.
    */

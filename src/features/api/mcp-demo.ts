@@ -2,9 +2,10 @@
  * The three exchanges the `/mcp` hero shows: a question, the tool call an assistant makes, an
  * excerpt of what the server returned, and an answer built only from that excerpt.
  *
- * The figures are real responses from the live server (read 2026-10-04), each chosen so it
- * cannot go stale: a closed calendar month (September 2026's migrations), a consensus height
- * (the halving at 4,406,400 and its subsidies), and an all-time record (a single transaction's
+ * The figures are real responses from the live server (read 2026-10-04; the halving re-read
+ * 2026-10-28 after NU7 moved it), each chosen so it cannot go stale: a closed calendar month
+ * (September 2026's migrations), a consensus height (the halving at 6,132,390 and its
+ * subsidies), and an all-time record (a single transaction's
  * 987.84262808 ZEC fee, unique, so the records endpoint names it). The answer's wording is ours
  * and the page says so; the numbers are what the tool returned.
  */
@@ -58,17 +59,21 @@ export const MCP_DEMO: McpExchange[] = [
     tool: "network_halving",
     args: {},
     excerpt: `{
-  "halvingHeight": 4406400,
-  "currentSubsidy": {
-    "totalZat": 156250000,
-    "minerZat": 125000000
-  },
+  "halvingHeight": 6132390,
+  "estimatedAt": "2028-11-24T13:07:26.000Z",
   "nextSubsidy": {
-    "totalZat": 78125000,
-    "minerZat": 78125000
-  }
+    "totalZat": 26041666,
+    "minerZat": 26041666
+  },
+  "events": [
+    {
+      "kind": "halving",
+      "height": 6132390,
+      "before": { "totalZat": 52083333, "minerZat": 41666668 }
+    }
+  ]
 }`,
     answer:
-      "At block 4,406,400, expected in late November 2028. The block subsidy halves from 1.5625 to 0.78125 ZEC, but the funding streams and the lockbox end there too, so the miner's share only falls from 1.25 to 0.78125 ZEC.",
+      "At block 6,132,390, expected in late November 2028. The block subsidy halves from 0.52083333 to 0.26041666 ZEC, but the funding streams and the lockbox end there too, so the miner's share only falls from 0.41666668 to 0.26041666 ZEC.",
   },
 ];

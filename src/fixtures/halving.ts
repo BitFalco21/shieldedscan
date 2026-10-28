@@ -3,9 +3,10 @@ import type { HalvingSchedule, SubsidySplit } from "@/domain";
 /**
  * The halving schedule, for the fixture build.
  *
- * Real consensus figures from the node's `getblocksubsidy`, kept exact: the page's claim is
- * that the miner's share does not halve at the next event, and a tidy 50%-everywhere split
- * would render a sentence its own data contradicts.
+ * Real consensus figures from the node's `getblocksubsidy` (Zakura 1.7.0), kept exact: the
+ * page's claim is that the miner's share does not halve at the next event, and a tidy
+ * 50%-everywhere split would render a sentence its own data contradicts. Read before NU7, so
+ * the build shows the NU7 panel and the third halving at its post-NU7 height.
  *
  * The block interval is a measured ~75.35s, not the 75s target: the difference is days on
  * the estimate, and the page reports an observed figure.
@@ -19,8 +20,8 @@ const split = (total: number, miner: number, streams = 0, lockbox = 0): SubsidyS
 
 export function getHalvingSchedule(): HalvingSchedule {
   return {
-    // Just short of the fixture chain's tip, so the countdown is a real distance.
-    height: 3_445_362,
+    // Before NU7, so the countdown crosses it and the "before that" panel renders.
+    height: 3_533_753,
     observedIntervalSeconds: 75.35,
     events: [
       {
@@ -50,19 +51,20 @@ export function getHalvingSchedule(): HalvingSchedule {
       },
       {
         kind: "halving" as const,
-        // The next one. Streams and lockbox both expire, so the miner takes all of it —
-        // which is why the miner's fall is 37.5% where the total's is 50%.
-        height: 4_406_400,
+        // The next one, where NU7 moves it. Streams and lockbox both expire, so the miner takes
+        // all of it — which is why the miner's fall is 37.5% where the total's is 50%. "Before"
+        // is already NU7's third of today's subsidy.
+        height: 6_132_390,
         at: null,
-        before: split(156_250_000, 125_000_000, 12_500_000, 18_750_000),
-        after: split(78_125_000, 78_125_000),
+        before: split(52_083_333, 41_666_668, 4_166_666, 6_249_999),
+        after: split(26_041_666, 26_041_666),
       },
     ],
     upcoming: [
-      { height: 6_086_400, totalZat: 39_062_500 },
-      { height: 7_766_400, totalZat: 19_531_250 },
-      { height: 9_446_400, totalZat: 9_765_625 },
-      { height: 11_126_400, totalZat: 4_882_812 },
+      { height: 11_172_390, totalZat: 13_020_833 },
+      { height: 16_212_390, totalZat: 6_510_416 },
+      { height: 21_252_390, totalZat: 3_255_208 },
+      { height: 26_292_390, totalZat: 1_627_604 },
     ],
     asOf: Math.floor(Date.now() / 1000),
   };

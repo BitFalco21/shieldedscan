@@ -403,8 +403,9 @@ export function v1Routes(deps: V1Deps): Hono {
   });
 
   // Countdown is arithmetic off the tip; both subsidies come from the node's own
-  // getblocksubsidy, never recomputed here (the schedule spans two halvings and Blossom's
-  // block-time change). The next halving is derived from the tip, so it moves on once passed.
+  // getblocksubsidy, never recomputed here (the schedule spans halvings and the block-time
+  // changes at Blossom and NU7). The next halving is derived from the tip, so it moves on once
+  // passed.
   app.get("/v1/network/halving", async (c) => {
     rejectUnknownParams(c, []);
     if (!deps.chain) return upstreamDown(c, "the chain source");

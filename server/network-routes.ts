@@ -3,8 +3,11 @@ import { Pool } from "pg";
 import {
   BAND_BOUNDARIES_ZEC,
   BLOSSOM_HEIGHT,
+  NU7_HEIGHT,
   PAST_HALVING_HEIGHTS,
+  REISSUANCE_START_HEIGHT,
   nextHalvingHeight,
+  scheduledSubsidyZat,
   subsidyTail,
   type DistributionBand,
   type HalvingEvent,
@@ -39,15 +42,18 @@ import "./pg-types";
  */
 
 /**
- * How many recent blocks the observed interval is averaged over: about 30 days. Long enough that a
- * single slow block cannot move it, short enough to describe the chain as it runs now.
+ * How many recent blocks the observed interval is averaged over: about 30 days at 75 s. Long enough
+ * that a single slow block cannot move it, short enough to describe the chain as it runs now.
  */
 const INTERVAL_SAMPLE_BLOCKS = 34_560;
 
 /**
- * Future halvings listed beyond the next one: only how many of `subsidyTail`'s steps (in
- * `domain/`) the node is asked to confirm.
+ * Below this many gaps inside the tip's era the mean is not reported (about a day at 25 s): right
+ * after NU7 a handful of blocks would set every date on the page.
  */
+const INTERVAL_MIN_GAPS = 3_456;
+
+/** Future halvings listed beyond the next one, from `subsidyTail` in `domain/`. */
 const UPCOMING_COUNT = 4;
 
 /** An hour. The schedule is immutable; only the tip and the observed interval move. */
@@ -91,18 +97,25 @@ function toSplit(s: NodeSubsidy): SubsidySplit {
  * site cannot publish two estimated dates for one event. Absurd gaps are excluded rather than
  * clamped, so a bad timestamp leaves the average alone.
  *
- * 0 rather than a substituted target, so the caller decides: `estimateHalvingSeconds` falls back
+ * 0 rather than a substituted target, so the caller decides: `estimateSecondsBetween` falls back
  * to the consensus target, and the page can say which it used.
  */
 export async function observedBlockIntervalSeconds(pool: Pool): Promise<number> {
-  const { rows } = await pool.query<{ mean: number | null }>(
-    `SELECT avg(gap) AS mean FROM (
+  // Only gaps between two blocks of the tip's era: across NU7 a 30-day window would average
+  // 75-second and 25-second blocks into a pace neither era has.
+  const { rows } = await pool.query<{ mean: number | null; gaps: string }>(
+    `WITH tip AS (SELECT max(height) AS h FROM block)
+     SELECT avg(gap) AS mean, count(*) AS gaps FROM (
        SELECT timestamp - lag(timestamp) OVER (ORDER BY height) AS gap
-         FROM block WHERE height > (SELECT max(height) - $1 FROM block)
+         FROM block, tip
+        WHERE height > tip.h - $1
+          AND height >= CASE WHEN tip.h >= $2 THEN $2 ELSE 0 END
      ) g WHERE gap IS NOT NULL AND gap BETWEEN 0 AND 3600`,
-    [INTERVAL_SAMPLE_BLOCKS],
+    [INTERVAL_SAMPLE_BLOCKS, NU7_HEIGHT],
   );
   const mean = rows[0]?.mean;
+  const gaps = Number(rows[0]?.gaps ?? 0);
+  if (gaps < INTERVAL_MIN_GAPS) return 0;
   return typeof mean === "number" && Number.isFinite(mean) && mean > 0 ? mean : 0;
 }
 
@@ -412,10 +425,10 @@ async function timestampsAt(
  * Every subsidy change so far plus the next halving, oldest first: one implementation shared by
  * `/chain/network/halving` (the page) and `/v1/network/halving` (the public API and the agent).
  *
- * Blossom leads the list. It is not a halving and is labelled as such, but it is where the
- * per-block subsidy last changed before the first halving; without it the history would begin at
- * 6.25 ZEC with nothing to explain it. Without a Postgres pool the events still come back, with
- * `at` null: the subsidies come from the node.
+ * Blossom leads the list and NU7 joins it once activated. Neither is a halving and both are
+ * labelled as such, but each is where the per-block subsidy changed; without them the history
+ * would show subsidies with nothing to explain the steps. Without a Postgres pool the events still
+ * come back, with `at` null: the subsidies come from the node.
  */
 export async function loadHalvingEvents(
   chain: HalvingChainSource,
@@ -423,7 +436,9 @@ export async function loadHalvingEvents(
   height: number,
 ): Promise<HalvingEvent[]> {
   const next = nextHalvingHeight(height);
-  const past = [BLOSSOM_HEIGHT, ...PAST_HALVING_HEIGHTS].filter((h) => h <= height);
+  const past = [BLOSSOM_HEIGHT, ...PAST_HALVING_HEIGHTS, NU7_HEIGHT]
+    .filter((h) => h <= height)
+    .sort((a, b) => a - b);
   const heights = [...past, next];
   const [stamps, splits] = await Promise.all([
     timestampsAt(pool, past),
@@ -432,7 +447,7 @@ export async function loadHalvingEvents(
     Promise.all(heights.flatMap((h) => [chain.getBlockSubsidy(h - 1), chain.getBlockSubsidy(h)])),
   ]);
   return heights.map((h, i) => ({
-    kind: h === BLOSSOM_HEIGHT ? "block-time-change" : "halving",
+    kind: h === BLOSSOM_HEIGHT || h === NU7_HEIGHT ? "block-time-change" : "halving",
     height: h,
     at: stamps.get(h) ?? null,
     before: toSplit(splits[i * 2]!),
@@ -444,7 +459,11 @@ export function networkRoutes(chain: HalvingChainSource, connection?: string): H
   const POOL = { max: 2, statement_timeout: 30_000 } as const;
   const pool = createPool(connection, POOL);
   const app = new Hono();
-  let cached: { at: number; data: HalvingSchedule } | null = null;
+  let cached: { at: number; key: string; data: HalvingSchedule } | null = null;
+
+  // What the cached schedule was built around: the halving it counts to, and whether NU7 had
+  // activated (which adds an event to the history without moving the halving).
+  const scheduleKey = (height: number) => `${nextHalvingHeight(height)}:${height >= NU7_HEIGHT}`;
   let inflight: Promise<HalvingSchedule> | null = null;
 
   async function build(): Promise<HalvingSchedule> {
@@ -455,19 +474,25 @@ export function networkRoutes(chain: HalvingChainSource, connection?: string): H
       loadHalvingEvents(chain, pool, height),
     ]);
 
-    const nextAfter = events[events.length - 1]!.after;
-    const tail = subsidyTail(next, nextAfter.totalZat).steps.slice(0, UPCOMING_COUNT);
-    // Confirmed against the node rather than served as our own arithmetic, like the events above.
-    const confirmed = await Promise.all(tail.map((t) => chain.getBlockSubsidy(t.height)));
+    const tail = subsidyTail(next).steps.slice(0, UPCOMING_COUNT);
+    // Confirmed against the node where it can answer. From the start of reissuance it refuses (the
+    // bonus needs the parent block), and the scheduled part is the domain's formula, which tests
+    // pin to the node at every boundary it can read.
+    const upcoming = await Promise.all(
+      tail.map(async (t) => ({
+        height: t.height,
+        totalZat:
+          t.height < REISSUANCE_START_HEIGHT
+            ? toSplit(await chain.getBlockSubsidy(t.height)).totalZat
+            : scheduledSubsidyZat(t.height),
+      })),
+    );
 
     return {
       height,
       observedIntervalSeconds: interval,
       events,
-      upcoming: tail.map((t, i) => ({
-        height: t.height,
-        totalZat: toSplit(confirmed[i]!).totalZat,
-      })),
+      upcoming,
       asOf: Math.floor(Date.now() / 1000),
     };
   }
@@ -477,17 +502,16 @@ export function networkRoutes(chain: HalvingChainSource, connection?: string): H
       // The tip moves faster than the cache and the countdown is measured from it, so the height is
       // refreshed on every request while the expensive part is reused.
       const { height } = await chain.getChainFacts();
-      const target = cached.data.events[cached.data.events.length - 1]?.height;
-      // ...unless the tip has crossed the halving this cache was built around, in which case
-      // reusing it would count down to a block already mined.
-      if (target !== undefined && nextHalvingHeight(height) === target) {
+      // ...unless the tip has crossed the halving or NU7 since it was built, in which case
+      // reusing it would count down to a block already mined or omit an event that happened.
+      if (scheduleKey(height) === cached.key) {
         return c.json({ ...cached.data, height, asOf: Math.floor(Date.now() / 1000) });
       }
       cached = null;
     }
     inflight ??= build()
       .then((data) => {
-        cached = { at: Date.now(), data };
+        cached = { at: Date.now(), key: scheduleKey(data.height), data };
         return data;
       })
       .finally(() => {

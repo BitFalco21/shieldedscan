@@ -1,5 +1,5 @@
 import {
-  estimateHalvingSeconds,
+  estimateSecondsBetween,
   MAX_SUPPLY_ZAT,
   minerRewardZat,
   type ChainMonthPoint,
@@ -656,11 +656,12 @@ export function toSubsidyBreakdown(s: NodeSubsidy): V1SubsidyBreakdown {
 }
 
 /**
- * `intervalSeconds` is the observed mean block interval, 0 when it could not be measured.
+ * `intervalSeconds` is the observed mean block interval within the tip's era, 0 when it could not
+ * be measured.
  *
- * The chain runs slightly slower than the 75-second target, which over the remaining blocks
- * shifts the date by days. The arithmetic lives once, in `estimateHalvingSeconds`, which the
- * site's `/halving` page also calls, so the two cannot publish different dates.
+ * Blocks before NU7 run at that observed pace and blocks after it at the 25-second target. The
+ * arithmetic lives once, in `estimateSecondsBetween`, which the site's `/halving` page also calls,
+ * so the two cannot publish different dates.
  */
 export function toHalving(
   height: number,
@@ -671,7 +672,7 @@ export function toHalving(
   events: readonly HalvingEvent[] = [],
 ): V1Halving {
   const blocksRemaining = Math.max(0, halvingHeight - height);
-  const seconds = estimateHalvingSeconds(blocksRemaining, intervalSeconds);
+  const seconds = estimateSecondsBetween(height, halvingHeight, intervalSeconds);
   return {
     height,
     halvingHeight,

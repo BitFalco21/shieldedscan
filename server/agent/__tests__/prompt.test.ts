@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SYSTEM_PROMPT, SYSTEM_PROMPT_VERSION, turnContext } from "../prompt";
 import { PROVIDERS, resolveProvider } from "../provider";
 import { SHIELDED_UPGRADES } from "@/domain";
-import { NEXT_HALVING_HEIGHT } from "@/domain";
+import { NEXT_HALVING_HEIGHT, NU7_HEIGHT } from "@/domain";
 import { REFERENCE_TOPICS } from "../reference";
 import { decodeUnifiedAddress } from "@/domain/unified";
 import { DONATION_ADDRESS } from "@/lib/donation";
@@ -54,9 +54,11 @@ describe("the ground-truth digest", () => {
     expect(SYSTEM_PROMPT).toMatch(/four shielded pools/i);
   });
 
-  it("carries the Ironwood activation and next-halving heights from committed constants", () => {
+  it("carries the Ironwood, NU7 and next-halving heights from committed constants", () => {
     expect(SYSTEM_PROMPT).toContain("3,428,143");
-    expect(SYSTEM_PROMPT).toContain("4,406,400");
+    expect(SYSTEM_PROMPT).toContain("3,543,405");
+    expect(SYSTEM_PROMPT).toContain("6,132,390");
+    expect(SYSTEM_PROMPT).not.toContain("4,406,400");
   });
 
   it("states what the explorer covers and does not", () => {
@@ -74,6 +76,7 @@ describe("the ground-truth digest", () => {
     const allowed = new Set([
       ...SHIELDED_UPGRADES.map((u) => u.height.toLocaleString("en-US")),
       NEXT_HALVING_HEIGHT.toLocaleString("en-US"),
+      NU7_HEIGHT.toLocaleString("en-US"),
       (100_000_000).toLocaleString("en-US"), // zatoshis per ZEC
       (5_000).toLocaleString("en-US"), // ZIP-317 marginal fee per logical action
     ]);

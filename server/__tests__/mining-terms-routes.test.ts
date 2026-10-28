@@ -28,7 +28,8 @@ describe("buildMiningTerms", () => {
     const t = await buildMiningTerms({ chain: chain(), pool: null, price: quote(1007.86) });
     expect(t.networkSolps).toEqual({ value: 23_005_253_630, basis: "node" });
     expect(t.minerSubsidyZat).toBe(125_000_000);
-    expect(t.subsidyChangesAtHeight).toBe(4_406_400);
+    // NU7 comes before the next halving and divides the subsidy by 3.
+    expect(t.subsidyChangesAtHeight).toBe(3_543_405);
     expect(t.blockIntervalSeconds).toBe(75);
     expect(t.priceUsd).toBe(1007.86);
     expect(t.height).toBe(3_472_984);

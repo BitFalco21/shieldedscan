@@ -296,7 +296,7 @@ export const ALL_FIXTURES: ReviewFixture[] = [
     question:
       "what % of miners reward go to funding streams, and then whats the breakdown of where it goes?",
     answer:
-      "At the current height the miner takes 80% of the block subsidy \u2014 1.25 of 1.5625 ZEC. The other 20% is split by ZIP 214 revision 2, which runs from block 3,146,400 to 4,406,400: 8% to the Zcash Community Grants stream, and 12% deferred into the lockbox, which is mined but cannot be spent by any transaction. Those streams end at block 4,406,400, the same height as the next halving.",
+      "At the current height the miner takes 80% of the block subsidy \u2014 1.25 of 1.5625 ZEC. The other 20% is split by ZIP 214 revision 2, which runs from block 3,146,400 to 6,132,390: 8% to the Zcash Community Grants stream, and 12% deferred into the lockbox, which is mined but cannot be spent by any transaction. Those streams end at block 6,132,390, the same height as the next halving.",
     expect: "pass",
     provenance: "constructed",
     note: "Every figure stated, the era named by its block range, and nothing asked of the reader. It also does no arithmetic: the shares arrive computed in the halving payload. It carries NO citation, and that is correct rather than an omission \u2014 `sourceLinkFor` returns null for the halving path on purpose, because no page here publishes a countdown and a link a reader cannot open is not evidence. An earlier draft appended one, and the judge failed it twice for ending on an endpoint instead of an answer: the fixture was inventing a citation this system never emits.",

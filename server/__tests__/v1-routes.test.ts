@@ -83,43 +83,52 @@ function chainPort(overrides: Partial<V1ChainPort> = {}): V1ChainPort {
     getBlockTransactions: async () => [],
     getAddress: async () => undefined,
     getMempoolStats: async () => MEMPOOL,
-    // Figures as the live node returns them, per height era.
+    // Figures as the live node (Zakura 1.7.0) returns them, per height era: NU7 divides the
+    // subsidy by 3 at 3,543,405, and the third halving at 6,132,390 ends the streams.
     getBlockSubsidy: async (height: number) =>
-      height >= 4_406_400
+      height >= 6_132_390
         ? {
-            miner: 0.78125,
+            miner: 0.26041666,
             founders: 0,
             fundingstreamstotal: 0,
             lockboxtotal: 0,
-            totalblocksubsidy: 0.78125,
+            totalblocksubsidy: 0.26041666,
           }
-        : {
-            miner: 1.25,
-            founders: 0,
-            fundingstreamstotal: 0.125,
-            lockboxtotal: 0.1875,
-            totalblocksubsidy: 1.5625,
-            // Verbatim from the live node, labels included: it reports the older "Major Grants" /
-            // "Lockbox NU6" names for the slots ZIP 214 revision 2 directs to the FPF and the
-            // lockbox. Kept untidied so the stub reproduces the discrepancy the DTO documents.
-            fundingstreams: [
-              {
-                recipient: "Major Grants",
-                specification: "https://zips.z.cash/zip-0214",
-                value: 0.125,
-                valueZat: 12_500_000,
-                address: "t3cFfPt1Bcvgez9ZbMBFWeZsskxTkPzGCow",
-              },
-            ],
-            lockboxstreams: [
-              {
-                recipient: "Lockbox NU6",
-                specification: "https://zips.z.cash/zip-0214",
-                value: 0.1875,
-                valueZat: 18_750_000,
-              },
-            ],
-          },
+        : height >= 3_543_405
+          ? {
+              miner: 0.41666668,
+              founders: 0,
+              fundingstreamstotal: 0.04166666,
+              lockboxtotal: 0.06249999,
+              totalblocksubsidy: 0.52083333,
+            }
+          : {
+              miner: 1.25,
+              founders: 0,
+              fundingstreamstotal: 0.125,
+              lockboxtotal: 0.1875,
+              totalblocksubsidy: 1.5625,
+              // Verbatim from the live node, labels included: it reports the older "Major Grants" /
+              // "Lockbox NU6" names for the slots ZIP 214 revision 2 directs to the FPF and the
+              // lockbox. Kept untidied so the stub reproduces the discrepancy the DTO documents.
+              fundingstreams: [
+                {
+                  recipient: "Major Grants",
+                  specification: "https://zips.z.cash/zip-0214",
+                  value: 0.125,
+                  valueZat: 12_500_000,
+                  address: "t3cFfPt1Bcvgez9ZbMBFWeZsskxTkPzGCow",
+                },
+              ],
+              lockboxstreams: [
+                {
+                  recipient: "Lockbox NU6",
+                  specification: "https://zips.z.cash/zip-0214",
+                  value: 0.1875,
+                  valueZat: 18_750_000,
+                },
+              ],
+            },
     ...overrides,
   };
 }
@@ -1413,15 +1422,15 @@ describe("/v1/network/halving", () => {
       ["block-time-change", 653_600],
       ["halving", 1_046_400],
       ["halving", 2_726_400],
-      ["halving", 4_406_400],
+      ["halving", 6_132_390],
     ]);
     const last = body.events.at(-1);
     expect(last.height).toBe(body.halvingHeight);
     expect(last.at).toBeNull();
     expect(last.atUtc).toBeNull();
-    // The split at the boundary is the node's, both sides.
-    expect(last.before.totalZat).toBe(156_250_000);
-    expect(last.after.totalZat).toBe(78_125_000);
+    // The split at the boundary is the node's, both sides: "before" is already NU7's third.
+    expect(last.before.totalZat).toBe(52_083_333);
+    expect(last.after.totalZat).toBe(26_041_666);
     for (const e of body.events) {
       for (const s of [e.before, e.after]) {
         expect(s.minerZat + s.fundingStreamsZat + s.lockboxZat).toBe(s.totalZat);
@@ -1433,14 +1442,17 @@ describe("/v1/network/halving", () => {
     const app = appWith();
     const res = await app.request("/v1/network/halving");
     const body = await res.json();
-    expect(body.halvingHeight).toBe(4_406_400);
-    expect(body.blocksRemaining).toBe(4_406_400 - 3_429_000);
-    expect(body.estimatedSecondsRemaining).toBe(body.blocksRemaining * 75);
+    expect(body.halvingHeight).toBe(6_132_390);
+    expect(body.blocksRemaining).toBe(6_132_390 - 3_429_000);
+    // No observed interval here, so the targets: 75 s until NU7, 25 s after it.
+    expect(body.estimatedSecondsRemaining).toBe(
+      (3_543_405 - 3_429_000) * 75 + (6_132_390 - 3_543_405) * 25,
+    );
     // Node ZEC floats become exact zatoshis.
     expect(body.currentSubsidy.totalZat).toBe(156_250_000);
     expect(body.currentSubsidy.minerZat).toBe(125_000_000);
     expect(body.currentSubsidy.lockboxZat).toBe(18_750_000);
-    expect(body.nextSubsidy.totalZat).toBe(78_125_000);
+    expect(body.nextSubsidy.totalZat).toBe(26_041_666);
     // The subsidy partition must add up: miner + streams + lockbox = total.
     for (const s of [body.currentSubsidy, body.nextSubsidy]) {
       expect(s.minerZat + s.fundingStreamsZat + s.lockboxZat).toBe(s.totalZat);
@@ -1478,7 +1490,7 @@ describe("/v1/network/halving", () => {
     expect(body.nextSubsidy.fundingStreamsShare).toEqual({
       pct: 0,
       numerator: 0,
-      denominator: 78_125_000,
+      denominator: 26_041_666,
     });
   });
 

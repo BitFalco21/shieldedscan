@@ -1,9 +1,11 @@
 import type { HalvingEvent, HalvingSchedule } from "@/domain";
 import {
-  BLOCK_TARGET_SECONDS,
+  NU7_HEIGHT,
+  POST_NU7_TARGET_SECONDS,
   epochBounds,
   epochProgress,
-  estimateHalvingSeconds,
+  estimateSecondsBetween,
+  targetSpacingAt,
   utcDayFromSeconds,
 } from "@/domain";
 import { formatCount, formatDateLong, formatDurationCoarse, formatZecAmount } from "@/lib/format";
@@ -76,10 +78,12 @@ function HeroFact({
  */
 export function HalvingHero({ schedule, next, now, interval, measured }: HalvingHeroProps) {
   const blocksRemaining = Math.max(0, next.height - schedule.height);
-  const secondsRemaining = estimateHalvingSeconds(
-    blocksRemaining,
+  const secondsRemaining = estimateSecondsBetween(
+    schedule.height,
+    next.height,
     schedule.observedIntervalSeconds,
   );
+  const beforeNu7 = schedule.height < NU7_HEIGHT;
   const targetSeconds = now + secondsRemaining;
   const progress = epochProgress(schedule.height);
   const { from: epochFrom } = epochBounds(schedule.height);
@@ -128,8 +132,8 @@ export function HalvingHero({ schedule, next, now, interval, measured }: Halving
         </div>
 
         {/*
-         * The meter is made of blocks, because what it measures is blocks: the fraction is
-         * the count of lit ticks, so no computed width is needed.
+         * The fraction is target time through the epoch, not blocks: across NU7 a block is a
+         * third of the time. It is the count of lit ticks, so no computed width is needed.
          */}
         <div className="mt-7">
           <div
@@ -175,9 +179,13 @@ export function HalvingHero({ schedule, next, now, interval, measured }: Halving
         </dl>
 
         <p className="mx-auto mt-5 max-w-2xl text-xs leading-relaxed text-ink-faint">
+          {`Both heights are consensus, read together at block ${formatCount(schedule.height)}. `}
           {measured
-            ? `Both heights are consensus, read together at block ${formatCount(schedule.height)}. The date extrapolates the ${interval.toFixed(2)}-second average block time measured over the last 30 days, not the ${BLOCK_TARGET_SECONDS}-second target — over this distance the two differ by several days.`
-            : `Both heights are consensus, read together at block ${formatCount(schedule.height)}. The date comes from the ${BLOCK_TARGET_SECONDS}-second consensus target: the observed block time could not be measured just now, so this is the schedule's intent rather than the chain's recent pace.`}
+            ? `The date extrapolates the ${interval.toFixed(2)}-second average block time measured recently`
+            : `The date uses the ${targetSpacingAt(schedule.height)}-second target, as the recent block time could not be measured`}
+          {beforeNu7
+            ? ` until NU7 at block ${formatCount(NU7_HEIGHT)}, then its ${POST_NU7_TARGET_SECONDS}-second target.`
+            : "."}
         </p>
       </div>
     </section>

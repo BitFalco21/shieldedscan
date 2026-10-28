@@ -593,7 +593,9 @@ export const GOLDEN: EvalCase[] = [
     category: "stale-knowledge",
     world: "live",
     question: "At what block height is the next Zcash halving, and what does the subsidy become?",
-    mustContain: [/4,?406,?400/, /0\.78125/],
+    // NU7 moved it from 4,406,400; a model answering from training data says the old height.
+    mustContain: [/6,?132,?390/, /0\.26041666/],
+    mustNotContain: [/4,?406,?400 is the next/i],
   },
   {
     id: "stale-zcashd",

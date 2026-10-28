@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import type { MiningTerms } from "@/domain";
-import { BLOCK_TARGET_SECONDS, estimatedNetworkSolps, nextHalvingHeight } from "@/domain";
+import { estimatedNetworkSolps, nextSubsidyChangeHeight, targetSpacingAt } from "@/domain";
 import { observedBlockIntervalSeconds } from "./network-routes";
 import { Cached } from "./cached";
 import type { PriceTracker } from "./chain-stats";
@@ -48,7 +48,7 @@ export async function buildMiningTerms(
     deps.chain.getBlockSubsidy(height),
     deps.pool ? observedBlockIntervalSeconds(deps.pool) : Promise.resolve(0),
   ]);
-  const blockIntervalSeconds = interval > 0 ? interval : BLOCK_TARGET_SECONDS;
+  const blockIntervalSeconds = interval > 0 ? interval : targetSpacingAt(height);
   const estimate = estimatedNetworkSolps(difficulty, blockIntervalSeconds);
   const networkSolps: MiningTerms["networkSolps"] | null =
     nodeSolps !== null && nodeSolps > 0
@@ -67,7 +67,8 @@ export async function buildMiningTerms(
     // The node reports ZEC; the domain speaks zatoshi. Rounded because the node's floats are
     // exact multiples of 1e-8 and this only undoes representation.
     minerSubsidyZat: Math.round(subsidy.miner * 100_000_000),
-    subsidyChangesAtHeight: nextHalvingHeight(height),
+    // The next change of any kind — NU7 divides it by 3 before the next halving halves it.
+    subsidyChangesAtHeight: nextSubsidyChangeHeight(height),
     blockIntervalSeconds,
     priceUsd: deps.price?.current(now)?.usd ?? null,
     asOf: Math.floor(now / 1000),

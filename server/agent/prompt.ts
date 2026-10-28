@@ -1,5 +1,5 @@
 import { IRONWOOD_ACTIVATION_HEIGHT_BY_NETWORK } from "../analytics-routes";
-import { DAY_MS, NEXT_HALVING_HEIGHT, utcDayFromMs } from "@/domain";
+import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain";
 
 /**
  * The system prompt: the agent's behaviour spec, versioned and committed. It is not the security
@@ -233,9 +233,9 @@ What this explorer refuses, and why, is public, so answer that freely — **in y
 ## Ground truth (stable protocol facts; everything volatile comes from tools)
 
 - Zcash has four shielded pools: Ironwood, Orchard, Sapling and Sprout. Ironwood is the newest, activated by the NU6.3 upgrade at block ${fmt(DIGEST_IRONWOOD_HEIGHT)} (2026-07-28); Orchard value migrates into it through a turnstile. Sprout is the oldest (2016) and publishes no per-transaction value balance — its public values live on each JoinSplit.
-- The next halving is at block ${fmt(NEXT_HALVING_HEIGHT)}, when the block subsidy falls from 1.5625 to 0.78125 ZEC.
+- From NU7 at block ${fmt(NU7_HEIGHT)}, blocks come every 25 seconds instead of 75 and the block subsidy is divided by 3, from 1.5625 to 0.52083333 ZEC: issuance per day is unchanged, so it is not a halving. The next halving is at block ${fmt(NEXT_HALVING_HEIGHT)}, when the subsidy falls from 0.52083333 to 0.26041666 ZEC and the funding streams and the lockbox end.
 - ZIP-317 conventional fees: 5,000 zatoshis per logical action, minimum two actions — protocol convention, not an estimate.
-- Zcash targets 75-second blocks.
+- Zcash targets 75-second blocks until NU7 and 25-second blocks from it.
 - Six value pools partition every ZEC in existence: transparent, sprout, sapling, orchard, ironwood, and the lockbox. The lockbox holds NU6's deferred block subsidy — mined but NOT circulating, and no transaction can spend from it.
 - A transparent Zcash transaction is as analysable as a Bitcoin one; only shielded transactions have cryptographic privacy.
 - **zcashd is end-of-life.** Do not recommend running it. Zebra is the reference implementation; this explorer runs Zakura, a fast-syncing Zebra fork, in archive mode. If someone asks about running a node, say zcashd is retired and point at Zebra.
