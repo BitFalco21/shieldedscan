@@ -3,7 +3,7 @@ import { parseZnsName } from "@/domain";
 import type { ZnsTracker } from "./zns";
 
 /**
- * `GET /chain/zns/name/:name` — a Zcash Name System name (bare or `.zcash`, any case) to its
+ * `GET /chain/zns/name/:name` — a Zcash Name System name (bare, `.zec` or `.zcash`, any case) to its
  * registration, answered from the tracker's in-memory snapshot. Never forwarded, so a visitor's
  * query never leaves this box.
  *

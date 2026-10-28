@@ -39,7 +39,7 @@ test.describe("a Zcash name resolves forward", () => {
 
     await page.locator(`a[href="/address/${ZENITH}?name=zenith"]`).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(ZENITH);
-    await expect(page.locator("[data-zns-name]")).toContainText("zenith.zcash");
+    await expect(page.locator("[data-zns-name]")).toContainText("zenith.zec");
     // Names are answered from the API's snapshot; no visitor query reaches the registry.
     expect(foreign, `off-origin requests:\n${foreign.join("\n")}`).toEqual([]);
   });
@@ -52,10 +52,10 @@ test.describe("a Zcash name resolves forward", () => {
     const dialog = page.getByRole("dialog", { name: "Search the Zcash chain" });
     const field = dialog.getByRole("searchbox");
     await field.fill("zenith");
-    await expect(dialog.getByText("Name — zenith.zcash")).toBeVisible();
+    await expect(dialog.getByText("Name — zenith.zec")).toBeVisible();
     // ZNS treats `.zec` as the same name, so the palette does too.
     await field.fill("zenith.zec");
-    await expect(dialog.getByText("Name — zenith.zcash")).toBeVisible();
+    await expect(dialog.getByText("Name — zenith.zec")).toBeVisible();
 
     await field.fill("nobodyregisteredthis");
     // Wait past the debounce and the round trip, then assert no guessed destination appeared.
@@ -161,6 +161,6 @@ test.describe("a name the registry cannot vouch for is never shown", () => {
   test("without a searched name the address page carries no name at all", async ({ page }) => {
     await page.goto(`/address/${ZENITH}`);
     await expect(page.locator("[data-zns-name]")).toHaveCount(0);
-    await expect(page.locator("main")).not.toContainText(".zcash");
+    await expect(page.locator("main")).not.toContainText(".zec");
   });
 });

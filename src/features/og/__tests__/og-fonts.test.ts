@@ -71,7 +71,7 @@ function everyCardString(): string[] {
     out.push(facts.name, facts.addressShort, facts.since, facts.stamp, facts.host);
   }
   // Every character a name or a unified address can hold, since live names are not fixtures.
-  out.push("abcdefghijklmnopqrstuvwxyz0123456789.zcash", "FOR SALE");
+  out.push("abcdefghijklmnopqrstuvwxyz0123456789.zec", "FOR SALE");
   for (const verb of ["CLAIMED", "UPDATED", "BOUGHT"]) out.push(verb);
   out.push("JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER");
   // The compare card, over every asset the fixture market offers. Same font, same subset.

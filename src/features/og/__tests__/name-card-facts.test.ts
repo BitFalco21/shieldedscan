@@ -5,7 +5,7 @@ import { nameCardFacts } from "../name-card-facts";
 describe("nameCardFacts", () => {
   it("states the name and its address", () => {
     const facts = nameCardFacts(getZnsName("zenith"))!;
-    expect(facts.name).toBe("zenith.zcash");
+    expect(facts.name).toBe("zenith.zec");
     expect(facts.addressShort).toMatch(/^u175lny2ww…/);
     expect(facts.stamp).toBe("ZCASH NAME");
   });

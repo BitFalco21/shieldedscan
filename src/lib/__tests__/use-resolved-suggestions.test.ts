@@ -136,7 +136,7 @@ describe("useResolvedSuggestions", () => {
   });
 
   it("a name shows NOTHING until a registration is confirmed, then the confirmed row", async () => {
-    const row = { href: "/address/u1x?name=zenith", label: "Name — zenith.zcash", detail: "u1x" };
+    const row = { href: "/address/u1x?name=zenith", label: "Name — zenith.zec", detail: "u1x" };
     stubResolver([row]);
     const { result } = renderHook(() => useResolvedSuggestions("zenith"));
     expect(result.current.suggestions).toEqual([]);

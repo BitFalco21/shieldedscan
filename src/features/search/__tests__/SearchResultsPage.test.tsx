@@ -45,10 +45,10 @@ describe("SearchResultsPage", () => {
     expect(screen.getByRole("link", { name: /View as transaction/ })).toBeDefined();
   });
 
-  it("says a name is unregistered, writing it as name.zcash", () => {
+  it("says a name is unregistered, writing it as name.zec", () => {
     render(<SearchResultsPage state={{ kind: "name-not-found", name: "nobody" }} query="nobody" />);
     expect(screen.getByText(/No one has registered this name/)).toBeTruthy();
-    expect(screen.getByText("nobody.zcash")).toBeTruthy();
+    expect(screen.getByText("nobody.zec")).toBeTruthy();
     // The next step is the registry's own page for that name, opened in a new tab.
     const chip = screen.getByRole("link", { name: /see it on zcashnames\.com/ });
     expect(chip.getAttribute("href")).toBe("https://www.zcashnames.com/explorer?search=nobody");

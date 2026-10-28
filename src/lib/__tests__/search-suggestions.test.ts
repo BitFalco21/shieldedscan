@@ -40,10 +40,10 @@ describe("search suggestions", () => {
 
   it("gives a name only a gate row, which the hook never shows on its own", () => {
     expect(searchSuggestions("Zenith.zcash")).toEqual([
-      { href: "/search?q=zenith", label: "Zcash name", detail: "zenith.zcash" },
+      { href: "/search?q=zenith", label: "Zcash name", detail: "zenith.zec" },
     ]);
     expect(searchSuggestions("zenith.zec")).toEqual([
-      { href: "/search?q=zenith", label: "Zcash name", detail: "zenith.zcash" },
+      { href: "/search?q=zenith", label: "Zcash name", detail: "zenith.zec" },
     ]);
   });
 

@@ -1,10 +1,11 @@
+import Link from "@/components/Link";
 import { CopyButton } from "@/components/CopyButton";
 import { Panel } from "@/components/Panel";
-import { DONATION_ADDRESS } from "@/lib/donation";
+import { DONATION_ADDRESS, DONATION_ZNS_DISPLAY, DONATION_ZNS_NAME } from "@/lib/donation";
 import { PageHeader } from "@/components/PageHeader";
 
 /**
- * The donate page: one address, one QR, and a plain statement of why.
+ * The donate page: one address and its Zcash name, one QR, and a plain statement of why.
  *
  * The QR is a static, committed SVG (`public/donate-qr.svg`) generated from the same
  * constant this page renders and round-trip verified by `scripts/generate-donate-qr.mjs` —
@@ -45,7 +46,15 @@ export function DonatePage() {
             />
           </div>
           <div className="min-w-0">
-            <div className="microlabel">ADDRESS</div>
+            {/* The name page shows what the name resolves to, so a donor can check it there. */}
+            <div className="microlabel">ZCASH NAME</div>
+            <p className="mt-2 font-mono text-sm text-ink">
+              <Link href={`/name/${DONATION_ZNS_NAME}`} className="underline hover:text-green">
+                {DONATION_ZNS_DISPLAY}
+              </Link>
+              <CopyButton value={DONATION_ZNS_DISPLAY} label="donation name" />
+            </p>
+            <div className="microlabel mt-6">ADDRESS</div>
             <p className="mt-2 font-mono text-sm break-all text-ink">
               {DONATION_ADDRESS}
               <CopyButton value={DONATION_ADDRESS} label="donation address" />

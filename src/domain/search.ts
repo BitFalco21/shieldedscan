@@ -8,7 +8,7 @@ export type SearchQuery =
   | { type: "transparent-address"; address: string }
   | { type: "shielded-address"; address: string }
   /**
-   * A Zcash Name System name (`zenith` or `zenith.zcash`, any case), normalised to the bare name
+   * A Zcash Name System name (`zenith`, `zenith.zec` or `zenith.zcash`, any case), normalised to the bare name
    * the registry resolves. `query` is the trimmed input, so a surface that does not resolve
    * names can answer as it does for an unrecognised string.
    *

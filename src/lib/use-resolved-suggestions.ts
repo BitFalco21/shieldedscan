@@ -74,7 +74,7 @@ export function useResolvedSuggestions(value: string): ResolvedSuggestions {
     return { suggestions: resolved.rows, checking: false };
   }
   if (isName) {
-    // A name's local row is only a gate, never a destination: offering "zenith.zcash" for a word
+    // A name's local row is only a gate, never a destination: offering "zenith.zec" for a word
     // nobody registered would say we found something. Confirmed row or nothing.
     return { suggestions: [], checking: settledFor !== value };
   }

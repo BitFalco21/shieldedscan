@@ -344,7 +344,7 @@ function Strip({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * "zenith.zcash points here", with the transaction it rests on. Worded as where the REGISTRANT
+ * "zenith.zec points here", with the transaction it rests on. Worded as where the REGISTRANT
  * pointed the name, because that is all a registration establishes — the `?` says so for anyone
  * who reads the name as the holder's identity.
  */

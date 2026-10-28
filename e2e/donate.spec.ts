@@ -31,6 +31,15 @@ test.describe("/donate", () => {
     expect(copied).toBe(DONATION_ADDRESS);
   });
 
+  test("names the Zcash name beside it, copyable and linked to its name page", async ({ page }) => {
+    await page.goto("/donate");
+    const name = page.locator("main").getByRole("link", { name: "shieldedscan.zec" });
+    await expect(name).toHaveAttribute("href", "/name/shieldedscan");
+    await page.getByRole("button", { name: /copy donation name/i }).click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toBe("shieldedscan.zec");
+  });
+
   test("the QR image loads, has dimensions, and names its purpose", async ({ page }) => {
     await page.goto("/donate");
     const qr = page.getByRole("img", { name: /QR code for a Zcash donation/i });
