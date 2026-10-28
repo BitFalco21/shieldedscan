@@ -85,6 +85,8 @@ export function getPools(): ShieldedPool[] {
 export function getSupplyBreakdown(): SupplyBreakdown {
   return {
     height: TIP_HEIGHT,
+    // A pre-NU7 chain, where the node reports a balance of zero.
+    nsmZat: 0,
     pools: [
       { pool: "transparent", balanceZat: 1_250_845_176_000_000 },
       { pool: "lockbox", balanceZat: 5_299_350_000_000 },

@@ -106,6 +106,7 @@ export const BLOCK: Block = {
 
 export const SUPPLY: SupplyBreakdown = {
   height: 3_429_000,
+  nsmZat: 0,
   pools: [
     { pool: "transparent", balanceZat: 1_560_000_000_000_000 },
     { pool: "sprout", balanceZat: 2_994_923_783 },

@@ -47,6 +47,7 @@ const SPROUT_ONLY_TX: Transaction = {
 
 const SUPPLY: SupplyBreakdown = {
   height: 3_429_000,
+  nsmZat: 0,
   pools: [
     // ~15.6M ZEC transparent — the fixture must stay inside MAX_SUPPLY, or
     // unminedZat correctly clamps to 0 and the partition identity cannot hold.
@@ -1250,6 +1251,33 @@ describe("GET /v1/analytics/monthly", () => {
   });
 });
 
+describe("/v1/supply after NU7", () => {
+  // Sprout freezes at NU7 (ZIP 2003) and fees start filling the NSM balance (ZIP 235).
+  const afterNu7 = { ...SUPPLY, height: 3_543_405, nsmZat: 56_535_049_705 };
+  const app = () => appWith({ getSupplyBreakdown: async () => afterNu7 });
+
+  it("marks Sprout unspendable and states the NSM balance as mined", async () => {
+    const body = await (await app().request("/v1/supply")).json();
+    const sprout = body.pools.find((p: { pool: string }) => p.pool === "sprout");
+    expect(sprout.spendable).toBe(false);
+    expect(sprout.shielded).toBe(true);
+    expect(body.nsmZat).toBe(56_535_049_705);
+    const pools = body.pools.reduce(
+      (sum: number, p: { balanceZat: number }) => sum + p.balanceZat,
+      0,
+    );
+    expect(body.minedZat).toBe(pools + 56_535_049_705);
+  });
+
+  it("leaves Sprout and the NSM balance out of circulating supply, and says so", async () => {
+    const body = await (await app().request("/v1/supply/circulating?format=json")).json();
+    expect(body.excludes).toEqual(["lockbox", "sprout", "nsm"]);
+    expect(body.circulatingZat).toBe(
+      1_560_000_000_000_000 + 5_900_000_000_000 + 36_000_000_000_000 + 1_700_000_000_000,
+    );
+  });
+});
+
 describe("/v1/supply/circulating", () => {
   it("serves a bare ZEC decimal as text by default — the aggregator contract", async () => {
     const app = appWith();
@@ -1275,7 +1303,8 @@ describe("/v1/supply/circulating", () => {
     const app = appWith();
     const res = await app.request("/v1/supply/circulating?format=json");
     const body = await res.json();
-    expect(body.excludes).toEqual(["lockbox"]);
+    // Before NU7: the lockbox, and the NSM balance, which is in no pool and so never summed.
+    expect(body.excludes).toEqual(["lockbox", "nsm"]);
     expect(body.circulatingZat + 800_000_000_000).toBe(
       1_560_000_000_000_000 +
         2_994_923_783 +

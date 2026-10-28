@@ -308,7 +308,7 @@ describe("AgentTools.dispatch", () => {
     const result = await tools().dispatch("chain_status", JSON.stringify({ include: ["supply"] }));
     expect(result.content).toContain('"shieldedShareOfCirculating"');
     expect(result.content).toMatch(/"denominatorMeaning": "circulating supply/);
-    expect(result.content).toMatch(/minus the unspendable NU6 lockbox/);
+    expect(result.content).toMatch(/never the NU6 lockbox, not Sprout from NU7/);
   });
 
   /**

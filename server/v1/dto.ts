@@ -122,8 +122,14 @@ export interface V1PoolBalance {
 export interface V1Supply {
   heightReadAt: number;
   maxSupplyZat: number;
+  /** Every pool plus `nsmZat`: issued ZEC, wherever it now sits. */
   minedZat: number;
   unminedZat: number;
+  /**
+   * ZEC removed from circulation into the NSM balance (ZIP 235 from NU7, less ZIP 237's
+   * reissuance). In no pool, so not circulating. Null when the node does not report it.
+   */
+  nsmZat: number | null;
   shieldedZat: number;
   /** `shieldedZat` sums the four shielded pools; the lockbox is deliberately outside it. */
   shieldedZatExcludes: string[];
@@ -134,7 +140,7 @@ export interface V1Supply {
 }
 
 export interface V1CirculatingSupply {
-  /** minedZat minus the lockbox: mined but unspendable is not circulating. */
+  /** The spendable pools: never the lockbox, not Sprout from NU7, and never the NSM balance. */
   circulatingZat: number;
   /** The same figure as a ZEC decimal string with all eight places — what the text form serves. */
   circulatingZec: string;

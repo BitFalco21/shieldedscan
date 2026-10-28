@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShieldedPool, SupplyBreakdown } from "../pool";
 import type { Transaction } from "../transaction";
+import { NU7_HEIGHT } from "../halving";
 import {
   POOL_BUNDLE,
   POOL_NAMES,
@@ -92,6 +93,7 @@ describe("circulatingZat / setupFreeShieldedZat — read off one partition", () 
   // /fact-check page states are pinned against the chain rather than against a fixture.
   const partition: SupplyBreakdown = {
     height: 3_497_881,
+    nsmZat: 0,
     pools: [
       { pool: "transparent", balanceZat: 1_199_365_185_485_480 },
       { pool: "sprout", balanceZat: 2_231_740_137_602 },
@@ -102,10 +104,29 @@ describe("circulatingZat / setupFreeShieldedZat — read off one partition", () 
     ],
   };
 
-  it("excludes only the lockbox, matching the API's circulatingSupplyZat at that height", () => {
+  it("excludes only the lockbox before NU7, matching the API's circulatingSupplyZat there", () => {
     // /v1/chain reported 1,688,916,916,554,480 at the same height.
-    expect(circulatingZat(partition)).toBe(1_688_916_916_554_480);
-    expect(minedZat(partition) - circulatingZat(partition)).toBe(6_590_287_500_000);
+    expect(circulatingZat(partition, "mainnet")).toBe(1_688_916_916_554_480);
+    expect(minedZat(partition) - circulatingZat(partition, "mainnet")).toBe(6_590_287_500_000);
+  });
+
+  it("excludes Sprout too from NU7, when ZIP 2003 makes it unspendable", () => {
+    const afterNu7 = { ...partition, height: NU7_HEIGHT };
+    expect(circulatingZat(afterNu7, "mainnet")).toBe(1_688_916_916_554_480 - 2_231_740_137_602);
+    // Each network at its own NU7: testnet's is 4,465,026.
+    expect(circulatingZat(partition, "testnet")).toBe(1_688_916_916_554_480);
+    expect(circulatingZat({ ...partition, height: 4_465_026 }, "testnet")).toBe(
+      1_688_916_916_554_480 - 2_231_740_137_602,
+    );
+  });
+
+  it("counts the NSM balance as mined but never as circulating", () => {
+    // Testnet's NSM balance after three weeks of NU7 (2026-10-28): 565.35 TAZ.
+    const withNsm = { ...partition, height: NU7_HEIGHT, nsmZat: 56_535_049_705 };
+    expect(minedZat(withNsm) - minedZat(partition)).toBe(56_535_049_705);
+    expect(circulatingZat(withNsm, "mainnet")).toBe(
+      circulatingZat({ ...partition, height: NU7_HEIGHT }, "mainnet"),
+    );
   });
 
   it("counts Orchard and Ironwood as setup-free, Sapling and Sprout as not", () => {
@@ -121,12 +142,13 @@ describe("circulatingZat / setupFreeShieldedZat — read off one partition", () 
   it("never counts the transparent pool or the lockbox as setup-free shielded value", () => {
     const onlyPublic: SupplyBreakdown = {
       height: 1,
+      nsmZat: null,
       pools: [
         { pool: "transparent", balanceZat: 5 },
         { pool: "lockbox", balanceZat: 7 },
       ],
     };
     expect(setupFreeShieldedZat(onlyPublic)).toBe(0);
-    expect(circulatingZat(onlyPublic)).toBe(5);
+    expect(circulatingZat(onlyPublic, "mainnet")).toBe(5);
   });
 });

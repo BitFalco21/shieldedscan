@@ -95,6 +95,8 @@ export function createLiveSources(deps: {
   const chainSource = new NodeChainSource(
     rpc,
     chainIndex ? { blockFees: (h) => chainIndex.blockFees(h) } : {},
+    {},
+    deps.isTestnet ? "testnet" : "mainnet",
   );
   const publicChainSource = new NodeChainSource(
     new HttpNodeRpc(nodeRpcUrl, {
@@ -113,6 +115,7 @@ export function createLiveSources(deps: {
         },
       }),
     },
+    deps.isTestnet ? "testnet" : "mainnet",
   );
   return { rpc, chainSource, publicChainSource, price, stats24h };
 }
