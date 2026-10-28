@@ -16,14 +16,14 @@
 const ZNS_NAME_RE = /^[a-z0-9]{1,63}$/;
 
 /** How names are written on this site. The registry stores and resolves the bare name only. */
-export const ZNS_SUFFIX = ".zcash";
+export const ZNS_SUFFIX = ".zec";
 
 /**
- * The endings a reader may type after a name. ZNS treats `zenith`, `zenith.zcash` and
- * `zenith.zec` as one name, so all three reach one page; names are still written with
+ * The endings a reader may type after a name. ZNS treats `zenith`, `zenith.zec` and
+ * `zenith.zcash` as one name, so all three reach one page; names are still written with
  * `ZNS_SUFFIX`. At most one ending is stripped.
  */
-const ZNS_INPUT_SUFFIXES = [ZNS_SUFFIX, ".zec"] as const;
+const ZNS_INPUT_SUFFIXES = [ZNS_SUFFIX, ".zcash"] as const;
 
 /**
  * Beyond this many blocks behind our tip (the reorg depth), the registry's answer is withheld.
@@ -91,7 +91,7 @@ export interface ZnsLookup {
 
 /**
  * A query string as a registry name, or null when it cannot be one. Accepts `Zenith`,
- * `zenith.zcash`, `zenith.zec` and surrounding whitespace, because the registry resolves only the
+ * `zenith.zec`, `zenith.zcash` and surrounding whitespace, because the registry resolves only the
  * exact lowercase bare name and rejects the others. A bare `zec` is a name in its own right: the
  * ending needs its dot.
  */

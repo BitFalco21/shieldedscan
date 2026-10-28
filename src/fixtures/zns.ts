@@ -1,5 +1,6 @@
 import type { ZnsLookup, ZnsNameEvent, ZnsRegistration } from "@/domain";
 import { parseZnsName } from "@/domain";
+import { DONATION_ADDRESS, DONATION_ZNS_NAME } from "@/lib/donation";
 import { hex64, TIP_HEIGHT, TIP_TIME } from "./ids";
 
 /**
@@ -12,6 +13,7 @@ import { hex64, TIP_HEIGHT, TIP_TIME } from "./ids";
  * - `abraham` — moved off zenith's address by an UPDATE, so a verb other than "claimed" renders.
  * - `kazecstan` — released: a history and no registration.
  * - `stalename` — a registry too far behind our chain to trust, the "unavailable" state.
+ * - `shieldedscan` — this site's own name on the donation address, which `/donate` links to.
  */
 const ZENITH =
   "u175lny2wwmwzkhh83ef8weypdyfeacdq4up9pprqxsrsupcm8ag5fj3vtjakv32k6qus7fay4myqn3cvnlaa4hkdhnfgzdhmyyphma74kdz82ysqgm9urexdckg48x95q793xyy87h3833mpau9rtrl28w085lpvufglnvr6fus3eufeg";
@@ -37,6 +39,14 @@ const REGISTRATIONS: readonly ZnsRegistration[] = [
     height: TIP_HEIGHT - 1,
     timestamp: ts(TIP_HEIGHT - 1),
     lastAction: "UPDATE",
+  },
+  {
+    name: DONATION_ZNS_NAME,
+    address: DONATION_ADDRESS,
+    txid: hex64("bb61d803"),
+    height: TIP_HEIGHT - 1,
+    timestamp: ts(TIP_HEIGHT - 1),
+    lastAction: "CLAIM",
   },
 ];
 
@@ -65,6 +75,15 @@ const HISTORY: Readonly<Record<string, readonly ZnsNameEvent[]>> = {
       height: TIP_HEIGHT - 2,
       timestamp: ts(TIP_HEIGHT - 2),
       address: ZENITH,
+    },
+  ],
+  [DONATION_ZNS_NAME]: [
+    {
+      action: "CLAIM",
+      txid: hex64("bb61d803"),
+      height: TIP_HEIGHT - 1,
+      timestamp: ts(TIP_HEIGHT - 1),
+      address: DONATION_ADDRESS,
     },
   ],
   kazecstan: [

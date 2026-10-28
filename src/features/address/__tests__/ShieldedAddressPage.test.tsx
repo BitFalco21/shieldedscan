@@ -143,7 +143,7 @@ describe("ShieldedAddressPage", () => {
       />,
     );
     const chip = container.querySelector("[data-zns-name]")!;
-    expect(chip.textContent).toContain("zenith.zcash");
+    expect(chip.textContent).toContain("zenith.zec");
     expect(chip.textContent).toContain("points here");
     // The verb follows the last action: this row was UPDATED there, not claimed.
     expect(chip.textContent).toContain("updated at block 3,412,748");
@@ -158,6 +158,6 @@ describe("ShieldedAddressPage", () => {
   it("shows no name at all without a searched one — there is no reverse label", () => {
     const { container } = render(<ShieldedAddressPage address={UNIFIED} kind="unified" />);
     expect(container.querySelector("[data-zns-name]")).toBeNull();
-    expect(container.textContent).not.toContain(".zcash");
+    expect(container.textContent).not.toContain(".zec");
   });
 });
