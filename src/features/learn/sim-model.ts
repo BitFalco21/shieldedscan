@@ -1,4 +1,4 @@
-import { ZATS_PER_ZEC } from "@/domain";
+import { POST_NU7_TARGET_SECONDS, ZATS_PER_ZEC } from "@/domain";
 import { formatZec, formatUsdExact } from "@/lib/format";
 
 /**
@@ -31,7 +31,7 @@ export const SIM_ADDRESSES = {
 
 /** What one purchase buys. Small on purpose: the lesson is the path, not the amount. */
 export const BUY_ZAT = 10_000_000;
-/** Each test transaction waits this long for its block (the real target is 75 seconds). */
+/** Each test transaction waits this long for its block (the real target is 25 seconds from NU7). */
 export const SIM_BLOCK_MS = 1_100;
 /** ZIP 317: 5,000 zatoshis per logical action, at least two. Real transactions of these shapes pay exactly this. */
 export const SIM_FEES: Readonly<Record<SimShape, number>> = {
@@ -221,7 +221,7 @@ function pendingLabel(p: SimPending): string {
 /** The one line of guidance at the top: what to do next, in plain words. */
 export function simHint(s: SimState): string {
   if (s.pending) {
-    return `${pendingLabel(s.pending)} · waiting for the next block (about 75 seconds on the real network)`;
+    return `${pendingLabel(s.pending)} · waiting for the next block (about ${POST_NU7_TARGET_SECONDS} seconds on the real network)`;
   }
   const common = s.exchange === "transparent-only";
   if (s.deposited) {

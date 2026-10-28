@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PulseBlock } from "@/domain";
+import { targetSpacingAt, type PulseBlock } from "@/domain";
 import { formatCount } from "@/lib/format";
 
 export interface HeartbeatProps {
@@ -18,15 +18,20 @@ export interface HeartbeatProps {
 
 const W = 420;
 const H = 44;
-/** Zcash's post-Blossom target. The line every bar is read against. */
-const TARGET_SECONDS = 75;
-/** Where the top of the strip sits, in seconds. A slower block is clipped rather than rescaled. */
-const CEILING_SECONDS = 150;
+/**
+ * The strip's scale: the target line sits at half height, so the top is twice the target. A
+ * slower block is clipped rather than rescaled. Read from the newest block's era, 75 s before NU7
+ * and 25 s after, so the bars stay readable on either side of it.
+ */
+const ceilingFor = (targetSeconds: number): number => targetSeconds * 2;
 /** The most bars drawn; also the fewest slots laid out, so a short frame is not stretched wide. */
 const MAX_BARS = 40;
 const MIN_SLOTS = 12;
 
-const scale = (seconds: number): number => Math.min(H, (seconds * (H - 8)) / CEILING_SECONDS);
+const scaleFor =
+  (ceilingSeconds: number) =>
+  (seconds: number): number =>
+    Math.min(H, (seconds * (H - 8)) / ceilingSeconds);
 
 function barReading(block: PulseBlock): string {
   const height = formatCount(block.pools.height);
@@ -36,7 +41,7 @@ function barReading(block: PulseBlock): string {
 }
 
 /**
- * One bar per block interval, newest on the right, against the 75-second target.
+ * One bar per block interval, newest on the right, against the block target of the newest block.
  *
  * One clock, ours: each bar is `received_at` here less `received_at` at the previous height —
  * when our follower stored each block — never a miner's header time, which measures somebody
@@ -55,17 +60,20 @@ export function Heartbeat({ blocks, liveSeconds, unavailable }: HeartbeatProps) 
   const slotWidth = W / slots;
   const barWidth = Math.max(1, slotWidth - 2);
   const first = slots - drawn.length - 1;
-  const targetY = H - scale(TARGET_SECONDS);
+  const newest = drawn[drawn.length - 1];
+  const targetSeconds = targetSpacingAt(newest?.pools.height ?? Number.MAX_SAFE_INTEGER);
+  const scale = scaleFor(ceilingFor(targetSeconds));
+  const targetY = H - scale(targetSeconds);
   const caption = unavailable
     ? "unavailable"
-    : (reading ?? `block intervals · ${TARGET_SECONDS} s target · hover a bar`);
+    : (reading ?? `block intervals · ${targetSeconds} s target · hover a bar`);
   const clear = () => setReading(null);
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="pulse-heart"
       role="img"
-      aria-label={`Block intervals as our node received them, newest on the right, against a ${TARGET_SECONDS} second target.`}
+      aria-label={`Block intervals as our node received them, newest on the right, against a ${targetSeconds} second target.`}
       onPointerLeave={clear}
     >
       <line x1={0} y1={targetY} x2={W} y2={targetY} className="pulse-beat-target" />

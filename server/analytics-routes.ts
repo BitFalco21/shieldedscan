@@ -31,6 +31,7 @@ import {
   parseMinUsdFilter,
   parseMinZecFilter,
   parseUtcDayStart,
+  targetSpacingAt,
 } from "@/domain";
 import { formatUsdExact, formatZatUsdApprox } from "@/lib/format";
 import { formatZatMoneyApprox } from "@/lib/money";
@@ -769,7 +770,7 @@ export async function readValueExtremes(
     if (!r || r.lowest_zat === null || r.highest_zat === null) return null;
     // Behind the tip by more than the slack means the walk has not finished, or the top-up has
     // fallen behind far enough that the range is no longer all-time.
-    if (r.target === null || r.covered_through_height < r.target - VALUE_COVERAGE_SLACK) {
+    if (r.target === null || r.covered_through_height < r.target - valueCoverageSlack(r.target)) {
       return null;
     }
     return {
@@ -804,12 +805,16 @@ export async function readValueExtremes(
 }
 
 /**
- * How far behind the tip the range may fall and still be published, in blocks. The top-up runs
- * hourly and the chain produces about 48 blocks an hour, so a healthy deployment sits a few dozen
- * blocks back. Zero slack would make the range flicker between refreshes; two hours of blocks is
- * well below the gap a stalled walk would show.
+ * How far behind the tip the range may fall and still be published: two hours of blocks at the
+ * tip's block target. The top-up runs hourly, so a healthy deployment sits up to an hour back —
+ * 48 blocks at 75 s, 144 from NU7's 25 s, which is why this is time and not a block count. Zero
+ * slack would make the range flicker between refreshes; two hours is well below the gap a
+ * stalled walk would show.
  */
-const VALUE_COVERAGE_SLACK = 100;
+const VALUE_COVERAGE_SLACK_SECONDS = 2 * 60 * 60;
+
+const valueCoverageSlack = (height: number): number =>
+  Math.ceil(VALUE_COVERAGE_SLACK_SECONDS / targetSpacingAt(height));
 
 /**
  * Pivot period×kind fee rows into one point per period. A kind with no transactions in the

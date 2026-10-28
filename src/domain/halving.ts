@@ -11,7 +11,7 @@ import { DAY_SECONDS } from "./time";
  * 126,000,000 target seconds, now 5,040,000 blocks. The next halving moves from 4,406,400 to
  * 6,132,390 and the funding stream and lockbox move with it (ZIP 1016 as amended by zips#1370).
  * From `REISSUANCE_START_HEIGHT` each block also pays a reissuance bonus on top of the scheduled
- * subsidy (ZIP 234), which depends on how much ZEC has been removed from circulation and so cannot
+ * subsidy (ZIP 237), which depends on how much ZEC has been removed from circulation and so cannot
  * be known in advance.
  *
  * Subsidy figures shown for a height the node can answer come from its `getblocksubsidy`. Past
@@ -45,7 +45,7 @@ export const BLOSSOM_HEIGHT = 653_600;
 export const NU7_HEIGHT: number = requireHeight(NU7.activationHeight.mainnet);
 
 /**
- * Where ZIP 234 reissuance starts on mainnet: from this block the subsidy is the scheduled amount
+ * Where ZIP 237 reissuance starts on mainnet: from this block the subsidy is the scheduled amount
  * plus a bonus of 0.0001375% of the ZEC removed from circulation so far. Derived by Zakura from the
  * network's parameters alone (`nsm_reissuance_height`, asserted as 8,939,664 in its tests at
  * v1.7.0) and confirmed against the node at the boundary: `getblocksubsidy(8,939,663)` answers,
@@ -198,7 +198,7 @@ export function estimateSecondsBetween(
 /**
  * The scheduled per-block subsidy at `height`, in zatoshi: `MaxBlockSubsidy` scaled to the era's
  * block target, then divided by 2 for each halving, both floors as the protocol takes them.
- * From `REISSUANCE_START_HEIGHT` a block pays this plus the ZIP 234 bonus, so there it is a floor,
+ * From `REISSUANCE_START_HEIGHT` a block pays this plus the ZIP 237 bonus, so there it is a floor,
  * not the reward. Not defined in the slow start, which this schedule never reads.
  */
 export function scheduledSubsidyZat(height: number): number {

@@ -197,7 +197,7 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
           </p>
           <p className="mt-3 text-sm leading-relaxed text-ink-dim">
             From block {formatCount(REISSUANCE_START_HEIGHT)} every block also pays a reissuance
-            bonus: a small share of the ZEC removed from circulation since NU7 (ZIP 234). It cannot
+            bonus: a small share of the ZEC removed from circulation since NU7 (ZIP 237). It cannot
             be known in advance, so the figures below are the scheduled part only, a floor.
           </p>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">

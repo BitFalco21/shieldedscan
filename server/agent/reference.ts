@@ -416,18 +416,19 @@ export const REFERENCE_TOPICS = {
          * Source is ZIP 259, the deployment ZIP; the z.cash upgrade page answers automated reads with a
          * captcha and could not be re-read.
          *
-         * "has not yet been set" is deliberately kept for mainnet: the falsifier test in
-         * reference.test.ts requires it while the committed upgrade order lacks NU7, and the day a
-         * mainnet height is assigned this sentence must change.
+         * Until 2026-10-28 this entry said the mainnet height had not been chosen; ZIP 259 now sets it.
+         * The falsifier test in reference.test.ts holds the height to the domain's NU7 constant, and
+         * the day NU7 activates the committed upgrade order gains it and this entry must be
+         * rewritten in the past tense.
          *
-         * The testnet height is phrased as what the Draft states rather than as an activation: the
-         * in-flight grammar test forbids "activates at".
+         * Heights are phrased as what ZIP 259 sets rather than as an activation: the in-flight
+         * grammar test forbids "activates at".
          */
-        id: "nu7-not-yet-scheduled",
-        fact: 'As read on 2026-10-02, ZIP 259 "Deployment of the NU7 Network Upgrade" (status Draft, created 2026-09-15) defines NU7 and states its constants: ACTIVATION_HEIGHT (NU7) on Testnet is 4,465,026, and on Mainnet "TBD (To be set on OCT 20)", with "Assign the Mainnet NU7 activation height" listed among its open issues. So as of that reading the Mainnet activation height for NU7 has not yet been set, and there is no Mainnet NU7 date, height or countdown to give; "OCT 20" is when a height is to be chosen, not when NU7 would activate. Per that Draft, NU7 reduces the block target spacing from 75 seconds to 25 seconds with per-pool and global shielded action limits (ZIP 218), also deploys ZIPs 235, 237 and 2008 plus ZIP 207 revision 2 and ZIP 214 revision 3, and makes version 4 transactions invalid (ZIP 2003) — which is why, in its words, "funds remaining in the Sprout pool become unspendable". It introduces no new transaction format and, it states, does not deploy ZIP 233 or ZIP 234. NU7 is not in the upgrade order this explorer\'s node enforces.',
+        id: "nu7-scheduled",
+        fact: 'As read on 2026-10-28, ZIP 259 "Deployment of the NU7 Network Upgrade" (status Proposed, created 2026-09-15) sets ACTIVATION_HEIGHT (NU7) to 3,543,405 on Mainnet and 4,465,026 on Testnet, and this explorer\'s node, Zakura 1.7.0, carries the Mainnet height. The height is the fact; any date for it is an estimate from block times. Per ZIP 259, NU7 reduces the block target spacing from 75 seconds to 25 seconds with per-pool and global shielded action limits (ZIP 218), removes 60% of transaction fees from circulation (ZIP 235), adds halving-preserving reissuance (ZIP 237), updates the FS_FPF_ZCG_H3 address list (ZIP 2008) with ZIP 207 revision 2 and ZIP 214 revision 3, and makes version 4 transactions invalid (ZIP 2003) — which is why, in its words, "funds remaining in the Sprout pool become unspendable". It introduces no new transaction format and, it states, does not deploy ZIP 233 or ZIP 234. Until the chain reaches that height NU7 is not in the upgrade order this explorer\'s node enforces.',
         source: `${ZIPS}, ZIP 259 "Deployment of the NU7 Network Upgrade"`,
         href: "https://zips.z.cash/zip-0259",
-        verifiedOn: "2026-10-02",
+        verifiedOn: "2026-10-28",
         inFlight: true,
       },
       {
@@ -457,18 +458,18 @@ export const REFERENCE_TOPICS = {
          * header read on the day.
          */
         id: "nu7-candidate-zips",
-        fact: 'As read on 2026-10-02, the ZIPs site\'s "NU7 ZIPs" section says "The following ZIPs are planned for deployment in NU7:" and lists ZIP 218 25-second Block Target Spacing, ZIP 235 Remove 60% of Transaction Fees From Circulation, ZIP 237 Network Sustainability Mechanism: Halving-Preserving Issuance, ZIP 2003 Disallow version 4 transactions, and ZIP 2008 Update to FS_FPF_ZCG_H3 address list — every one of them Draft at that reading — adds that ZIP 317 may be updated, and says ZIP 259 "defines which ZIPs are included in NU7". The longer candidate list read on 2026-08-27 is gone: ZIP 230 (a version 6 transaction format) and ZIP 254 (an earlier NU7 deployment document) are Withdrawn; ZIPs 231, 233, 234 and 2002 are no longer listed for NU7, and ZIP 259 says NU7 does not deploy 233 or 234. "Planned" in a Draft is not "included": the list that counts is the one on the ZIPs site.',
+        fact: 'As read on 2026-10-28, the ZIPs site\'s "NU7 ZIPs" section says "The following ZIPs are planned for deployment in NU7:" and lists ZIP 218 25-second Block Target Spacing, ZIP 235 Remove 60% of Transaction Fees From Circulation, ZIP 237 Network Sustainability Mechanism: Halving-Preserving Issuance, ZIP 2003 Disallow version 4 transactions, and ZIP 2008 Update to FS_FPF_ZCG_H3 address list — every one of them Proposed at that reading, where on 2026-10-02 each was Draft — with revisions of ZIP 207 (revision 2) and ZIP 214 (revision 3), and says ZIP 259 "defines which ZIPs are included in NU7". The longer candidate list read on 2026-08-27 is gone: ZIP 230 (a version 6 transaction format) and ZIP 254 (an earlier NU7 deployment document) are Withdrawn; ZIPs 231, 233, 234 and 2002 are no longer listed for NU7, and ZIP 259 says NU7 does not deploy 233 or 234.',
         source: `${ZIPS}, the "NU7 ZIPs" section of the index and each listed ZIP's own header`,
         href: "https://zips.z.cash/",
-        verifiedOn: "2026-10-02",
+        verifiedOn: "2026-10-28",
         inFlight: true,
       },
       {
         id: "nsm-proposals",
-        fact: 'Five proposals concern how Zcash issues ZEC and removes it from circulation, and as read on 2026-10-02 none is in force. ZIP 233 "Network Sustainability Mechanism: Removing Funds From Circulation", ZIP 234 "Network Sustainability Mechanism: Issuance Smoothing", ZIP 235 "Remove 60% of Transaction Fees From Circulation" and ZIP 237 "Network Sustainability Mechanism: Halving-Preserving Issuance" are all Draft; ZIP 1016 "Community and Coinholder Funding Model" is Proposed. The Draft NU7 deployment ZIP 259 lists 235 and 237 for NU7 and says it does not deploy 233 or 234, so issuance smoothing is not part of NU7 as drafted — halvings are preserved, matching the coinholder poll. Draft and Proposed are two of the nine statuses ZIP 0 defines, and neither means implemented, active or final: none of these has changed the subsidy, the halving schedule or the funding streams in force today.',
+        fact: 'Five proposals concern how Zcash issues ZEC and removes it from circulation. As read on 2026-10-28: ZIP 233 "Network Sustainability Mechanism: Removing Funds From Circulation" and ZIP 234 "Network Sustainability Mechanism: Issuance Smoothing" are Draft and not part of NU7 — ZIP 259 says it does not deploy them — so issuance smoothing is not coming with NU7 and halvings are preserved, matching the coinholder poll. ZIP 235 "Remove 60% of Transaction Fees From Circulation" and ZIP 237 "Network Sustainability Mechanism: Halving-Preserving Issuance" are Proposed and are among the ZIPs ZIP 259 deploys at NU7 (block 3,543,405): from that block 60% of each block\'s fees is removed from circulation into the NSM balance instead of going to the miner, and from block 8,939,664, the start this explorer\'s node derives from ZIP 237\'s parameters, every block also pays a reissuance bonus from that balance on top of the halving schedule. ZIP 1016 "Community and Coinholder Funding Model" is Proposed. Proposed is one of the nine statuses ZIP 0 defines and does not by itself mean active: what is in force at a height is what the node enforces there.',
         source: `${ZIPS}, the headers of ZIPs 233, 234, 235, 237 and 1016, and ZIP 259`,
         href: "https://zips.z.cash/",
-        verifiedOn: "2026-10-02",
+        verifiedOn: "2026-10-28",
         inFlight: true,
       },
       {

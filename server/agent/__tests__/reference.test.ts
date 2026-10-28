@@ -13,6 +13,7 @@ import {
 import { SYSTEM_PROMPT } from "../prompt";
 import { sourceLinkFor } from "../tools";
 import { API_GROUPS, apiDocsHrefFor } from "@/api-catalogue";
+import { NU7_HEIGHT } from "@/domain";
 
 /**
  * Every committed entry, flattened. Annotated rather than inferred: `REFERENCE_TOPICS` is `as const
@@ -229,8 +230,8 @@ describe("the committed reference corpus", () => {
   });
 
   /**
-   * NU7 is described as unscheduled only while it is unscheduled; "the activation height for NU7
-   * has not yet been set" must not survive NU7's activation.
+   * NU7 is described as scheduled, at the domain's own height, only until it activates: the day it
+   * does, the committed upgrade order gains "NU7" and the entry must be rewritten in the past tense.
    *
    * The falsifier runs first, and it is the corpus's own settled upgrade order, which gains "NU7"
    * when NU7 ships. `SHIELDED_UPGRADES` would be the wrong falsifier (it is pool-only, and NU7 may
@@ -239,7 +240,7 @@ describe("the committed reference corpus", () => {
    * Both falsifiers read an order, not a document: the prompt mentions NU7 as proposed, so a
    * document-wide scan for "NU7" would report it as activated.
    */
-  it("calls NU7 unscheduled only while the committed upgrade order agrees", () => {
+  it("states NU7's height from the domain, as scheduled, only while it has not activated", () => {
     const order = REFERENCE_TOPICS.history.entries.find((e) => e.id === "nu61-exists");
     expect(order, "the committed upgrade order is gone").toBeDefined();
     const digestOrder = /^- Network upgrade history, in order:.*$/m.exec(SYSTEM_PROMPT);
@@ -250,13 +251,13 @@ describe("the committed reference corpus", () => {
     expect(
       shipped,
       "the committed upgrade order (or the prompt digest) now names NU7 — it has activated, so " +
-        "'the activation height for NU7 has not yet been set' is a stale refusal and " +
-        "roadmap/nu7-not-yet-scheduled must be rewritten against the node",
+        "roadmap/nu7-scheduled must be rewritten in the past tense",
     ).toBe(false);
 
-    const nu7 = REFERENCE_TOPICS.roadmap.entries.find((e) => e.id === "nu7-not-yet-scheduled");
+    const nu7 = REFERENCE_TOPICS.roadmap.entries.find((e) => e.id === "nu7-scheduled");
     expect(nu7, "the NU7 entry is gone").toBeDefined();
-    expect(nu7!.fact).toMatch(/has not yet been set/);
+    expect(nu7!.fact).toContain(NU7_HEIGHT.toLocaleString("en-US"));
+    expect(nu7!.fact).not.toMatch(/has not yet been set/);
   });
 });
 

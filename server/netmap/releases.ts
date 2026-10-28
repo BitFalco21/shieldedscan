@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { NET_UNIDENTIFIED_CLIENT, type NetReleaseGroup } from "@/domain";
+import { NET_UNIDENTIFIED_CLIENT, targetSpacingAt, type NetReleaseGroup } from "@/domain";
 import { classifyUserAgent } from "../p2p/user-agent";
 
 /**
@@ -15,17 +15,22 @@ import { classifyUserAgent } from "../p2p/user-agent";
  */
 
 /**
- * A node is behind when its declared height trails ours by more than this at its last answer.
- * Ten blocks is about twelve minutes at the 75-second target: past any propagation delay, and
- * well short of a node that has genuinely stopped.
+ * A node is behind when its declared height trails ours by more than 12½ minutes of blocks at its
+ * last answer: past any propagation delay, and well short of a node that has genuinely stopped.
+ * Time, not a block count, so the line means the same either side of NU7: 10 blocks at 75 s, 30
+ * at 25 s. Read at the node's own declared height.
  */
-export const BEHIND_TIP_BLOCKS = 10;
+const BEHIND_TIP_SECONDS = 750;
+
+export function behindTipBlocks(height: number): number {
+  return Math.ceil(BEHIND_TIP_SECONDS / targetSpacingAt(height));
+}
 
 /**
- * How far back the tip lookup reaches. The answering window is 24 hours (~1,150 blocks), so
- * 2,500 covers it with room for a slow day.
+ * How far back the tip lookup reaches. The answering window is 24 hours: 1,152 blocks at 75 s and
+ * 3,456 at NU7's 25 s, so 5,000 covers it in either era with room for a fast day.
  */
-const RECENT_BLOCK_SPAN = 2_500;
+const RECENT_BLOCK_SPAN = 5_000;
 
 /** A block our follower stored, with the instant it stored it. */
 export interface StoredBlock {
@@ -113,7 +118,7 @@ export function rawReleaseGroups(
     g.nodes += 1;
     const lag = tipLag(row, blocks);
     if (lag === null) g.tipUnknown += 1;
-    else if (lag > BEHIND_TIP_BLOCKS) g.behindTip += 1;
+    else if (lag > behindTipBlocks(row.best_height!)) g.behindTip += 1;
     groups.set(k, g);
   }
   return [...groups.values()];

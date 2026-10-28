@@ -258,7 +258,7 @@ export const CHARTS: ChartEntry[] = [
     api: { docsId: "analytics-network", path: "/v1/analytics/network" },
     blurb: "Blocks mined each day, against the protocol's target.",
     description: [
-      "Blocks mined per complete UTC day. The dashed line is the protocol's target: 576 a day at the original 150-second block time, 1,152 since Blossom halved it to 75 seconds in December 2019. The activation day falls under both targets and shows none.",
+      "Blocks mined per complete UTC day. The dashed line is the protocol's target: 576 a day at the original 150-second block time, 1,152 since Blossom halved it to 75 seconds in December 2019, and 3,456 from NU7's 25 seconds. An activation day falls under two targets and shows none.",
       "Difficulty adjusts to keep blocks near the target, so a lasting gap means hash rate moved faster than the adjustment. The current day is left out until it ends.",
     ],
   },

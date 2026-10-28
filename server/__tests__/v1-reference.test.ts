@@ -11,7 +11,8 @@ import { GLOSSARY, REFERENCE_TOPIC_LIST, v1ReferenceRoutes } from "../v1/referen
  * glossary naming an endpoint that does not exist.
  */
 
-const NOW = Date.UTC(2026, 9, 4, 12);
+// After every in-flight reading, so each age is a real, positive count of days.
+const NOW = Date.UTC(2026, 9, 30, 12);
 const app = () => v1ReferenceRoutes(() => NOW);
 const get = async (q = "") => {
   const res = await app().request(`/v1/reference${q}`);
