@@ -95,11 +95,11 @@ export const NETWORK_GROUP: ApiGroup = {
         "Blocks and estimated time to the next halving, and the block subsidy now and after it: split between the miner, the funding streams and the lockbox, each share with both its terms, and every stream named with the ZIP that defines it. The subsidies come from the node's own `getblocksubsidy`.",
       params: [],
       exampleResponse: `{
-  "height": 3447977,
-  "halvingHeight": 4406400,
-  "blocksRemaining": 958423,
-  "estimatedSecondsRemaining": 71881725,
-  "estimatedAt": "2028-11-22T04:28:45.000Z",
+  "height": 3533753,
+  "halvingHeight": 6132390,
+  "blocksRemaining": 2598637,
+  "estimatedSecondsRemaining": 65478446,
+  "estimatedAt": "2028-11-24T13:07:26.000Z",
   "currentSubsidy": {
     "totalZat": 156250000,
     "minerZat": 125000000,
@@ -128,13 +128,13 @@ export const NETWORK_GROUP: ApiGroup = {
     ]
   },
   "nextSubsidy": {
-    "totalZat": 78125000,
-    "minerZat": 78125000,
+    "totalZat": 26041666,
+    "minerZat": 26041666,
     "fundingStreamsZat": 0,
     "lockboxZat": 0,
-    "minerShare": { "pct": 100, "numerator": 78125000, "denominator": 78125000 },
-    "fundingStreamsShare": { "pct": 0, "numerator": 0, "denominator": 78125000 },
-    "lockboxShare": { "pct": 0, "numerator": 0, "denominator": 78125000 },
+    "minerShare": { "pct": 100, "numerator": 26041666, "denominator": 26041666 },
+    "fundingStreamsShare": { "pct": 0, "numerator": 0, "denominator": 26041666 },
+    "lockboxShare": { "pct": 0, "numerator": 0, "denominator": 26041666 },
     "fundingStreams": [],
     "lockboxStreams": []
   },
@@ -165,27 +165,27 @@ export const NETWORK_GROUP: ApiGroup = {
     },
     {
       "kind": "halving",
-      "height": 4406400,
+      "height": 6132390,
       "at": null,
       "atUtc": null,
-      "before": { "totalZat": 156250000, "minerZat": 125000000, "fundingStreamsZat": 12500000, "lockboxZat": 18750000 },
-      "after": { "totalZat": 78125000, "minerZat": 78125000, "fundingStreamsZat": 0, "lockboxZat": 0 }
+      "before": { "totalZat": 52083333, "minerZat": 41666668, "fundingStreamsZat": 4166666, "lockboxZat": 6249999 },
+      "after": { "totalZat": 26041666, "minerZat": 26041666, "fundingStreamsZat": 0, "lockboxZat": 0 }
     }
   ],
-  "asOf": 1786742424
+  "asOf": 1793205600
 }`,
       notes: [
-        "The halving height is a consensus constant, boundary-verified against the live node: `getblocksubsidy(4406399)` = 1.5625 ZEC, `getblocksubsidy(4406400)` = 0.78125 ZEC.",
-        "`estimatedAt` assumes the 75-second post-Blossom block target and is labelled an estimate — real block times wander.",
-        "`events` lists every subsidy change so far and the next halving, oldest first, each with the block's own timestamp. Blossom (653,600) is in the list as `block-time-change`: the per-block subsidy halved there but the block interval halved with it, so issuance per day did not move — it was not a halving.",
-        "**`nextSubsidy` shows no streams because ZIP 214 revision 2's funding streams end at block 4,406,400 — the same height as the halving.** That means the streams as currently legislated run out there, not that miners keep the whole subsidy permanently; whatever follows would be set by a future ZIP.",
+        "The halving height is a consensus constant, boundary-verified against the live node: `getblocksubsidy(6132389)` = 0.52083333 ZEC, `getblocksubsidy(6132390)` = 0.26041666 ZEC. NU7's 25-second blocks moved it from 4,406,400 without moving its date.",
+        "`estimatedAt` runs the recent observed block time until NU7 (block 3,543,405) and NU7's 25-second target after it, and is labelled an estimate — real block times wander.",
+        "`events` lists every subsidy change so far and the next halving, oldest first, each with the block's own timestamp. Blossom (653,600) and, once activated, NU7 (3,543,405) are `block-time-change`: the per-block subsidy fell with the block interval, so issuance per day did not move — neither is a halving.",
+        "**`nextSubsidy` shows no streams because ZIP 214 revision 2's funding streams end at block 6,132,390 — the same height as the halving.** That means the streams as currently legislated run out there, not that miners keep the whole subsidy permanently; whatever follows would be set by a future ZIP.",
         "`recipient` is the **node's own label** for a stream and can lag the ZIP's current recipient name: at height 3,447,900 the node reports `Major Grants` for the stream ZIP 214 revision 2 directs to the Financial Privacy Foundation for Zcash Community Grants, and `Lockbox NU6` while revision 2 — the NU6.1 revision — is active. The payout address matches ZIP 214's own table. It is passed through rather than corrected, because rewriting it would assert a mapping consensus does not publish; `specification` is the authority.",
         "`address` is null on a lockbox stream: it is paid into a value pool rather than to an address, which is why no transaction can spend it.",
         'The three `*Share` fields exist so no caller has to divide. They were added 2026-08-14 after the four zatoshi figures alone left the question "what share of the block reward goes to funding streams" unanswerable to a consumer forbidden from doing its own arithmetic.',
       ],
       toolNotes: [
-        "`estimatedAt` assumes 75-second blocks and is an estimate; the halving height (4,406,400) is exact.",
-        "`events` lists every subsidy change so far and the next halving. Blossom (653,600) is a `block-time-change`, not a halving: issuance per day did not change.",
+        "`estimatedAt` is an estimate (recent block time until NU7, 25-second blocks after); the halving height (6,132,390) is exact.",
+        "`events` lists every subsidy change so far and the next halving. Blossom (653,600) and NU7 (3,543,405) are `block-time-change`, not halvings: issuance per day did not change.",
         "`nextSubsidy` shows no funding streams because ZIP 214 revision 2's streams end at the halving height, as currently legislated; a future ZIP may set new ones.",
         "`recipient` is the node's own label for a stream and can lag the ZIP's name for the recipient; `specification` is the authority. Use the `*Share` fields rather than dividing.",
       ],
@@ -214,7 +214,7 @@ export const NETWORK_GROUP: ApiGroup = {
       "zat": 125000000,
       "zec": "1.25000000"
     },
-    "subsidyChangesAtHeight": 4406400,
+    "subsidyChangesAtHeight": 3543405,
     "observedBlockIntervalSeconds": 75.3312885210799,
     "priceUsd": 1328.17
   },

@@ -29,7 +29,9 @@ export function SubsidyChange({ next }: SubsidyChangeProps) {
           <tr className="microlabel text-left">
             <th className="border-b border-edge-faint pb-2 font-normal">PER BLOCK (ZEC)</th>
             <th className="border-b border-edge-faint pb-2 text-right font-normal">
-              <FlushEnd>NOW</FlushEnd>
+              {/* What a block pays just before the halving, which is not what it pays now while
+                  NU7 lies between the two. */}
+              <FlushEnd>BEFORE</FlushEnd>
             </th>
             <th className="border-b border-edge-faint pb-2 text-right font-normal">
               <FlushEnd>AFTER</FlushEnd>

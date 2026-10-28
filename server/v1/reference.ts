@@ -98,7 +98,7 @@ export const GLOSSARY: readonly { term: string; definition: string }[] = [
   {
     term: "block subsidy",
     definition:
-      "New ZEC issued per block, halving on a fixed schedule; the next halving is at block 4,406,400. Since NU6.1 it is split 80% to the miner, 8% to a funding stream and 12% to the lockbox (ZIP 214, ZIP 271). `/v1/network/halving` reads the split in force from the node.",
+      "New ZEC issued per block, halving every four years of block time; the next halving is at block 6,132,390. NU7 (block 3,543,405) divides it by 3 with 25-second blocks, which is not a halving. Since NU6.1 it is split 80% to the miner, 8% to a funding stream and 12% to the lockbox (ZIP 214, ZIP 271). `/v1/network/halving` reads the split in force from the node.",
   },
   {
     term: "lockbox",

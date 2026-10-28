@@ -183,7 +183,7 @@ export const CLAIMS: readonly Claim[] = [
     answer: [
       "The Founders' Reward ended in 2020. Today miners get 80% of each block's subsidy, Zcash Community Grants 8%, and 12% goes to a lockbox that no transaction can spend.",
       "One upgrade has released lockbox funds: 78,750 ZEC in November 2025, to a multisig held by the Zcash Foundation, Electric Coin Company and Shielded Labs, for development grants.",
-      "Both streams stop at block 4,406,400, the next halving.",
+      "Both streams stop at block 6,132,390, the next halving (NU7's faster blocks moved it from 4,406,400 without moving its date).",
     ],
     live: ["lockbox"],
     sources: [

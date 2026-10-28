@@ -16,7 +16,8 @@ export function getMiningTerms(): MiningTerms {
     difficulty: 216_327_100.7843388,
     networkSolps: { value: 23_005_253_630, basis: "node" },
     minerSubsidyZat: 125_000_000,
-    subsidyChangesAtHeight: 4_406_400,
+    // NU7, the next change of any kind: it divides the subsidy by 3 before any halving.
+    subsidyChangesAtHeight: 3_543_405,
     blockIntervalSeconds: 75.35,
     priceUsd: chainInfo.priceUsd,
     asOf: TIP_TIME,

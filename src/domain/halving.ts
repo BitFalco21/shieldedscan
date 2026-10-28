@@ -1,77 +1,211 @@
+import { NU7 } from "./network-upgrade";
 import { DAY_SECONDS } from "./time";
 
 /**
- * Zcash's halving schedule.
+ * Zcash's halving schedule, on mainnet (the only network `/halving` serves).
  *
  * A height is exact and a date is an estimate; every function here keeps the two apart.
  *
- * Subsidy figures come from the node's `getblocksubsidy` and are never recomputed: the split
- * between miner, funding streams and lockbox changes by consensus rule at heights this code
- * does not model. At the next halving (4,406,400) today's funding stream (ZIP 214 revision 2,
- * NU6.1) and the NU6 lockbox (extended by ZIP 271) both expire, so the miner's share does not
- * halve: the node reports 1.25 ZEC to the miner, 0.125 (8%) to one stream and 0.1875 (12%) to
- * the lockbox at 4,406,399, and 0.78125 entirely to the miner at 4,406,400. ZIP 1015's
- * original dev fund ended earlier, at `FUNDING_EXPIRY_BEFORE_NU61`.
+ * NU7 (ZIP 218, activated by ZIP 259) changes the schedule without changing its timing: blocks go
+ * from 75 to 25 seconds and the per-block subsidy is divided by 3, so a halving still comes every
+ * 126,000,000 target seconds, now 5,040,000 blocks. The next halving moves from 4,406,400 to
+ * 6,132,390 and the funding stream and lockbox move with it (ZIP 1016 as amended by zips#1370).
+ * From `REISSUANCE_START_HEIGHT` each block also pays a reissuance bonus on top of the scheduled
+ * subsidy (ZIP 234), which depends on how much ZEC has been removed from circulation and so cannot
+ * be known in advance.
+ *
+ * Subsidy figures shown for a height the node can answer come from its `getblocksubsidy`. Past
+ * `REISSUANCE_START_HEIGHT` the node refuses (the bonus needs the parent block), so the scheduled
+ * part is computed by `scheduledSubsidyZat`, whose formula is pinned in tests to the node's answers
+ * at every boundary it can still read.
  */
 
 /**
- * Blocks between halvings, post-Blossom: 1,046,400 + 1,680,000 = 2,726,400 + 1,680,000 =
- * 4,406,400. Pre-Blossom it was 840,000 blocks of 150 s — the same 126,000,000 seconds.
+ * Blocks between halvings after Blossom and before NU7: 1,046,400 + 1,680,000 = 2,726,400.
+ * Pre-Blossom it was 840,000 blocks of 150 s, after NU7 5,040,000 of 25 s — the same
+ * 126,000,000 seconds every time.
  */
 export const HALVING_INTERVAL = 1_680_000;
+
+/** Blocks between halvings once NU7's 25-second target applies. */
+export const POST_NU7_HALVING_INTERVAL = 5_040_000;
 
 /**
  * Blossom's activation, where the block target went 150 s → 75 s.
  *
  * Not a halving: the per-block subsidy halved (12.5 → 6.25) but so did the block target, so
- * issuance per day was unchanged (840,000 × 150 = 1,680,000 × 75 seconds per era). Carried as
- * data so the history table can label that step explicitly.
+ * issuance per day was unchanged. Carried as data so the history table can label that step.
  */
 export const BLOSSOM_HEIGHT = 653_600;
 
 /**
- * Halvings that have already happened, oldest first (Canopy's, then NU6's).
- *
- * `nextHalvingHeight` derives from the last entry plus the interval, so the page moves to the
- * next event as soon as the tip crosses one.
+ * NU7's activation on mainnet, where the block target goes 75 s → 25 s and the per-block subsidy
+ * is divided by 3. Not a halving, for the same reason Blossom was not one.
  */
-export const PAST_HALVING_HEIGHTS: readonly number[] = [1_046_400, 2_726_400];
+export const NU7_HEIGHT: number = requireHeight(NU7.activationHeight.mainnet);
 
 /**
- * The halving after the last one listed: 2,726,400 + 1,680,000 = 4,406,400. Checked against the
- * node: getblocksubsidy(4,406,399) = 1.5625 ZEC and getblocksubsidy(4,406,400) = 0.78125 ZEC.
- * Where a tip is at hand, `nextHalvingHeight(tip)` also moves on once the chain passes it.
+ * Where ZIP 234 reissuance starts on mainnet: from this block the subsidy is the scheduled amount
+ * plus a bonus of 0.0001375% of the ZEC removed from circulation so far. Derived by Zakura from the
+ * network's parameters alone (`nsm_reissuance_height`, asserted as 8,939,664 in its tests at
+ * v1.7.0) and confirmed against the node at the boundary: `getblocksubsidy(8,939,663)` answers,
+ * `getblocksubsidy(8,939,664)` refuses for want of the parent block.
  */
-export const NEXT_HALVING_HEIGHT =
-  PAST_HALVING_HEIGHTS[PAST_HALVING_HEIGHTS.length - 1]! + HALVING_INTERVAL;
+export const REISSUANCE_START_HEIGHT = 8_939_664;
+
+/** Halvings that have already happened, oldest first (Canopy's, then NU6's). */
+export const PAST_HALVING_HEIGHTS: readonly number[] = [1_046_400, 2_726_400];
 
 /**
  * Where the funding stream and the lockbox were scheduled to expire before NU6.1.
  *
  * Precedent for the one conditional claim `/halving` makes ("the miner takes 100% after the
  * next halving"): ZIP 1015's dev fund ran to this height until ZIP 214 revision 2 and ZIP 271
- * moved the expiry to the next halving. The streams ending is a property of current consensus,
- * not of Zcash.
+ * moved the expiry to the next halving, and NU7 then moved that halving. The streams ending is a
+ * property of current consensus, not of Zcash.
  *
  * Unlike the other heights here this is not node-verifiable: the expiry moved before the
  * chain arrived, so `getblocksubsidy` at this height reports the replacement rules. Its source
  * is https://zips.z.cash/zip-0214 (revisions 1 and 2), and copy says "were scheduled to end
  * at", never "ended at".
- *
- * In-flight proposals that would change this schedule (ZIP 234 Issuance Smoothing, ZIPs 233
- * and 235, ZIP 1016) are deliberately not rendered: a draft status nothing here re-checks
- * goes stale silently.
  */
 export const FUNDING_EXPIRY_BEFORE_NU61 = 3_146_400;
 
 /**
- * The post-Blossom block target. The chain does not land on it exactly, which is why
- * `estimateHalvingSeconds` takes an observed interval.
+ * The block target between Blossom and NU7. Callers that need the target at a given height use
+ * `targetSpacingAt`.
  */
 export const BLOCK_TARGET_SECONDS = 75;
 
 /** The block-time target before Blossom (`BLOSSOM_HEIGHT`) halved it. */
 export const PRE_BLOSSOM_TARGET_SECONDS = 150;
+
+/** The block-time target from NU7 (`NU7_HEIGHT`), ZIP 218. */
+export const POST_NU7_TARGET_SECONDS = 25;
+
+/** `MaxBlockSubsidy`: 12.5 ZEC, the per-block subsidy at 150-second blocks before any halving. */
+const MAX_BLOCK_SUBSIDY_ZAT = 1_250_000_000;
+
+/** `SlowStartInterval`: the first 20,000 blocks ramped the subsidy up, outside this schedule. */
+const SLOW_START_INTERVAL = 20_000;
+
+function requireHeight(height: number | null): number {
+  if (height === null) throw new Error("NU7's mainnet activation height is not set");
+  return height;
+}
+
+/**
+ * The mainnet block target at `height`. The same answer as `targetSpacingSeconds("mainnet", h)`
+ * in `consensus.ts` (a test holds them together); repeated here because that module imports
+ * this one.
+ */
+export function targetSpacingAt(height: number): 150 | 75 | 25 {
+  if (height >= NU7_HEIGHT) return POST_NU7_TARGET_SECONDS;
+  return height >= BLOSSOM_HEIGHT ? BLOCK_TARGET_SECONDS : PRE_BLOSSOM_TARGET_SECONDS;
+}
+
+/** The pre-NU7 third halving, 4,406,400, stretched by NU7: blocks after NU7 count a third. */
+const THIRD_HALVING_HEIGHT =
+  NU7_HEIGHT +
+  ((PAST_HALVING_HEIGHTS[1]! + HALVING_INTERVAL - NU7_HEIGHT) * BLOCK_TARGET_SECONDS) /
+    POST_NU7_TARGET_SECONDS;
+
+/**
+ * The height of the `index`th halving (1 = Canopy's). 6,132,390 for the third, then every
+ * 5,040,000 blocks. Node-verified for the third: `getblocksubsidy(6,132,389)` = 0.52083333 ZEC and
+ * `getblocksubsidy(6,132,390)` = 0.26041666 ZEC.
+ */
+export function halvingHeight(index: number): number {
+  if (!Number.isInteger(index) || index < 1) throw new RangeError(`no halving ${index}`);
+  if (index <= PAST_HALVING_HEIGHTS.length) return PAST_HALVING_HEIGHTS[index - 1]!;
+  return THIRD_HALVING_HEIGHT + (index - 3) * POST_NU7_HALVING_INTERVAL;
+}
+
+/** How many halvings have happened at `height` (0 before Canopy's). */
+function halvingIndex(height: number): number {
+  if (height < halvingHeight(1)) return 0;
+  if (height < THIRD_HALVING_HEIGHT) return height < halvingHeight(2) ? 1 : 2;
+  return 3 + Math.floor((height - THIRD_HALVING_HEIGHT) / POST_NU7_HALVING_INTERVAL);
+}
+
+/** The halving after the last one that has happened: 6,132,390. */
+export const NEXT_HALVING_HEIGHT = halvingHeight(PAST_HALVING_HEIGHTS.length + 1);
+
+/** The halving the chain is counting toward. */
+export function nextHalvingHeight(height: number): number {
+  return halvingHeight(halvingIndex(height) + 1);
+}
+
+/** The halving epoch the chain is inside: from the last halving to the next. */
+export function epochBounds(height: number): { from: number; to: number } {
+  const index = halvingIndex(height);
+  return { from: index === 0 ? 0 : halvingHeight(index), to: halvingHeight(index + 1) };
+}
+
+/**
+ * Target seconds of chain between two heights: each block weighs its own era's target. Consensus
+ * arithmetic, not an estimate: it is how the protocol itself measures time between halvings.
+ */
+export function targetSecondsBetween(from: number, to: number): number {
+  if (to <= from) return 0;
+  let seconds = 0;
+  let h = from;
+  for (const boundary of [BLOSSOM_HEIGHT, NU7_HEIGHT]) {
+    if (h < boundary) {
+      const end = Math.min(boundary, to);
+      seconds += (end - h) * targetSpacingAt(h);
+      h = end;
+    }
+    if (h >= to) return seconds;
+  }
+  return seconds + (to - h) * targetSpacingAt(h);
+}
+
+/**
+ * How far through the current epoch the chain is, 0..1, in target time rather than blocks: across
+ * NU7 a block is worth a third of the time, so a count of blocks would read the epoch as a quarter
+ * done when half of it has passed.
+ */
+export function epochProgress(height: number): number {
+  const { from, to } = epochBounds(height);
+  const done = targetSecondsBetween(from, height) / targetSecondsBetween(from, to);
+  return Math.min(1, Math.max(0, done));
+}
+
+/**
+ * Seconds from block `from` to block `to`, estimated.
+ *
+ * The single implementation for `/halving` and `/v1/network/halving`, so the site states one
+ * date. Blocks in the era `from` is in run at the observed interval, which the caller measures
+ * within that era only; blocks in a later era run at its target, since nothing has been observed
+ * of it yet. A non-positive or unusable interval falls back to the current era's target.
+ */
+export function estimateSecondsBetween(
+  from: number,
+  to: number,
+  observedIntervalSeconds: number,
+): number {
+  if (to <= from) return 0;
+  const interval =
+    Number.isFinite(observedIntervalSeconds) && observedIntervalSeconds > 0
+      ? observedIntervalSeconds
+      : targetSpacingAt(from);
+  const eraEnd = [BLOSSOM_HEIGHT, NU7_HEIGHT].find((b) => b > from) ?? Infinity;
+  if (to <= eraEnd) return (to - from) * interval;
+  return (eraEnd - from) * interval + targetSecondsBetween(eraEnd, to);
+}
+
+/**
+ * The scheduled per-block subsidy at `height`, in zatoshi: `MaxBlockSubsidy` scaled to the era's
+ * block target, then divided by 2 for each halving, both floors as the protocol takes them.
+ * From `REISSUANCE_START_HEIGHT` a block pays this plus the ZIP 234 bonus, so there it is a floor,
+ * not the reward. Not defined in the slow start, which this schedule never reads.
+ */
+export function scheduledSubsidyZat(height: number): number {
+  if (height < SLOW_START_INTERVAL) throw new RangeError(`slow-start height ${height}`);
+  const base = Math.floor((MAX_BLOCK_SUBSIDY_ZAT * targetSpacingAt(height)) / 150);
+  return Math.floor(base / 2 ** halvingIndex(height));
+}
 
 /** A subsidy split, in zatoshi, exactly as the node reported it for one height. */
 export interface SubsidySplit {
@@ -84,8 +218,8 @@ export interface SubsidySplit {
 /**
  * What happened at a height where the per-block subsidy changed.
  *
- * `block-time-change` exists for Blossom alone, so the history table can show the 12.5 → 6.25
- * step labelled as not a halving.
+ * `block-time-change` is Blossom and NU7: the subsidy per block fell because blocks came faster,
+ * and issuance per day did not change.
  */
 export type SubsidyEventKind = "halving" | "block-time-change";
 
@@ -110,56 +244,16 @@ export interface HalvingEvent {
 export interface HalvingSchedule {
   /** Chain tip the schedule was read at. Rendered, so any staleness is visible. */
   height: number;
-  /** Mean seconds per block, measured over recent chain rather than assumed. */
+  /** Mean seconds per block, measured over recent chain within the tip's era, 0 if unmeasured. */
   observedIntervalSeconds: number;
   /** Oldest first. The last entry is the next halving; every earlier one has happened. */
   events: HalvingEvent[];
   /**
-   * Halvings after the next one, oldest first — node-sourced and bounded. See `subsidyTail`
+   * Halvings after the next one, oldest first, with their scheduled subsidy. See `subsidyTail`
    * for the full run to zero.
    */
   upcoming: { height: number; totalZat: number }[];
   asOf: number;
-}
-
-/** The halving the chain is counting toward. */
-export function nextHalvingHeight(height: number): number {
-  const last = PAST_HALVING_HEIGHTS[PAST_HALVING_HEIGHTS.length - 1] ?? 0;
-  if (height < last) {
-    // The tip is behind a halving we already list — return the first one ahead of it.
-    const ahead = PAST_HALVING_HEIGHTS.find((h) => h > height);
-    if (ahead !== undefined) return ahead;
-  }
-  let next = last;
-  while (next <= height) next += HALVING_INTERVAL;
-  return next;
-}
-
-/** The halving epoch the chain is inside: the interval that ends at the next halving. */
-export function epochBounds(height: number): { from: number; to: number } {
-  const to = nextHalvingHeight(height);
-  return { from: to - HALVING_INTERVAL, to };
-}
-
-/** How far through the current epoch the chain is, 0..1. Pure block arithmetic, not an estimate. */
-export function epochProgress(height: number): number {
-  const { from, to } = epochBounds(height);
-  return Math.min(1, Math.max(0, (height - from) / (to - from)));
-}
-
-/**
- * Seconds until a halving, from an observed block interval.
- *
- * The single implementation for `/halving` and `/v1/network/halving`, so the site states one
- * date. The chain runs slightly slower than the 75 s target (~75.35 s), which over ~960,000
- * blocks is about four days. A non-positive or unusable interval falls back to the target.
- */
-export function estimateHalvingSeconds(blocksRemaining: number, intervalSeconds: number): number {
-  const interval =
-    Number.isFinite(intervalSeconds) && intervalSeconds > 0
-      ? intervalSeconds
-      : BLOCK_TARGET_SECONDS;
-  return Math.max(0, blocksRemaining) * interval;
 }
 
 /** Per-recipient change across a halving, as a signed fraction (−0.5 is a halving). */
@@ -174,9 +268,9 @@ export interface SubsidyDelta {
 /**
  * What changes across a halving, per recipient.
  *
- * "The subsidy halves" is true of the total but not of the miner at 4,406,400: with the
- * funding stream and lockbox expiring, the miner goes from 1.25 (80% of 1.5625) to 0.78125
- * (100% of 0.78125), a fall of 37.5%. A recipient that was already zero returns 0.
+ * "The subsidy halves" is true of the total but not of the miner at 6,132,390: with the
+ * funding stream and lockbox expiring, the miner goes from 0.41666668 (80% of 0.52083333) to
+ * 0.26041666 (100% of 0.26041666), a fall of 37.5%. A recipient that was already zero returns 0.
  */
 export function subsidyDelta(before: SubsidySplit, after: SubsidySplit): SubsidyDelta {
   const pct = (from: number, to: number) => (from === 0 ? 0 : to / from - 1);
@@ -189,8 +283,8 @@ export function subsidyDelta(before: SubsidySplit, after: SubsidySplit): Subsidy
 }
 
 /**
- * ZEC issued per day at a given per-block subsidy and observed block rate. An estimate: the
- * block rate is observed and a day is not a consensus unit.
+ * ZEC issued per day at a given per-block subsidy and block interval. An estimate: the block
+ * rate is observed or a target, and a day is not a consensus unit.
  */
 export function issuancePerDayZat(subsidyZat: number, intervalSeconds: number): number {
   const interval =
@@ -200,45 +294,51 @@ export function issuancePerDayZat(subsidyZat: number, intervalSeconds: number): 
   return (DAY_SECONDS / interval) * subsidyZat;
 }
 
-/** One step down in the subsidy: the height it takes effect at, and the subsidy from then on. */
+/** One step down in the scheduled subsidy: the halving height, and the subsidy from then on. */
 export interface SubsidyStep {
   height: number;
   totalZat: number;
 }
 
-/** The run from one subsidy to zero, with the figures a page states carried by name. */
+/** The scheduled subsidy's run to zero, with the figures a page states carried by name. */
 export interface SubsidyTail {
-  /** Each remaining step, oldest first. The last entry is always `totalZat: 0`. */
+  /** Each remaining halving, oldest first. The last entry is always `totalZat: 0`. */
   steps: readonly SubsidyStep[];
-  /** First height at which the subsidy is zero. Consensus and exact. */
+  /** First height at which the scheduled subsidy is zero. Consensus and exact. */
   zeroHeight: number;
-  /** The last subsidy above zero, in zatoshi — 1, by construction of integer halving. */
+  /** The last scheduled subsidy above zero, in zatoshi — 1, by construction of integer halving. */
   lastPayingZat: number;
 }
 
 /**
- * The remaining subsidy steps from one, until the subsidy reaches zero zatoshi.
+ * The halvings after `afterHeight`, until the scheduled subsidy reaches zero zatoshi.
  *
- * Integer halving with a floor, as the protocol does, so it terminates. From 0.78125 ZEC there
- * are 27 steps to zero, ending at 49,766,400; including the halving at 4,406,400, 28 subsidy
- * changes remain. Callers read `steps.length`, `zeroHeight` and `lastPayingZat` rather than
- * restating either count.
- *
- * Not every step is a halving, so copy must not say "halves N more times": the floor discards
- * a zatoshi well before the end (`floor(9,765,625 / 2) = 4,882,812`) and the last step
- * truncates 1 zatoshi to 0. The node agrees: `getblocksubsidy(49,766,399)` = 1 zatoshi,
- * `getblocksubsidy(49,766,400)` = 0.
+ * After the third halving (0.26041666 ZEC) there are 25 more, the scheduled subsidy reaching zero
+ * at 132,132,390. Callers read `steps.length`, `zeroHeight` and `lastPayingZat` rather than
+ * restating either figure. This is the scheduled part only: from `REISSUANCE_START_HEIGHT` every
+ * block adds the reissuance bonus, which continues for as long as removed ZEC remains to reissue.
  */
-export function subsidyTail(fromHeight: number, fromZat: number): SubsidyTail {
+export function subsidyTail(afterHeight: number): SubsidyTail {
   const steps: SubsidyStep[] = [];
-  let zat = Math.floor(fromZat);
-  let height = fromHeight;
-  let lastPayingZat = Math.max(0, zat);
-  while (zat > 0) {
-    lastPayingZat = zat;
-    zat = Math.floor(zat / 2);
-    height += HALVING_INTERVAL;
-    steps.push({ height, totalZat: zat });
+  let index = halvingIndex(afterHeight) + 1;
+  let lastPayingZat = scheduledSubsidyZat(afterHeight);
+  if (lastPayingZat === 0) return { steps, zeroHeight: afterHeight, lastPayingZat };
+  for (;;) {
+    const height = halvingHeight(index);
+    const totalZat = scheduledSubsidyZat(height);
+    steps.push({ height, totalZat });
+    if (totalZat === 0) return { steps, zeroHeight: height, lastPayingZat };
+    lastPayingZat = totalZat;
+    index += 1;
   }
-  return { steps, zeroHeight: height, lastPayingZat: steps.length > 0 ? lastPayingZat : 0 };
+}
+
+/**
+ * The next height after `height` at which the per-block subsidy changes by schedule: NU7, a
+ * halving, or the start of reissuance. Past `REISSUANCE_START_HEIGHT` the bonus moves the subsidy
+ * every block, and this names the next halving, where the scheduled part changes.
+ */
+export function nextSubsidyChangeHeight(height: number): number {
+  const fixed = [NU7_HEIGHT, REISSUANCE_START_HEIGHT].filter((h) => h > height);
+  return Math.min(nextHalvingHeight(height), ...fixed);
 }

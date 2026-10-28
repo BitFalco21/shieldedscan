@@ -1,12 +1,17 @@
 import type { HalvingSchedule } from "@/domain";
 import {
-  BLOCK_TARGET_SECONDS,
   BLOSSOM_HEIGHT,
   FUNDING_EXPIRY_BEFORE_NU61,
   HALVING_INTERVAL,
+  NU7_HEIGHT,
+  POST_NU7_HALVING_INTERVAL,
+  REISSUANCE_START_HEIGHT,
+  estimateSecondsBetween,
   issuancePerDayZat,
+  scheduledSubsidyZat,
   subsidyDelta,
   subsidyTail,
+  targetSpacingAt,
 } from "@/domain";
 import { FlushEnd } from "@/components/FlushEnd";
 import { PageHeader } from "@/components/PageHeader";
@@ -36,16 +41,25 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
   const past = schedule.events.slice(0, -1);
   const delta = subsidyDelta(next.before, next.after);
   const interval =
-    schedule.observedIntervalSeconds > 0 ? schedule.observedIntervalSeconds : BLOCK_TARGET_SECONDS;
+    schedule.observedIntervalSeconds > 0
+      ? schedule.observedIntervalSeconds
+      : targetSpacingAt(schedule.height);
   const measured = schedule.observedIntervalSeconds > 0;
-  const perDayNow = issuancePerDayZat(next.before.totalZat, interval);
-  const perDayAfter = issuancePerDayZat(next.after.totalZat, interval);
-  // The whole tail, for the "last ZEC" figure — the endpoint only confirms the first few.
-  const tail = subsidyTail(next.height, next.after.totalZat);
+  // "Now" is what blocks pay at the tip, the last change that has happened; "after" is at the
+  // next halving's own block target, which is NU7's 25 seconds rather than today's pace.
+  const subsidyNow = past[past.length - 1]!.after.totalZat;
+  const perDayNow = issuancePerDayZat(subsidyNow, interval);
+  const perDayAfter = issuancePerDayZat(next.after.totalZat, targetSpacingAt(next.height));
+  const beforeNu7 = schedule.height < NU7_HEIGHT;
+  // The whole tail, for the "last ZEC" figure — the endpoint lists only the first few.
+  const tail = subsidyTail(next.height);
   const finalHeight = tail.zeroHeight;
   // Derived from the per-recipient split, so a literal "80%" cannot outlive its regime.
   const minerSharePct = (next.before.minerZat / next.before.totalZat) * 100;
-  const finalYear = new Date((now + (finalHeight - schedule.height) * interval) * 1000)
+  const finalYear = new Date(
+    (now + estimateSecondsBetween(schedule.height, finalHeight, schedule.observedIntervalSeconds)) *
+      1000,
+  )
     .getUTCFullYear()
     .toString();
 
@@ -54,7 +68,7 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
       <PageHeader
         eyebrow="NETWORK"
         title="Zcash halving countdown"
-        lede={`Every ${formatCount(HALVING_INTERVAL)} blocks the Zcash block subsidy halves. Heights on this page are consensus and exact; every date is an estimate derived from how fast the chain is currently running, and is labelled as one.`}
+        lede="Every four years of block time the Zcash block subsidy halves. Heights on this page are consensus and exact; every date is an estimate, and is labelled as one."
       />
 
       <div className="flex flex-col gap-3">
@@ -65,6 +79,22 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
           interval={interval}
           measured={measured}
         />
+
+        {/*
+         * NU7 comes first and is not a halving, which a countdown to the halving alone would hide:
+         * the subsidy drops to a third before then, and the next halving starts from there.
+         * Rendered only while NU7 is ahead; afterwards it is a row in the history table.
+         */}
+        {beforeNu7 ? (
+          <Panel title={`BEFORE THAT: NU7 AT BLOCK ${formatCount(NU7_HEIGHT)}`}>
+            <p className="text-sm leading-relaxed text-ink-dim">
+              Blocks come every 25 seconds instead of 75, and each pays a third as much:{" "}
+              {formatZecAmount(subsidyNow)} becomes {formatZecAmount(next.before.totalZat)} ZEC.
+              Three times the blocks at a third of the subsidy: the ZEC issued per day does not
+              change, so this is not a halving.
+            </p>
+          </Panel>
+        ) : null}
 
         {/* Derived, never a literal, so the heading cannot name a past halving over a table
             describing the next one. */}
@@ -120,8 +150,9 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
              */}
             <p className="mt-3 text-xs leading-relaxed text-ink-faint">
               That is today&apos;s consensus rather than a promise: both were scheduled to end at
-              block {formatCount(FUNDING_EXPIRY_BEFORE_NU61)} until NU6.1 moved them here, and a
-              later upgrade could move them again.
+              block {formatCount(FUNDING_EXPIRY_BEFORE_NU61)} until NU6.1 moved them to the next
+              halving, and NU7&apos;s faster blocks moved that halving here. A later upgrade could
+              move them again.
             </p>
           </Panel>
         ) : null}
@@ -131,34 +162,43 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
         </Panel>
 
         {/* The correction a generic countdown clock cannot make. */}
-        <Panel title="BLOSSOM WAS NOT A HALVING">
+        <Panel title="BLOSSOM AND NU7 ARE NOT HALVINGS">
           <p className="text-sm leading-relaxed text-ink-dim">
-            At block {formatCount(BLOSSOM_HEIGHT)} the per-block subsidy fell from 12.5 to 6.25 ZEC,
-            which is why a chart of block subsidy over time shows a step there. It was not a
-            halving: the block target fell with it, from 150 seconds to 75, so the amount of ZEC
-            issued per day did not change at all.
+            The per-block subsidy fell from{" "}
+            {formatZecAmount(scheduledSubsidyZat(BLOSSOM_HEIGHT - 1))} to{" "}
+            {formatZecAmount(scheduledSubsidyZat(BLOSSOM_HEIGHT))} ZEC at Blossom (block{" "}
+            {formatCount(BLOSSOM_HEIGHT)}), and falls from{" "}
+            {formatZecAmount(scheduledSubsidyZat(NU7_HEIGHT - 1))} to{" "}
+            {formatZecAmount(scheduledSubsidyZat(NU7_HEIGHT))} at NU7 (block{" "}
+            {formatCount(NU7_HEIGHT)}). Neither is a halving: the block target fell with it, from
+            150 seconds to 75 and then to 25, so the ZEC issued per day did not change.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-ink-dim">
-            The arithmetic is exact either side. Before Blossom, 840,000 blocks of 150 seconds;
-            after it, {formatCount(HALVING_INTERVAL)} blocks of {BLOCK_TARGET_SECONDS}. Both are
-            126,000,000 seconds — the same four years between halvings.
+            A halving is the same 126,000,000 seconds in every era: 840,000 blocks of 150 seconds,{" "}
+            {formatCount(HALVING_INTERVAL)} of 75, or {formatCount(POST_NU7_HALVING_INTERVAL)} of
+            25.
           </p>
         </Panel>
 
         <Panel title="THE REST OF THE SCHEDULE">
           {/*
-           * Counts steps rather than "halvings": the floor discards a zatoshi long before the
-           * end (9,765,625 -> 4,882,812) and the terminal step takes 1 zatoshi to 0, a
-           * truncation. No claim about total issuance: it misses the 21,000,000 MAX_MONEY
-           * constant by ~0.1848 ZEC, and the true figure is not derivable from anything this
-           * page holds. The height is node-verified: getblocksubsidy(49,766,399) = 1 zatoshi,
-           * (49,766,400) = 0.
+           * Counts steps rather than "halvings" of an amount: each is rounded down to the zatoshi
+           * and the terminal step takes 1 zatoshi to 0, a truncation. No claim about total
+           * issuance, which reissuance makes depend on how much ZEC is removed from circulation.
+           * The node cannot confirm these heights: from the start of reissuance it needs the
+           * parent block, so they are `scheduledSubsidyZat`, pinned in tests to the node.
            */}
           <p className="text-sm leading-relaxed text-ink-dim">
-            After block {formatCount(next.height)} the subsidy steps down{" "}
-            {formatCount(tail.steps.length)} more times, each an integer halving rounded down to the
-            zatoshi — the last taking {formatCount(tail.lastPayingZat)} zatoshi to nothing. From
-            block {formatCount(finalHeight)} the subsidy is zero.
+            After block {formatCount(next.height)} the scheduled subsidy steps down{" "}
+            {formatCount(tail.steps.length)} more times, every{" "}
+            {formatCount(POST_NU7_HALVING_INTERVAL)} blocks, each rounded down to the zatoshi — the
+            last taking {formatCount(tail.lastPayingZat)} zatoshi to nothing at block{" "}
+            {formatCount(finalHeight)}.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-ink-dim">
+            From block {formatCount(REISSUANCE_START_HEIGHT)} every block also pays a reissuance
+            bonus: a small share of the ZEC removed from circulation since NU7 (ZIP 234). It cannot
+            be known in advance, so the figures below are the scheduled part only, a floor.
           </p>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
             That height is consensus and exact. The year it falls in is not — dating it means
@@ -171,7 +211,7 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
               <tr className="microlabel text-left">
                 <th className="border-b border-edge-faint pb-2 font-normal">HEIGHT</th>
                 <th className="border-b border-edge-faint pb-2 text-right font-normal">
-                  <FlushEnd>SUBSIDY (ZEC)</FlushEnd>
+                  <FlushEnd>SCHEDULED SUBSIDY (ZEC)</FlushEnd>
                 </th>
               </tr>
             </thead>

@@ -162,7 +162,8 @@ describe("the eval corpus", () => {
     // reasons that are not a regression. Large numbers must be consensus constants.
     const allowed = [
       /3,?428,?143/, // Ironwood / NU6.3 activation
-      /4,?406,?400/, // next halving, boundary-verified against the node
+      /6,?132,?390/, // next halving since NU7, boundary-verified against the node
+      /4,?406,?400/, // the halving NU7 moved, named by cases that must not repeat it
       /3,?146,?400/, // NU6.1 activation, ZIP 214 revision 2 start
       /2,?726,?400/, // NU6 activation, revision 1 start
       /1,?046,?400/, // Canopy activation, revision 0 start and the Founders' Reward's end

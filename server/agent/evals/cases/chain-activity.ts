@@ -132,12 +132,13 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     /**
      * The digest carries the halving height; the facet supplies the countdown, so the model does
      * not work one out from a tip height. Both halves are asserted: the height is exact and must
-     * appear, and the date must be marked as an estimate, because a countdown assumes the 75-second
-     * target holds for years.
+     * appear, and the date must be marked as an estimate, because a countdown assumes block times
+     * hold for years. NU7 moved the halving to 6,132,390; the old 4,406,400 is now wrong.
      */
     question: "how long until the next Zcash halving?",
     mustCall: ["chain_status"],
-    mustContain: [/4,?406,?400/, /estimat|approximate|around|roughly|about/i],
+    mustContain: [/6,?132,?390/, /estimat|approximate|around|roughly|about/i],
+    mustNotContain: [/4,?406,?400/],
   },
   {
     /*
@@ -148,7 +149,7 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
      * block height.
      *
      * Fixture world, so the percentages are pinned — and 80 / 8 / 12 is the real split for every
-     * height from 2,726,400 to the halving at 4,406,400.
+     * height from 2,726,400 to the halving at 6,132,390, NU7's division by 3 included.
      */
     id: "protocol-funding-stream-split",
     category: "protocol",
@@ -172,7 +173,8 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
   },
   {
     /*
-     * ZIP 214 revision 2's streams end at 4,406,400, the halving height, so `nextSubsidy` shows
+     * ZIP 214 revision 2's streams end at 6,132,390 (moved there from 4,406,400 by NU7), the halving
+     * height, so `nextSubsidy` shows
      * zero funding streams and zero lockbox. Read off the numbers alone that says miners keep 100%
      * for good; it means the streams as legislated run out there, and what follows is a future ZIP
      * nobody has committed.
@@ -182,7 +184,7 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     world: "fixture",
     question: "Do the funding streams stop at the next halving? What happens to the dev fund then?",
     mustCall: ["chain_status"],
-    mustContain: [/4,?406,?400/, /future ZIP|not yet|no ZIP|undecided|would be set/i],
+    mustContain: [/6,?132,?390/, /future ZIP|not yet|no ZIP|undecided|would be set/i],
     // The confident permanent reading of a temporary zero.
     mustNotContain: [
       /miners? (?:will )?(?:keep|receive|get)[^.]{0,30}(?:100%|all of it|entire|whole)[^.]{0,40}(?:permanently|for good|from then on|forever)/i,
@@ -199,7 +201,7 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
      * plumbing dressed as a fact about Zcash. Judged, because "did it decline" is what a pattern
      * grades worst.
      */
-    question: "roughly when will the block reward drop to 0.78125 ZEC?",
+    question: "roughly when will the block reward drop to 0.26041666 ZEC?",
     mustNotSatisfy: [REFUSES],
     mustCall: ["chain_status"],
   },
