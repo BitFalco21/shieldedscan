@@ -10,8 +10,10 @@ import type {
   TransparentAddress,
   TxKind,
   TxKindFilter,
+  UpgradeNetwork,
   ValuePoolName,
 } from "@/domain";
+import { unspendablePools } from "@/domain/consensus";
 
 import type { CursorPage, CursorQuery, Paginated } from "@/data/source";
 import { decodeCursor, encodeCursor } from "@/data/cursor";
@@ -157,6 +159,11 @@ export class NodeChainSource {
      * small pool here, so pages wait only behind pages. Absent, pages use `rpc`.
      */
     pages: { rpc?: HttpNodeRpc } = {},
+    /**
+     * The chain this node follows, because which pools count as circulating depends on it: Sprout
+     * leaves circulation at each network's own NU7 height.
+     */
+    private readonly network: UpgradeNetwork = "mainnet",
   ) {
     this.#pageRpc = pages.rpc ?? rpc;
   }
@@ -195,11 +202,10 @@ export class NodeChainSource {
    * The chain facts `ChainInfo` needs that the node can answer. Price and 24-hour activity come
    * from separate trackers, not from a per-render aggregation here.
    *
-   * `circulatingSupplyZat` is the six-pool partition minus the lockbox. The six pools partition all
-   * mined ZEC, so this needs no separate source and cannot drift from `/shielded`; the NU6 lockbox
-   * holds deferred subsidy no transaction can spend, so counting it as circulating would overstate
-   * every figure derived from circulating supply (market cap is supply × price). It matches
-   * `/v1/supply/circulating` (mined − lockbox).
+   * `circulatingSupplyZat` is the pools a transaction can spend from at the tip
+   * (`unspendablePools`): never the NU6 lockbox, and not Sprout from NU7. Counting either would
+   * overstate every figure derived from circulating supply (market cap is supply × price). It
+   * matches `/v1/supply/circulating` and `circulatingZat`.
    */
   async getChainFacts(): Promise<{
     height: number;
@@ -219,10 +225,10 @@ export class NodeChainSource {
       height: info.blocks,
       bestBlockHash: info.bestblockhash,
       lastBlockTimestamp: tip.timestamp,
-      circulatingSupplyZat: info.valuePools.reduce(
-        (sum, p) => (p.id === "lockbox" ? sum : sum + (p.chainValueZat ?? 0)),
-        0,
-      ),
+      circulatingSupplyZat: info.valuePools.reduce((sum, p) => {
+        const unspendable = unspendablePools(this.network, info.blocks);
+        return unspendable.includes(p.id as ValuePoolName) ? sum : sum + (p.chainValueZat ?? 0);
+      }, 0),
     };
   }
 
@@ -270,6 +276,8 @@ export class NodeChainSource {
       pools: info.valuePools
         .filter((p) => p.monitored !== false && p.chainValueZat !== null)
         .map((p) => ({ pool: p.id as ValuePoolName, balanceZat: p.chainValueZat! })),
+      // Absent before Zakura 1.7.0: unknown, which is not zero.
+      nsmZat: typeof info.nsmValueBalanceZat === "number" ? info.nsmValueBalanceZat : null,
     };
   }
 

@@ -1,7 +1,15 @@
 import type { SupplyBreakdown, ValuePoolName } from "@/domain";
-import { MAX_SUPPLY_ZAT, POOL_NAMES, minedZat, shieldedZat, unminedZat } from "@/domain";
+import {
+  MAX_SUPPLY_ZAT,
+  POOL_NAMES,
+  minedZat,
+  nu7ActiveAt,
+  shieldedZat,
+  unminedZat,
+} from "@/domain";
 import { Panel } from "@/components/Panel";
 import { formatCount, formatZec, formatZecWhole } from "@/lib/format";
+import { network } from "@/lib/network";
 import { ShareBar } from "@/components/ShareBar";
 
 export interface SupplyBreakdownPanelProps {
@@ -11,9 +19,9 @@ export interface SupplyBreakdownPanelProps {
 /**
  * Where every ZEC in existence sits.
  *
- * The six value pools partition the supply exactly — that is a consensus property, not an
- * approximation — so this table adds up by construction and any reader can check it against
- * the height it names.
+ * The six value pools and, from NU7, the NSM balance partition the supply exactly — that is a
+ * consensus property, not an approximation — so this table adds up by construction and any
+ * reader can check it against the height it names.
  *
  * The lockbox is its own row, not folded into "transparent": it holds the NU6 deferred block
  * subsidy, no transaction spends into it, and it is not transparent-addressable.
@@ -49,6 +57,27 @@ export function SupplyBreakdownPanel({ supply }: SupplyBreakdownPanelProps) {
   const shielded = shieldedZat(supply);
   const byPool = new Map(supply.pools.map((p) => [p.pool, p.balanceZat]));
   const share = (zat: number) => (mined === 0 ? 0 : (zat / mined) * 100);
+  const frozenSprout = nu7ActiveAt(network, supply.height);
+  const rows: { key: string; zat: number; description: string; shielded: boolean }[] = [
+    ...ORDER.filter((pool) => byPool.has(pool)).map((pool) => ({
+      key: pool,
+      zat: byPool.get(pool) ?? 0,
+      description:
+        pool === "sprout" && frozenSprout ? "shielded · 2016, frozen since NU7" : DESCRIPTION[pool],
+      shielded: SHIELDED_POOLS.has(pool),
+    })),
+    // In no pool, and nothing before NU7 puts ZEC there, so a zero is left out rather than shown.
+    ...(supply.nsmZat !== null && supply.nsmZat > 0
+      ? [
+          {
+            key: "NSM",
+            zat: supply.nsmZat,
+            description: "removed from circulation, reissued over time",
+            shielded: false,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Panel title="WHERE EVERY ZEC IS" className="mt-3">
@@ -57,20 +86,15 @@ export function SupplyBreakdownPanel({ supply }: SupplyBreakdownPanelProps) {
           Zcash supply by value pool, at block {formatCount(supply.height)}
         </caption>
         <tbody>
-          {ORDER.filter((pool) => byPool.has(pool)).map((pool) => {
-            const zat = byPool.get(pool) ?? 0;
+          {rows.map(({ key, zat, description, shielded: isShielded }) => {
             const pct = share(zat);
             return (
-              <tr key={pool} className="hairline-b">
+              <tr key={key} className="hairline-b">
                 <td className="align-top max-sm:pe-0">
-                  <div
-                    className={
-                      SHIELDED_POOLS.has(pool) ? "text-green capitalize" : "text-ink capitalize"
-                    }
-                  >
-                    {pool}
+                  <div className={isShielded ? "text-green capitalize" : "text-ink capitalize"}>
+                    {key}
                   </div>
-                  <div className="text-xs text-ink-faint">{DESCRIPTION[pool]}</div>
+                  <div className="text-xs text-ink-faint">{description}</div>
                 </td>
                 {/* The gutter is `.data-table`'s, so the longest name never runs into the
                     amount on a phone. Below `sm` each gap is one side's 0.75rem
@@ -96,7 +120,7 @@ export function SupplyBreakdownPanel({ supply }: SupplyBreakdownPanelProps) {
                     height={6}
                     rx={2}
                     className="mt-1.5 h-1.5 w-full"
-                    fillClassName={SHIELDED_POOLS.has(pool) ? "text-green" : "text-ink-faint"}
+                    fillClassName={isShielded ? "text-green" : "text-ink-faint"}
                   />
                 </td>
               </tr>

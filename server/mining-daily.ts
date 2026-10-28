@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { rollbackQuietly } from "./pg-pool";
 import { DAY_SECONDS } from "@/domain/time";
+import { NU7_HEIGHT } from "@/domain/halving";
 
 /**
  * Who mined each UTC day, by payout address: `mining_day` and `mining_day_payout`, kept by
@@ -22,13 +23,22 @@ const UNRECORDED_RECHECK_SECONDS = 3_600;
 
 const DAY_OF = "(to_timestamp($1) AT TIME ZONE 'UTC')::date";
 
-/** One day's rows, `$1`/`$2` its half-open unix-second edges. */
+/**
+ * One day's rows, `$1`/`$2` its half-open unix-second edges.
+ *
+ * `fee_zat` is what the miner was paid in fees: the block's whole fee total before NU7, and from it
+ * the total less the `floor(6 × fees / 10)` ZIP 235 removes into the NSM balance (`minerFeeShareZat`,
+ * on the block total exactly as consensus rounds it). Mainnet's height: the trackers run there only.
+ */
 export const MINING_DAY_PAYOUT_SQL = `
   INSERT INTO mining_day_payout (day, kind, address, blocks, reward_zat, fee_zat, fee_blocks,
                                  first_height, last_height)
   SELECT ${DAY_OF}, miner_kind, COALESCE(miner_address, ''), count(*)::int,
          CASE WHEN count(miner_reward_zat) = count(*) THEN sum(miner_reward_zat) END,
-         COALESCE(sum(total_fee_zat), 0), count(total_fee_zat)::int, min(height), max(height)
+         COALESCE(sum(CASE WHEN height >= ${NU7_HEIGHT}
+                           THEN total_fee_zat - (total_fee_zat * 6) / 10
+                           ELSE total_fee_zat END), 0),
+         count(total_fee_zat)::int, min(height), max(height)
     FROM block
    WHERE timestamp >= $1::bigint AND timestamp < $2::bigint AND miner_kind IS NOT NULL
    GROUP BY miner_kind, COALESCE(miner_address, '')`;

@@ -276,7 +276,10 @@ export function createChainApiSource(config: ChainApiConfig) {
       if (!Array.isArray(body.pools) || typeof body.height !== "number") {
         throw new Error("chain API returned an unrecognised supply shape");
       }
-      return { pools: body.pools, height: body.height };
+      // `nsmZat` is absent from an API older than the field, and null where the node reported
+      // none: unknown either way, never zero.
+      const nsmZat = typeof body.nsmZat === "number" ? body.nsmZat : null;
+      return { pools: body.pools, height: body.height, nsmZat };
     },
 
     async getMonthlySeries(): Promise<ChainMonthPoint[]> {

@@ -171,6 +171,7 @@ export function createV1App(deps: V1AppDeps): Hono | undefined {
   const { publicChainSource, publicChainIndex, price, stats24h } = deps;
   return v1Routes({
     ...(publicChainSource ? { chain: publicChainSource } : {}),
+    network: NETWORK,
     store: deps.store,
     ...(v1Pool ? { pool: v1Pool } : {}),
     extras: {

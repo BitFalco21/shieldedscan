@@ -31,8 +31,11 @@ import {
   txKind,
   txPools,
   unminedZat,
+  circulatingZat,
   type HalvingEvent,
+  type UpgradeNetwork,
 } from "@/domain";
+import { unspendablePools } from "@/domain/consensus";
 import type { AddressKindBucket, VenueHealth } from "@/data/crosschain/store";
 import type {
   V1Label,
@@ -87,15 +90,20 @@ function withUnknowns<T extends object>(resource: T, unknowns: V1Unknowns): T {
 
 // ------------------------------------------------------------------------------ supply
 
-export function toSupply(breakdown: SupplyBreakdown, allSixReported: boolean): V1Supply {
+export function toSupply(
+  breakdown: SupplyBreakdown,
+  allSixReported: boolean,
+  network: UpgradeNetwork,
+): V1Supply {
   const shielded = shieldedZat(breakdown);
+  const unspendable = unspendablePools(network, breakdown.height);
   const pools: V1PoolBalance[] = breakdown.pools.map((p) => {
     const isShielded = p.pool !== "transparent" && p.pool !== "lockbox";
     return {
       pool: p.pool,
       balanceZat: p.balanceZat,
       shielded: isShielded,
-      spendable: p.pool !== "lockbox",
+      spendable: !unspendable.includes(p.pool),
       shareOfShielded: isShielded ? share(p.balanceZat, shielded) : null,
     };
   });
@@ -104,6 +112,7 @@ export function toSupply(breakdown: SupplyBreakdown, allSixReported: boolean): V
     maxSupplyZat: MAX_SUPPLY_ZAT,
     minedZat: minedZat(breakdown),
     unminedZat: unminedZat(breakdown),
+    nsmZat: breakdown.nsmZat,
     shieldedZat: shielded,
     shieldedZatExcludes: ["lockbox"],
     pools,
@@ -608,14 +617,17 @@ export function toMonthly(series: ChainMonthPoint[], from?: number, to?: number)
 
 // ------------------------------------------------------------------ supply and halving
 
-export function toCirculating(breakdown: SupplyBreakdown): V1CirculatingSupply {
-  const lockbox = breakdown.pools.find((p) => p.pool === "lockbox")?.balanceZat ?? 0;
-  const circulating = minedZat(breakdown) - lockbox;
+export function toCirculating(
+  breakdown: SupplyBreakdown,
+  network: UpgradeNetwork,
+): V1CirculatingSupply {
+  const circulating = circulatingZat(breakdown, network);
   return {
     circulatingZat: circulating,
     circulatingZec: zec(circulating),
     heightReadAt: breakdown.height,
-    excludes: ["lockbox"],
+    // The unspendable pools, and the NSM balance, which is in no pool and so never in the sum.
+    excludes: [...unspendablePools(network, breakdown.height), "nsm"],
     asOf: now(),
   };
 }

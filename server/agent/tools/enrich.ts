@@ -367,31 +367,33 @@ export function withThroughput(payload: unknown, nowMs: number): unknown {
 /**
  * The shielded share of circulating supply, in /v1's `{pct, numerator, denominator}` shape.
  *
- * The denominator is mined minus the lockbox, as `/v1/supply/circulating` publishes and `/shielded`
- * measures against: the lockbox holds deferred subsidy no transaction can spend.
+ * The denominator is the pools the payload marks `spendable`, as `/v1/supply/circulating`
+ * publishes and `/shielded` measures against: the server decides which pools no transaction can
+ * spend (the lockbox; Sprout from NU7), so this never restates that rule.
  *
  * Null, never zero, when the payload lacks what the division needs: a share of nothing is not 0%.
  */
 function shieldedShareOfCirculating(p: Record<string, unknown>): unknown {
   const shielded = p.shieldedZat;
-  const mined = p.minedZat;
-  if (typeof shielded !== "number" || typeof mined !== "number") return null;
-  const pools = Array.isArray(p.pools) ? p.pools : [];
-  const lockbox = pools.find(
-    (pool): pool is Record<string, unknown> =>
-      typeof pool === "object" &&
-      pool !== null &&
-      (pool as Record<string, unknown>).pool === "lockbox",
+  if (typeof shielded !== "number" || !Array.isArray(p.pools)) return null;
+  const pools = p.pools.filter(
+    (pool): pool is Record<string, unknown> => typeof pool === "object" && pool !== null,
   );
-  const lockboxZat = typeof lockbox?.balanceZat === "number" ? lockbox.balanceZat : 0;
-  const circulating = mined - lockboxZat;
+  // Every pool must state both terms, or the sum would quietly drop one.
+  if (pools.some((x) => typeof x.balanceZat !== "number" || typeof x.spendable !== "boolean")) {
+    return null;
+  }
+  const circulating = pools
+    .filter((x) => x.spendable === true)
+    .reduce((sum, x) => sum + (x.balanceZat as number), 0);
   const pct = shieldedShareOfCirculatingPct(shielded, circulating);
   if (pct === null) return null;
   return {
     pct: Number(pct.toFixed(2)),
     numerator: shielded,
     denominator: circulating,
-    denominatorMeaning: "circulating supply: every ZEC mined, minus the unspendable NU6 lockbox",
+    denominatorMeaning:
+      "circulating supply: the pools a transaction can spend from — never the NU6 lockbox, not Sprout from NU7, and not ZEC removed into the NSM balance",
   };
 }
 

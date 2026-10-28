@@ -6,6 +6,7 @@ import {
   shieldedZat,
 } from "@/domain";
 import { formatCount, formatSharePct, formatZec, formatZecWhole } from "@/lib/format";
+import { network } from "@/lib/network";
 import type { LiveFigureId } from "./claims";
 
 /**
@@ -51,7 +52,7 @@ export function factCheckFigures(
   const sprout = pool("sprout");
 
   const shielded = supply ? shieldedZat(supply) : null;
-  const circulating = supply ? circulatingZat(supply) : null;
+  const circulating = supply ? circulatingZat(supply, network) : null;
   const shieldedShare =
     shielded !== null && circulating !== null
       ? shieldedShareOfCirculatingPct(shielded, circulating)

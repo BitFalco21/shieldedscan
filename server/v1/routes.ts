@@ -27,6 +27,7 @@ import {
   type Transaction,
   type TransparentAddress,
   type UnifiedReceiver,
+  type UpgradeNetwork,
 } from "@/domain";
 import type {
   V1Address,
@@ -165,6 +166,8 @@ function liveFacts(extras: V1Extras | undefined) {
 
 export interface V1Deps {
   chain?: V1ChainPort;
+  /** Which pools are spendable depends on it (Sprout at each network's NU7). Mainnet if unset. */
+  network?: UpgradeNetwork;
   store: CrossChainStorePort;
   /** Postgres for reorgs + monthly series; absent means those endpoints answer 503. */
   pool?: Pool;
@@ -349,17 +352,17 @@ export function v1Routes(deps: V1Deps): Hono {
     // Six value pools partition the supply; fewer reported means the node withheld some
     // and the partition cannot claim to sum.
     setCache(c, "tip");
-    return c.json(toSupply(breakdown, breakdown.pools.length === 6));
+    return c.json(toSupply(breakdown, breakdown.pools.length === 6, deps.network ?? "mainnet"));
   });
 
   // The aggregator feed: CoinGecko-style consumers want a bare decimal over plain text.
-  // Circulating = mined minus the lockbox — mined-but-unspendable is not circulating, and
-  // the JSON form names the exclusion so the choice is visible rather than implied.
+  // Circulating = the pools a transaction can spend from: never the lockbox, not Sprout from NU7,
+  // and the JSON form names the exclusions so the choice is visible rather than implied.
   app.get("/v1/supply/circulating", async (c) => {
     rejectUnknownParams(c, ["format"]);
     if (!deps.chain) return upstreamDown(c, "the chain source");
     const breakdown = await deps.chain.getSupplyBreakdown();
-    const body = toCirculating(breakdown);
+    const body = toCirculating(breakdown, deps.network ?? "mainnet");
     setCache(c, "tip");
     if (c.req.query("format") === "json") return c.json(body);
     return c.text(body.circulatingZec);

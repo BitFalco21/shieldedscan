@@ -1,5 +1,6 @@
 import { isOneOf } from "./closed-set";
 import { classifyZcashAddress, type ZcashAddressKind } from "./address";
+import { minerFeeShareZat } from "./consensus";
 import type { CrossChainProtocol, CrossChainTransfer } from "./crosschain";
 import type { PoolName } from "./pool";
 import { POOL_NAMES, poolBalances, txPools, VALUE_POOL_NAMES } from "./pool";
@@ -266,14 +267,19 @@ function hubLegs(tx: Transaction, sproutNetZat: number | null): PulseLeg[] {
   return legs;
 }
 
-/** The subsidy a coinbase issued, or null when what it issued could not be totalled. */
+/**
+ * The subsidy a coinbase issued, or null when what it issued could not be totalled: its outputs
+ * less the fees it collected, which from NU7 is only the miner's 40% (ZIP 235 removes the rest
+ * before it reaches the coinbase). Mainnet's rule, the only network `/pulse` serves.
+ */
 function subsidyZat(
   tx: Transaction,
   sproutNetZat: number | null,
   blockFeeZat: number,
 ): number | null {
   const issued = coinbaseIssuedZat(tx, sproutNetZat);
-  return issued === null ? null : issued - blockFeeZat;
+  if (issued === null || tx.blockHeight === null) return null;
+  return issued - minerFeeShareZat("mainnet", tx.blockHeight, blockFeeZat);
 }
 
 /**
@@ -284,7 +290,7 @@ function subsidyZat(
  * not carry it, which renders as a dashed floor-sized leg, never a redaction bar.
  *
  * `blockFeeZat` is the containing block's fee total, needed only for a coinbase, whose subsidy
- * is its outputs less the fees it collected.
+ * is its outputs less the miner's share of those fees.
  */
 export function pulseEventForTx(
   tx: Transaction,

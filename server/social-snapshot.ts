@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import type { SocialSnapshot } from "@/domain/social";
 import { POOL_NAMES, type PoolName, type ShieldedPool } from "@/domain/pool";
+import { unspendablePools } from "@/domain/consensus";
 import { parisDay } from "@/lib/paris-day";
 import { DAY_SECONDS } from "@/domain/time";
 import "./pg-types";
@@ -67,15 +68,19 @@ export async function buildSnapshot(
     (name) => ({ pool: name, balanceZat: Number(columnByPool[name]) }),
   );
 
-  // Circulating = every spendable pool. The NU6 lockbox holds deferred subsidy no transaction can
-  // spend, so it is mined but not circulating, the site-wide definition of `circulatingSupplyZat`.
+  // Circulating = every spendable pool, the site-wide definition of `circulatingSupplyZat`: the NU6
+  // lockbox (not a column here) never counts, and Sprout stops counting at NU7, when ZIP 2003 makes
+  // it unspendable. Mainnet's rule, because the poster only serves mainnet.
   //
   // A NULL transparent column means it was not read, not that it is zero; coercing it would yield a
   // confidently wrong 100% shielded share. So the whole circulating figure, and the share, is null.
   const circulating =
     b.transparent_pool_zat === null
       ? null
-      : b.transparent_pool_zat + pools.reduce((sum, p) => sum + p.balanceZat, 0);
+      : b.transparent_pool_zat +
+        pools
+          .filter((p) => !unspendablePools("mainnet", Number(b.height)).includes(p.pool))
+          .reduce((sum, p) => sum + p.balanceZat, 0);
 
   const { rows: closes } = await pool.query<CloseRow>(
     `SELECT to_char(day, 'YYYY-MM-DD') AS day, usd FROM zec_price_daily

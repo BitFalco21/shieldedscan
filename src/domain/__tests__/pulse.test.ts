@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assetTickerIsKnown, type CrossChainTransfer } from "../crosschain";
 import type { Transaction } from "../transaction";
+import { NU7_HEIGHT } from "../halving";
 import {
   issuanceZatBetween,
   lockboxLegForBlocks,
@@ -57,6 +58,19 @@ describe("pulseEventForTx — coinbase", () => {
     expect(event.subsidyIncludesFees).toBeUndefined();
     // The legs stay the per-destination outputs; apportioning the fee would be a guess.
     expect(event.legs).toEqual([{ from: "mined", to: "transparent", amountZat: 312_500_000 }]);
+  });
+
+  it("subtracts only the miner's 40% of the fees from NU7, since ZIP 235 removes the rest", () => {
+    // NU7's subsidy is 52,083,333; a 10,000-zatoshi fee total leaves the miner 4,000 of it, so
+    // the coinbase pays 52,087,333 and the subsidy is still exactly 52,083,333.
+    const coinbase: Transaction = {
+      ...base,
+      blockHeight: NU7_HEIGHT,
+      isCoinbase: true,
+      feeZat: null,
+      transparentOutputs: [t(52_087_333)],
+    };
+    expect(pulseEventForTx(coinbase, null, 10_000).subsidyZat).toBe(52_083_333);
   });
 
   it("refuses to separate subsidy from fees when the block's fee total is not derivable", () => {

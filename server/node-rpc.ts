@@ -375,6 +375,11 @@ export interface RpcChainInfo {
     valueDeltaZat: number | null;
     monitored: boolean;
   }>;
+  /**
+   * ZEC removed from circulation into the NSM balance (ZIP 235, ZIP 237). Zakura 1.7.0 and later;
+   * absent from older nodes, which is not zero.
+   */
+  nsmValueBalanceZat?: number;
 }
 
 /**

@@ -1,4 +1,6 @@
 import { isOneOf } from "./closed-set";
+import { unspendablePools } from "./consensus";
+import type { UpgradeNetwork } from "./network-upgrade";
 import { ZATS_PER_ZEC } from "./transaction";
 import type {
   IronwoodBundle,
@@ -183,15 +185,24 @@ export const MAX_SUPPLY_ZAT = 21_000_000 * ZATS_PER_ZEC;
 
 export interface SupplyBreakdown {
   pools: ValuePoolBalance[];
+  /**
+   * ZEC removed from circulation into the NSM balance (ZIP 235's 60% of fees from NU7, less what
+   * ZIP 237 has reissued), as the node reports it. Issued, so part of what was mined, but in no
+   * pool. Null when the node does not report it (before Zakura 1.7.0), which is not zero.
+   */
+  nsmZat: number | null;
   /** Height the balances were read at, so the figures can be checked against a block. */
   height: number;
 }
 
 const SHIELDED: ValuePoolName[] = [...POOL_NAMES];
 
-/** Every ZEC mined so far: the six pools partition it, so their sum is the supply. */
+/**
+ * Every ZEC mined so far: the six pools plus the NSM balance. ZEC removed into the NSM was issued
+ * and has left every pool, so without it the total would shrink with every block's fees.
+ */
 export function minedZat(s: SupplyBreakdown): number {
-  return s.pools.reduce((sum, p) => sum + p.balanceZat, 0);
+  return s.pools.reduce((sum, p) => sum + p.balanceZat, 0) + (s.nsmZat ?? 0);
 }
 
 /** ZEC that will exist but does not yet. Never negative, even if a pool reads oddly. */
@@ -209,15 +220,19 @@ export function shieldedZat(s: SupplyBreakdown): number {
 }
 
 /**
- * Circulating ZEC: every mined coin except the NU6 lockbox.
+ * Circulating ZEC: the balances of the pools a transaction can spend from at the breakdown's
+ * height. The NU6 lockbox never counts, Sprout stops counting at NU7 (`unspendablePools`), and the
+ * NSM balance is in no pool at all.
  *
  * Same definition as `ChainInfo.circulatingSupplyZat` and `/v1/supply/circulating`, expressed
  * over one `SupplyBreakdown` so a share's numerator and denominator come from one read at one
  * height.
  */
-export function circulatingZat(s: SupplyBreakdown): number {
-  const lockbox = s.pools.find((p) => p.pool === "lockbox")?.balanceZat ?? 0;
-  return minedZat(s) - lockbox;
+export function circulatingZat(s: SupplyBreakdown, network: UpgradeNetwork): number {
+  const unspendable = unspendablePools(network, s.height);
+  return s.pools
+    .filter((p) => !unspendable.includes(p.pool))
+    .reduce((sum, p) => sum + p.balanceZat, 0);
 }
 
 /**

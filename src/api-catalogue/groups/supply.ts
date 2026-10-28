@@ -10,13 +10,14 @@ export const SUPPLY_GROUP: ApiGroup = {
       path: "/v1/supply",
       title: "The six-pool supply accounting",
       description:
-        "Every ZEC in existence in its six value pools: the four shielded pools, transparent, and the NU6 lockbox, which holds mined ZEC that cannot circulate. The rows sum to the total by consensus, and `heightReadAt` names the block every figure was read at.",
+        "Every ZEC in existence in its six value pools: the four shielded pools, transparent, and the NU6 lockbox, which holds mined ZEC that cannot circulate. From NU7, `nsmZat` is the ZEC removed from circulation into the NSM balance (60% of fees, ZIP 235), in no pool, and Sprout is marked unspendable (ZIP 2003). The pools plus `nsmZat` sum to `minedZat` by consensus, and `heightReadAt` names the block every figure was read at.",
       params: [],
       exampleResponse: `{
   "heightReadAt": 3429381,
   "maxSupplyZat": 2100000000000000,
   "minedZat": 1610764103561234,
   "unminedZat": 489235896438766,
+  "nsmZat": 0,
   "shieldedZat": 43960212983561,
   "shieldedZatExcludes": ["lockbox"],
   "pools": [
@@ -35,7 +36,7 @@ export const SUPPLY_GROUP: ApiGroup = {
       path: "/v1/supply/circulating",
       title: "Circulating supply, aggregator-ready",
       description:
-        "A bare ZEC decimal over plain text by default — the format CoinGecko-style aggregators consume. `?format=json` returns the structured form, which names what the figure excludes rather than implying it: the NU6 lockbox is mined but unspendable, so it is not circulating.",
+        "A bare ZEC decimal over plain text by default — the format CoinGecko-style aggregators consume. `?format=json` returns the structured form, which names what the figure excludes rather than implying it: the NU6 lockbox, and from NU7 the Sprout pool, are mined but unspendable, and the NSM balance is in no pool, so none of them circulates.",
       params: [
         {
           name: "format",
@@ -50,7 +51,7 @@ export const SUPPLY_GROUP: ApiGroup = {
   "circulatingZat": 1684825182604480,
   "circulatingZec": "16848251.82604480",
   "heightReadAt": 3429543,
-  "excludes": ["lockbox"],
+  "excludes": ["lockbox", "nsm"],
   "asOf": 1753795200
 }`,
       notes: [
