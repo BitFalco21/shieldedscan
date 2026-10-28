@@ -79,7 +79,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
       ...(isTestnet ? [] : [{ href: "/network", label: "network" }]),
     ],
   },
-  { href: "/api-docs", label: "api" },
+  {
+    label: "developers",
+    children: [
+      { href: "/api-docs", label: "api" },
+      { href: "/mcp", label: "mcp" },
+    ],
+  },
   // Flag-gated because the page is: a nav entry pointing at a notFound() route is worse than
   // no entry. The route stays `/ai-agent` because links in the wild point at it.
   //
