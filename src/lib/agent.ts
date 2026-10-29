@@ -28,7 +28,7 @@ export const agentAskUrl = (apiBaseUrl: string): string => `${apiBaseUrl}/agent/
  * wrong vendor would be a false privacy claim. `AGENT_IS_ATTESTED` gates the enclave wording,
  * so switching between an attested and an external model is a flag flip, not a prose edit.
  */
-export const AGENT_MODEL_LABEL = "DeepSeek V4.1 Flash";
-/** False while the model runs at an external provider outside NEAR's TEE. */
-export const AGENT_IS_ATTESTED = false;
+export const AGENT_MODEL_LABEL = "DeepSeek V4.1 Flash 1017";
+/** True: the model runs inside NEAR AI's attested TEE, which publishes a signed report per model. */
+export const AGENT_IS_ATTESTED = true;
 export const AGENT_ROUTER_LABEL = "NEAR AI Cloud";
