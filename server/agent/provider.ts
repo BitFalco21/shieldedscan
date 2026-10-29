@@ -28,8 +28,8 @@ export interface InferenceProvider {
   /**
    * The model id this host serves the agent from.
    *
-   * NEAR's id is undated because NEAR publishes no dated variant. An alias can re-point beneath
-   * you; the eval corpus, not the string, is what would catch that.
+   * A dated snapshot where the host publishes one, so the model cannot change beneath the eval
+   * corpus; an undated alias can re-point at any time.
    */
   model: string;
   /** The env var holding this host's key. Named per host so one cannot authenticate at the other. */
@@ -51,15 +51,16 @@ export const PROVIDERS: Record<ProviderId, InferenceProvider> = {
   "near-ai": {
     id: "near-ai",
     baseUrl: "https://cloud-api.near.ai/v1",
-    // Not attested: NEAR's Incognito tier proxies this model to an external provider, and its
-    // attestation endpoint answers 503. `/privacy` and `/ai-agent` say so (`AGENT_IS_ATTESTED` in
-    // `src/lib/agent.ts`). Chosen for latency: attested models measured too slow for multi-call turns.
-    // A hosted model's speed is a property of its host on the day it is measured, so re-measure
+    // Attested: served from NEAR AI's own TEE infrastructure, with a signed attestation report per
+    // model (`/v1/attestation/report`). `/privacy` and `/ai-agent` say so (`AGENT_IS_ATTESTED` in
+    // `src/lib/agent.ts`). Measured on 2026-10-29 against the unattested V4.1 Flash it replaces:
+    // first token in about 0.2 s instead of 1-2 s, same usage block, token cap and tool calls. A
+    // hosted model's speed is a property of its host on the day it is measured, so re-measure
     // before switching.
-    model: "deepseek/deepseek-v4.1-flash",
+    model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
     keyEnv: "NEAR_AI_API_KEY",
     routerLabel: "NEAR AI Cloud",
-    modelLabel: "DeepSeek V4.1 Flash",
+    modelLabel: "DeepSeek V4.1 Flash 1017",
   },
 };
 
