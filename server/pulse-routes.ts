@@ -79,6 +79,13 @@ const WINDOW_CACHE_KEYS = 48;
 /** Well under the block target, so the tip is never more than one block stale. */
 const FRAME_TTL_MS = 5_000;
 const RIBBONS_TTL_MS = 600_000;
+/**
+ * How long an expired ribbons payload may still be served while its reload runs behind it. The
+ * reload is a slow cold query over the day views, which change hourly at most; without this window
+ * the first reader after each expiry waits for it, and when that reader is the site's build
+ * prerendering `/pulse`, the build times out. Same window as the `/v1` day series.
+ */
+const RIBBONS_STALE_MS = 30 * 60 * 1000;
 
 export interface PulseRouteDeps {
   index: ChainIndexStore;
@@ -198,7 +205,9 @@ export function pulseRoutes(deps: PulseRouteDeps): Hono {
    * only removes repeat cost between blocks. Single-flight, as for `/chain/blocks`.
    */
   const frame = coalesced<PulseFrame | null>(FRAME_TTL_MS);
-  const ribbons = new Cached<PulseRibbonsPayload | null>(RIBBONS_TTL_MS);
+  const ribbons = new Cached<PulseRibbonsPayload | null>(RIBBONS_TTL_MS, {
+    staleMs: RIBBONS_STALE_MS,
+  });
   /**
    * Settled hours only, bounded: a replay walks 24 of them and a reader may scrub back and forth.
    * An hour within reorg reach is never stored, because a cached answer could state a block that no
