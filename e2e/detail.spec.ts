@@ -240,7 +240,9 @@ test.describe("the flow arrow follows the reading direction", () => {
 
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto(href!);
-    expect(await arrow.evaluate((el) => getComputedStyle(el).rotate)).toBe("none");
+    // `lg:rotate-0` compiles to `rotate: 0deg`; whether the minifier rewrites it to `none` depends
+    // on the Next.js version. Both mean the arrow is not rotated.
+    expect(["none", "0deg"]).toContain(await arrow.evaluate((el) => getComputedStyle(el).rotate));
   });
 });
 
