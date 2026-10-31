@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import Link from "@/components/Link";
 import { CopyButton } from "@/components/CopyButton";
 import { AnswerMarkdown } from "./AnswerMarkdown";
+import { AgentSources } from "./AgentSources";
 import { AgentTrail } from "./AgentTrail";
 import type { Exchange } from "./exchange";
 
@@ -113,34 +113,7 @@ export function AgentExchange({
         </p>
       )}
 
-      {exchange.sources.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-edge-faint pt-3">
-          <div className="microlabel">SOURCES</div>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1">
-            {exchange.sources.map((source) => (
-              <li key={source.href}>
-                {/* A new tab — the one place on the site where an internal link gets one. The
-                    transcript lives only in this component's state, so navigating away in the
-                    same tab would destroy the conversation the link is evidence for, and the
-                    alternative would be storing it.
-
-                    `noopener` so the new tab cannot reach back through `window.opener`;
-                    `noreferrer` to match the venue-link rule. */}
-                <Link
-                  href={source.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-green hover:underline"
-                  prefetch={false}
-                >
-                  <span aria-hidden>↗ </span>
-                  {source.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {exchange.sources.length > 0 && <AgentSources sources={exchange.sources} />}
 
       {/* Copy, at the foot of the turn below its sources, once the turn has settled: beside a
           half-written answer it would copy half an answer. It is handed `exchange.answer`,
