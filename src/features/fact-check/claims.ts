@@ -215,10 +215,10 @@ export const CLAIMS: readonly Claim[] = [
     claim: "Hidden inflation means nobody can verify Zcash's supply.",
     verdict: "mostly-false",
     answer: [
-      "The total supply stays checkable: every pool's balance is public and nodes reject any block that would take one below zero, so counterfeit coins could only take from the flawed pool's other holders, never add to the supply.",
-      "What is true: bugs in Sprout (fixed 2018) and Orchard (live 2022 until an emergency fix on 2026-06-01) could have let someone mint unseen ZEC inside that pool, and whether either was used cannot be proven from the chain.",
-      "Neither pool accepts deposits any more: Sprout since 2020, Orchard since 2026-07-28.",
-      "Ironwood, Orchard's successor, is formally verified to rule out undetectable counterfeiting within the proof's model and assumptions, and that verification was itself adversarially audited in 2026, with no soundness bug found to escape it.",
+      "The total is exactly checkable: every pool's balance is public and nodes reject any block taking one below zero, so a counterfeit could only dilute its own pool, never add to the supply.",
+      "Ironwood is formally verified against undetectable counterfeiting, within its model and assumptions, and a 2026 adversarial audit of the proof found no soundness bug escaping it.",
+      "Orchard, whose counterfeiting bug was live from 2022 until a fix on 2026-06-01, is sealed: its funds can only leave through the turnstile, so a counterfeit there cannot circulate.",
+      "What still rests on trust: Sapling, which is open, outside that verification, and relies on its 2018 setup; and Sprout, until NU7 makes it unspendable. Whether either old bug (Sprout's, fixed 2018) was used cannot be proven from the chain.",
     ],
     live: ["flawed-pools"],
     sources: [
@@ -226,9 +226,10 @@ export const CLAIMS: readonly Claim[] = [
       IRONWOOD,
       IRONWOOD_FV_AUDIT,
       ZKSECURITY_IRONWOOD_FV,
+      SAPLING_MPC,
       SPROUT_DISCLOSURE,
       zip(209, "Prohibit Out-of-Range Chain Value Pool Balances"),
-      zip(211, "Disabling Addition of New Value to the Sprout Chain Value Pool"),
+      zip(2003, "Disallow version 4 transactions"),
     ],
   },
   {
