@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
@@ -10,10 +12,14 @@ import {
   type BlockRow,
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
+import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
 import {
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
   blocksFile,
+  HEIGHTS_PER_TX_FILE,
+  TRANSACTION_COLUMNS,
+  transactionsFile,
   SMALL_TABLES,
   type SmallTable,
 } from "./tables";
@@ -32,6 +38,11 @@ import {
 export const CONFIRMATIONS = 100;
 /** Rows per read, and per record batch: the same every run, so row groups never move. */
 const CHUNK = 100_000;
+/**
+ * Heights per transaction read. A file's rows are kept as columns, never as row objects: a busy
+ * 100,000 heights holds 1.4 million transactions, too many objects for the memory we run in.
+ */
+const TX_CHUNK = 10_000;
 /** Follower silence that, seen twice in a row, stops the export. */
 const MAX_FOLLOWER_LAG_S = 600;
 /** Days the daily trackers keep recomputing; a day is final once it is this far behind block N. */
@@ -55,9 +66,10 @@ const exportTypes: NonNullable<ClientConfig["types"]> = {
   }) as NonNullable<ClientConfig["types"]>["getTypeParser"],
 };
 
+/** A file written to the output directory; its bytes stay on disk, never all in memory. */
 export interface OutputFile {
   path: string;
-  bytes: Uint8Array;
+  size: number;
   rows: number;
   /** sha256 of the file. */
   sha256: string;
@@ -78,6 +90,8 @@ export interface Release {
 
 export interface ReadOptions {
   connection: ClientConfig;
+  /** Where each file is written as soon as it is built. */
+  outDir: string;
   /** Seconds since the epoch, for "yesterday" in the node table. */
   now?: () => number;
   log?: (line: string) => void;
@@ -103,11 +117,18 @@ function contentDigest(columns: readonly ColumnSpec[], values: readonly ColumnVa
   return h.digest("hex");
 }
 
-function file(path: string, columns: readonly ColumnSpec[], values: ColumnValues[]): OutputFile {
+function writeFile(
+  outDir: string,
+  path: string,
+  columns: readonly ColumnSpec[],
+  values: ColumnValues[],
+): OutputFile {
   const bytes = toParquet(arrowTable(columns, values));
+  mkdirSync(dirname(join(outDir, path)), { recursive: true });
+  writeFileSync(join(outDir, path), bytes);
   return {
     path,
-    bytes,
+    size: bytes.length,
     rows: values[0]?.length ?? 0,
     sha256: sha256(bytes),
     contentSha256: contentDigest(columns, values),
@@ -158,7 +179,12 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     log(`release height ${height} (tip ${tipHeight})`);
 
     const files: OutputFile[] = [];
+    const file = (path: string, columns: readonly ColumnSpec[], values: ColumnValues[]) =>
+      writeFile(opts.outDir, path, columns, values);
     const checker = new BlockChecker();
+    const expected = new BlockExpectations(height);
+    const dailyBlocks = new DailyBlocks();
+    const dailyMining = new DailyMining();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
@@ -170,9 +196,18 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
           [a, b],
         );
         for (const r of rows) {
-          checker.push(r as unknown as BlockRow);
+          const row = r as unknown as BlockRow;
+          checker.push(row);
+          expected.record(row);
+          dailyBlocks.push(row);
           BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
+        // The coinbase text is read only to match the fixed list of self-named operators.
+        const miners = await snap.query<{ timestamp: bigint; coinbase_tag: string | null }>(
+          "SELECT timestamp, coinbase_tag FROM opendata.block_miners WHERE height BETWEEN $1 AND $2",
+          [a, b],
+        );
+        for (const m of miners.rows) dailyMining.push(m.timestamp, m.coinbase_tag);
         await watchFollower();
       }
       files.push(file(blocksFile(start), BLOCK_COLUMNS, values));
@@ -242,6 +277,12 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
          FROM opendata.node_releases_daily WHERE day <= $1 ORDER BY day`,
       [yesterday],
     );
+    const fees = await small(
+      "fees_daily",
+      `SELECT ${SMALL_TABLES.fees_daily.map((c) => c.name).join(", ")} FROM opendata.fees_daily
+        WHERE day <= $1 ORDER BY day, kind COLLATE "C"`,
+      [finalDay],
+    );
     await snap.query("COMMIT");
 
     // Node rows: classified by the site's own function, then reduced to what may be published.
@@ -300,6 +341,9 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["transparent_monthly", monthly.columns, monthly.rows],
       ["node_releases_daily", SMALL_TABLES.node_releases_daily, nodeRows],
       ["reorgs", reorgs.columns, reorgs.rows],
+      ["blocks_daily", SMALL_TABLES.blocks_daily, dailyBlocks.rows(finalDay)],
+      ["fees_daily", fees.columns, fees.rows],
+      ["mining_daily", SMALL_TABLES.mining_daily, dailyMining.rows(finalDay)],
     ];
     for (const [name, columns, rows] of tables) {
       const values = toColumns(columns, rows);
@@ -318,6 +362,34 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       }
       files.push(file(`${name}.parquet`, columns, values));
     }
+
+    // Transactions in their own snapshot at the same height, so neither transaction runs long.
+    // Every published height is final, so both snapshots see the same rows below N.
+    const txChecker = new TxChecker(expected);
+    const txCols = TRANSACTION_COLUMNS.map((c) => c.name).join(", ");
+    await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    for (let start = 0; start <= height; start += HEIGHTS_PER_TX_FILE) {
+      const end = Math.min(height, start + HEIGHTS_PER_TX_FILE - 1);
+      const values: ColumnValues[] = TRANSACTION_COLUMNS.map(() => []);
+      for (let a = start; a <= end; a += TX_CHUNK) {
+        const { rows } = await snap.query<Record<string, unknown>>(
+          `SELECT ${txCols} FROM opendata.transactions WHERE block_height BETWEEN $1 AND $2
+            ORDER BY block_height, txid COLLATE "C"`,
+          [a, Math.min(end, a + TX_CHUNK - 1)],
+        );
+        for (const r of rows) {
+          txChecker.push(r as unknown as TxRow);
+          TRANSACTION_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
+        }
+      }
+      const written = file(transactionsFile(start), TRANSACTION_COLUMNS, values);
+      files.push(written);
+      if (start % 500_000 === 0) log(`${written.path}: ${written.rows} rows`);
+      await watchFollower();
+    }
+    await snap.query("COMMIT");
+    txChecker.finish();
+    failures.push(...txChecker.failures.list());
 
     return {
       height,

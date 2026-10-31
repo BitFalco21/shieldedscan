@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  openAsBlob,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { datasetCard } from "./opendata/card";
 import { compareHistory, type PublishedFile } from "./opendata/history";
@@ -99,23 +107,27 @@ function loadPublished(): { manifest: Manifest; files: PublishedFile[]; commit: 
   const manifest = JSON.parse(readFileSync(join(PUBLISHED, "manifest.json"), "utf8")) as Manifest;
   const commit = readFileSync(join(PUBLISHED, "COMMIT"), "utf8").trim();
   const files = manifest.files.map((f) => {
-    const bytes = new Uint8Array(readFileSync(join(PUBLISHED, f.path)));
-    if (sha256(bytes) !== f.sha256) fail(`local copy of ${f.path} does not match its manifest`);
-    return { path: f.path, bytes };
+    const read = () => new Uint8Array(readFileSync(join(PUBLISHED, f.path)));
+    if (sha256(read()) !== f.sha256) fail(`local copy of ${f.path} does not match its manifest`);
+    return { path: f.path, sha256: f.sha256, read };
   });
   return { manifest, files, commit };
 }
 
 try {
-  const release = await readRelease({ connection: {}, log });
+  rmSync(STAGING, { recursive: true, force: true });
+  const release = await readRelease({ connection: {}, log, outDir: STAGING });
   if (release.failures.length > 0) fail("checks failed", release.failures);
   for (const a of release.alerts) log(`alert: ${a}`);
 
   const previous = loadPublished();
   const history = compareHistory(
     previous?.files ?? [],
-    release.files,
-    (a, b) => Buffer.compare(a, b) === 0,
+    release.files.map((f) => ({
+      path: f.path,
+      sha256: f.sha256,
+      read: () => new Uint8Array(readFileSync(join(STAGING, f.path))),
+    })),
   );
   if (history.failures.length > 0 && !args["accept-history-change"]) {
     fail("published data would change", history.failures);
@@ -133,7 +145,7 @@ try {
     files: release.files.map((f) => ({
       path: f.path,
       rows: f.rows,
-      bytes: f.bytes.length,
+      bytes: f.size,
       sha256: f.sha256,
       contentSha256: f.contentSha256,
     })),
@@ -143,14 +155,9 @@ try {
   };
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2) + "\n");
 
-  rmSync(STAGING, { recursive: true, force: true });
-  const stage = (path: string, bytes: Uint8Array) => {
-    mkdirSync(dirname(join(STAGING, path)), { recursive: true });
-    writeFileSync(join(STAGING, path), bytes);
-  };
-  for (const f of release.files) stage(f.path, f.bytes);
-  stage("README.md", card);
-  stage("manifest.json", manifestBytes);
+  // The data files are already in staging, written as they were built.
+  writeFileSync(join(STAGING, "README.md"), card);
+  writeFileSync(join(STAGING, "manifest.json"), manifestBytes);
 
   // Only what changed goes up, with the manifest and the card always together with it.
   const before = new Map(previous?.manifest.files.map((f) => [f.path, f.sha256]) ?? []);
@@ -180,9 +187,15 @@ try {
     title: `Release at block ${release.height}`,
     parentCommit: previous?.commit ?? null,
     files: [
-      ...changed.map((f) => ({ path: f.path, bytes: f.bytes, sha256: f.sha256 })),
-      { path: "README.md", bytes: card, sha256: sha256(card) },
-      { path: "manifest.json", bytes: manifestBytes, sha256: sha256(manifestBytes) },
+      ...(await Promise.all(
+        changed.map(async (f) => ({
+          path: f.path,
+          content: await openAsBlob(join(STAGING, f.path)),
+          sha256: f.sha256,
+        })),
+      )),
+      { path: "README.md", content: new Blob([card]), sha256: sha256(card) },
+      { path: "manifest.json", content: new Blob([manifestBytes]), sha256: sha256(manifestBytes) },
     ],
   });
   writeFileSync(join(STAGING, "COMMIT"), commit + "\n");

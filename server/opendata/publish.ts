@@ -13,7 +13,8 @@ import { commit, downloadFile, type CommitOperation } from "@huggingface/hub";
 
 export interface UploadFile {
   path: string;
-  bytes: Uint8Array;
+  /** Read from disk as it uploads: a first release is larger than the memory we run in. */
+  content: Blob;
   sha256: string;
 }
 
@@ -35,7 +36,7 @@ export async function publishRelease(opts: PublishOptions): Promise<string> {
   const operations: CommitOperation[] = opts.files.map((f) => ({
     operation: "addOrUpdate",
     path: f.path,
-    content: new Blob([f.bytes.slice()]),
+    content: f.content,
   }));
   const out = await commit({
     repo,

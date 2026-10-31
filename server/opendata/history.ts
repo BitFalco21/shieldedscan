@@ -8,9 +8,11 @@ import { readParquet } from "parquet-wasm";
  * unless a human reruns it with `--accept-history-change`. New rows, and new files, are normal.
  */
 
+/** A file on either side of the comparison, read only when its bytes differ. */
 export interface PublishedFile {
   path: string;
-  bytes: Uint8Array;
+  sha256: string;
+  read: () => Uint8Array;
 }
 
 export interface Fill {
@@ -27,6 +29,7 @@ export interface HistoryResult {
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
+  if (path.startsWith("transactions/")) return ["txid"];
   const keys: Record<string, readonly string[]> = {
     "pool_usage_daily.parquet": ["day", "pool"],
     "shielding_daily.parquet": ["day"],
@@ -34,6 +37,9 @@ export function rowKey(path: string): readonly string[] {
     "transparent_monthly.parquet": ["month"],
     "node_releases_daily.parquet": ["day", "client", "version", "protocol_version"],
     "reorgs.parquet": ["height", "orphaned_hash"],
+    "blocks_daily.parquet": ["day"],
+    "fees_daily.parquet": ["day", "kind"],
+    "mining_daily.parquet": ["day", "miner"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);
@@ -55,7 +61,6 @@ function cell(t: Table, column: string, row: number): string | number | boolean 
 export function compareHistory(
   previous: readonly PublishedFile[],
   next: readonly PublishedFile[],
-  sameBytes: (a: Uint8Array, b: Uint8Array) => boolean,
 ): HistoryResult {
   const failures: string[] = [];
   const fills = new Map<string, Fill>();
@@ -67,10 +72,10 @@ export function compareHistory(
       failures.push(`${prev.path}: published before, missing now`);
       continue;
     }
-    if (sameBytes(prev.bytes, now.bytes)) continue;
+    if (prev.sha256 === now.sha256) continue;
 
-    const a = read(prev.bytes);
-    const b = read(now.bytes);
+    const a = read(prev.read());
+    const b = read(now.read());
     const columns = a.schema.fields.map((f) => f.name);
     const bColumns = b.schema.fields.map((f) => f.name);
     if (JSON.stringify(columns) !== JSON.stringify(bColumns)) {

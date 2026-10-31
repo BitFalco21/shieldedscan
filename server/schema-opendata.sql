@@ -51,6 +51,28 @@ CREATE OR REPLACE VIEW opendata.reorgs AS
 SELECT height, depth, orphaned_hash, replaced_by
 FROM reorg_event;
 
+-- One row per mined transaction, with what each shielded part publicly moved into or out of its
+-- pool. New columns go at the end: CREATE OR REPLACE VIEW can only append, and the export selects
+-- by name, so the published column order is unaffected.
+CREATE OR REPLACE VIEW opendata.transactions AS
+SELECT txid, block_height, timestamp, kind, direction, version, size_bytes, expiry_height, fee_zat,
+       sprout_joinsplits, sapling_spends, sapling_outputs, orchard_actions, ironwood_actions,
+       sprout_vpub_net_zat, sapling_value_balance_zat, orchard_value_balance_zat,
+       ironwood_value_balance_zat
+FROM tx
+WHERE block_height IS NOT NULL;
+
+-- Fee percentiles per UTC day and transaction kind, the same view the site's fee charts read.
+CREATE OR REPLACE VIEW opendata.fees_daily AS
+SELECT (to_timestamp(ts) AT TIME ZONE 'UTC')::date AS day, kind, txs, p25_zat, median_zat, p75_zat
+FROM chain_day_fee_kind;
+
+-- The miner-written coinbase text is read only to match it against the fixed list of operators that
+-- name themselves (`selfDeclaredMiner`); it is never written out.
+CREATE OR REPLACE VIEW opendata.block_miners AS
+SELECT height, timestamp, coinbase_tag
+FROM block;
+
 -- The release height comes from here; the lag probe reads it on its own connection.
 CREATE OR REPLACE VIEW opendata.sync_state AS
 SELECT tip_height, tip_hash, updated_at

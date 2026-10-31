@@ -1,5 +1,5 @@
 import type { ColumnSpec } from "./parquet";
-import { BLOCK_COLUMNS, BLOCKS_PER_FILE, SMALL_TABLES } from "./tables";
+import { BLOCK_COLUMNS, BLOCKS_PER_FILE, SMALL_TABLES, TRANSACTION_COLUMNS } from "./tables";
 
 /**
  * The dataset card (the README on Hugging Face), generated from the same table definitions the
@@ -87,7 +87,64 @@ const DESCRIPTIONS: Record<string, string> = {
   replaced_by: "Hash the node reported there afterwards.",
 };
 
+/** Where a column name means something different in one table, its meaning there. */
+const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  transactions: {
+    txid: "Transaction id, hex.",
+    block_height: "Height of the block that mined it.",
+    timestamp: "Its block's header time, unix seconds.",
+    kind: "transparent, shielded, mixed (crossing between the two sides) or coinbase.",
+    direction:
+      "For a mixed transaction: shielding, unshielding, or indeterminate when its pools moved in opposite directions. NULL for every other kind.",
+    version: "Transaction format version.",
+    size_bytes: "Serialized transaction size in bytes.",
+    expiry_height: "Height after which it could no longer be mined, when set (ZIP 203).",
+    fee_zat: "Fee, zatoshis. NULL where an input could not be resolved, and for coinbase.",
+    sprout_joinsplits: "Sprout JoinSplits; NULL when it has no Sprout part.",
+    sprout_vpub_net_zat:
+      "Sprout's public value, zatoshis: vpub_new minus vpub_old, so positive means value leaving Sprout (the node's sign, the opposite of the balances below).",
+    sapling_spends: "Sapling spends; NULL when it has no Sapling part.",
+    sapling_outputs: "Sapling outputs; NULL when it has no Sapling part.",
+    sapling_value_balance_zat:
+      "Net value into the Sapling pool, zatoshis: positive entering, negative leaving.",
+    orchard_actions: "Orchard actions; NULL when it has no Orchard part.",
+    orchard_value_balance_zat:
+      "Net value into the Orchard pool, zatoshis: positive entering, negative leaving.",
+    ironwood_actions: "Ironwood actions; NULL when it has no Ironwood part.",
+    ironwood_value_balance_zat:
+      "Net value into the Ironwood pool, zatoshis: positive entering, negative leaving.",
+  },
+  blocks_daily: {
+    blocks: "Blocks with a header time on that day.",
+    median_interval_s: "Median seconds since the previous block (nearest rank).",
+    p90_interval_s: "90th-percentile seconds since the previous block (nearest rank).",
+    max_interval_s: "Longest gap since the previous block, seconds.",
+    avg_size_bytes: "Average block size in bytes.",
+    avg_difficulty: "Average difficulty.",
+    fees_zat: "Fees in the day's blocks whose fee total is known, zatoshis.",
+    blocks_with_fees: "Blocks whose fee total is known.",
+  },
+  fees_daily: {
+    kind: "transparent, shielded or mixed (coinbase has no fee).",
+    txs: "Transactions of that kind with a known fee that day.",
+    p25_zat: "25th-percentile fee, zatoshis.",
+    median_zat: "Median fee, zatoshis.",
+    p75_zat: "75th-percentile fee, zatoshis.",
+  },
+  mining_daily: {
+    miner:
+      "An operator that names itself in its coinbase text, from a fixed list (a claim, not proof), or unidentified.",
+    blocks: "Blocks it mined that day.",
+  },
+};
+
 const TABLE_INTROS: Record<string, string> = {
+  transactions:
+    "Every mined transaction since 2016: kind, direction, fee, size, and what each shielded part publicly moved into or out of its pool, in files of 100,000 heights.",
+  blocks_daily: "Block spacing, size, difficulty and fees per UTC day, computed from `blocks`.",
+  fees_daily: "Fee percentiles per UTC day and transaction kind.",
+  mining_daily:
+    "Blocks per UTC day by self-named mining operator. Few operators name themselves, so most blocks are unidentified.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,
   pool_usage_daily: "Each shielded pool's activity per UTC day.",
   shielding_daily:
@@ -99,9 +156,9 @@ const TABLE_INTROS: Record<string, string> = {
   reorgs: "Chain reorganisations this indexer observed.",
 };
 
-function columnTable(columns: readonly ColumnSpec[]): string {
+function columnTable(table: string, columns: readonly ColumnSpec[]): string {
   const rows = columns.map((c) => {
-    const desc = DESCRIPTIONS[c.name];
+    const desc = TABLE_DESCRIPTIONS[table]?.[c.name] ?? DESCRIPTIONS[c.name];
     if (!desc) throw new Error(`no description for column ${c.name}`);
     return `| \`${c.name}\` | ${c.type}${c.nullable ? ", nullable" : ""} | ${desc} |`;
   });
@@ -111,6 +168,7 @@ function columnTable(columns: readonly ColumnSpec[]): string {
 export function datasetCard(): string {
   const tables: [string, readonly ColumnSpec[], string][] = [
     ["blocks", BLOCK_COLUMNS, "blocks/*.parquet"],
+    ["transactions", TRANSACTION_COLUMNS, "transactions/*.parquet"],
     ...Object.entries(SMALL_TABLES).map(
       ([name, cols]) => [name, cols, `${name}.parquet`] as [string, readonly ColumnSpec[], string],
     ),
@@ -122,7 +180,7 @@ export function datasetCard(): string {
     )
     .join("\n");
   const sections = tables
-    .map(([name, cols]) => `### \`${name}\`\n\n${TABLE_INTROS[name]}\n\n${columnTable(cols)}`)
+    .map(([name, cols]) => `### \`${name}\`\n\n${TABLE_INTROS[name]}\n\n${columnTable(name, cols)}`)
     .join("\n\n");
 
   return `---
@@ -133,7 +191,7 @@ tags:
 - blockchain
 - privacy
 size_categories:
-- 1M<n<10M
+- 10M<n<100M
 configs:
 ${configs}
 ---
@@ -141,8 +199,8 @@ ${configs}
 # Zcash mainnet chain index
 
 The chain index behind [ShieldedScan](https://shieldedscan.xyz), a privacy-first Zcash explorer,
-as plain Parquet files: every block since 2016 with every pool's balance, and the daily series
-behind the site's charts. Refreshed daily. Query it on your own machine: nobody sees your questions.
+as plain Parquet files: every block since 2016 with every pool's balance, every transaction's
+public values, and the daily series behind the site's charts. Refreshed daily. Query it on your own machine: nobody sees your questions.
 
 ## Loading
 
@@ -178,18 +236,17 @@ except a value that was unknown becoming known, which the manifest records.
 
 Every release passes checks before it is published: no missing heights, each block linked to the
 previous one, each pool's recorded flow equal to its balance change, the pools growing by no more
-than the block subsidy, and the daily counts agreeing with the blocks.
+than the block subsidy, the daily counts agreeing with the blocks, and each block's transactions
+matching its own count, kinds, fee total and pool flows.
 
 The indexer is open source: [github.com/BitFalco21/shieldedscan](https://github.com/BitFalco21/shieldedscan).
 Anyone with a Zcash node can rebuild these tables and compare.
 
-## What is not here, and why
+## What is not here
 
-No per-transaction amounts, no addresses, no miner-written text, no node IP addresses. On a
-privacy chain, per-transaction amounts with timestamps are the raw material for linking money
-going into the shielded pools to money coming out, and bulk address data is what chain analysis
-is built from. This dataset describes the chain; it does not help anyone trace its users. Price
-and location data from third parties are also left out.
+Shielded amounts: the chain encrypts them, and only what crosses a pool's boundary is public.
+Transparent inputs and outputs by address are not in this release yet. Node IP addresses,
+miner-written coinbase text, and third-party price and location data are left out.
 
 ## Licence and citation
 

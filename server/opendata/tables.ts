@@ -118,6 +118,65 @@ export const BLOCKS_PER_FILE = 500_000;
 export const blocksFile = (start: number) =>
   `blocks/${String(start).padStart(7, "0")}-${String(start + BLOCKS_PER_FILE - 1).padStart(7, "0")}.parquet`;
 
+/**
+ * One row per mined transaction: kind, direction, fee, size, and each shielded part with the value
+ * it publicly moved into or out of its pool. Shielded amounts inside a pool are never known.
+ */
+export const TRANSACTION_COLUMNS: readonly ColumnSpec[] = [
+  c("txid", "utf8"),
+  c("block_height", "int32"),
+  c("timestamp", "int64"),
+  c("kind", "utf8"),
+  c("direction", "utf8", true),
+  c("version", "int32"),
+  c("size_bytes", "int32"),
+  c("expiry_height", "int32", true),
+  c("fee_zat", "int64", true),
+  c("sprout_joinsplits", "int32", true),
+  c("sprout_vpub_net_zat", "int64", true),
+  c("sapling_spends", "int32", true),
+  c("sapling_outputs", "int32", true),
+  c("sapling_value_balance_zat", "int64", true),
+  c("orchard_actions", "int32", true),
+  c("orchard_value_balance_zat", "int64", true),
+  c("ironwood_actions", "int32", true),
+  c("ironwood_value_balance_zat", "int64", true),
+];
+
+/** Heights per `transactions` file: small enough that the daily re-upload of the newest stays small. */
+export const HEIGHTS_PER_TX_FILE = 100_000;
+
+export const transactionsFile = (start: number) =>
+  `transactions/${String(start).padStart(7, "0")}-${String(start + HEIGHTS_PER_TX_FILE - 1).padStart(7, "0")}.parquet`;
+
+/** Computed from the exported blocks themselves, so it costs the database nothing. */
+export const BLOCKS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("blocks", "int32"),
+  c("median_interval_s", "int32", true),
+  c("p90_interval_s", "int32", true),
+  c("max_interval_s", "int32", true),
+  c("avg_size_bytes", "float64"),
+  c("avg_difficulty", "float64", true),
+  c("fees_zat", "int64"),
+  c("blocks_with_fees", "int32"),
+];
+
+export const FEES_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("kind", "utf8"),
+  c("txs", "int32"),
+  c("p25_zat", "int64"),
+  c("median_zat", "int64"),
+  c("p75_zat", "int64"),
+];
+
+export const MINING_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("miner", "utf8"),
+  c("blocks", "int32"),
+];
+
 /** Every daily or event table: its file and its published columns. */
 export const SMALL_TABLES = {
   pool_usage_daily: POOL_USAGE_DAILY_COLUMNS,
@@ -126,6 +185,9 @@ export const SMALL_TABLES = {
   transparent_monthly: TRANSPARENT_MONTHLY_COLUMNS,
   node_releases_daily: NODE_RELEASES_DAILY_COLUMNS,
   reorgs: REORG_COLUMNS,
+  blocks_daily: BLOCKS_DAILY_COLUMNS,
+  fees_daily: FEES_DAILY_COLUMNS,
+  mining_daily: MINING_DAILY_COLUMNS,
 } as const satisfies Record<string, readonly ColumnSpec[]>;
 
 export type SmallTable = keyof typeof SMALL_TABLES;
