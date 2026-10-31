@@ -10,8 +10,8 @@
  * - The prose holds no live number. A figure that moves (a pool balance, a share) sits in the
  *   claim's `live` row, read at a printed height. Everything in `answer` is a settled past event
  *   or a consensus rule.
- * - A true claim is not refuted. Zcash has had two counterfeiting bugs; that entry is PARTLY
- *   TRUE and says what is true before what is not.
+ * - A true claim is not refuted. Zcash has had two counterfeiting bugs; that entry is MOSTLY
+ *   FALSE, never FALSE, and concedes them.
  * - No individual is named, including the researchers behind the papers cited. Organisations
  *   are named where a source names them.
  */
@@ -23,10 +23,12 @@ import { apiBaseUrl } from "@/lib/site";
  * sat in public Orchard code for four years), so "Zcash has an intelligence backdoor" is
  * UNFOUNDED (nothing supports it) rather than FALSE.
  */
-export type Verdict = "false" | "misleading" | "outdated" | "partly-true" | "unfounded";
+export type Verdict =
+  "false" | "mostly-false" | "misleading" | "outdated" | "partly-true" | "unfounded";
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
   false: "FALSE",
+  "mostly-false": "MOSTLY FALSE",
   misleading: "MISLEADING",
   outdated: "OUTDATED",
   "partly-true": "PARTLY TRUE",
@@ -36,6 +38,7 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 /** What each verdict means, for the tag's tooltip — the word carries it, this spells it out. */
 export const VERDICT_MEANING: Record<Verdict, string> = {
   false: "The record contradicts it.",
+  "mostly-false": "The record contradicts most of it — the answer says what holds.",
   misleading: "Built on something true, but the conclusion does not follow.",
   outdated: "Closer to true once; not now.",
   "partly-true": "Part of it is true — the answer says which part.",
@@ -123,6 +126,16 @@ const SAPLING_MPC: ClaimSource = {
   href: "https://web.archive.org/web/20231001193115/https://electriccoin.co/blog/completion-of-the-sapling-mpc/",
   verifiedOn: "2026-09-27",
 };
+const IRONWOOD_FV_AUDIT: ClaimSource = {
+  label: "Zakura, Adversarial Audit of Ironwood's Formal Verification (2026)",
+  href: "https://zakura.com/engineering/adversarial-audit-formal-verification/",
+  verifiedOn: "2026-10-31",
+};
+const ZKSECURITY_IRONWOOD_FV: ClaimSource = {
+  label: "zkSecurity, Adversarial Testing of the Ironwood Formal Verification (2026)",
+  href: "https://zakura.com/audits/zksecurity/zksecurity-ironwood-fv-2026-09-v3.pdf",
+  verifiedOn: "2026-10-31",
+};
 const HALO2: ClaimSource = {
   label: "Electric Coin Company, Explaining Halo 2",
   href: "https://electriccoin.co/blog/explaining-halo-2/",
@@ -200,16 +213,19 @@ export const CLAIMS: readonly Claim[] = [
     id: "hidden-inflation",
     group: "supply",
     claim: "Hidden inflation means nobody can verify Zcash's supply.",
-    verdict: "partly-true",
+    verdict: "mostly-false",
     answer: [
       "The total supply stays checkable: every pool's balance is public and nodes reject any block that would take one below zero, so counterfeit coins could only take from the flawed pool's other holders, never add to the supply.",
       "What is true: bugs in Sprout (fixed 2018) and Orchard (live 2022 until an emergency fix on 2026-06-01) could have let someone mint unseen ZEC inside that pool, and whether either was used cannot be proven from the chain.",
       "Neither pool accepts deposits any more: Sprout since 2020, Orchard since 2026-07-28.",
+      "Ironwood, Orchard's successor, is formally verified to rule out undetectable counterfeiting within the proof's model and assumptions, and that verification was itself adversarially audited in 2026, with no soundness bug found to escape it.",
     ],
     live: ["flawed-pools"],
     sources: [
       ORCHARD_DISCLOSURE,
       IRONWOOD,
+      IRONWOOD_FV_AUDIT,
+      ZKSECURITY_IRONWOOD_FV,
       SPROUT_DISCLOSURE,
       zip(209, "Prohibit Out-of-Range Chain Value Pool Balances"),
       zip(211, "Disabling Addition of New Value to the Sprout Chain Value Pool"),
