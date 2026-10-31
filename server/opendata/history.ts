@@ -27,6 +27,7 @@ export interface HistoryResult {
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
+  if (path.startsWith("transactions/")) return ["txid"];
   const keys: Record<string, readonly string[]> = {
     "pool_usage_daily.parquet": ["day", "pool"],
     "shielding_daily.parquet": ["day"],
@@ -34,6 +35,9 @@ export function rowKey(path: string): readonly string[] {
     "transparent_monthly.parquet": ["month"],
     "node_releases_daily.parquet": ["day", "client", "version", "protocol_version"],
     "reorgs.parquet": ["height", "orphaned_hash"],
+    "blocks_daily.parquet": ["day"],
+    "fees_daily.parquet": ["day", "kind"],
+    "mining_daily.parquet": ["day", "miner"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);

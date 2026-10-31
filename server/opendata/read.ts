@@ -10,10 +10,14 @@ import {
   type BlockRow,
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
+import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
 import {
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
   blocksFile,
+  HEIGHTS_PER_TX_FILE,
+  TRANSACTION_COLUMNS,
+  transactionsFile,
   SMALL_TABLES,
   type SmallTable,
 } from "./tables";
@@ -159,6 +163,9 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
 
     const files: OutputFile[] = [];
     const checker = new BlockChecker();
+    const expected = new BlockExpectations(height);
+    const dailyBlocks = new DailyBlocks();
+    const dailyMining = new DailyMining();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
@@ -170,9 +177,18 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
           [a, b],
         );
         for (const r of rows) {
-          checker.push(r as unknown as BlockRow);
+          const row = r as unknown as BlockRow;
+          checker.push(row);
+          expected.record(row);
+          dailyBlocks.push(row);
           BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
+        // The coinbase text is read only to match the fixed list of self-named operators.
+        const miners = await snap.query<{ timestamp: bigint; coinbase_tag: string | null }>(
+          "SELECT timestamp, coinbase_tag FROM opendata.block_miners WHERE height BETWEEN $1 AND $2",
+          [a, b],
+        );
+        for (const m of miners.rows) dailyMining.push(m.timestamp, m.coinbase_tag);
         await watchFollower();
       }
       files.push(file(blocksFile(start), BLOCK_COLUMNS, values));
@@ -242,6 +258,12 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
          FROM opendata.node_releases_daily WHERE day <= $1 ORDER BY day`,
       [yesterday],
     );
+    const fees = await small(
+      "fees_daily",
+      `SELECT ${SMALL_TABLES.fees_daily.map((c) => c.name).join(", ")} FROM opendata.fees_daily
+        WHERE day <= $1 ORDER BY day, kind COLLATE "C"`,
+      [finalDay],
+    );
     await snap.query("COMMIT");
 
     // Node rows: classified by the site's own function, then reduced to what may be published.
@@ -300,6 +322,9 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["transparent_monthly", monthly.columns, monthly.rows],
       ["node_releases_daily", SMALL_TABLES.node_releases_daily, nodeRows],
       ["reorgs", reorgs.columns, reorgs.rows],
+      ["blocks_daily", SMALL_TABLES.blocks_daily, dailyBlocks.rows(finalDay)],
+      ["fees_daily", fees.columns, fees.rows],
+      ["mining_daily", SMALL_TABLES.mining_daily, dailyMining.rows(finalDay)],
     ];
     for (const [name, columns, rows] of tables) {
       const values = toColumns(columns, rows);
@@ -318,6 +343,29 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       }
       files.push(file(`${name}.parquet`, columns, values));
     }
+
+    // Transactions in their own snapshot at the same height, so neither transaction runs long.
+    // Every published height is final, so both snapshots see the same rows below N.
+    const txChecker = new TxChecker(expected);
+    const txCols = TRANSACTION_COLUMNS.map((c) => c.name).join(", ");
+    await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    for (let start = 0; start <= height; start += HEIGHTS_PER_TX_FILE) {
+      const end = Math.min(height, start + HEIGHTS_PER_TX_FILE - 1);
+      const { rows } = await snap.query<Record<string, unknown>>(
+        `SELECT ${txCols} FROM opendata.transactions WHERE block_height BETWEEN $1 AND $2
+          ORDER BY block_height, txid COLLATE "C"`,
+        [start, end],
+      );
+      for (const r of rows) txChecker.push(r as unknown as TxRow);
+      files.push(
+        file(transactionsFile(start), TRANSACTION_COLUMNS, toColumns(TRANSACTION_COLUMNS, rows)),
+      );
+      if (start % 500_000 === 0) log(`${transactionsFile(start)}: ${rows.length} rows`);
+      await watchFollower();
+    }
+    await snap.query("COMMIT");
+    txChecker.finish();
+    failures.push(...txChecker.failures.list());
 
     return {
       height,

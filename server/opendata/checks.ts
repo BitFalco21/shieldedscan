@@ -12,7 +12,11 @@ export interface BlockRow {
   hash: string;
   prev_hash: string;
   timestamp: bigint;
+  size_bytes: number;
+  tx_count: number;
+  transparent_tx_count: number;
   mixed_tx_count: number;
+  shielded_tx_count: number;
   total_fee_zat: bigint | null;
   sapling_flow_zat: bigint;
   orchard_flow_zat: bigint;
@@ -22,6 +26,7 @@ export interface BlockRow {
   orchard_pool_zat: bigint | null;
   lockbox_pool_zat: bigint | null;
   ironwood_pool_zat: bigint | null;
+  difficulty: number | null;
   miner_kind: string | null;
   miner_reward_zat: bigint | null;
 }
@@ -41,7 +46,7 @@ const SLOW_START_END = 20_000;
 const MINER_KINDS = new Set(["transparent", "shielded", "unknown"]);
 
 /** A report kept short: the first few examples of a failure and how many there were. */
-class Findings {
+export class Findings {
   private readonly counts = new Map<string, number>();
   private readonly examples = new Map<string, string[]>();
   add(rule: string, example: string) {
