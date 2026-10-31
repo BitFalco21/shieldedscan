@@ -44,9 +44,10 @@ describe("the fact-check claims", () => {
 
   it("concedes the counterfeiting bugs instead of refuting them", () => {
     // Two undetectable-counterfeiting flaws existed (Sprout, fixed 2018; Orchard, 2022 until
-    // 2026-06-01). A page that called hidden inflation FALSE would be debunked with one link.
+    // 2026-06-01). A page that called hidden inflation FALSE would be debunked with one link, so
+    // it is MOSTLY FALSE and the answer names both.
     const inflation = CLAIMS.find((c) => c.id === "hidden-inflation");
-    expect(inflation?.verdict).toBe("partly-true");
+    expect(inflation?.verdict).toBe("mostly-false");
     expect(inflation?.answer.join(" ")).toMatch(/Sprout/);
     expect(inflation?.answer.join(" ")).toMatch(/Orchard.*2022/);
     // And the trusted-setup answer must not claim Sprout's setup was flawless: its BCTV14
