@@ -1,0 +1,30 @@
+# The open dataset's daily release (server/opendata-main.ts). A one-shot job run from cron with
+# `--rm`; it reads the `opendata` views and writes Parquet files, nothing else.
+#
+# parquet-wasm loads its WebAssembly file from its own package directory at runtime, so it stays
+# outside the bundle and its package (no dependencies of its own) is copied beside it.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+COPY server ./server
+RUN npx esbuild server/opendata-main.ts \
+      --bundle --platform=node --target=node22 --format=esm \
+      --external:parquet-wasm \
+      --outfile=dist/opendata.mjs \
+      --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+# Which commit built this image, recorded in every release's manifest.
+ARG OPENDATA_GIT_SHA=unknown
+ENV OPENDATA_GIT_SHA=$OPENDATA_GIT_SHA
+ENV HF_HUB_DISABLE_TELEMETRY=1
+COPY --from=build /app/dist/opendata.mjs ./opendata.mjs
+COPY --from=build /app/node_modules/parquet-wasm ./node_modules/parquet-wasm
+USER node
+# Under the container's 2 GB limit, so running out of memory is a stack trace, not a silent kill.
+ENTRYPOINT ["node", "--max-old-space-size=1200", "opendata.mjs"]
