@@ -74,6 +74,8 @@ jobs:
         run: docker build -q -f server/Dockerfile.follower -t ci-follower .
       - name: Crawler
         run: docker build -q -f server/Dockerfile.crawler -t ci-crawler .
+      - name: Open data
+        run: docker build -q -f server/Dockerfile.opendata -t ci-opendata .
 
   e2e:
     runs-on: ubuntu-latest
