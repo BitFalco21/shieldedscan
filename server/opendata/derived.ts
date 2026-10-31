@@ -15,6 +15,8 @@ export class BlockExpectations {
   private readonly shielded: Int32Array;
   private readonly fee: BigInt64Array;
   private readonly feeKnown: Uint8Array;
+  private readonly saplingFlow: BigInt64Array;
+  private readonly orchardFlow: BigInt64Array;
 
   constructor(readonly height: number) {
     const n = height + 1;
@@ -24,6 +26,8 @@ export class BlockExpectations {
     this.shielded = new Int32Array(n);
     this.fee = new BigInt64Array(n);
     this.feeKnown = new Uint8Array(n);
+    this.saplingFlow = new BigInt64Array(n);
+    this.orchardFlow = new BigInt64Array(n);
   }
 
   record(row: BlockRow): void {
@@ -33,6 +37,8 @@ export class BlockExpectations {
     this.transparent[h] = row.transparent_tx_count;
     this.mixed[h] = row.mixed_tx_count;
     this.shielded[h] = row.shielded_tx_count;
+    this.saplingFlow[h] = row.sapling_flow_zat;
+    this.orchardFlow[h] = row.orchard_flow_zat;
     if (row.total_fee_zat !== null) {
       this.fee[h] = row.total_fee_zat;
       this.feeKnown[h] = 1;
@@ -46,6 +52,8 @@ export class BlockExpectations {
       mixed: this.mixed[h]!,
       shielded: this.shielded[h]!,
       fee: this.feeKnown[h] ? this.fee[h]! : null,
+      saplingFlow: this.saplingFlow[h]!,
+      orchardFlow: this.orchardFlow[h]!,
     };
   }
 }
@@ -56,6 +64,8 @@ export interface TxRow {
   kind: string;
   direction: string | null;
   fee_zat: bigint | null;
+  sapling_value_balance_zat: bigint | null;
+  orchard_value_balance_zat: bigint | null;
 }
 
 const KINDS = new Set(["transparent", "shielded", "mixed", "coinbase"]);
@@ -63,7 +73,8 @@ const DIRECTIONS = new Set(["shielding", "unshielding", "indeterminate"]);
 
 /**
  * Every block's transactions must add up to what the block records: as many of them, as many of
- * each kind, and (where the block's fee total is known) fees that sum to it exactly.
+ * each kind, (where the block's fee total is known) fees that sum to it exactly, and Sapling and
+ * Orchard balances that sum to the pool flows the node reported for the block.
  */
 export class TxChecker {
   readonly failures = new Findings();
@@ -74,6 +85,8 @@ export class TxChecker {
   private shielded = 0;
   private fees = 0n;
   private feesUnknown = 0;
+  private sapling = 0n;
+  private orchard = 0n;
   private checkedUpTo = -1;
 
   constructor(private readonly blocks: BlockExpectations) {}
@@ -97,6 +110,8 @@ export class TxChecker {
       this.failures.add("direction does not match kind", tx.txid);
     }
     this.count++;
+    this.sapling += tx.sapling_value_balance_zat ?? 0n;
+    this.orchard += tx.orchard_value_balance_zat ?? 0n;
     if (tx.kind === "transparent") this.transparent++;
     else if (tx.kind === "mixed") this.mixed++;
     else if (tx.kind === "shielded") this.shielded++;
@@ -129,9 +144,12 @@ export class TxChecker {
     if (e.fee !== null && (this.feesUnknown > 0 || this.fees !== e.fee)) {
       this.failures.add("transaction fees do not sum to the block's fee", h);
     }
+    if (this.sapling !== e.saplingFlow || this.orchard !== e.orchardFlow) {
+      this.failures.add("transaction balances do not sum to the block's pool flows", h);
+    }
     this.checkedUpTo = this.height;
     this.count = this.transparent = this.mixed = this.shielded = this.feesUnknown = 0;
-    this.fees = 0n;
+    this.fees = this.sapling = this.orchard = 0n;
   }
 
   /** Closes the last block and requires every height up to the release to have been seen. */

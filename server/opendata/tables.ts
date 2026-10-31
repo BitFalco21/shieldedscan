@@ -119,9 +119,8 @@ export const blocksFile = (start: number) =>
   `blocks/${String(start).padStart(7, "0")}-${String(start + BLOCKS_PER_FILE - 1).padStart(7, "0")}.parquet`;
 
 /**
- * One row per mined transaction, without its amounts. Kind, direction, fee, size and the count of
- * each kind of shielded part describe its shape; how much moved through which pool is never
- * exported transaction by transaction.
+ * One row per mined transaction: kind, direction, fee, size, and each shielded part with the value
+ * it publicly moved into or out of its pool. Shielded amounts inside a pool are never known.
  */
 export const TRANSACTION_COLUMNS: readonly ColumnSpec[] = [
   c("txid", "utf8"),
@@ -134,10 +133,14 @@ export const TRANSACTION_COLUMNS: readonly ColumnSpec[] = [
   c("expiry_height", "int32", true),
   c("fee_zat", "int64", true),
   c("sprout_joinsplits", "int32", true),
+  c("sprout_vpub_net_zat", "int64", true),
   c("sapling_spends", "int32", true),
   c("sapling_outputs", "int32", true),
+  c("sapling_value_balance_zat", "int64", true),
   c("orchard_actions", "int32", true),
+  c("orchard_value_balance_zat", "int64", true),
   c("ironwood_actions", "int32", true),
+  c("ironwood_value_balance_zat", "int64", true),
 ];
 
 /** Heights per `transactions` file: small enough that the daily re-upload of the newest stays small. */

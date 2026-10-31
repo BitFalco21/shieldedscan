@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { tableFromIPC } from "apache-arrow";
 import { readParquet } from "parquet-wasm";
@@ -30,8 +31,14 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
   let db: Client;
   let connection: { connectionString: string };
 
-  const run = (): Promise<Release> =>
-    readRelease({ connection, now: () => START + (TIP + 8) * SPACING });
+  // Each run writes into its own directory, remembered so `read` can find the files.
+  const outDirs = new Map<Release, string>();
+  const run = async (): Promise<Release> => {
+    const outDir = mkdtempSync(join(tmpdir(), "opendata-test-"));
+    const r = await readRelease({ connection, outDir, now: () => START + (TIP + 8) * SPACING });
+    outDirs.set(r, outDir);
+    return r;
+  };
 
   beforeAll(async () => {
     admin = new Client({ connectionString: ADMIN_URL });
@@ -109,14 +116,17 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       `INSERT INTO reorg_event (detected_at, height, depth, orphaned_hash, replaced_by) VALUES (0, 150, 1, $1, $2)`,
       [hex(77), hex(78)],
     );
-    // Each block holds what it says: a coinbase and one mixed transaction with a zero fee,
-    // shielding and unshielding in turn.
+    // Each block holds what it says: a coinbase and one mixed transaction with a zero fee that
+    // carries the block's Sapling flow, shielding and unshielding in turn.
     await db.query(
-      `INSERT INTO tx (txid, block_height, timestamp, is_coinbase, version, size_bytes, kind, direction, fee_zat)
+      `INSERT INTO tx (txid, block_height, timestamp, is_coinbase, version, size_bytes, kind, direction, fee_zat,
+                       sapling_spends, sapling_outputs, sapling_value_balance_zat)
        SELECT lpad(to_hex(1000000 + h * 2 + k), 64, '0'), h, $1 + h * $2, k = 0, 5, 300,
               CASE WHEN k = 0 THEN 'coinbase' ELSE 'mixed' END,
               CASE WHEN k = 0 THEN NULL WHEN h % 2 = 0 THEN 'shielding' ELSE 'unshielding' END,
-              CASE WHEN k = 0 THEN NULL ELSE 0 END
+              CASE WHEN k = 0 THEN NULL ELSE 0 END,
+              CASE WHEN k = 1 AND h > 100 THEN 0 END, CASE WHEN k = 1 AND h > 100 THEN 1 END,
+              CASE WHEN k = 1 AND h > 100 THEN 1000 END
          FROM generate_series(0, $3::int) AS h, generate_series(0, 1) AS k`,
       [START, SPACING, TIP],
     );
@@ -128,12 +138,14 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     await db?.end();
     await admin?.query(`DROP DATABASE IF EXISTS ${DB}`);
     await admin?.end();
+    for (const dir of outDirs.values()) rmSync(dir, { recursive: true, force: true });
   });
 
   const read = (r: Release, path: string) => {
     const f = r.files.find((x) => x.path === path);
     if (!f) throw new Error(`no ${path}`);
-    return tableFromIPC(readParquet(f.bytes).intoIPCStream());
+    const bytes = new Uint8Array(readFileSync(join(outDirs.get(r)!, f.path)));
+    return tableFromIPC(readParquet(bytes).intoIPCStream());
   };
 
   it("exports a consistent chain with no failures, to the release height", async () => {
@@ -155,9 +167,12 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "transactions/0000000-0099999.parquet",
     ]);
     expect(read(r, "transactions/0000000-0099999.parquet").numRows).toBe((RELEASE + 1) * 2);
-    expect(
-      read(r, "transactions/0000000-0099999.parquet").schema.fields.map((f) => f.name),
-    ).not.toContain("sapling_value_balance_zat");
+    const balances = read(r, "transactions/0000000-0099999.parquet").getChild(
+      "sapling_value_balance_zat",
+    )!;
+    let sapling = 0n;
+    for (let i = 0; i < balances.length; i++) sapling += (balances.get(i) as bigint | null) ?? 0n;
+    expect(sapling).toBe(BigInt(RELEASE - 100) * 1000n);
     const mining = read(r, "mining_daily.parquet")
       .toArray()
       .map((x) => x.miner);
@@ -270,6 +285,12 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       `UPDATE tx SET direction = 'shielding' WHERE txid = lpad(to_hex(1000000 + 70 * 2), 64, '0')`,
       `UPDATE tx SET direction = NULL WHERE txid = lpad(to_hex(1000000 + 70 * 2), 64, '0')`,
       /direction does not match kind/,
+    ],
+    [
+      "balances that do not add up to the block's pool flow",
+      `UPDATE tx SET sapling_value_balance_zat = 999 WHERE txid = lpad(to_hex(1000000 + 150 * 2 + 1), 64, '0')`,
+      `UPDATE tx SET sapling_value_balance_zat = 1000 WHERE txid = lpad(to_hex(1000000 + 150 * 2 + 1), 64, '0')`,
+      /transaction balances do not sum to the block's pool flows/,
     ],
   ];
 

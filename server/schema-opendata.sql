@@ -51,12 +51,14 @@ CREATE OR REPLACE VIEW opendata.reorgs AS
 SELECT height, depth, orphaned_hash, replaced_by
 FROM reorg_event;
 
--- One row per mined transaction, without its amounts: no pool value balances and no Sprout public
--- value. Kind, direction, fee, size and how many shielded parts it has are public facts about
--- its shape; how much moved through which pool is not exported transaction by transaction.
+-- One row per mined transaction, with what each shielded part publicly moved into or out of its
+-- pool. New columns go at the end: CREATE OR REPLACE VIEW can only append, and the export selects
+-- by name, so the published column order is unaffected.
 CREATE OR REPLACE VIEW opendata.transactions AS
 SELECT txid, block_height, timestamp, kind, direction, version, size_bytes, expiry_height, fee_zat,
-       sprout_joinsplits, sapling_spends, sapling_outputs, orchard_actions, ironwood_actions
+       sprout_joinsplits, sapling_spends, sapling_outputs, orchard_actions, ironwood_actions,
+       sprout_vpub_net_zat, sapling_value_balance_zat, orchard_value_balance_zat,
+       ironwood_value_balance_zat
 FROM tx
 WHERE block_height IS NOT NULL;
 

@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
@@ -59,9 +61,10 @@ const exportTypes: NonNullable<ClientConfig["types"]> = {
   }) as NonNullable<ClientConfig["types"]>["getTypeParser"],
 };
 
+/** A file written to the output directory; its bytes stay on disk, never all in memory. */
 export interface OutputFile {
   path: string;
-  bytes: Uint8Array;
+  size: number;
   rows: number;
   /** sha256 of the file. */
   sha256: string;
@@ -82,6 +85,8 @@ export interface Release {
 
 export interface ReadOptions {
   connection: ClientConfig;
+  /** Where each file is written as soon as it is built. */
+  outDir: string;
   /** Seconds since the epoch, for "yesterday" in the node table. */
   now?: () => number;
   log?: (line: string) => void;
@@ -107,11 +112,18 @@ function contentDigest(columns: readonly ColumnSpec[], values: readonly ColumnVa
   return h.digest("hex");
 }
 
-function file(path: string, columns: readonly ColumnSpec[], values: ColumnValues[]): OutputFile {
+function writeFile(
+  outDir: string,
+  path: string,
+  columns: readonly ColumnSpec[],
+  values: ColumnValues[],
+): OutputFile {
   const bytes = toParquet(arrowTable(columns, values));
+  mkdirSync(dirname(join(outDir, path)), { recursive: true });
+  writeFileSync(join(outDir, path), bytes);
   return {
     path,
-    bytes,
+    size: bytes.length,
     rows: values[0]?.length ?? 0,
     sha256: sha256(bytes),
     contentSha256: contentDigest(columns, values),
@@ -162,6 +174,8 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     log(`release height ${height} (tip ${tipHeight})`);
 
     const files: OutputFile[] = [];
+    const file = (path: string, columns: readonly ColumnSpec[], values: ColumnValues[]) =>
+      writeFile(opts.outDir, path, columns, values);
     const checker = new BlockChecker();
     const expected = new BlockExpectations(height);
     const dailyBlocks = new DailyBlocks();
