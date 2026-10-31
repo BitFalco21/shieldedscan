@@ -178,10 +178,20 @@ test.describe("the AI agent page", () => {
     await ask(page, "what is Ironwood?");
 
     await expect(page.getByText(/fourth shielded pool/)).toBeVisible();
-    await expect(page.getByRole("link", { name: /block 3428143/ })).toHaveAttribute(
-      "href",
-      "/block/3428143",
-    );
+
+    // Collapsed by default; opened from the keyboard, then closed again.
+    const toggle = page.getByRole("button", { name: "Sources (1)" });
+    const link = page.getByRole("link", { name: /block 3428143/ });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(link).toBeHidden();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(link).toHaveAttribute("href", "/block/3428143");
+    await expect(link).toBeVisible();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(link).toBeHidden();
   });
 
   test("a markdown image in the answer never becomes an element or a request", async ({ page }) => {
