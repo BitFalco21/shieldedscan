@@ -207,6 +207,21 @@ export function scheduledSubsidyZat(height: number): number {
   return Math.floor(base / 2 ** halvingIndex(height));
 }
 
+/**
+ * The protocol's block subsidy at `height`, in zatoshi, slow start included (§7.8):
+ * `SlowStartRate × height` below half the interval and `SlowStartRate × (height + 1)` above it,
+ * with `SlowStartRate = MaxBlockSubsidy / SlowStartInterval`, so the 20,000 slow-start blocks
+ * issue 125,000 ZEC in all. Undefined from `REISSUANCE_START_HEIGHT`, where ZIP 237 adds to it.
+ */
+export function blockSubsidyZat(height: number): number {
+  if (!Number.isInteger(height) || height < 0) throw new RangeError(`height ${height}`);
+  if (height >= REISSUANCE_START_HEIGHT) throw new RangeError(`reissuance height ${height}`);
+  const rate = MAX_BLOCK_SUBSIDY_ZAT / SLOW_START_INTERVAL;
+  if (height < SLOW_START_INTERVAL / 2) return rate * height;
+  if (height < SLOW_START_INTERVAL) return rate * (height + 1);
+  return scheduledSubsidyZat(height);
+}
+
 /** A subsidy split, in zatoshi, exactly as the node reported it for one height. */
 export interface SubsidySplit {
   totalZat: number;

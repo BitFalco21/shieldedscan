@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { targetSpacingSeconds } from "../consensus";
 import {
+  blockSubsidyZat,
   BLOCK_TARGET_SECONDS,
   BLOSSOM_HEIGHT,
   FUNDING_EXPIRY_BEFORE_NU61,
@@ -95,6 +96,28 @@ describe("scheduledSubsidyZat", () => {
 
   it("refuses the slow start, which it does not model", () => {
     expect(() => scheduledSubsidyZat(19_999)).toThrow(RangeError);
+  });
+});
+
+describe("blockSubsidyZat", () => {
+  it("ramps through the slow start to 125,000 ZEC in all", () => {
+    expect(blockSubsidyZat(0)).toBe(0);
+    expect(blockSubsidyZat(1)).toBe(62_500);
+    expect(blockSubsidyZat(9_999)).toBe(624_937_500);
+    expect(blockSubsidyZat(10_000)).toBe(625_062_500);
+    expect(blockSubsidyZat(19_999)).toBe(1_250_000_000);
+    let total = 0;
+    for (let h = 0; h < 20_000; h++) total += blockSubsidyZat(h);
+    expect(total).toBe(125_000 * 100_000_000);
+  });
+
+  it("follows the schedule after it, and stops where reissuance starts", () => {
+    expect(blockSubsidyZat(20_000)).toBe(1_250_000_000);
+    expect(blockSubsidyZat(653_600)).toBe(625_000_000);
+    expect(blockSubsidyZat(1_046_400)).toBe(312_500_000);
+    expect(blockSubsidyZat(2_726_400)).toBe(156_250_000);
+    expect(() => blockSubsidyZat(8_939_664)).toThrow(RangeError);
+    expect(() => blockSubsidyZat(-1)).toThrow(RangeError);
   });
 });
 
