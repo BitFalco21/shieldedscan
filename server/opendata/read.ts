@@ -38,6 +38,11 @@ import {
 export const CONFIRMATIONS = 100;
 /** Rows per read, and per record batch: the same every run, so row groups never move. */
 const CHUNK = 100_000;
+/**
+ * Heights per transaction read. A file's rows are kept as columns, never as row objects: a busy
+ * 100,000 heights holds 1.4 million transactions, too many objects for the memory we run in.
+ */
+const TX_CHUNK = 10_000;
 /** Follower silence that, seen twice in a row, stops the export. */
 const MAX_FOLLOWER_LAG_S = 600;
 /** Days the daily trackers keep recomputing; a day is final once it is this far behind block N. */
@@ -365,16 +370,21 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     for (let start = 0; start <= height; start += HEIGHTS_PER_TX_FILE) {
       const end = Math.min(height, start + HEIGHTS_PER_TX_FILE - 1);
-      const { rows } = await snap.query<Record<string, unknown>>(
-        `SELECT ${txCols} FROM opendata.transactions WHERE block_height BETWEEN $1 AND $2
-          ORDER BY block_height, txid COLLATE "C"`,
-        [start, end],
-      );
-      for (const r of rows) txChecker.push(r as unknown as TxRow);
-      files.push(
-        file(transactionsFile(start), TRANSACTION_COLUMNS, toColumns(TRANSACTION_COLUMNS, rows)),
-      );
-      if (start % 500_000 === 0) log(`${transactionsFile(start)}: ${rows.length} rows`);
+      const values: ColumnValues[] = TRANSACTION_COLUMNS.map(() => []);
+      for (let a = start; a <= end; a += TX_CHUNK) {
+        const { rows } = await snap.query<Record<string, unknown>>(
+          `SELECT ${txCols} FROM opendata.transactions WHERE block_height BETWEEN $1 AND $2
+            ORDER BY block_height, txid COLLATE "C"`,
+          [a, Math.min(end, a + TX_CHUNK - 1)],
+        );
+        for (const r of rows) {
+          txChecker.push(r as unknown as TxRow);
+          TRANSACTION_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
+        }
+      }
+      const written = file(transactionsFile(start), TRANSACTION_COLUMNS, values);
+      files.push(written);
+      if (start % 500_000 === 0) log(`${written.path}: ${written.rows} rows`);
       await watchFollower();
     }
     await snap.query("COMMIT");
