@@ -177,6 +177,44 @@ export const MINING_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("blocks", "int32"),
 ];
 
+/** Network solution rate per day, estimated from difficulty: never a measurement. */
+export const HASHRATE_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("solutions_per_second", "float64", true),
+];
+
+export const SUPPLY_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("schedule_zat", "int64"),
+  c("issued_zat", "int64", true),
+  c("unclaimed_zat", "int64", true),
+  c("nsm_zat", "int64"),
+  c("nsm_total_zat", "int64"),
+];
+
+export const TX_VERSIONS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("version", "int32"),
+  c("txs", "int32"),
+];
+
+export const POOL_FLOWS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("pool", "utf8"),
+  c("inflow_zat", "int64"),
+  c("outflow_zat", "int64"),
+  c("txs", "int32"),
+];
+
+export const COINBASE_SHIELDED_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("coinbase_txs", "int32"),
+  c("shielded_coinbase_txs", "int32"),
+  c("to_sapling_zat", "int64"),
+  c("to_orchard_zat", "int64"),
+  c("to_ironwood_zat", "int64"),
+];
+
 /** Every daily or event table: its file and its published columns. */
 export const SMALL_TABLES = {
   pool_usage_daily: POOL_USAGE_DAILY_COLUMNS,
@@ -188,6 +226,11 @@ export const SMALL_TABLES = {
   blocks_daily: BLOCKS_DAILY_COLUMNS,
   fees_daily: FEES_DAILY_COLUMNS,
   mining_daily: MINING_DAILY_COLUMNS,
+  hashrate_daily: HASHRATE_DAILY_COLUMNS,
+  supply_daily: SUPPLY_DAILY_COLUMNS,
+  tx_versions_daily: TX_VERSIONS_DAILY_COLUMNS,
+  pool_flows_daily: POOL_FLOWS_DAILY_COLUMNS,
+  coinbase_shielded_daily: COINBASE_SHIELDED_DAILY_COLUMNS,
 } as const satisfies Record<string, readonly ColumnSpec[]>;
 
 export type SmallTable = keyof typeof SMALL_TABLES;

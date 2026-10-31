@@ -5,6 +5,7 @@ import { tableFromIPC } from "apache-arrow";
 import { readParquet } from "parquet-wasm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { blockSubsidyZat } from "@/domain/halving";
 import { CONFIRMATIONS, readRelease, type Release } from "../read";
 
 /**
@@ -65,9 +66,11 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     connection = { connectionString: reader.toString() };
 
     // A chain whose numbers agree with each other: Sapling starts reporting at 100 and its flow
-    // equals its pool's change; the pools grow by less than the slow-start ceiling each block.
+    // equals its pool's change, and the pools together hold exactly the slow-start subsidy so far.
+    let issued = 0n;
     for (let h = 0; h <= TIP; h++) {
       const sapling = h >= 100 ? BigInt((h - 100) * 1000) : null;
+      issued += BigInt(blockSubsidyZat(h));
       await db.query(
         `INSERT INTO block (height, hash, prev_hash, timestamp, size_bytes, tx_count,
            transparent_tx_count, mixed_tx_count, shielded_tx_count, total_fee_zat,
@@ -80,7 +83,7 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
           h === 0 ? hex(0) : hex(h),
           START + h * SPACING,
           h > 100 ? 1000 : 0,
-          BigInt(h) * 1_000_000_000n,
+          issued - (sapling ?? 0n),
           sapling,
         ],
       );
@@ -164,7 +167,12 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "blocks_daily.parquet",
       "fees_daily.parquet",
       "mining_daily.parquet",
+      "hashrate_daily.parquet",
+      "supply_daily.parquet",
       "transactions/0000000-0099999.parquet",
+      "tx_versions_daily.parquet",
+      "pool_flows_daily.parquet",
+      "coinbase_shielded_daily.parquet",
     ]);
     expect(read(r, "transactions/0000000-0099999.parquet").numRows).toBe((RELEASE + 1) * 2);
     const balances = read(r, "transactions/0000000-0099999.parquet").getChild(
@@ -182,9 +190,19 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     expect(blocks.numRows).toBe(RELEASE + 1);
     expect(blocks.schema.fields.map((f) => f.name)).not.toContain("miner_address");
     expect(blocks.schema.fields.map((f) => f.name)).not.toContain("coinbase_tag");
+    // Slow start: Σ 62,500 × h for h ≤ RELEASE (< 10,000), less what Sapling holds.
     expect(blocks.getChild("transparent_pool_zat")!.get(RELEASE)).toBe(
-      BigInt(RELEASE) * 1_000_000_000n,
+      (62_500n * BigInt(RELEASE) * BigInt(RELEASE + 1)) / 2n - BigInt(RELEASE - 100) * 1000n,
     );
+    // Every final day's supply is exactly the schedule: nothing unclaimed, nothing above it.
+    const supply = read(r, "supply_daily.parquet").toArray();
+    expect(supply.length).toBeGreaterThan(0);
+    for (const row of supply) expect(row.unclaimed_zat).toBe(0n);
+    expect(
+      read(r, "tx_versions_daily.parquet")
+        .toArray()
+        .map((x) => x.version),
+    ).toContain(5);
     expect(blocks.getChild("sapling_pool_zat")!.get(99)).toBeNull();
     // Only days at least three days behind block N's day are final.
     const days = [...read(r, "shielding_daily.parquet").getChild("day")!].map((d) =>
@@ -291,6 +309,12 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       `UPDATE tx SET sapling_value_balance_zat = 999 WHERE txid = lpad(to_hex(1000000 + 150 * 2 + 1), 64, '0')`,
       `UPDATE tx SET sapling_value_balance_zat = 1000 WHERE txid = lpad(to_hex(1000000 + 150 * 2 + 1), 64, '0')`,
       /transaction balances do not sum to the block's pool flows/,
+    ],
+    [
+      "a supply one zatoshi above the protocol schedule",
+      "UPDATE block SET transparent_pool_zat = transparent_pool_zat + 1 WHERE height >= 150",
+      "UPDATE block SET transparent_pool_zat = transparent_pool_zat - 1 WHERE height >= 150",
+      /supply above the protocol schedule/,
     ],
   ];
 

@@ -14,6 +14,14 @@ import {
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
 import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
 import {
+  DailyHashrate,
+  DailyPoolFlows,
+  DailyShieldedCoinbase,
+  DailySupply,
+  DailyTxVersions,
+  type MetricTx,
+} from "./metrics";
+import {
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
   blocksFile,
@@ -185,6 +193,8 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const expected = new BlockExpectations(height);
     const dailyBlocks = new DailyBlocks();
     const dailyMining = new DailyMining();
+    const dailyHashrate = new DailyHashrate();
+    const dailySupply = new DailySupply();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
@@ -200,6 +210,8 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
           checker.push(row);
           expected.record(row);
           dailyBlocks.push(row);
+          dailyHashrate.push(row);
+          dailySupply.push(row);
           BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
         // The coinbase text is read only to match the fixed list of self-named operators.
@@ -334,6 +346,37 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const sd = checkShieldingDaily(shielding.rows as never, checker.mixedPerDay);
     failures.push(...pu.failures, ...sd.failures);
 
+    const writeTables = (
+      list: [SmallTable, readonly ColumnSpec[], readonly Record<string, unknown>[]][],
+    ) => {
+      for (const [name, columns, rows] of list) {
+        const values = toColumns(columns, rows);
+        columns.forEach((c, i) => {
+          if (c.type === "utf8" && !/hash$/.test(c.name)) {
+            failures.push(...scanStrings(name, c.name, values[i] as (string | null)[]));
+          }
+        });
+        if (name === "reorgs") {
+          for (const col of ["orphaned_hash", "replaced_by"]) {
+            const i = columns.findIndex((c) => c.name === col);
+            if ((values[i] as string[]).some((v) => !/^[0-9a-f]{64}$/.test(v))) {
+              failures.push(`reorgs.${col}: a value is not a block hash`);
+            }
+          }
+        }
+        files.push(file(`${name}.parquet`, columns, values));
+      }
+    };
+
+    // Supply can never exceed what the schedule allowed: a negative difference is a wrong pool.
+    const supplyRows = dailySupply.rows(finalDay);
+    for (const r of supplyRows) {
+      const unclaimed = r.unclaimed_zat as bigint | null;
+      if (unclaimed !== null && unclaimed < 0n) {
+        failures.push(`supply above the protocol schedule on ${String(r.day)}`);
+      }
+    }
+
     const tables: [SmallTable, readonly ColumnSpec[], readonly Record<string, unknown>[]][] = [
       ["pool_usage_daily", poolUsage.columns, poolUsage.rows],
       ["shielding_daily", shielding.columns, shielding.rows],
@@ -344,28 +387,17 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["blocks_daily", SMALL_TABLES.blocks_daily, dailyBlocks.rows(finalDay)],
       ["fees_daily", fees.columns, fees.rows],
       ["mining_daily", SMALL_TABLES.mining_daily, dailyMining.rows(finalDay)],
+      ["hashrate_daily", SMALL_TABLES.hashrate_daily, dailyHashrate.rows(finalDay)],
+      ["supply_daily", SMALL_TABLES.supply_daily, supplyRows],
     ];
-    for (const [name, columns, rows] of tables) {
-      const values = toColumns(columns, rows);
-      columns.forEach((c, i) => {
-        if (c.type === "utf8" && !/hash$/.test(c.name)) {
-          failures.push(...scanStrings(name, c.name, values[i] as (string | null)[]));
-        }
-      });
-      if (name === "reorgs") {
-        for (const col of ["orphaned_hash", "replaced_by"]) {
-          const i = columns.findIndex((c) => c.name === col);
-          if ((values[i] as string[]).some((v) => !/^[0-9a-f]{64}$/.test(v))) {
-            failures.push(`reorgs.${col}: a value is not a block hash`);
-          }
-        }
-      }
-      files.push(file(`${name}.parquet`, columns, values));
-    }
+    writeTables(tables);
 
     // Transactions in their own snapshot at the same height, so neither transaction runs long.
     // Every published height is final, so both snapshots see the same rows below N.
     const txChecker = new TxChecker(expected);
+    const dailyVersions = new DailyTxVersions();
+    const dailyPoolFlows = new DailyPoolFlows();
+    const dailyCoinbase = new DailyShieldedCoinbase();
     const txCols = TRANSACTION_COLUMNS.map((c) => c.name).join(", ");
     await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     for (let start = 0; start <= height; start += HEIGHTS_PER_TX_FILE) {
@@ -379,6 +411,9 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         );
         for (const r of rows) {
           txChecker.push(r as unknown as TxRow);
+          dailyVersions.push(r as unknown as MetricTx);
+          dailyPoolFlows.push(r as unknown as MetricTx);
+          dailyCoinbase.push(r as unknown as MetricTx);
           TRANSACTION_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
       }
@@ -390,6 +425,15 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     await snap.query("COMMIT");
     txChecker.finish();
     failures.push(...txChecker.failures.list());
+    writeTables([
+      ["tx_versions_daily", SMALL_TABLES.tx_versions_daily, dailyVersions.rows(finalDay)],
+      ["pool_flows_daily", SMALL_TABLES.pool_flows_daily, dailyPoolFlows.rows(finalDay)],
+      [
+        "coinbase_shielded_daily",
+        SMALL_TABLES.coinbase_shielded_daily,
+        dailyCoinbase.rows(finalDay),
+      ],
+    ]);
 
     return {
       height,

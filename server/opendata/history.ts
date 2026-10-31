@@ -40,6 +40,11 @@ export function rowKey(path: string): readonly string[] {
     "blocks_daily.parquet": ["day"],
     "fees_daily.parquet": ["day", "kind"],
     "mining_daily.parquet": ["day", "miner"],
+    "hashrate_daily.parquet": ["day"],
+    "supply_daily.parquet": ["day"],
+    "tx_versions_daily.parquet": ["day", "version"],
+    "pool_flows_daily.parquet": ["day", "pool"],
+    "coinbase_shielded_daily.parquet": ["day"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);

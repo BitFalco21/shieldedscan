@@ -136,6 +136,38 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
       "An operator that names itself in its coinbase text, from a fixed list (a claim, not proof), or unidentified.",
     blocks: "Blocks it mined that day.",
   },
+  hashrate_daily: {
+    solutions_per_second:
+      "Estimated network solutions per second: the day's difficulty × 8,192 per block over the time since the previous day's last block. NULL where miner clocks make that span zero or negative.",
+  },
+  supply_daily: {
+    schedule_zat:
+      "Subsidy the protocol allowed from genesis to the day's last block, zatoshis (slow start, halvings and block-time changes included).",
+    issued_zat:
+      "ZEC that exists at the day's last block: every pool, the lockbox and the NSM, zatoshis. NULL if a pool's balance is unknown.",
+    unclaimed_zat:
+      "schedule_zat − issued_zat: subsidy miners left unclaimed, which never came into existence.",
+    nsm_zat:
+      "Fees moved into the NSM that day (six tenths of each block's fees from NU7, ZIP 235).",
+    nsm_total_zat: "All fees moved into the NSM up to that day.",
+  },
+  tx_versions_daily: {
+    version: "Transaction format version.",
+    txs: "Mined transactions of that version that day.",
+  },
+  pool_flows_daily: {
+    pool: "sprout, sapling, orchard or ironwood.",
+    inflow_zat: "Value that entered the pool that day, zatoshis, summed per transaction.",
+    outflow_zat: "Value that left the pool that day, zatoshis, summed per transaction.",
+    txs: "Transactions with a part in that pool that day.",
+  },
+  coinbase_shielded_daily: {
+    coinbase_txs: "Coinbase transactions that day (one per block).",
+    shielded_coinbase_txs: "Coinbase transactions that paid into a shielded pool.",
+    to_sapling_zat: "Block rewards paid straight into Sapling, zatoshis.",
+    to_orchard_zat: "Block rewards paid straight into Orchard, zatoshis.",
+    to_ironwood_zat: "Block rewards paid straight into Ironwood, zatoshis.",
+  },
 };
 
 const TABLE_INTROS: Record<string, string> = {
@@ -145,6 +177,13 @@ const TABLE_INTROS: Record<string, string> = {
   fees_daily: "Fee percentiles per UTC day and transaction kind.",
   mining_daily:
     "Blocks per UTC day by self-named mining operator. Few operators name themselves, so most blocks are unidentified.",
+  hashrate_daily: "Estimated network solution rate per UTC day, from difficulty.",
+  supply_daily:
+    "The supply audit per UTC day: what the schedule allowed, what exists, and what miners never claimed.",
+  tx_versions_daily:
+    "Transactions per UTC day by format version (v4 is disallowed from NU7, ZIP 2003).",
+  pool_flows_daily: "Value into and out of each shielded pool per UTC day, gross, never netted.",
+  coinbase_shielded_daily: "Block rewards paid straight into shielded pools per UTC day.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,
   pool_usage_daily: "Each shielded pool's activity per UTC day.",
   shielding_daily:
