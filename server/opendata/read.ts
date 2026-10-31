@@ -5,6 +5,7 @@ import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
   BlockChecker,
+  byCodePoint,
   checkPoolUsage,
   checkShieldingDaily,
   publishedRelease,
@@ -147,12 +148,6 @@ function writeFile(
 function toColumns(columns: readonly ColumnSpec[], rows: readonly Record<string, unknown>[]) {
   return columns.map((c) => rows.map((r) => (r[c.name] ?? null) as ColumnValues[number]));
 }
-
-/**
- * Plain code-point order. Never `localeCompare`: its order depends on the machine's locale, and
- * the same rows must give the same bytes everywhere.
- */
-const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 const addDays = (day: string, n: number) =>
   new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);

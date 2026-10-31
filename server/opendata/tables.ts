@@ -188,8 +188,8 @@ export const SUPPLY_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("schedule_zat", "int64"),
   c("issued_zat", "int64", true),
   c("unclaimed_zat", "int64", true),
-  c("nsm_zat", "int64"),
-  c("nsm_total_zat", "int64"),
+  c("nsm_zat", "int64", true),
+  c("nsm_total_zat", "int64", true),
 ];
 
 export const TX_VERSIONS_DAILY_COLUMNS: readonly ColumnSpec[] = [

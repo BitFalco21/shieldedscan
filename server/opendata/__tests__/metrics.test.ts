@@ -112,6 +112,27 @@ describe("DailyHashrate", () => {
   });
 });
 
+describe("unknown inputs stay unknown", () => {
+  it("makes a day's hashrate NULL when one of its blocks has no difficulty", () => {
+    const m = new DailyHashrate();
+    m.push(block({ timestamp: T0 + DAY - 10n, difficulty: 1 }));
+    m.push(block({ timestamp: T0 + DAY + 5n, difficulty: 1 }));
+    m.push(block({ timestamp: T0 + DAY + 9n, difficulty: null }));
+    expect(m.rows(day(1))[1]).toEqual({ day: day(1), solutions_per_second: null });
+  });
+
+  it("makes the NSM and the supply unknown after a post-NU7 block without a fee total", () => {
+    const m = new DailySupply();
+    m.push(block({ height: NU7_HEIGHT, total_fee_zat: 10n, transparent_pool_zat: 0n }));
+    m.push(block({ height: NU7_HEIGHT + 1, total_fee_zat: null, transparent_pool_zat: 0n }));
+    m.push(block({ height: NU7_HEIGHT + 2, timestamp: T0 + DAY, transparent_pool_zat: 0n }));
+    expect(m.rows(day(1)).map((r) => [r.nsm_total_zat, r.issued_zat])).toEqual([
+      [null, null],
+      [null, null],
+    ]);
+  });
+});
+
 describe("DailySupply", () => {
   it("reports unclaimed subsidy as the schedule minus what exists", () => {
     const m = new DailySupply();

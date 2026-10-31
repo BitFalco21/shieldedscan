@@ -1,7 +1,7 @@
 import { blockSubsidyZat } from "@/domain/halving";
 import { nu7ActiveAt } from "@/domain/consensus";
 import { SOLUTIONS_PER_DIFFICULTY } from "@/domain/mining";
-import { utcDay, type BlockRow } from "./checks";
+import { byCodePoint, utcDay, type BlockRow } from "./checks";
 
 /**
  * Daily series derived from the block and transaction streams the export already reads, so they
@@ -19,8 +19,6 @@ export interface MetricTx {
   orchard_value_balance_zat: bigint | null;
   ironwood_value_balance_zat: bigint | null;
 }
-
-const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Transactions per UTC day by format version: v4 ends at NU7 (ZIP 2003). */
 export class DailyTxVersions {
@@ -130,10 +128,14 @@ export class DailyShieldedCoinbase {
  * Estimated network solution rate per UTC day: the day's work (difficulty × 8,192 per block)
  * over the time from the previous day's last block to this day's last, so n blocks span n
  * intervals and NU7's shorter target needs no special case. A span a miner's clock made zero or
- * negative is NULL, and so is the first day, which has no previous block.
+ * negative is NULL, and so is the first day, which has no previous block, and any day with a block
+ * whose difficulty is unknown: a partial sum would publish a rate that is simply too low.
  */
 export class DailyHashrate {
-  private readonly days = new Map<string, { work: number; start: bigint | null; end: bigint }>();
+  private readonly days = new Map<
+    string,
+    { work: number; complete: boolean; start: bigint | null; end: bigint }
+  >();
   private prevTimestamp: bigint | null = null;
   private prevDay: string | null = null;
 
@@ -141,10 +143,16 @@ export class DailyHashrate {
     const day = utcDay(row.timestamp);
     let d = this.days.get(day);
     if (!d) {
-      d = { work: 0, start: day === this.prevDay ? null : this.prevTimestamp, end: row.timestamp };
+      d = {
+        work: 0,
+        complete: true,
+        start: day === this.prevDay ? null : this.prevTimestamp,
+        end: row.timestamp,
+      };
       this.days.set(day, d);
     }
-    if (row.difficulty !== null) d.work += row.difficulty * SOLUTIONS_PER_DIFFICULTY;
+    if (row.difficulty === null) d.complete = false;
+    else d.work += row.difficulty * SOLUTIONS_PER_DIFFICULTY;
     d.end = row.timestamp;
     this.prevTimestamp = row.timestamp;
     this.prevDay = day;
@@ -157,7 +165,7 @@ export class DailyHashrate {
       .map((day) => {
         const d = this.days.get(day)!;
         const span = d.start === null ? 0 : Number(d.end - d.start);
-        return { day, solutions_per_second: span > 0 ? d.work / span : null };
+        return { day, solutions_per_second: d.complete && span > 0 ? d.work / span : null };
       });
   }
 }
@@ -167,24 +175,25 @@ export class DailyHashrate {
  * exists (every pool, the lockbox and, from NU7, the NSM), and the difference, which is subsidy
  * miners never claimed. NSM receives floor(6 × fees / 10) of each block from NU7 (ZIP 235),
  * whatever the miner claims. A pool's NULL counts as zero only before its first reported value;
- * a NULL after that leaves the day's supply unknown, never estimated.
+ * a NULL after that leaves the day's supply unknown, never estimated. A post-NU7 block with an
+ * unknown fee total makes the NSM unknown from then on, and with it every later issued figure.
  */
 export class DailySupply {
   private readonly days = new Map<
     string,
-    { schedule: bigint; issued: bigint | null; nsm: bigint; nsmTotal: bigint }
+    { schedule: bigint; issued: bigint | null; nsm: bigint | null; nsmTotal: bigint | null }
   >();
   private schedule = 0n;
-  private nsmTotal = 0n;
+  private nsmTotal: bigint | null = 0n;
   private readonly started = new Set<string>();
 
   push(row: BlockRow): void {
     this.schedule += BigInt(blockSubsidyZat(row.height));
-    let nsm = 0n;
-    if (nu7ActiveAt("mainnet", row.height) && row.total_fee_zat !== null) {
-      nsm = (row.total_fee_zat * 6n) / 10n;
+    let nsm: bigint | null = 0n;
+    if (nu7ActiveAt("mainnet", row.height)) {
+      nsm = row.total_fee_zat === null ? null : (row.total_fee_zat * 6n) / 10n;
     }
-    this.nsmTotal += nsm;
+    this.nsmTotal = this.nsmTotal === null || nsm === null ? null : this.nsmTotal + nsm;
 
     let issued: bigint | null = this.nsmTotal;
     const pools: [string, bigint | null][] = [
@@ -208,7 +217,7 @@ export class DailySupply {
     const d = this.days.get(day) ?? { schedule: 0n, issued: null, nsm: 0n, nsmTotal: 0n };
     d.schedule = this.schedule;
     d.issued = issued;
-    d.nsm += nsm;
+    d.nsm = d.nsm === null || nsm === null ? null : d.nsm + nsm;
     d.nsmTotal = this.nsmTotal;
     this.days.set(day, d);
   }

@@ -246,4 +246,10 @@ export function scanStrings(
   return out;
 }
 
-export { utcDay };
+/**
+ * Plain code-point order. Never `localeCompare`: its order depends on the machine's locale, and
+ * the same rows must give the same bytes everywhere.
+ */
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+export { byCodePoint, utcDay };
