@@ -207,6 +207,7 @@ try {
       builtAt: new Date().toISOString(),
       indexerCommit: process.env.OPENDATA_GIT_SHA ?? "unknown",
     };
+    rmSync(tmp, { recursive: true, force: true });
     writeFileSync(join(CACHE, `${start}.json.tmp`), JSON.stringify(sidecar, null, 2) + "\n");
     renameSync(join(CACHE, `${start}.json.tmp`), join(CACHE, `${start}.json`));
     built++;
