@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import type { TxKindFilter } from "@/domain";
-import { parseTxKindFilter } from "@/domain";
-import { getDataSource } from "@/data";
-import { cursorNavHrefs, type CursorStep } from "@/app/_shared/cursor-nav";
+import type { Transaction, TxListFilter } from "@/domain";
+import { parseTxListFilter } from "@/domain";
+import { FilterNotAppliedError, getDataSource, type CursorPage, type CursorQuery } from "@/data";
+import { cursorNavHrefs } from "@/app/_shared/cursor-nav";
 import { dailyUsdForRows } from "@/lib/format";
 import { TxsListPage } from "@/features/transactions/TxsListPage";
+import { txsHref } from "@/features/transactions/txsHref";
 
 // Tip-sensitive: skip Next's fetch Data Cache (ARCHITECTURE.md, "Caching and freshness").
 export const fetchCache = "force-no-store";
@@ -17,43 +18,48 @@ export const metadata: Metadata = {
 const PAGE_SIZE = 25;
 
 /**
- * `/txs` href carrying the active `kind` (omitted for "all") plus an optional
- * cursor param. Pagination links must preserve the active filter; the filter
- * chips themselves pass no cursor, which is what resets pagination on a filter
- * change.
+ * The page's rows, or null when the API could not prove it applied the pool: an API older than
+ * `?pool=` answers with every transaction, and those rows must not render under a pool label.
+ * Any other failure propagates as it always has.
  */
-function txsHref(kind: TxKindFilter, cursor?: CursorStep): string {
-  const params = new URLSearchParams();
-  if (kind !== "all") params.set("kind", kind);
-  if (cursor) params.set(cursor.name, cursor.value);
-  const qs = params.toString();
-  return qs ? `/txs?${qs}` : "/txs";
+async function listRows(
+  query: CursorQuery,
+  filter: TxListFilter,
+): Promise<CursorPage<Transaction> | null> {
+  try {
+    return await getDataSource().listTransactions(query, filter.kind, filter.pool);
+  } catch (error) {
+    if (error instanceof FilterNotAppliedError) return null;
+    throw error;
+  }
 }
 
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ before?: string; after?: string; kind?: string }>;
+  searchParams: Promise<{ before?: string; after?: string; kind?: string; pool?: string }>;
 }) {
-  const { before, after, kind: rawKind } = await searchParams;
-  const kind = parseTxKindFilter(rawKind);
+  const { before, after, kind: rawKind, pool: rawPool } = await searchParams;
+  const filter = parseTxListFilter(rawKind, rawPool);
   const data = getDataSource();
-  const [{ items: txs, nextCursor, prevCursor }, chain, counts, dailyUsd, fees24h] =
-    await Promise.all([
-      data.listTransactions({ before, after, limit: PAGE_SIZE }, kind),
-      data.getChainInfo(),
-      // The totals line degrades to absence — a headline count is never worth a dead page.
-      data.getTxCounts().catch(() => null),
-      // Same degradation: no price history, no dollar column — the ZEC figures stand alone.
-      data.getDailyPriceMap().catch(() => ({}) as Record<string, number>),
-      data.getFees24h().catch(() => null),
-    ]);
+  const [page, chain, counts, dailyUsd, fees24h] = await Promise.all([
+    listRows({ before, after, limit: PAGE_SIZE }, filter),
+    data.getChainInfo(),
+    // The totals line degrades to absence — a headline count is never worth a dead page.
+    data.getTxCounts().catch(() => null),
+    // Same degradation: no price history, no dollar column — the ZEC figures stand alone.
+    data.getDailyPriceMap().catch(() => ({}) as Record<string, number>),
+    data.getFees24h().catch(() => null),
+  ]);
+  const txs = page?.items ?? [];
   return (
     <TxsListPage
       txs={txs}
       now={chain.lastBlockTimestamp}
-      activeKind={kind}
-      totalForKind={counts?.[kind] ?? null}
+      activeKind={filter.kind}
+      activePool={filter.pool}
+      poolUnavailable={page === null}
+      totalForKind={counts?.[filter.kind] ?? null}
       dailyUsd={dailyUsdForRows(
         dailyUsd,
         txs.map((t) => t.timestamp),
@@ -63,7 +69,9 @@ export default async function Page({
       counts={counts}
       fees24h={fees24h}
       txCount24h={chain.txCount24h}
-      {...cursorNavHrefs({ nextCursor, prevCursor }, (step) => txsHref(kind, step))}
+      {...cursorNavHrefs(page ?? { nextCursor: null, prevCursor: null }, (step) =>
+        txsHref(filter, step),
+      )}
     />
   );
 }

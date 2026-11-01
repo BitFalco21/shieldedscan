@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureDataSource } from "../fixture-source";
 import { ADDR_ALICE, ADDR_SAPLING, TIP_HEIGHT, hex64 } from "@/fixtures/ids";
-import { addressLabel } from "@/domain";
+import { POOL_NAMES, addressLabel, txPools } from "@/domain";
 
 describe("fixtureDataSource", () => {
   // Cursor semantics for listBlocks/listTransactions/listCrossChainTransfers are
@@ -22,14 +22,31 @@ describe("fixtureDataSource", () => {
 
   describe("listTransactions", () => {
     it("returns a non-empty first page shaped as { items, nextCursor, prevCursor }", async () => {
-      const { items, prevCursor } = await fixtureDataSource.listTransactions({ limit: 5 }, "all");
+      const { items, prevCursor } = await fixtureDataSource.listTransactions(
+        { limit: 5 },
+        "all",
+        null,
+      );
       expect(items.length).toBeGreaterThan(0);
       expect(prevCursor).toBeNull();
     });
 
     it("the fully-shielded fixture tx is present", async () => {
-      const { items } = await fixtureDataSource.listTransactions({ limit: 50 }, "all");
+      const { items } = await fixtureDataSource.listTransactions({ limit: 50 }, "all", null);
       expect(items.some((t) => t.txid === hex64("a3f29c4e"))).toBe(true);
+    });
+
+    it("narrows by pool before the slice: every row used the pool, and none is lost", async () => {
+      const all = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
+      for (const pool of POOL_NAMES) {
+        const { items } = await fixtureDataSource.listTransactions({ limit: 100 }, "all", pool);
+        expect(items.length, pool).toBeGreaterThan(0);
+        expect(
+          items.every((t) => txPools(t).includes(pool)),
+          pool,
+        ).toBe(true);
+        expect(items.length, pool).toBe(all.items.filter((t) => txPools(t).includes(pool)).length);
+      }
     });
   });
 
@@ -107,7 +124,7 @@ describe("the fixture chain exercises named addresses", () => {
    * rendering on `/tx` is exercised in previews and e2e.
    */
   it("has a transaction whose transparent side carries a labelled address", async () => {
-    const { items } = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const { items } = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     const named = items.filter((tx) =>
       [...tx.transparentInputs, ...tx.transparentOutputs].some((e) => addressLabel(e.address)),
     );
@@ -115,7 +132,7 @@ describe("the fixture chain exercises named addresses", () => {
   });
 
   it("keeps that address resolvable, so the name is not a dead link", async () => {
-    const { items } = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const { items } = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     const entries = items.flatMap((tx) => [...tx.transparentInputs, ...tx.transparentOutputs]);
     for (const address of new Set(entries.map((e) => e.address).filter(addressLabel))) {
       expect(await fixtureDataSource.getAddress(address), address).not.toBeNull();

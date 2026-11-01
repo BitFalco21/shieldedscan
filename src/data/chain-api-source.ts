@@ -34,6 +34,7 @@ import type {
   TransparentDayPoint,
   NetworkDayPoint,
   PoolMigrationDayPoint,
+  PoolName,
   PoolUsageDayPoint,
   PriceSeries,
   PulseFrame,
@@ -70,6 +71,7 @@ import { isTestnet } from "@/lib/network";
 import { apiRequest, type ApiRequestConfig } from "./api-request";
 import { dailyPriceMap } from "./daily-price-map";
 import { cursorSearchParams } from "./cursor";
+import { FilterNotAppliedError } from "./filter-not-applied";
 import {
   isHalvingEvent,
   isMarketAsset,
@@ -209,6 +211,24 @@ function assertTxKindApplied(asked: TxKindFilter, body: unknown): void {
   if (applied?.kind === asked) return;
   throw new Error(
     `chain API applied kind=[${String(applied?.kind)}] for a request asking kind=[${asked}]`,
+  );
+}
+
+/**
+ * Refuse a transaction page the API did not narrow to the pool that was asked for.
+ *
+ * An API older than `?pool=` ignores it and answers with every transaction, which would render
+ * under a pool label. Unlike the kind check this one is strict whenever a pool was asked: no
+ * deployment ever served a pool correctly without echoing it. With no pool asked there is nothing
+ * to check, so an older API keeps serving `/txs`.
+ */
+function assertTxPoolApplied(asked: PoolName | null, body: unknown): void {
+  if (asked === null) return;
+  const applied = (body as { applied?: { pool?: unknown } } | null)?.applied;
+  if (applied?.pool === asked) return;
+  throw new FilterNotAppliedError(
+    "pool",
+    `chain API applied pool=[${String(applied?.pool)}] for a request asking pool=[${asked}]`,
   );
 }
 
@@ -878,12 +898,15 @@ export function createChainApiSource(config: ChainApiConfig) {
     async listTransactions(
       query: CursorQuery,
       kind: TxKindFilter,
+      pool: PoolName | null,
     ): Promise<CursorPage<Transaction>> {
       const params = cursorSearchParams(query);
       if (kind !== "all") params.set("kind", kind);
+      if (pool !== null) params.set("pool", pool);
       const res = await request(config, `/chain/transactions?${params}`);
       const body = await json<unknown>(res, "transactions");
       assertTxKindApplied(kind, body);
+      assertTxPoolApplied(pool, body);
       return page(body, isTransaction, "transactions");
     },
 

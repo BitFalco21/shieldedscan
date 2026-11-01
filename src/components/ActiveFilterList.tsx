@@ -14,8 +14,11 @@ export interface ActiveFilterGroup {
 
 export interface ActiveFilterListProps {
   groups: ActiveFilterGroup[];
-  /** Where "clear everything" leads. */
-  clearHref: string;
+  /**
+   * Where "clear everything" leads. Omitted where only one value can ever be applied: its own
+   * remove link already clears everything, and a second link to the same place is noise.
+   */
+  clearHref?: string;
   ariaLabel: string;
 }
 
@@ -59,12 +62,14 @@ export function ActiveFilterList({ groups, clearHref, ariaLabel }: ActiveFilterL
           ))}
         </span>
       ))}
-      <Link
-        href={clearHref}
-        className="microlabel text-ink-faint underline-offset-4 hover:text-ink-dim hover:underline"
-      >
-        clear
-      </Link>
+      {clearHref === undefined ? null : (
+        <Link
+          href={clearHref}
+          className="microlabel text-ink-faint underline-offset-4 hover:text-ink-dim hover:underline"
+        >
+          clear
+        </Link>
+      )}
     </nav>
   );
 }

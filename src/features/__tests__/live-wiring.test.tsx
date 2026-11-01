@@ -55,6 +55,8 @@ const txsProps = {
   txs: [transactions[0]!],
   now: transactions[0]!.timestamp,
   activeKind: "all" as const,
+  activePool: null,
+  poolUnavailable: false,
   totalForKind: null,
   dailyUsd: {},
   priceUsd: null,
@@ -118,6 +120,15 @@ describe("TxsListPage", () => {
     const fetchMock = stubFetch();
 
     render(<TxsListPage {...txsProps} newestHref="/txs" />);
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does NOT poll under a pool: the feed cannot narrow by pool", async () => {
+    const fetchMock = stubFetch();
+
+    render(<TxsListPage {...txsProps} activePool="sprout" newestHref={null} />);
 
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(fetchMock).not.toHaveBeenCalled();

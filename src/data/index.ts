@@ -7,6 +7,7 @@ import { isPublicStage } from "@/lib/site";
 
 export type { CursorPage, CursorQuery, ExplorerDataSource, Paginated } from "./source";
 export { ORIGIN_CURSOR } from "./cursor";
+export { FilterNotAppliedError } from "./filter-not-applied";
 
 /**
  * Refuses to build a public deployment that would serve fixtures.
@@ -70,7 +71,7 @@ function build(tipRevalidateSeconds?: number): ExplorerDataSource {
     getBlock: (idOrHeight) => chain.getBlock(idOrHeight),
     getBlockTransactions: (block) => chain.getBlockTransactions(block),
     listLatestTransactions: (count) => chain.listLatestTransactions(count),
-    listTransactions: (query, kind) => chain.listTransactions(query, kind),
+    listTransactions: (query, kind, pool) => chain.listTransactions(query, kind, pool),
     getTransaction: (txid) => chain.getTransaction(txid),
     getAddress: (address) => chain.getAddress(address),
     getAddressTransactions: (address, query) => chain.getAddressTransactions(address, query),
