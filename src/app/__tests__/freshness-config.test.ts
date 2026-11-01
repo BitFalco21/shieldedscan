@@ -112,6 +112,27 @@ describe("freshness configuration", () => {
   });
 
   /**
+   * The two `/shielded` views are told apart by `?view=`, which the edge proxy turns into a path
+   * so neither page reads the query and both stay prerendered. The live layer polls
+   * `/api/supply` on top of the default view.
+   */
+  it.each(["/shielded", "/shielded/pools"])(
+    "keeps %s prerendered, with a revalidate and no scan word",
+    (route) => {
+      const page = pages.find((p) => p.route === route);
+      expect(page, `no page.tsx for ${route}`).toBeDefined();
+      expect(page?.source).not.toContain(FRESH);
+      expect(page?.source).toMatch(/export const revalidate = 60/);
+      expect(page?.source).not.toContain("searchParams");
+    },
+  );
+
+  it("keeps the all-pools view's live endpoint out of every cache", () => {
+    const route = readFileSync(join(appDir, "api", "supply", "route.ts"), "utf8");
+    expect(route).toContain(FRESH);
+  });
+
+  /**
    * `/pulse` has no query parameter (replay is client state), so discovery cannot see it. It
    * stays cached: frame 0 is a real render for readers without JavaScript, every figure prints
    * its block, and a live layer polls `/api/pulse/live` on top.
@@ -233,6 +254,12 @@ describe("cache warmer", () => {
   it("warms /stats, which prints a per-block figure and keeps its cache", () => {
     const paths = /const PATHS = \[([^\]]*)\]/.exec(warmer)?.[1] ?? "";
     expect(paths).toContain('"/stats"');
+  });
+
+  it("warms both /shielded views, each through the URL readers use", () => {
+    const paths = /const PATHS = \[([^\]]*)\]/.exec(warmer)?.[1] ?? "";
+    expect(paths).toContain('"/shielded"');
+    expect(paths).toContain('"/shielded?view=shielded"');
   });
 
   it("warms /pulse, whose frame 0 is built from a block height it prints", () => {

@@ -23,7 +23,7 @@ import { HomeLivePanels } from "./HomeLivePanels";
 
 export interface HomePageProps {
   chain: ChainInfo;
-  /** Only for the shielded-supply stat card; the pool chart lives on /shielded. */
+  /** Only for the shielded-supply stat card; the pool chart lives on /shielded?view=shielded. */
   pools: ShieldedPool[];
   latestBlocks: BlockSummary[];
   latestTxs: Transaction[];

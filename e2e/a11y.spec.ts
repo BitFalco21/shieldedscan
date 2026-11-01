@@ -113,7 +113,14 @@ for (const theme of ["violet", "ice", "amber"]) {
     // COMPOSITION does — real text on real panels, with the head script having stamped the
     // theme before paint. A subset of routes per theme, to keep the suite inside its budget;
     // /charts is in the set because amber remaps the chart series colour.
-    for (const route of ["/", "/blocks", `/block/${TIP_HEIGHT}`, "/shielded", "/charts"]) {
+    for (const route of [
+      "/",
+      "/blocks",
+      `/block/${TIP_HEIGHT}`,
+      "/shielded",
+      "/shielded?view=shielded",
+      "/charts",
+    ]) {
       test(`${route} meets WCAG AA for every text element in ${theme}`, async ({ page }) => {
         await page.addInitScript((t) => window.localStorage.setItem("theme", t), theme);
         await page.goto(route);

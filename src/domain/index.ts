@@ -37,6 +37,7 @@ export * from "./zns";
 export * from "./netmap";
 export * from "./network-upgrade";
 export * from "./consensus";
+export * from "./all-pools";
 export * from "./learn";
 export * from "./time";
 export * from "./closed-set";

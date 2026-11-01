@@ -115,7 +115,7 @@ test.describe("privacy claims never contradict each other", () => {
     // The domain-specific version of consistency, and the one that matters most here: a
     // veiled amount beside a stated one for the same quantity would mean the site both
     // claims a value is encrypted and prints it.
-    for (const path of ["/", "/txs", "/mempool", "/shielded"]) {
+    for (const path of ["/", "/txs", "/mempool", "/shielded", "/shielded?view=shielded"]) {
       await page.goto(path);
       const veils = await page.getByRole("img", { name: /value shielded/ }).count();
       if (veils === 0) continue;

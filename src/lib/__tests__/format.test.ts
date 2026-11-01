@@ -8,6 +8,7 @@ import {
   formatUtc,
   formatZec,
   formatZecCompact,
+  formatZecSupply,
   formatZecTick,
   usdAtDay,
   shortHash,
@@ -242,5 +243,16 @@ describe("usdAtDay", () => {
 
   it("has no price for a past day without a close, rather than today's in its place", () => {
     expect(usdAtDay(day(5), closes, 999, day(12))).toBeNull();
+  });
+});
+
+describe("formatZecSupply", () => {
+  it("prints a supply-scale balance at two decimals", () => {
+    expect(formatZecSupply(1_701_723_298_000_000)).toBe("17,017,232.98 ZEC");
+  });
+
+  it("never prints a small non-zero balance as 0.00", () => {
+    expect(formatZecSupply(300_000)).toBe("0.003 ZEC");
+    expect(formatZecSupply(0)).toBe("0 ZEC");
   });
 });

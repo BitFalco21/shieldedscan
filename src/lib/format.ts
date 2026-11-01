@@ -149,6 +149,15 @@ export function formatZecTwo(zat: number): string {
   return `${zec.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${coinTicker}`;
 }
 
+/**
+ * A pool balance read block by block: two decimals from 1 ZEC, up to eight below it. A balance
+ * that starts at zero and grows by fees (the NSM) moves visibly from its first block and never
+ * reads "0.00" while it holds something. Callers put the exact amount in a `title`.
+ */
+export function formatZecSupply(zat: number): string {
+  return Math.abs(zat) >= ZATS_PER_ZEC ? formatZecTwo(zat) : formatZecBalance(zat);
+}
+
 /** The M/K tiers both compact forms share; null below them, where each has its own rule. */
 function zecCompactTier(zat: number): string | null {
   const zec = zat / ZATS_PER_ZEC;

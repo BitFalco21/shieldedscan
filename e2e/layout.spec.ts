@@ -57,6 +57,7 @@ test.describe("a detail page's top-level blocks span the content column", () => 
     `/address/${TRANSPARENT_ADDR}`,
     `/block/${TIP_HEIGHT}`,
     "/shielded",
+    "/shielded?view=shielded",
     "/analytics",
   ] as const;
 
