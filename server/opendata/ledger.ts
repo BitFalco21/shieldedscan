@@ -189,14 +189,27 @@ export class LedgerAbort extends Error {
 }
 
 export interface LedgerOptions {
-  /** Receives each finished part of the ledger, in order; its arrays are not reused after. */
-  onPart: (io: ColumnValues[], part: number) => void;
+  /**
+   * Receives each finished part of the ledger, in order; its arrays are not reused after.
+   * `failing` says a check has already failed in this range, so the part should not be written.
+   */
+  onPart: (io: ColumnValues[], part: number, failing: boolean) => void;
   afterChunk?: ChunkHook;
-  /** Ledger rows a query should return; the next chunk's height span adapts to the era. */
-  targetRows?: number;
-  firstChunkHeights?: number;
+  /**
+   * Block bytes per query. A ledger row needs at least 9 bytes of its block (an output), so this
+   * bounds a query's rows BEFORE it runs, whatever the era: 16 MB is at most ~1.8M rows of dust and
+   * ~400k of ordinary payments. Measured afterwards it would be too late (2026-11-01).
+   */
+  chunkBytes?: number;
   partRows?: number;
 }
+
+/** A query cancelled by `statement_timeout`. */
+const QUERY_CANCELED = "57014";
+/** Halvings of a chunk after timeouts before the range gives up. */
+const TIMEOUT_RETRIES = 3;
+/** Most heights a chunk spans, however small their blocks. */
+const MAX_CHUNK_HEIGHTS = 2_000;
 
 const TX_COLS =
   "txid, block_height, kind, fee_zat, sprout_joinsplits, sprout_vpub_net_zat, " +
@@ -204,8 +217,9 @@ const TX_COLS =
 
 /**
  * The ledger and per-transaction totals for heights [start, end], read through the `opendata`
- * views in chunks of `chunkHeights`, checked block by block. The caller owns the transaction
- * (one REPEATABLE READ snapshot per range) and the pacing between chunks.
+ * views in chunks bounded by their blocks' bytes, checked block by block. The caller owns the
+ * transaction (one REPEATABLE READ snapshot per range) and the pacing between chunks; each chunk
+ * runs under a savepoint, so a query the timeout cancels is retried on half the bytes.
  */
 export async function readLedgerRange(
   client: Client,
@@ -214,13 +228,12 @@ export async function readLedgerRange(
   options: LedgerOptions,
 ): Promise<LedgerRange> {
   const afterChunk = options.afterChunk ?? (async () => "continue" as const);
-  const targetRows = options.targetRows ?? 100_000;
+  const chunkBytes = options.chunkBytes ?? 16_000_000;
   const partRows = options.partRows ?? LEDGER_PART_ROWS;
-  let chunkHeights = options.firstChunkHeights ?? 100;
   let io: ColumnValues[] = TRANSPARENT_IO_COLUMNS.map(() => []);
   let parts = 0;
   const flush = () => {
-    options.onPart(io, parts++);
+    options.onPart(io, parts++, checker.failures.list().length > 0);
     io = TRANSPARENT_IO_COLUMNS.map(() => []);
   };
   const extra: ColumnValues[] = TRANSACTIONS_EXTRA_COLUMNS.map(() => []);
@@ -238,27 +251,62 @@ export async function readLedgerRange(
         ).rows[0] ?? null);
   const checker = new LedgerChecker(previous);
 
-  for (let a = start; a <= end;) {
-    const b = Math.min(end, a + chunkHeights - 1);
-    const began = Date.now();
-    const [blocks, txs, rows] = [
+  /** The last height from `a` whose blocks, together, stay within `budget` bytes (at least one). */
+  const chunkEnd = async (a: number, budget: number): Promise<number> => {
+    const { rows } = await client.query<{ height: number; size_bytes: number }>(
+      `SELECT height, size_bytes FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
+      [a, Math.min(end, a + MAX_CHUNK_HEIGHTS - 1)],
+    );
+    let bytes = 0;
+    let last = a;
+    for (const row of rows) {
+      bytes += row.size_bytes;
+      if (bytes > budget && row.height > a) break;
+      last = row.height;
+    }
+    return last;
+  };
+
+  const readChunk = async (a: number, b: number) =>
+    [
       await client.query<LedgerBlock>(
         `SELECT height, transparent_pool_zat, lockbox_pool_zat, total_fee_zat
-           FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
+         FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
         [a, b],
       ),
       await client.query<LedgerTx>(
         `SELECT ${TX_COLS} FROM opendata.transactions WHERE block_height BETWEEN $1 AND $2
-          ORDER BY block_height, txid COLLATE "C"`,
+        ORDER BY block_height, txid COLLATE "C"`,
         [a, b],
       ),
       await client.query<LedgerIo>(
         `SELECT ${ioCols.join(", ")} FROM opendata.transparent_io
-          WHERE block_height BETWEEN $1 AND $2
-          ORDER BY block_height, txid COLLATE "C", io COLLATE "C", ordinal`,
+        WHERE block_height BETWEEN $1 AND $2
+        ORDER BY block_height, txid COLLATE "C", io COLLATE "C", ordinal`,
         [a, b],
       ),
-    ];
+    ] as const;
+
+  for (let a = start; a <= end;) {
+    const began = Date.now();
+    let budget = chunkBytes;
+    let b = await chunkEnd(a, budget);
+    let result;
+    for (let attempt = 0; ; attempt++) {
+      await client.query("SAVEPOINT ledger_chunk");
+      try {
+        result = await readChunk(a, b);
+        await client.query("RELEASE SAVEPOINT ledger_chunk");
+        break;
+      } catch (e) {
+        await client.query("ROLLBACK TO SAVEPOINT ledger_chunk");
+        const timedOut = (e as { code?: unknown }).code === QUERY_CANCELED;
+        if (!timedOut || attempt >= TIMEOUT_RETRIES || b === a) throw e;
+        budget = Math.floor(budget / 2);
+        b = await chunkEnd(a, budget);
+      }
+    }
+    const [blocks, txs, rows] = result;
 
     let t = 0;
     let r = 0;
@@ -290,9 +338,6 @@ export async function readLedgerRange(
       throw new LedgerAbort();
     }
     a = b + 1;
-    // Dense eras get shorter chunks: each query stays near `targetRows` whatever the era.
-    const scaled = Math.round((chunkHeights * targetRows) / Math.max(rows.rows.length, 1));
-    chunkHeights = Math.min(2_000, Math.max(10, scaled));
   }
   if (io[0]!.length > 0 || parts === 0) flush();
   return { extra, parts, checker };

@@ -80,8 +80,16 @@ const PROBES = ["/v1/status", "/v1/blocks?limit=5", "/v1/transactions?limit=5"];
 const SLOW_PROBE_MS = 200;
 /** Host I/O pressure (some, avg10) that pauses the build; it idles at 12–18 (2026-11-01). */
 const IO_PRESSURE_LIMIT = 40;
-/** Resident memory above this stops the build: parts should keep it far below. */
-const MAX_RSS = 1_800_000_000;
+/**
+ * Resident memory above this stops the build. It guards against thrash at the 3 GB container
+ * limit, not against a healthy heap: V8 lets garbage reach the 1.5 GB old space before collecting,
+ * and the Parquet writer's wasm memory never shrinks.
+ */
+const MAX_RSS = 2_400_000_000;
+/** Seconds between two rounds of site probes: chunks can be frequent in dense eras. */
+const PROBE_EVERY_MS = 5_000;
+/** A chunk that took this long counts as a sign of strain, whatever the probes say. */
+const SLOW_CHUNK_MS = 20_000;
 const MIN_FREE_DISK = 100_000_000_000;
 /** Ledger columns dictionary-encoded: few distinct values, repeated millions of times. */
 const DICTIONARY = ["io", "script_type"];
@@ -90,6 +98,20 @@ const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`)
 
 /** Unreachable API or database: retried by the driver. */
 class Transient extends Error {}
+
+/**
+ * Errors worth retrying later: a cancelled statement, a lost or refused connection, the role's
+ * connection limit, a network failure. Anything else is a failure a human must see.
+ */
+function isTransient(e: unknown): boolean {
+  const code = String((e as { code?: unknown }).code ?? "");
+  return (
+    code === "57014" ||
+    code === "53300" ||
+    code.startsWith("08") ||
+    ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EPIPE"].includes(code)
+  );
+}
 /** A guard a human must look at: memory or disk. */
 class Guard extends Error {}
 
@@ -152,6 +174,7 @@ try {
     await probe.connect();
     await snap.connect();
   } catch (e) {
+    if (!isTransient(e)) throw e;
     throw new Transient(`database unreachable: ${e instanceof Error ? e.message : String(e)}`);
   }
   const stopAt = deadline();
@@ -183,21 +206,32 @@ try {
   );
   await pacer.preflight();
 
-  let slowUnits = 0;
+  // Strain is counted from three signals, read right after a chunk, before any rest: host I/O
+  // pressure (our own load included; read after the rest it would have decayed), a chunk that ran
+  // long, and the site's routes (probed at most every few seconds). Two strained units in a row
+  // stop the run; it resumes on the driver's next pass.
+  let strained = 0;
+  let lastProbe = 0;
   const afterChunk = async (workedMs: number) => {
     const rss = process.memoryUsage().rss;
     if (rss > MAX_RSS) throw new Guard(`memory guard: ${Math.round(rss / 1e6)} MB resident`);
-    // A hard stop well past the window; ranges are normally not started unless they fit.
-    if (Date.now() >= stopAt + 10 * 60_000) return "abort" as const;
-    let worst = 0;
-    for (const path of PROBES) {
-      const samples: number[] = [];
-      for (let i = 0; i < 3; i++) samples.push((await timedGet(path)).ms);
-      worst = Math.max(worst, samples.sort((a, b) => a - b)[1]!);
+    if (Date.now() >= stopAt) return "abort" as const;
+    const reasons: string[] = [];
+    const pressure = await ioPressureAvg10((path) => readFile(path, "utf8"));
+    if (pressure !== null && pressure > IO_PRESSURE_LIMIT) reasons.push(`I/O pressure ${pressure}`);
+    if (workedMs > SLOW_CHUNK_MS) reasons.push(`a chunk took ${Math.round(workedMs / 1000)} s`);
+    if (Date.now() - lastProbe >= PROBE_EVERY_MS) {
+      lastProbe = Date.now();
+      for (const path of PROBES) {
+        const samples: number[] = [];
+        for (let i = 0; i < 3; i++) samples.push((await timedGet(path)).ms);
+        const median = samples.sort((a, b) => a - b)[1]!;
+        if (median > SLOW_PROBE_MS) reasons.push(`${path} took ${median} ms`);
+      }
     }
-    slowUnits = worst > SLOW_PROBE_MS ? slowUnits + 1 : 0;
-    if (slowUnits >= 2) {
-      log(`stopping: the site's routes took ${worst} ms twice in a row`);
+    strained = reasons.length > 0 ? strained + 1 : 0;
+    if (strained >= 2) {
+      log(`stopping: ${reasons.join(", ")}, twice in a row`);
       return "abort" as const;
     }
     return pacer.afterUnit(workedMs);
@@ -236,7 +270,10 @@ try {
       await snap.query("SET LOCAL work_mem = '64MB'");
       range = await readLedgerRange(snap, start, end, {
         afterChunk,
-        onPart: (io, part) => {
+        onPart: (io, part, failing) => {
+          // A range that already failed a check is not written: the failure is reported at its
+          // end, and a NULL where none may be would otherwise throw here as something else.
+          if (failing) return;
           files.push(
             writeFile(tmp, transparentIoFile(start, part), TRANSPARENT_IO_COLUMNS, io, DICTIONARY),
           );
@@ -249,7 +286,7 @@ try {
         log(`stopped in ${start}-${end}; it is read again next time`);
         break;
       }
-      if (e instanceof Guard) throw e;
+      if (e instanceof Guard || !isTransient(e)) throw e;
       throw new Transient(`${start}-${end}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const failures = range.checker.failures.list();

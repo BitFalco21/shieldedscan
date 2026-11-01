@@ -259,7 +259,7 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       const read = async (
         from: number,
         to: number,
-        opts: { partRows?: number; targetRows?: number },
+        opts: { partRows?: number; chunkBytes?: number },
       ) => {
         const parts: number[] = [];
         const heights: number[][] = [];
@@ -279,8 +279,8 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       expect(all.heights[0]!.length).toBe(RELEASE + 1 + (RELEASE - 100));
       expect(all.range.extra[0]!.length).toBe((RELEASE + 1) * 2);
 
-      // Small parts and small queries give the same rows, cut only between blocks.
-      const split = await read(0, RELEASE, { partRows: 50, targetRows: 30 });
+      // Small parts and two-block queries (1,000-byte blocks) give the same rows, cut between blocks.
+      const split = await read(0, RELEASE, { partRows: 50, chunkBytes: 2_500 });
       expect(split.range.checker.failures.list()).toEqual([]);
       expect(split.parts.length).toBeGreaterThan(3);
       expect(split.heights.flat()).toEqual(all.heights[0]);
