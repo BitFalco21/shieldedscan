@@ -11,6 +11,9 @@ export function useElementWidth<T extends Element>(): [(el: T | null) => void, n
   const [width, setWidth] = useState<number | undefined>(undefined);
   const ref = useCallback((el: T | null) => {
     if (el === null || typeof ResizeObserver === "undefined") return;
+    // Read once now: the observer reports after paint, and a chart drawn first at the unmeasured
+    // size would flash ticks a third of their size on a phone.
+    setWidth(Math.round(el.getBoundingClientRect().width));
     const observer = new ResizeObserver(([entry]) => {
       if (entry !== undefined) setWidth(Math.round(entry.contentRect.width));
     });
