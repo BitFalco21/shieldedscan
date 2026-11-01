@@ -59,10 +59,13 @@ describe("CounterpartyCell", () => {
     });
     const summary = td.querySelector("summary")!;
     expect(summary.textContent).toBe("3 inputs");
-    expect(summary.getAttribute("aria-label")).toBe("3 inputs");
+    // The visible words are its name; a label repeating them would only drift.
+    expect(summary.getAttribute("aria-label")).toBeNull();
     expect(summary.querySelector("a")).toBeNull();
     const panel = td.querySelector("details > div")!;
-    expect(within(panel as HTMLElement).getByText("INPUTS")).toBeTruthy();
+    expect(within(panel as HTMLElement).getByText("OTHER INPUTS")).toBeTruthy();
+    // No copy buttons in a list: the address page has its own, and a list can hold fifty.
+    expect(panel.querySelector("button")).toBeNull();
     const hrefs = [...panel.querySelectorAll("a[href^='/address/']")].map((a) =>
       a.getAttribute("href"),
     );
@@ -113,6 +116,19 @@ describe("CounterpartyCell", () => {
       transparentOutputs: [{ address: ME, valueZat: 990 }],
     });
     expect(td.textContent).toBe("itself");
+  });
+
+  it("lists undirected pools apart, under their own heading", () => {
+    const td = cell({
+      transparentInputs: [{ address: party(1), valueZat: 700 }],
+      transparentOutputs: [{ address: ME, valueZat: 500 }],
+      sprout: { joinSplits: 1 },
+    });
+    expect(td.textContent).toMatch(/^from/);
+    expect(td.querySelector("summary")!.textContent).toBe("1 input · 1 pool");
+    const panel = td.querySelector("details > div")!;
+    expect(within(panel as HTMLElement).getByText("SHIELDED POOLS")).toBeTruthy();
+    expect(within(panel as HTMLElement).getByText("no published balance")).toBeTruthy();
   });
 
   it("draws no amount for a pool that publishes none, never a zero", () => {

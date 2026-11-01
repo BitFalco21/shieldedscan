@@ -1,4 +1,4 @@
-import type { Counterparty } from "@/domain";
+import type { OtherParty } from "@/domain";
 import { formatCount } from "@/lib/format";
 import Link from "@/components/Link";
 import { CounterpartyEntry } from "./CounterpartyEntry";
@@ -11,14 +11,15 @@ import { CounterpartyEntry } from "./CounterpartyEntry";
 export const COUNTERPARTY_LIST_LIMIT = 50;
 
 export interface CounterpartyListProps {
-  /** "INPUTS" or "OTHER OUTPUTS": never "recipients", which the chain cannot tell apart from change. */
+  /** "OTHER INPUTS", "OTHER OUTPUTS" or "SHIELDED POOLS": never "recipients", which the chain
+   *  cannot tell apart from change. */
   heading: string;
-  parties: readonly Counterparty[];
+  parties: readonly OtherParty[];
   txid: string;
 }
 
 /** An entry's identity on its side: an address and a pool appear at most once each. */
-const partyKey = (p: Counterparty) =>
+const partyKey = (p: OtherParty) =>
   p.kind === "address" ? p.address : p.kind === "pool" ? `pool:${p.pool}` : p.kind;
 
 /** One side of a transaction, every entry in on-chain order with its public amount. */

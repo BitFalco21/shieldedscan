@@ -21,7 +21,7 @@ test.describe("address FROM / TO", () => {
     await trigger.click();
     const details = page.locator("details[data-popover]", { has: trigger });
     await expect(details).toHaveAttribute("open", "");
-    await expect(details.getByText("INPUTS", { exact: true })).toBeVisible();
+    await expect(details.getByText("OTHER INPUTS", { exact: true })).toBeVisible();
     await expect(details.locator("a[href^='/address/']")).toHaveCount(2);
 
     await page.keyboard.press("Escape");

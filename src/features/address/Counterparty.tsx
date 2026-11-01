@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Transaction } from "@/domain";
 import { addressCounterparties, counterpartySummary } from "@/domain";
 import { Badge } from "@/components/Badge";
@@ -19,40 +20,54 @@ export interface CounterpartyProps {
  * and the list opens from it: naming only the first would single out one output, often read as
  * the payment, when the chain cannot tell a payment from change (`addressCounterparties`).
  *
+ * Pools whose direction is not on chain are listed apart, under no side's heading, and a side's
+ * word (FROM, TO) is drawn only over entries that are on that side. Otherwise the word is WITH.
+ *
  * The list is a `Popover` (`<details>`): no script, Escape and outside clicks close it through
  * `DismissPopovers`. Below `lg` the table scrolls sideways inside a box that would clip a floating
  * panel, so there it opens in place, under the trigger, as wide as the cell allows; from `lg` it
- * floats over the rows.
+ * floats over the rows. Every row renders this twice (the column and the phone line, one of them
+ * `display: none`); its HTML is bounded by `COUNTERPARTY_LIST_LIMIT`.
  */
 export function Counterparty({ tx, address }: CounterpartyProps) {
   const c = addressCounterparties(tx, address);
-  const word = c.direction === "from" ? "from" : c.direction === "to" ? "to" : null;
 
-  let content;
+  // Each list the panel holds: the shown side for FROM / TO, both sides when the address netted
+  // to zero, and the undirected pools apart. Empty lists are left out, as are their words.
+  const sides = (
+    c.direction === "both"
+      ? [
+          { heading: "OTHER INPUTS", noun: "input" as const, parties: c.inputs },
+          { heading: "OTHER OUTPUTS", noun: "output" as const, parties: c.outputs },
+        ]
+      : c.direction === "from"
+        ? [{ heading: "OTHER INPUTS", noun: "input" as const, parties: c.shown }]
+        : [{ heading: "OTHER OUTPUTS", noun: "output" as const, parties: c.shown }]
+  ).filter((side) => side.parties.length > 0);
+  const pools = c.undirected.length;
+  const entries = sides.reduce((n, side) => n + side.parties.length, 0) + pools;
+
+  const word =
+    c.direction === "self"
+      ? null
+      : c.direction !== "both" && c.shown.length > 0
+        ? c.direction
+        : "with";
+
+  let content: ReactNode;
   if (c.direction === "self") {
     content = <span className="text-xs text-ink-dim">itself</span>;
-  } else if (c.direction !== "both" && c.shown.length === 1) {
-    content = <CounterpartyEntry party={c.shown[0]!} />;
+  } else if (entries === 1) {
+    content = <CounterpartyEntry party={sides[0]?.parties[0] ?? c.undirected[0]!} />;
   } else {
-    // Each side the panel lists: the shown side for FROM / TO, both sides when the address
-    // netted to zero. An empty side is left out, from the list and from the summary.
-    const sides =
-      c.direction === "both"
-        ? [
-            { heading: "INPUTS", noun: "input" as const, parties: c.inputs },
-            { heading: "OTHER OUTPUTS", noun: "output" as const, parties: c.outputs },
-          ].filter((side) => side.parties.length > 0)
-        : [
-            c.direction === "from"
-              ? { heading: "INPUTS", noun: "input" as const, parties: c.shown }
-              : { heading: "OTHER OUTPUTS", noun: "output" as const, parties: c.shown },
-          ];
-    const summary = sides.map((side) => counterpartySummary(side.parties, side.noun)).join(" · ");
+    const summary = [
+      ...sides.map((side) => counterpartySummary(side.parties, side.noun)),
+      ...(pools > 0 ? [`${pools} pool${pools === 1 ? "" : "s"}`] : []),
+    ].join(" · ");
     content = (
       <Popover
         className="group block lg:relative lg:inline-block lg:align-middle"
         triggerClassName="inline-flex cursor-pointer list-none marker:content-none"
-        triggerLabel={summary}
         trigger={<Badge tone="filled">{summary}</Badge>}
         panelLabel={`The other side of transaction ${tx.txid}`}
         panelClassName="panel mt-2 hidden max-h-80 flex-col group-open:flex gap-3 overflow-y-auto p-3 text-left lg:absolute lg:left-0 lg:z-30 lg:min-w-72"
@@ -65,6 +80,9 @@ export function Counterparty({ tx, address }: CounterpartyProps) {
             txid={tx.txid}
           />
         ))}
+        {pools > 0 && (
+          <CounterpartyList heading="SHIELDED POOLS" parties={c.undirected} txid={tx.txid} />
+        )}
       </Popover>
     );
   }

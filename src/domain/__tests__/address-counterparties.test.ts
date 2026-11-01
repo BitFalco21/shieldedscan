@@ -111,7 +111,7 @@ describe("addressCounterparties", () => {
     );
     expect(r.direction).toBe("to");
     expect(r.shown).toEqual([
-      { kind: "pool", pool: "ironwood", zat: 800, settled: true },
+      { kind: "pool", pool: "ironwood", zat: 800 },
       { kind: "address", address: A, zat: 190 },
     ]);
   });
@@ -125,19 +125,32 @@ describe("addressCounterparties", () => {
       ME,
     );
     expect(r.direction).toBe("from");
-    expect(r.shown).toEqual([{ kind: "pool", pool: "orchard", zat: 75_010_000, settled: true }]);
+    expect(r.shown).toEqual([{ kind: "pool", pool: "orchard", zat: 75_010_000 }]);
   });
 
   it("gives Sprout no amount: it publishes no value balance", () => {
+    // Outputs only: the value can only have come out of Sprout, so it is a side, amountless.
+    const r = addressCounterparties(
+      tx({ transparentOutputs: [{ address: ME, valueZat: 500 }], sprout: { joinSplits: 1 } }),
+      ME,
+    );
+    expect(r.shown).toEqual([{ kind: "pool", pool: "sprout", zat: null }]);
+  });
+
+  it("puts Sprout on no side when transparent value moved both ways around it", () => {
     const r = addressCounterparties(
       tx({
+        transparentInputs: [{ address: A, valueZat: 700 }],
         transparentOutputs: [{ address: ME, valueZat: 500 }],
         sprout: { joinSplits: 1 },
       }),
       ME,
     );
-    const sprout = r.shown.find((p) => p.kind === "pool");
-    expect(sprout).toEqual({ kind: "pool", pool: "sprout", zat: null, settled: true });
+    expect(r.direction).toBe("from");
+    expect(r.shown).toEqual([{ kind: "address", address: A, zat: 700 }]);
+    expect(r.undirected).toEqual([
+      { kind: "pool", pool: "sprout", zat: null, undirected: "unpublished" },
+    ]);
   });
 
   it("claims no direction for pools that moved opposite ways", () => {
@@ -150,9 +163,36 @@ describe("addressCounterparties", () => {
       }),
       ME,
     );
-    const pools = r.shown.filter((p) => p.kind === "pool");
-    expect(pools.length).toBeGreaterThan(0);
-    for (const p of pools) expect(p).toMatchObject({ settled: false, zat: null });
+    // Neither pool is filed under OTHER OUTPUTS: only the transparent output is.
+    expect(r.shown).toEqual([{ kind: "address", address: A, zat: 500 }]);
+    expect(r.undirected).toEqual([
+      { kind: "pool", pool: "orchard", zat: null, undirected: "opposite" },
+      { kind: "pool", pool: "sapling", zat: null, undirected: "opposite" },
+    ]);
+  });
+
+  it("lists no pool whose published balance moved nothing", () => {
+    const r = addressCounterparties(
+      tx({
+        transparentInputs: [{ address: ME, valueZat: 1_000 }],
+        sapling: { spends: 0, outputs: 1, valueBalanceZat: 990 },
+        orchard: { actions: 2, valueBalanceZat: 0 },
+      }),
+      ME,
+    );
+    expect(r.shown).toEqual([{ kind: "pool", pool: "sapling", zat: 990 }]);
+  });
+
+  it("lists only the other outputs when this address funded an unshielding's transparent side", () => {
+    const r = addressCounterparties(
+      tx({
+        transparentInputs: [{ address: ME, valueZat: 1_000 }],
+        transparentOutputs: [{ address: A, valueZat: 1_490 }],
+        orchard: { actions: 2, valueBalanceZat: -500 },
+      }),
+      ME,
+    );
+    expect(r).toMatchObject({ direction: "to", shown: [{ kind: "address", address: A }] });
   });
 
   it("reads a coinbase as new coins", () => {
@@ -213,7 +253,7 @@ describe("counterpartySummary", () => {
     expect(
       counterpartySummary(
         [
-          { kind: "pool", pool: "ironwood", zat: 5, settled: true },
+          { kind: "pool", pool: "ironwood", zat: 5 },
           { kind: "address", address: A, zat: 1 },
         ],
         "output",
