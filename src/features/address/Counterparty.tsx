@@ -87,8 +87,10 @@ export function Counterparty({ tx, address }: CounterpartyProps) {
     );
   }
 
+  // Baselines, not centres: the side's word (11px) and a pool or MINED word (10px) are set in
+  // different sizes, and centring them leaves the smaller one sitting low.
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
       {word !== null && <span className="microlabel text-ink-dim">{word}</span>}
       {content}
     </span>

@@ -21,12 +21,12 @@ export interface CounterpartyEntryProps {
 export function CounterpartyEntry({ party, withAmount = false }: CounterpartyEntryProps) {
   const zat = party.kind === "mined" ? null : party.zat;
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+    <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
       <span className="min-w-0">
         {party.kind === "address" ? (
           <AddressLink address={party.address} edge={4} />
         ) : party.kind === "pool" ? (
-          <span className="inline-flex items-center gap-2">
+          <span className="inline-flex items-baseline gap-2">
             <PoolBadge pool={party.pool} variant="text" />
             {(party.undirected === "opposite" || party.zat === null) && (
               <span className="text-xs text-ink-faint">
