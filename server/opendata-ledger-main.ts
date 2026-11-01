@@ -56,8 +56,11 @@ const FROM = args.from
   : 0;
 /** Heights per query: about 130,000 ledger rows in the busiest era. */
 const CHUNK_HEIGHTS = 1_000;
-/** The API's /health, median of three, above this twice in a row means the site is suffering. */
-const SLOW_HEALTH_MS = 1_500;
+/**
+ * The API's /health, median of three, above this twice in a row means the site is suffering.
+ * It answers in 3–5 ms on the internal network when the database is idle (measured 2026-11-01).
+ */
+const SLOW_HEALTH_MS = 300;
 /** Ledger files' dictionary-encoded columns: few distinct values, repeated millions of times. */
 const DICTIONARY = ["io", "script_type", "address"];
 
