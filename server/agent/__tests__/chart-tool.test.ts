@@ -433,7 +433,7 @@ describe("what make_chart refuses after reading", () => {
     });
     expect(linear.chart).toBeUndefined();
     expect(linear.content).toMatch(
-      /Sprout balance peaks over 50× below Sapling balance.*flat line.*scale log, or chart them separately/,
+      /Sprout balance's highest value is under 1\/50 of Sapling balance's.*flat line.*scale log, or chart them separately/,
     );
     const log = await chartFor({
       series: ["sprout-balance", "sapling-balance"],
@@ -516,7 +516,7 @@ describe("linearSpreadRefusal", () => {
   it("allows up to the spread and refuses past it", () => {
     expect(linearSpreadRefusal(line, [s("a", [1, 50]), s("b", [1, 1])])).toBeNull();
     expect(linearSpreadRefusal(line, [s("a", [1, 51]), s("b", [1, 1])])).toMatch(
-      /^b peaks over 50× below a/,
+      /^b's highest value is under 1\/50 of a's/,
     );
     expect(MAX_LINEAR_SPREAD).toBe(50);
   });
@@ -532,7 +532,7 @@ describe("linearSpreadRefusal", () => {
 
   it("refuses a series that is zero throughout beside one that is not", () => {
     expect(linearSpreadRefusal(line, [s("a", [5, 9]), s("b", [0, 0])])).toMatch(
-      /chart them separately$/,
+      /^b is zero throughout that window.*chart them separately$/,
     );
   });
 

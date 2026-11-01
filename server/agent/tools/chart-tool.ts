@@ -78,7 +78,11 @@ export function linearSpreadRefusal(
   const small = peaks.reduce((a, b) => (b.peak < a.peak ? b : a));
   if (small.peak * MAX_LINEAR_SPREAD >= big.peak) return null;
   const logWorks = req.type === "line" && series.every((s) => drawsOnLog(s.values));
-  return `${small.label} peaks over ${MAX_LINEAR_SPREAD}× below ${big.label}, so on one linear axis it draws as a flat line — ${
+  const why =
+    small.peak === 0
+      ? `${small.label} is zero throughout that window`
+      : `${small.label}'s highest value is under 1/${MAX_LINEAR_SPREAD} of ${big.label}'s`;
+  return `${why}, so on one linear axis it draws as a flat line — ${
     logWorks ? "chart again with scale log, or chart them separately" : "chart them separately"
   }`;
 }
