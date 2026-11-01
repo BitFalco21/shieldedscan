@@ -31,9 +31,11 @@ export function AgentChartTable({ chart, caption }: AgentChartTableProps) {
           The latest {formatCount(rows.length)} of {formatCount(total)} periods.
         </p>
       )}
+      {/* Bounded: a year of rows at full length would push the conversation a screen away. */}
       <DataTable
         caption={caption}
         density="compact"
+        bounded
         columns={[
           { label: "Period" },
           ...series.map((s) => ({ label: s.label, align: "right" as const })),

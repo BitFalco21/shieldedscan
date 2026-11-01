@@ -57,6 +57,18 @@ describe("AgentChart", () => {
     expect(rows[1]!.textContent).toContain("—");
   });
 
+  it("holds the table in a bounded, keyboard-scrollable region named by the chart", () => {
+    render(<AgentChart chart={CHART} />);
+    fireEvent.click(screen.getByRole("button", { name: "show table" }));
+    const caption = "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line";
+    const region = screen.getByRole("region", { name: caption });
+    // Focusable, so arrow keys and Page Down scroll it; capped, so it never pushes the chat away.
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.className).toContain("max-h-");
+    expect(region.className).toContain("overflow-auto");
+    expect(within(region).getByRole("table")).toBeTruthy();
+  });
+
   it("marks a floor in the table and names it beneath the chart", () => {
     const fees: PlottedChart = {
       ...CHART,
