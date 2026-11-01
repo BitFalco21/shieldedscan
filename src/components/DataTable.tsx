@@ -66,7 +66,8 @@ export interface DataTableProps {
  * Bounding this wrapper's height and scrolling internally is rejected for list pages: it nests a
  * scroll region inside the page, with two scrollbars and the pagination stranded outside it.
  * `bounded` is the exception for a table with no pagination, where the wrapper scrolls both ways
- * and so the header sticks at every width.
+ * and so the header sticks at every width. It is also `relative`, so an `sr-only` cell text is
+ * clipped by it: absolutely placed against the page instead, it widened a phone's page by 78px.
  */
 export function DataTable({
   caption,
@@ -77,7 +78,9 @@ export function DataTable({
 }: DataTableProps) {
   return (
     <div
-      className={bounded ? "max-h-80 overflow-auto" : "overflow-x-auto lg:overflow-x-visible"}
+      className={
+        bounded ? "relative max-h-80 overflow-auto" : "overflow-x-auto lg:overflow-x-visible"
+      }
       {...(bounded ? { role: "region", "aria-label": caption, tabIndex: 0 } : {})}
     >
       <table
