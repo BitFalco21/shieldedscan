@@ -56,7 +56,13 @@ import { blockRowsReader, type BlockRowsReader } from "../block-list";
 import type { RpcBlockSubsidy } from "../node-rpc";
 import type { ChainIndexStore } from "../chain-index-store";
 import { ByteBudget, RAW_HEX_BURST_BYTES, RAW_HEX_BYTES_PER_SECOND } from "./byte-budget";
-import { ParamError, parseAtParam, parseDayWindow, parsePoolParam } from "./params";
+import {
+  ParamError,
+  parseAtParam,
+  parseDayWindow,
+  parsePoolParam,
+  parseTxListPool,
+} from "./params";
 import { v1ReferenceRoutes } from "./reference";
 import { v1DescriptorRoutes } from "./descriptor";
 import { v1PriceRoutes } from "./prices";
@@ -873,11 +879,7 @@ export function v1Routes(deps: V1Deps): Hono {
      * The pool a transaction used, and a window of UTC days. Each pool has a partial index this
      * filter seeks.
      */
-    const pool = parsePoolParam(c.req.query("pool"));
-    if (pool && kind === "transparent") {
-      // A question the model forbids, so a 400 rather than a page that can only ever be empty.
-      throw new ParamError("invalid_parameter", "a transparent transaction uses no shielded pool");
-    }
+    const pool = parseTxListPool(c.req.query("pool"), kind);
     const window = parseDayWindow(c.req.query("from"), c.req.query("to"));
     const cursors = cursorParams(c);
     if (!deps.chainIndex) {
