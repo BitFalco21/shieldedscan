@@ -1,4 +1,5 @@
 export * from "./address";
+export * from "./address-counterparties";
 export * from "./analytics";
 export * from "./block";
 export * from "./chain";
