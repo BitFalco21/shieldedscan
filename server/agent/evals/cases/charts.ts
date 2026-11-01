@@ -55,6 +55,18 @@ export const CHARTS: EvalCase[] = [
     mustChart: true,
   },
   {
+    // One measure, two scales: Sprout (~25K ZEC) is a flat line beside Sapling (~4M ZEC) on a
+    // linear axis, so the tool refuses it. A good answer recovers with a log axis or two charts.
+    id: "charts-dynamic-range",
+    category: "charts",
+    world: "fixture",
+    question: "Chart the Sprout and Sapling pool balances since 2026-07-01 together.",
+    mustCall: ["make_chart"],
+    mustChart: true,
+    mustContain: [/Sprout/i, /Sapling/i],
+    mustNotContain: [TABLE_ROW],
+  },
+  {
     id: "charts-live-orchard-90d",
     category: "charts",
     world: "live",

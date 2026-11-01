@@ -14,6 +14,7 @@ import { v1PriceRoutes } from "../../v1/prices";
 import { AgentTools, type ChainRequester } from "../tools";
 import { parseChartArgs, type ChartRequest } from "../tools/chart-args";
 import { CHART_SOURCES, SERIES_SOURCES } from "../tools/chart-sources";
+import { linearSpreadRefusal, MAX_LINEAR_SPREAD } from "../tools/chart-tool";
 import {
   BLOCKS_DAILY,
   DAY_SERIES,
@@ -423,21 +424,43 @@ describe("what make_chart refuses after reading", () => {
     expect(result.endpoints).toEqual([]);
   });
 
-  it("tells the model when same-measure series differ too much for a linear axis", async () => {
+  it("refuses same-measure series too far apart for a linear axis, and draws them on log", async () => {
+    // Sprout (~25K ZEC) beside Sapling (~4.2M ZEC): Sprout would be a flat line at the floor.
     const linear = await chartFor({
       series: ["sprout-balance", "sapling-balance"],
       from: "2026-07-01",
     });
-    expect(linear.content).toMatch(/more than 100×.*scale log/);
+    expect(linear.chart).toBeUndefined();
+    expect(linear.content).toMatch(
+      /Sprout balance peaks over 50× below Sapling balance.*flat line.*scale log, or chart them separately/,
+    );
     const log = await chartFor({
       series: ["sprout-balance", "sapling-balance"],
       from: "2026-07-01",
       scale: "log",
     });
     expect(log.chart!.scale).toBe("log");
-    expect(log.content).not.toMatch(/more than 100×/);
   });
 
+  it("offers only separate charts when a log axis cannot draw every series", async () => {
+    // Sprout's daily transactions are 0 or 1: nothing two periods running above zero.
+    const result = await chartFor({
+      series: ["sprout-transactions", "sapling-transactions"],
+      from: "2026-07-01",
+    });
+    expect(result.chart).toBeUndefined();
+    expect(result.content).toMatch(/flat line — chart them separately$/);
+    expect(result.content).not.toMatch(/log/);
+  });
+
+  it("keeps series within the spread on one linear axis", async () => {
+    // The three privacy kinds, ~3,000 / ~600 / ~150 a day: twenty-fold, every line readable.
+    const chart = await drawn({
+      series: ["transparent-transactions", "mixed-transactions", "fully-shielded-transactions"],
+      from: "2026-07-01",
+    });
+    expect(chart.series).toHaveLength(3);
+  });
   it("hands the model a summary of the same numbers, already formatted", async () => {
     const result = await chartFor({ series: ["zec-price"], from: "2026-07-26" });
     expect(result.content).toContain("ZEC price (USD close) · since 2026-07-26 · daily · line");
@@ -482,5 +505,40 @@ describe("the catalogue", () => {
           : { from: "2026-07-01" };
     const result = await chartFor({ series: [id], ...window });
     expect(result.chart, result.content).toBeDefined();
+  });
+});
+
+describe("linearSpreadRefusal", () => {
+  const line = { scale: "linear", type: "line" } as const;
+  const s = (label: string, values: (number | null)[]) => ({ label, values });
+
+  it("allows up to the spread and refuses past it", () => {
+    expect(linearSpreadRefusal(line, [s("a", [1, 50]), s("b", [1, 1])])).toBeNull();
+    expect(linearSpreadRefusal(line, [s("a", [1, 51]), s("b", [1, 1])])).toMatch(
+      /^b peaks over 50× below a/,
+    );
+    expect(MAX_LINEAR_SPREAD).toBe(50);
+  });
+
+  it("ignores one series, a log axis, and unmeasured periods", () => {
+    expect(linearSpreadRefusal(line, [s("a", [1, 1_000])])).toBeNull();
+    expect(
+      linearSpreadRefusal({ ...line, scale: "log" }, [s("a", [1, 1_000]), s("b", [1, 1])]),
+    ).toBeNull();
+    // A null is no reading, not a small one.
+    expect(linearSpreadRefusal(line, [s("a", [null, 40, 40]), s("b", [null, 1, 1])])).toBeNull();
+  });
+
+  it("refuses a series that is zero throughout beside one that is not", () => {
+    expect(linearSpreadRefusal(line, [s("a", [5, 9]), s("b", [0, 0])])).toMatch(
+      /chart them separately$/,
+    );
+  });
+
+  it("never offers a log axis for an area, which needs a zero to fill to", () => {
+    const area = { scale: "linear", type: "area" } as const;
+    const msg = linearSpreadRefusal(area, [s("a", [100, 100]), s("b", [1, 1])]);
+    expect(msg).toMatch(/chart them separately$/);
+    expect(msg).not.toMatch(/log/);
   });
 });

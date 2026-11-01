@@ -54,10 +54,34 @@ const DAILY_UP_TO_DAYS = 120;
 const WEEKLY_UP_TO_DAYS = 730;
 
 /**
- * Same-measure series this far apart in size leave the smaller a flat line on a linear axis. The
- * model chose the scale, so it is told, rather than the scale being switched under it.
+ * Same-measure series this far apart in size leave the smaller a flat line on a linear axis: at
+ * 1/50 of a desktop plot (~270px) it moves within ~5px. The model chose the scale, so the call is
+ * refused with the way out, rather than the scale being switched under it.
  */
-const LOG_HINT_RATIO = 100;
+export const MAX_LINEAR_SPREAD = 50;
+
+/**
+ * Why these series cannot share a linear axis, or null when they can: one's peak is more than
+ * `MAX_LINEAR_SPREAD` times another's. A log axis is offered only when every series can draw on
+ * one, and only for a line, since an area needs a zero to fill to.
+ */
+export function linearSpreadRefusal(
+  req: Pick<ChartRequest, "scale" | "type">,
+  series: readonly { label: string; values: readonly (number | null)[] }[],
+): string | null {
+  if (req.scale !== "linear" || series.length < 2) return null;
+  const peaks = series.map((s) => ({
+    label: s.label,
+    peak: Math.max(0, ...s.values.filter((v): v is number => v !== null)),
+  }));
+  const big = peaks.reduce((a, b) => (b.peak > a.peak ? b : a));
+  const small = peaks.reduce((a, b) => (b.peak < a.peak ? b : a));
+  if (small.peak * MAX_LINEAR_SPREAD >= big.peak) return null;
+  const logWorks = req.type === "line" && series.every((s) => drawsOnLog(s.values));
+  return `${small.label} peaks over ${MAX_LINEAR_SPREAD}× below ${big.label}, so on one linear axis it draws as a flat line — ${
+    logWorks ? "chart again with scale log, or chart them separately" : "chart them separately"
+  }`;
+}
 
 /** How a window is drawn: its grain, and the day it starts from. */
 export interface ChartPlan {
@@ -190,6 +214,11 @@ export async function buildChart(
     }
     series.push({ id, values, floors });
   }
+  const spread = linearSpreadRefusal(
+    req,
+    series.map((s) => ({ label: plottableSeries(s.id).label, values: s.values })),
+  );
+  if (spread !== null) return spread;
 
   const chart: PlottedChart = {
     v: 1,
@@ -251,19 +280,10 @@ export function modelContent(chart: PlottedChart, nowMs: number): string {
       ...(s.floors.length > 0 ? { periodsThatAreFloors: s.floors.length } : {}),
     };
   });
-  const maxima = chart.series.map((s) =>
-    Math.max(...s.values.filter((v): v is number => v !== null)),
-  );
-  const spread = Math.max(...maxima) / Math.max(Math.min(...maxima), Number.MIN_VALUE);
-  const hint =
-    chart.scale === "linear" && chart.series.length > 1 && spread > LOG_HINT_RATIO
-      ? " These series differ by more than 100×, so on this linear axis the smaller lies near zero: say so, or chart again with scale log."
-      : "";
   const note = [
     `The reader sees this chart beneath your answer: ${chartCaption(chart)}.`,
     ...chartCaveats(chart),
-    "Every number on it was read by this explorer. Say in one or two sentences what it shows, quoting figures only from the summary below; never reproduce its points as a table, a list or a drawing, and never call it an image. It is not carried into later turns: to show it again, chart it again." +
-      hint,
+    "Every number on it was read by this explorer. Say in one or two sentences what it shows, quoting figures only from the summary below; never reproduce its points as a table, a list or a drawing, and never call it an image. It is not carried into later turns: to show it again, chart it again.",
   ].join(" ");
   const retrievedAt = new Date(nowMs).toISOString();
   return `<note source="chart">\n${note}\n</note>\n<data source="chart" retrieved-at="${retrievedAt}">\n${DATA_NOTICE}\n${JSON.stringify(summaries, null, 1).replace(/</g, "\\u003c")}\n</data>`;
