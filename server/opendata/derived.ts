@@ -64,6 +64,8 @@ export interface TxRow {
   kind: string;
   direction: string | null;
   fee_zat: bigint | null;
+  sprout_joinsplits: number | null;
+  sprout_vpub_net_zat: bigint | null;
   sapling_value_balance_zat: bigint | null;
   orchard_value_balance_zat: bigint | null;
 }
@@ -108,6 +110,10 @@ export class TxChecker {
         : tx.direction !== null
     ) {
       this.failures.add("direction does not match kind", tx.txid);
+    }
+    // JoinSplits whose public value was never derived: the pool flows would silently skip them.
+    if ((tx.sprout_joinsplits ?? 0) > 0 && tx.sprout_vpub_net_zat === null) {
+      this.failures.add("Sprout JoinSplits without their public value", tx.txid);
     }
     this.count++;
     this.sapling += tx.sapling_value_balance_zat ?? 0n;

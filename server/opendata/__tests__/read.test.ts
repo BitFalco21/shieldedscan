@@ -316,6 +316,12 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "UPDATE block SET transparent_pool_zat = transparent_pool_zat - 1 WHERE height >= 150",
       /supply above the protocol schedule/,
     ],
+    [
+      "Sprout JoinSplits without their public value",
+      `UPDATE tx SET sprout_joinsplits = 1 WHERE txid = lpad(to_hex(1000000 + 80 * 2 + 1), 64, '0')`,
+      `UPDATE tx SET sprout_joinsplits = NULL WHERE txid = lpad(to_hex(1000000 + 80 * 2 + 1), 64, '0')`,
+      /Sprout JoinSplits without their public value/,
+    ],
   ];
 
   for (const [what, breakSql, fixSql, expected] of breaks) {
