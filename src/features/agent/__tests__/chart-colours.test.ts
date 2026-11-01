@@ -147,7 +147,7 @@ describe("Zeno's chart colours, over every combination make_chart allows", () =>
     expect(weak, weak.join("\n")).toEqual([]);
   });
 
-  it("lists exactly the ink pairs that need a pattern, so none is dotted for nothing", () => {
+  it("lists exactly the ink pairs that need a pattern on some theme, and no others", () => {
     const needed = new Set(
       readings
         .filter((r) => r.cvd < CVD_TARGET || r.normal < NORMAL_FLOOR)
@@ -160,7 +160,7 @@ describe("Zeno's chart colours, over every combination make_chart allows", () =>
     const inks = new Set(allowedCharts().flatMap((c) => seriesInks(c)));
     for (const s of PLOTTABLE_SERIES) inks.add(seriesInks([s])[0]!);
     for (const theme of THEMES) {
-      // The console's chart surface: the default panel (#0a120a), and each theme's own.
+      // The chart surface: the panel as painted without oklch() (#0a120a), and each theme's own.
       const surfaces = [hexToRgb("#0a120a"), oklchToSrgb(deriveTokens(theme.hue).panel)];
       for (const ink of inks) {
         for (const surface of surfaces) {

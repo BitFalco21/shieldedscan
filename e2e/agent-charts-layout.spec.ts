@@ -25,8 +25,8 @@ const VIEWPORTS = [
 const MIN_TICK_BOX_PX = 10;
 
 /**
- * axe-core as `eslint-plugin-jsx-a11y` already installs it: injected as a script, so the suite
- * adds no dependency. If that plugin ever drops it, this path fails loudly rather than skipping.
+ * axe-core, pinned in devDependencies so a lint-plugin bump cannot change which rules run here.
+ * Injected as a script into the page under test.
  */
 const AXE = join(process.cwd(), "node_modules/axe-core/axe.min.js");
 
