@@ -13,6 +13,8 @@ import { KindPill } from "@/components/KindPill";
 import { LabelIcon } from "@/components/LabelIcon";
 import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
+import { Counterparty } from "./Counterparty";
+import { COUNTERPARTY_CELL_CLASS, CounterpartyCell } from "./CounterpartyCell";
 import { formatCount, formatUtc, formatZatUsd, formatZec, timeAgo } from "@/lib/format";
 
 export interface TransparentAddressPageProps {
@@ -36,13 +38,18 @@ export interface TransparentAddressPageProps {
 }
 
 // TYPE carries the shield and the word (what happened); DIRECTION carries the path the value
-// took, which the word cannot say. Every row states two different facts.
+// took, which the word cannot say; FROM / TO, the other side of the transaction. On a phone the
+// table is wider than the screen and scrolls, so FROM / TO moves under the hash in the first
+// column (shown, never dropped, and always on screen), and BLOCK gives way, since SEEN still dates
+// the row and the transaction page has the block.
+const BLOCK_CELL_CLASS = "hidden sm:table-cell";
 const COLUMNS = [
   { label: "TXID" },
   { label: "TYPE" },
   DIRECTION_COLUMN,
+  { label: "FROM / TO", className: COUNTERPARTY_CELL_CLASS },
   { label: "NET" },
-  { label: "BLOCK" },
+  { label: "BLOCK", className: BLOCK_CELL_CLASS },
   { label: "SEEN", align: "right" as const },
 ];
 
@@ -184,7 +191,7 @@ export function TransparentAddressPage({
       </StatGrid>
       {/*
         The columns answer what an address page is for: what kind of transaction it was, which
-        way value moved for this address, and when.
+        way value moved, who was on the other side, what it did to this address, and when.
       */}
       <Panel title="TRANSACTIONS" className="mt-3">
         <DataTable caption={`Transactions for ${info.address}, newest first`} columns={COLUMNS}>
@@ -195,15 +202,21 @@ export function TransparentAddressPage({
                   that never splits into "8s / ago". */}
               <td className="whitespace-nowrap sm:max-xl:whitespace-normal">
                 <HashLink value={tx.txid} href={`/tx/${tx.txid}`} edge={8} copyable />
+                {/* On a phone the table scrolls sideways and only its first column is sure to
+                    be on screen, so the other side sits here, under the hash. */}
+                <span className="mt-1 block whitespace-normal sm:hidden">
+                  <Counterparty tx={tx} address={info.address} />
+                </span>
               </td>
               <td>
                 <KindPill tx={tx} />
               </td>
               <TxDirectionCell tx={tx} />
+              <CounterpartyCell tx={tx} address={info.address} />
               <td className="text-xs">
                 <NetDelta tx={tx} address={info.address} />
               </td>
-              <td>
+              <td className={BLOCK_CELL_CLASS}>
                 {tx.blockHeight !== null ? (
                   <Link
                     href={`/block/${tx.blockHeight}`}
