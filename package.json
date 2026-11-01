@@ -25,6 +25,7 @@
     "map:derive": "python3 brand/world-map-derive.py",
     "build:server": "node scripts/bundle.mjs server/index.ts dist/server.mjs",
     "dev:server": "npm run build:server && node --env-file-if-exists=.env.local dist/server.mjs",
+    "dev:agent-demo": "node scripts/bundle.mjs server/agent/testing/demo-server.ts dist/agent-demo.mjs && node dist/agent-demo.mjs",
     "build:eval": "node scripts/bundle.mjs server/agent/evals/run.ts dist/eval-agent.mjs",
     "eval:agent": "npm run build:eval && node --env-file-if-exists=.env.local dist/eval-agent.mjs",
     "build:judge": "node scripts/bundle.mjs server/agent/evals/judge-validate.ts dist/eval-judge-validate.mjs && node scripts/bundle.mjs server/agent/evals/judge-review.ts dist/eval-judge-review.mjs",
