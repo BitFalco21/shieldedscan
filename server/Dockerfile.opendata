@@ -15,6 +15,11 @@ RUN npx esbuild server/opendata-main.ts \
       --external:parquet-wasm \
       --outfile=dist/opendata.mjs \
       --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
+RUN npx esbuild server/opendata-ledger-main.ts \
+      --bundle --platform=node --target=node22 --format=esm \
+      --external:parquet-wasm \
+      --outfile=dist/opendata-ledger.mjs \
+      --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
@@ -24,7 +29,10 @@ ARG OPENDATA_GIT_SHA=unknown
 ENV OPENDATA_GIT_SHA=$OPENDATA_GIT_SHA
 ENV HF_HUB_DISABLE_TELEMETRY=1
 COPY --from=build /app/dist/opendata.mjs ./opendata.mjs
+COPY --from=build /app/dist/opendata-ledger.mjs ./opendata-ledger.mjs
 COPY --from=build /app/node_modules/parquet-wasm ./node_modules/parquet-wasm
 USER node
 # Under the container's 2 GB limit, so running out of memory is a stack trace, not a silent kill.
+# The release by default. The ledger builder runs with `--entrypoint node` and its own heap:
+#   node --max-old-space-size=2500 opendata-ledger.mjs --out /out --until 05:30
 ENTRYPOINT ["node", "--max-old-space-size=1200", "opendata.mjs"]

@@ -126,13 +126,18 @@ function contentDigest(columns: readonly ColumnSpec[], values: readonly ColumnVa
   return h.digest("hex");
 }
 
-function writeFile(
+/**
+ * Writes one file under `outDir` and returns what the manifest records about it. Shared with the
+ * ledger builder, so a cached ledger file is described exactly as a freshly exported one.
+ */
+export function writeFile(
   outDir: string,
   path: string,
   columns: readonly ColumnSpec[],
   values: ColumnValues[],
+  dictionaryColumns: readonly string[] = [],
 ): OutputFile {
-  const bytes = toParquet(arrowTable(columns, values));
+  const bytes = toParquet(arrowTable(columns, values), dictionaryColumns);
   mkdirSync(dirname(join(outDir, path)), { recursive: true });
   writeFileSync(join(outDir, path), bytes);
   return {

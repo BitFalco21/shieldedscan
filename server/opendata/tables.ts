@@ -218,6 +218,9 @@ export const TRANSACTIONS_EXTRA_COLUMNS: readonly ColumnSpec[] = [
 
 export const HEIGHTS_PER_LEDGER_FILE = 10_000;
 
+/** Bumped when the ledger's columns, span or writer change: a cache built for another is ignored. */
+export const LEDGER_CACHE_VERSION = 1;
+
 const ledgerRange = (start: number) =>
   `${String(start).padStart(7, "0")}-${String(start + HEIGHTS_PER_LEDGER_FILE - 1).padStart(7, "0")}`;
 export const transparentIoFile = (start: number) => `transparent_io/${ledgerRange(start)}.parquet`;
