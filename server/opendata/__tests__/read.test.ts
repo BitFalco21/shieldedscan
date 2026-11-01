@@ -6,7 +6,8 @@ import { readParquet } from "parquet-wasm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { blockSubsidyZat } from "@/domain/halving";
-import { CONFIRMATIONS, readRelease, type Release } from "../read";
+import { readLedgerRange } from "../ledger";
+import { CONFIRMATIONS, exportTypes, readRelease, type Release } from "../read";
 
 /**
  * The export end to end against a real PostgreSQL, through the restricted `opendata_reader` role,
@@ -135,6 +136,22 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     );
     await db.query("REFRESH MATERIALIZED VIEW chain_day_fee_kind");
     await db.query(`UPDATE block SET coinbase_tag = 'Foundry Zcash Pool' WHERE height % 3 = 0`);
+    // The transparent ledger that makes those numbers true: each coinbase pays exactly the
+    // slow-start subsidy to one output, and from 101 the mixed transaction spends 1,000 zat of
+    // the previous coinbase into Sapling.
+    await db.query(
+      `INSERT INTO tx_transparent_io (txid, io, ordinal, address, value_zat, script_type, block_height)
+       SELECT lpad(to_hex(1000000 + h * 2), 64, '0'), 'out', 0, 't1coinbase', 62500 * h, 'pubkeyhash', h
+         FROM generate_series(0, $1::int) AS h`,
+      [TIP],
+    );
+    await db.query(
+      `INSERT INTO tx_transparent_io (txid, io, ordinal, address, value_zat, script_type, prev_txid, prev_vout, block_height)
+       SELECT lpad(to_hex(1000000 + h * 2 + 1), 64, '0'), 'in', 0, 't1coinbase', 1000, 'pubkeyhash',
+              lpad(to_hex(1000000 + (h - 1) * 2), 64, '0'), 0, h
+         FROM generate_series(101, $1::int) AS h`,
+      [TIP],
+    );
   }, 120_000);
 
   afterAll(async () => {
@@ -232,6 +249,26 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       ["Zebra", null, 3],
       ["other", null, 1],
     ]);
+  });
+
+  it("reads the ledger by height range and holds it to the blocks", async () => {
+    const client = new Client({ ...connection, types: exportTypes });
+    await client.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      const all = await readLedgerRange(client, 0, RELEASE, 40);
+      expect(all.checker.failures.list()).toEqual([]);
+      expect(all.checker.underclaimZat).toBe(0n);
+      expect(all.io[0]!.length).toBe(RELEASE + 1 + (RELEASE - 100));
+      expect(all.extra[0]!.length).toBe((RELEASE + 1) * 2);
+      // A range that starts mid-chain reads its previous block for the deltas.
+      const part = await readLedgerRange(client, 150, 179, 7);
+      expect(part.checker.failures.list()).toEqual([]);
+      expect(part.io[0]!.length).toBe(60);
+      await client.query("COMMIT");
+    } finally {
+      await client.end();
+    }
   });
 
   it("cannot read anything outside the views", async () => {

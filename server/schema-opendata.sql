@@ -58,19 +58,29 @@ CREATE OR REPLACE VIEW opendata.transactions AS
 SELECT txid, block_height, timestamp, kind, direction, version, size_bytes, expiry_height, fee_zat,
        sprout_joinsplits, sapling_spends, sapling_outputs, orchard_actions, ironwood_actions,
        sprout_vpub_net_zat, sapling_value_balance_zat, orchard_value_balance_zat,
-       ironwood_value_balance_zat
+       ironwood_value_balance_zat, binding_sig_valid
 FROM tx
 WHERE block_height IS NOT NULL;
+
+-- The transparent ledger. The height comes from `tx` on purpose: filtering on the ledger's own
+-- `block_height` would seq-scan it (no index leads on it), while `tx`'s height index plus the
+-- ledger's primary key make each height range a nested loop.
+CREATE OR REPLACE VIEW opendata.transparent_io AS
+SELECT io.txid, t.block_height, io.io, io.ordinal, io.address, io.value_zat, io.script_type,
+       io.prev_txid, io.prev_vout
+FROM tx_transparent_io io JOIN tx t USING (txid)
+WHERE t.block_height IS NOT NULL;
 
 -- Fee percentiles per UTC day and transaction kind, the same view the site's fee charts read.
 CREATE OR REPLACE VIEW opendata.fees_daily AS
 SELECT (to_timestamp(ts) AT TIME ZONE 'UTC')::date AS day, kind, txs, p25_zat, median_zat, p75_zat
 FROM chain_day_fee_kind;
 
--- The miner-written coinbase text is read only to match it against the fixed list of operators that
--- name themselves (`selfDeclaredMiner`); it is never written out.
+-- The miner-written coinbase text, sanitised at parse (printable, collapsed, capped), and the
+-- payout address: published in `blocks_coinbase/` and matched against the operators that name
+-- themselves (`selfDeclaredMiner`). Columns are appended only: CREATE OR REPLACE cannot reorder.
 CREATE OR REPLACE VIEW opendata.block_miners AS
-SELECT height, timestamp, coinbase_tag
+SELECT height, timestamp, coinbase_tag, miner_address
 FROM block;
 
 -- The release height comes from here; the lag probe reads it on its own connection.

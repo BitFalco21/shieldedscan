@@ -62,7 +62,7 @@ const SETTLING_DAYS = 3;
  * (`server/pg-types.ts`, process-wide); here every BIGINT is a BigInt and every DATE its string,
  * whatever any other module registered, so no amount loses precision and no timezone moves a day.
  */
-const exportTypes: NonNullable<ClientConfig["types"]> = {
+export const exportTypes: NonNullable<ClientConfig["types"]> = {
   getTypeParser: ((oid: number, format?: "text" | "binary") => {
     if (oid === 20) return (v: string) => BigInt(v);
     if (oid === 1082) return (v: string) => v;

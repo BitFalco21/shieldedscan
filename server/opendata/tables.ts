@@ -177,6 +177,53 @@ export const MINING_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("blocks", "int32"),
 ];
 
+/**
+ * The transparent ledger: every input and output, one row each, in files of
+ * `HEIGHTS_PER_LEDGER_FILE` heights. The busiest 10,000 heights hold 1.27M rows (measured
+ * 2026-11-01), within what the export container can build. The span can never change: files
+ * already published would no longer line up.
+ */
+export const TRANSPARENT_IO_COLUMNS: readonly ColumnSpec[] = [
+  c("txid", "utf8"),
+  c("block_height", "int32"),
+  c("io", "utf8"),
+  c("ordinal", "int32"),
+  c("address", "utf8", true),
+  c("value_zat", "int64"),
+  c("script_type", "utf8", true),
+  c("prev_txid", "utf8", true),
+  c("prev_vout", "int32", true),
+];
+
+/**
+ * Per transaction, the transparent totals and the input/output counts by script type, so a
+ * transaction's transparent side and its ZIP 317 bounds need no join with the ledger.
+ */
+export const TRANSACTIONS_EXTRA_COLUMNS: readonly ColumnSpec[] = [
+  c("txid", "utf8"),
+  c("block_height", "int32"),
+  c("inputs", "int32"),
+  c("outputs", "int32"),
+  c("transparent_in_zat", "int64"),
+  c("transparent_out_zat", "int64"),
+  c("inputs_p2pkh", "int32"),
+  c("inputs_p2sh", "int32"),
+  c("inputs_p2pk", "int32"),
+  c("inputs_other", "int32"),
+  c("outputs_p2pkh", "int32"),
+  c("outputs_p2sh", "int32"),
+  c("outputs_other", "int32"),
+  c("binding_sig_valid", "bool", true),
+];
+
+export const HEIGHTS_PER_LEDGER_FILE = 10_000;
+
+const ledgerRange = (start: number) =>
+  `${String(start).padStart(7, "0")}-${String(start + HEIGHTS_PER_LEDGER_FILE - 1).padStart(7, "0")}`;
+export const transparentIoFile = (start: number) => `transparent_io/${ledgerRange(start)}.parquet`;
+export const transactionsExtraFile = (start: number) =>
+  `transactions_extra/${ledgerRange(start)}.parquet`;
+
 /** Network solution rate per day, estimated from difficulty: never a measurement. */
 export const HASHRATE_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("day", "date"),
