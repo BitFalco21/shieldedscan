@@ -1,6 +1,6 @@
 import type { PlotUnit } from "@/domain/plottable";
 import {
-  compactCount,
+  compactCountTick,
   formatBytes,
   formatCount,
   formatUsd,
@@ -34,18 +34,22 @@ export function formatPlotValue(unit: PlotUnit, v: number): string {
   }
 }
 
-/** An axis tick: a reference line, so only as precise as reading the line needs. */
+/**
+ * An axis tick: a reference line, so only as precise as reading the line needs, and exact at the
+ * round values the axis steps by. Bytes print as bytes: the axis steps in tens, and in 1,024-byte
+ * kB a 2,000-byte line would read "1.95 kB", or wrongly "2.0 kB".
+ */
 export function formatPlotTick(unit: PlotUnit, v: number): string {
   switch (unit) {
     case "zat":
       return formatZecTick(v);
     case "count":
     case "difficulty":
-      return compactCount(v);
+      return compactCountTick(v);
     case "usd":
       return formatUsd(v);
     case "bytes":
-      return formatBytes(Math.round(v));
+      return Number.isInteger(v) ? `${formatCount(v)} B` : "";
   }
 }
 
