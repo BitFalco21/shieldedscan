@@ -28,7 +28,7 @@ export function CounterpartyEntry({ party, withAmount = false }: CounterpartyEnt
         ) : party.kind === "pool" ? (
           <span className="inline-flex items-center gap-2">
             <PoolBadge pool={party.pool} variant="text" />
-            {party.undirected !== undefined && (
+            {(party.undirected === "opposite" || party.zat === null) && (
               <span className="text-xs text-ink-faint">
                 {party.undirected === "opposite" ? "moved both ways" : "no published balance"}
               </span>

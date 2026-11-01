@@ -104,12 +104,14 @@ export function addressCounterparties(tx: Transaction, address: string): Address
   const path = txFlowPath(tx);
   const undirected: OtherParty[] =
     path === null
-      ? txPools(tx).map((p) => ({
-          kind: "pool" as const,
-          pool: p,
-          zat: null,
-          undirected: p === "sprout" ? ("unpublished" as const) : ("opposite" as const),
-        }))
+      ? txPools(tx)
+          .filter((p) => balances.get(p) !== 0)
+          .map((p) => ({
+            kind: "pool" as const,
+            pool: p,
+            zat: null,
+            undirected: p === "sprout" ? ("unpublished" as const) : ("opposite" as const),
+          }))
       : [];
 
   const inputs: OtherParty[] = tx.isCoinbase
