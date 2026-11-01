@@ -53,8 +53,26 @@ describe("AgentChart", () => {
     expect(rows[4]!.textContent).toContain("Week of 2026-07-27");
     expect(rows[4]!.textContent).toContain("836,130.00 ZEC");
     expect(rows[4]!.textContent).toContain("2,922,536.00 ZEC");
-    // Before Ironwood existed: unmeasured, never a zero.
-    expect(rows[1]!.textContent).toContain("—");
+    // Before Ironwood existed: absent, as in the readout; never a zero, and never "—", which
+    // means a reading we failed to take.
+    expect(rows[1]!.textContent).toContain("not yet active");
+    expect(rows[1]!.textContent).not.toContain("—");
+  });
+
+  it("starts the table where the first plotted pool exists, so it opens on data", () => {
+    render(
+      <AgentChart
+        chart={{
+          ...CHART,
+          series: [{ id: "ironwood-balance", values: [null, null, 1 * ZEC, 2 * ZEC], floors: [] }],
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "show table" }));
+    const rows = within(screen.getByRole("table")).getAllByRole("row");
+    // A header and the two periods Ironwood existed in.
+    expect(rows).toHaveLength(3);
+    expect(rows[1]!.textContent).toContain("Week of 2026-07-20");
   });
 
   it("holds the table in a bounded, keyboard-scrollable region named by the chart", () => {
