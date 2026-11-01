@@ -4,6 +4,7 @@ import {
   formatBytes,
   formatCount,
   formatUsd,
+  formatUsdTick,
   formatUsdExact,
   formatZec,
   formatZecCompact,
@@ -47,7 +48,7 @@ export function formatPlotTick(unit: PlotUnit, v: number): string {
     case "difficulty":
       return compactCountTick(v);
     case "usd":
-      return formatUsd(v);
+      return formatUsdTick(v);
     case "bytes":
       return Number.isInteger(v) ? `${formatCount(v)} B` : "";
   }

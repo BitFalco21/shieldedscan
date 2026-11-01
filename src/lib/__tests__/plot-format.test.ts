@@ -37,4 +37,8 @@ describe("formatPlotTick on round axis steps", () => {
       "4M ZEC",
     ]);
   });
+
+  it("prints prices without cents a whole step does not have", () => {
+    expect(labels("usd", 46)).toEqual(["$0", "$10", "$20", "$30", "$40", "$50"]);
+  });
 });
