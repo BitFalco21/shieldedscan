@@ -6,6 +6,7 @@ import Link from "@/components/Link";
 import { ChartLegend } from "@/components/ChartLegend";
 import { MultiLineChart } from "@/components/MultiLineChart";
 import { formatPlotTick, formatPlotValue } from "@/lib/plot-format";
+import { useElementWidth } from "@/lib/use-element-width";
 import { AgentChartTable } from "./AgentChartTable";
 import { axisLabel, chartLinks, readoutLabel, seriesDotted, seriesInks } from "./chart-view";
 
@@ -27,40 +28,46 @@ export function AgentChart({ chart }: AgentChartProps) {
   const inks = seriesInks(series);
   const dotted = seriesDotted(series);
   const caption = chartCaption(chart);
+  // The console column is narrower than a /charts page at every width (~320-710px), so the ticks
+  // are sized from the width the chart is drawn at rather than from a fixed frame.
+  const [chartRef, chartWidth] = useElementWidth<HTMLDivElement>();
 
   return (
     <figure className="mt-4 border border-edge-faint p-3">
-      <MultiLineChart
-        labels={chart.timestamps.map((t) => axisLabel(chart.grain, t))}
-        readoutLabels={chart.timestamps.map((t) => readoutLabel(chart.grain, t))}
-        series={chart.series.map((s, i) => ({
-          name: series[i]!.label,
-          values: s.values,
-          className: inks[i]!,
-          dotted: dotted[i]!,
-          // A pool before it existed is absent from the readout, not "—" (see `omitLeadingZeros`).
-          omitNullFromReadout: series[i]!.omitLeadingZeros === true,
-        }))}
-        // A floor is not a quantity on the scale, so it rides in the readout beside its value.
-        contextRows={chart.series.flatMap((s, i) =>
-          s.floors.length === 0
-            ? []
-            : [
-                {
-                  // Its own name: the readout keys rows by name, and the series row has the label.
-                  name: `${series[i]!.label} coverage`,
-                  values: chart.timestamps.map((_, k) =>
-                    s.floors.includes(k) ? "a floor: some fees unread" : null,
-                  ),
-                },
-              ],
-        )}
-        formatValue={(v) => formatPlotValue(unit, v)}
-        formatTick={(v) => formatPlotTick(unit, v)}
-        ariaLabel={caption}
-        scale={chart.scale}
-        fill={chart.type === "area"}
-      />
+      <div ref={chartRef}>
+        <MultiLineChart
+          renderedWidth={chartWidth}
+          labels={chart.timestamps.map((t) => axisLabel(chart.grain, t))}
+          readoutLabels={chart.timestamps.map((t) => readoutLabel(chart.grain, t))}
+          series={chart.series.map((s, i) => ({
+            name: series[i]!.label,
+            values: s.values,
+            className: inks[i]!,
+            dotted: dotted[i]!,
+            // A pool before it existed is absent from the readout, not "—" (see `omitLeadingZeros`).
+            omitNullFromReadout: series[i]!.omitLeadingZeros === true,
+          }))}
+          // A floor is not a quantity on the scale, so it rides in the readout beside its value.
+          contextRows={chart.series.flatMap((s, i) =>
+            s.floors.length === 0
+              ? []
+              : [
+                  {
+                    // Its own name: the readout keys rows by name, and the series row has the label.
+                    name: `${series[i]!.label} coverage`,
+                    values: chart.timestamps.map((_, k) =>
+                      s.floors.includes(k) ? "a floor: some fees unread" : null,
+                    ),
+                  },
+                ],
+          )}
+          formatValue={(v) => formatPlotValue(unit, v)}
+          formatTick={(v) => formatPlotTick(unit, v)}
+          ariaLabel={caption}
+          scale={chart.scale}
+          fill={chart.type === "area"}
+        />
+      </div>
       <ChartLegend
         items={series.map((s, i) => ({
           label: s.label,

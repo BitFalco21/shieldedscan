@@ -105,8 +105,10 @@ function frameFor(
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   // Room for the x labels below and the top tick's upper half above; a larger tick (the
-  // phone's) buys more.
-  const padB = Math.max(CHART_PAD_B, tickFont + 8);
+  // phone's) buys more. Below, two lines of tick: one would leave the lowest y label level
+  // with the first x label, where "0 ZEC" and "2026-07-01" read as one run. At the base size
+  // this is exactly `CHART_PAD_B`.
+  const padB = Math.max(CHART_PAD_B, 2 * tickFont + 8);
   const padT = Math.max(CHART_PAD_T, tickFont * 0.7);
   return {
     padL,
@@ -143,7 +145,10 @@ export function YAxis({
           />
           <text
             x={frame.padL - 8}
-            y={frame.y(t) + 4}
+            // Baseline a third of the font below the gridline, so the label centres on it at any
+            // size: a fixed 4 units centres an 11-unit tick but leaves a phone's riding above it,
+            // and the top one clipped.
+            y={frame.y(t) + (4 / TICK_FONT) * frame.tickFont}
             textAnchor="end"
             fontSize={frame.tickFont}
             className="chart-tick"

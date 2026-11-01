@@ -56,6 +56,25 @@ describe("phone axes", () => {
     expect(PHONE_TICK_FONT).toBeGreaterThan(TICK_FONT);
   });
 
+  it("sizes ticks from a measured width, to render at the base size, never below it", () => {
+    const at = (renderedWidth: number) => {
+      const { container } = render(
+        <MultiLineChart
+          labels={["a", "b"]}
+          series={[{ name: "a", values: [1, 2], className: "text-green" }]}
+          ariaLabel="a"
+          renderedWidth={renderedWidth}
+        />,
+      );
+      return Number(tickFonts(container)[0]) * (renderedWidth / CHART_W);
+    };
+    // 11 units across 500px would draw at 5.5px; sized from the width, they draw at 11px.
+    expect(at(500)).toBeCloseTo(TICK_FONT);
+    expect(at(320)).toBeCloseTo(TICK_FONT);
+    // Wider than the frame: the base size, never a smaller font.
+    expect(at(1400)).toBeCloseTo(TICK_FONT * 1.4);
+  });
+
   it("keeps the base size everywhere else", () => {
     const { container } = render(lineChart(false));
     expect(new Set(tickFonts(container))).toEqual(new Set([String(TICK_FONT)]));

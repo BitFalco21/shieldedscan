@@ -73,6 +73,12 @@ export interface MultiLineChartProps {
    */
   phone?: boolean;
   /**
+   * The chart's drawn width in CSS px, where the caller measures it. The ticks are then sized to
+   * render at the base size (`TICK_FONT` px) whatever the width, and the frame grows taller in
+   * step so the plot keeps its shape; at a phone's width this matches `phone`. Overrides it.
+   */
+  renderedWidth?: number;
+  /**
    * A fixed top of the y-axis, for a series with a natural ceiling — a share of a whole is out
    * of 100 whatever today's high is. Without it the axis stops at the data's own maximum and a
    * share chart prints ticks like 41.6%, which frame the line against nothing a reader knows.
@@ -100,6 +106,21 @@ export interface MultiLineChartProps {
 }
 
 /**
+ * Tick size and frame height in SVG units. A measured width sizes the ticks to render at
+ * `TICK_FONT` px (never below the base size), and the frame grows with them up to the phone's
+ * height; otherwise `phone` picks one of the two fixed sizes.
+ */
+function chartSize(phone: boolean, renderedWidth?: number): { tickFont: number; height: number } {
+  if (renderedWidth !== undefined && renderedWidth > 0) {
+    const tickFont = Math.max(TICK_FONT, (TICK_FONT * CHART_W) / renderedWidth);
+    return { tickFont, height: Math.min(PHONE_CHART_H, (CHART_H * tickFont) / TICK_FONT) };
+  }
+  return phone
+    ? { tickFont: PHONE_TICK_FONT, height: PHONE_CHART_H }
+    : { tickFont: TICK_FONT, height: CHART_H };
+}
+
+/**
  * Several series on ONE shared scale.
  *
  * A `null` breaks the path into segments rather than interpolating across the hole: a month
@@ -121,6 +142,7 @@ export function MultiLineChart({
   contextRows = [],
   baseline = "zero",
   phone = false,
+  renderedWidth,
   yMax,
   markers = false,
   scale = "linear",
@@ -144,8 +166,7 @@ export function MultiLineChart({
    */
   const low = values.length > 0 ? Math.min(...values) : 0;
   const min = baseline === "data" && low > 0 ? Math.max(0, low - (max - low) * 0.1) : 0;
-  const tickFont = phone ? PHONE_TICK_FONT : TICK_FONT;
-  const height = phone ? PHONE_CHART_H : CHART_H;
+  const { tickFont, height } = chartSize(phone, renderedWidth);
   const frame = log
     ? logAxisFrame(labels.length, Math.min(...positives), max, formatTick, tickFont, height)
     : axisFrame(labels.length, max, formatTick, min, tickFont, height);
@@ -251,7 +272,7 @@ export function MultiLineChart({
                     key={`${s.name}-dot-${i}`}
                     cx={frame.x(i)}
                     cy={frame.y(v)}
-                    r={phone ? 10 : 4}
+                    r={Math.min(10, (4 * tickFont) / TICK_FONT)}
                     fill="currentColor"
                     className={s.className}
                     opacity={s.opacity ?? 1}
