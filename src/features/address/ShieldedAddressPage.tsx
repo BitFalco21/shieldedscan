@@ -170,7 +170,7 @@ export function ShieldedAddressPage({ address, kind, searchedName }: ShieldedAdd
       <Panel className="mt-3 text-sm text-ink-dim">
         <Strip label="WHAT IS PUBLIC">
           Aggregate activity only, never per-address —{" "}
-          <Link href="/shielded" className="text-green hover:underline">
+          <Link href="/shielded?view=shielded" className="text-green hover:underline">
             the shielded pools
           </Link>{" "}
           carry live totals and{" "}

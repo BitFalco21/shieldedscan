@@ -41,6 +41,8 @@ export const ROUTES: readonly string[] = [
   `/address/${SHIELDED_ADDR}`,
   `/address/${UNIFIED_ADDR}`,
   "/shielded",
+  // The shielded-pools view: a different page behind the same path, served by the proxy.
+  "/shielded?view=shielded",
   "/cross-chain",
   "/cross-chain/flows",
   "/cross-chain/protocols",

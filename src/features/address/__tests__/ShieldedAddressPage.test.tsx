@@ -60,7 +60,7 @@ describe("ShieldedAddressPage", () => {
   it("links to the genuinely public views", () => {
     render(<ShieldedAddressPage address={UNIFIED} kind="unified" />);
     expect(screen.getByRole("link", { name: "the shielded pools" }).getAttribute("href")).toBe(
-      "/shielded",
+      "/shielded?view=shielded",
     );
     expect(screen.getByRole("link", { name: "shielded transactions" }).getAttribute("href")).toBe(
       "/txs?kind=shielded",

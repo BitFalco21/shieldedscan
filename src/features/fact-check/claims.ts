@@ -267,7 +267,11 @@ export const CLAIMS: readonly Claim[] = [
     live: ["shielded-share", "fully-shielded-24h"],
     sources: [
       UCL_2018,
-      { label: "The shielded pools, live", href: "/shielded", verifiedOn: "2026-09-27" },
+      {
+        label: "The shielded pools, live",
+        href: "/shielded?view=shielded",
+        verifiedOn: "2026-09-27",
+      },
     ],
   },
   {

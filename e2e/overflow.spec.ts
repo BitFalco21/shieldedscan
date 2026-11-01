@@ -193,6 +193,7 @@ test("no list page scrolls sideways at a tablet width", async ({ page }) => {
     "/name/abraham",
     "/reorgs",
     "/shielded",
+    "/shielded?view=shielded",
   ];
   for (const width of [640, 768, 900, 1023]) {
     await page.setViewportSize({ width, height: 800 });

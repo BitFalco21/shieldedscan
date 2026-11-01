@@ -184,7 +184,7 @@ test.describe("aggregates travel with their denominator", () => {
   test("no bare percentage is presented as a privacy score", async ({ page }) => {
     // A percentage over a small or sampled set carries the authority of a measurement it
     // does not have. Where one appears, its denominator must appear beside it.
-    for (const route of ["/mempool", "/analytics", "/shielded"]) {
+    for (const route of ["/mempool", "/analytics", "/shielded", "/shielded?view=shielded"]) {
       await page.goto(route);
       const text = await mainText(page);
       if (!/%/.test(text)) continue;
