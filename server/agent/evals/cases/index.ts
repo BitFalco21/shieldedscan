@@ -17,6 +17,7 @@ import { WINDOW_RANKING } from "./window-ranking";
 import { ADDRESS_WINDOW } from "./address-window";
 import { ROADMAP } from "./roadmap";
 import { PUBLISHED_SERIES } from "./published-series";
+import { CHARTS } from "./charts";
 
 /**
  * The eval corpus. Nothing is logged, so there are no user transcripts to learn from: the corpus is
@@ -51,6 +52,7 @@ export const ALL_CASES: readonly EvalCase[] = [
   ...ADDRESS_WINDOW,
   ...ROADMAP,
   ...PUBLISHED_SERIES,
+  ...CHARTS,
 ];
 
 export type { EvalCase } from "./types";

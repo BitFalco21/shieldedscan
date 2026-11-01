@@ -16,6 +16,8 @@ import {
   renderPrivacy,
 } from "../site-guide";
 import { callsFor } from "./calls";
+import { parseChartArgs } from "./chart-args";
+import { buildChart } from "./chart-tool";
 import { toolDefinitions } from "./definitions";
 import { entityBlock, spotPriceUsdFrom } from "./entities";
 import { asRecord, parseJson } from "./json";
@@ -183,6 +185,30 @@ export class AgentTools {
         content: `<note source="calculator">\n${CALCULATE_NOTE}\n</note>\n${JSON.stringify({ results }, null, 1)}`,
         endpoints: [],
       };
+    }
+
+    /*
+     * `make_chart` also returns before `callsFor`: its paths are fixed by the catalogue, never built
+     * from arguments, and its result carries a chart beside the text. The arguments choose series and
+     * a window only; every value is read here from the source bodies.
+     *
+     * No endpoints are cited: the chart links its own `/charts` page, the evidence a reader can open.
+     */
+    if (name === "make_chart") {
+      const request = parseChartArgs(args, this.#now());
+      if (typeof request === "string") {
+        return { content: `invalid arguments for make_chart: ${request}`, endpoints: [] };
+      }
+      const outcome = await buildChart(
+        request,
+        async (surface, path) => {
+          const res = await (surface === "v1" ? this.#v1 : this.#chain).request(path);
+          return { status: res.status, body: await res.text() };
+        },
+        this.#now(),
+      );
+      if (typeof outcome === "string") return { content: outcome, endpoints: [] };
+      return { content: outcome.content, endpoints: [], chart: outcome.chart };
     }
 
     /*

@@ -430,7 +430,7 @@ describe("AgentTools.dispatch", () => {
 });
 
 describe("tool definitions", () => {
-  it("declares exactly the fourteen read-only tools", () => {
+  it("declares exactly the fifteen read-only tools", () => {
     expect(TOOL_NAMES).toEqual([
       "lookup_transaction",
       "lookup_block",
@@ -446,6 +446,7 @@ describe("tool definitions", () => {
       "site_guide",
       "calculate",
       "zip_index",
+      "make_chart",
     ]);
   });
 

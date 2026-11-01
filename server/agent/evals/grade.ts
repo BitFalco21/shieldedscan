@@ -49,6 +49,11 @@ export interface GradeInput {
   toolsCalled: readonly string[];
   /** The model's own text, before `StreamSanitizer` touched it. Only forbids read this. */
   rawAnswer: string;
+  /**
+   * How many `chart` events the turn emitted. Optional because only chart cases read it, and a
+   * case that asserts on charts fails when it is absent rather than passing unobserved.
+   */
+  chartsShown?: number;
 }
 
 /** One semantic property a person must decide, carried to the dump with its answer. */
@@ -130,6 +135,15 @@ export function gradeAnswer(testCase: EvalCase, ctx: GradeInput): Grade {
   const any = testCase.mustCallAny ?? [];
   if (any.length > 0 && !any.some((tool) => ctx.toolsCalled.includes(tool))) {
     failures.push(`called none of ${any.join(", ")}`);
+  }
+  // A chart is counted from the events the reader receives, not from the tool being called: a
+  // refused `make_chart` call still "called" it and drew nothing.
+  if (testCase.mustChart === true || testCase.mustNotChart === true) {
+    if (ctx.chartsShown === undefined) failures.push("charts were not observed");
+    else if (testCase.mustChart === true && ctx.chartsShown === 0) failures.push("drew no chart");
+    else if (testCase.mustNotChart === true && ctx.chartsShown > 0) {
+      failures.push(`drew ${ctx.chartsShown} chart(s) for a question words answer`);
+    }
   }
 
   if (!isGradable(ctx.answer)) {

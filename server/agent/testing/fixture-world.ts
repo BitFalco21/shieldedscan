@@ -38,6 +38,7 @@ import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
+import { CHART_SOURCE_PAYLOADS } from "./chart-fixtures";
 
 /**
  * A real /v1 sub-app over faked chain data, shared by the agent's tests and by the eval runner's
@@ -1544,8 +1545,13 @@ export function chainApp(
     [TX_COUNTS_KEY]: TX_COUNTS_FIXTURE,
     [ADDRESS_EXTREMES_KEY]: ADDRESS_VALUE_EXTREMES_FIXTURE,
     [ADDRESS_ACTIVITY_KEY]: ADDRESS_ACTIVITY_FIXTURE,
+    ...CHART_SOURCE_PAYLOADS,
     ...overrides,
   };
+  // The series `make_chart` reads, keyed by their own paths so an override can replace one.
+  for (const path of Object.keys(CHART_SOURCE_PAYLOADS)) {
+    app.get(path, (c) => c.json(payloads[path] as never));
+  }
   // The per-address extrema drill-down `lookup_address` fetches behind its flag.
   app.get("/chain/addresses/:address/value-extremes", (c) =>
     c.json(payloads[ADDRESS_EXTREMES_KEY] as never),

@@ -1,4 +1,13 @@
-import { POOL_MIGRATION_DESTINATIONS, POOL_MIGRATION_SOURCES, POOL_NAMES } from "@/domain";
+import {
+  CHART_RANGES,
+  MAX_PLOT_SERIES,
+  PLOT_SCALES,
+  PLOT_SERIES_IDS,
+  PLOT_TYPES,
+  POOL_MIGRATION_DESTINATIONS,
+  POOL_MIGRATION_SOURCES,
+  POOL_NAMES,
+} from "@/domain";
 import { REFERENCE_TOPIC_NAMES } from "../reference";
 import { MAX_ZIP_PICKS, ZIP_SECTION_IDS } from "../zip-index";
 import type { ToolName } from "./names";
@@ -432,6 +441,46 @@ export function toolDefinitions() {
         },
       },
       ["section"],
+    ),
+    def(
+      "make_chart",
+      // The words a visitor uses for wanting a picture ("chart", "graph", "plot", "trend", "over
+      // time", "compare"), and the rule that keeps it from replacing a single figure.
+      "Show the reader a CHART beneath your answer, drawn from this explorer's own data — the same series its /charts pages plot. Use it when the question is about CHANGE OVER TIME, a trend, or a COMPARISON across a period ('how did Orchard drain since July', 'compare Ironwood and Orchard balances', 'fees this month vs last', 'graph the price this year'), or whenever the reader asks for a chart, graph or plot. NOT for a single figure ('what is the shielded supply') — that is a sentence. You choose only WHAT to plot: up to 3 series of the SAME measure (one axis — two different measures are two charts), a window, and line or area on a linear or log axis. You never supply a number: this explorer reads every value itself and returns a short summary you may quote. The grain (daily, weekly, monthly) follows the window.",
+      {
+        series: {
+          type: "array",
+          items: { type: "string", enum: [...PLOT_SERIES_IDS] },
+          description: `1 to ${MAX_PLOT_SERIES} series of one measure. Pool balances and the shielded supply share an axis; the transaction counts share one; ZEC shielded and ZEC unshielded share one; every other id is its own measure.`,
+        },
+        range: {
+          type: "string",
+          enum: CHART_RANGES.map((r) => r.value),
+          description:
+            "A trailing window ending today: 30d, 60d, 90d, 180d, 1y, or all (since 2016). Use instead of from/to. Omit both for all.",
+        },
+        from: {
+          type: "string",
+          description: "Start of an absolute window, a UTC day as YYYY-MM-DD. Inclusive.",
+        },
+        to: {
+          type: "string",
+          description:
+            "End of the window, YYYY-MM-DD, EXCLUSIVE. Only with from; omit to run to today.",
+        },
+        type: {
+          type: "string",
+          enum: [...PLOT_TYPES],
+          description: "'line' (default) or 'area' (each series filled to zero, never stacked).",
+        },
+        scale: {
+          type: "string",
+          enum: [...PLOT_SCALES],
+          description:
+            "'linear' (default) or 'log', for series of one measure that differ by orders of magnitude (Sprout beside Orchard).",
+        },
+      },
+      ["series"],
     ),
     def(
       "calculate",

@@ -100,6 +100,14 @@ export const SUBJECT_PARTS: Record<ToolName, readonly SubjectPart[]> = {
   // The expressions themselves: after validation they are digits and five operators, so the subject
   // shows the actual arithmetic — the operand-choice risk, visible on the trail.
   calculate: [{ key: "expressions" }],
+  // What is about to be drawn: the series and the window.
+  make_chart: [
+    { key: "series" },
+    { key: "range" },
+    { key: "from" },
+    { key: "to", prefix: "to" },
+    { key: "scale" },
+  ],
 };
 
 /** Long enough for a date range plus a chain; short enough that no row can shove the trail. */
