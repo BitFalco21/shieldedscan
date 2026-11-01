@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "@/components/chart-axes";
+import { niceAxis } from "@/lib/nice-ticks";
 
 export interface FlowBalanceChartProps {
   points: { label: string; inValue: number; outValue: number }[];
@@ -57,19 +58,21 @@ export function FlowBalanceChart({
   if (points.length === 0) return null;
 
   // Shared across BOTH directions — see the note above.
-  const maxAbs =
-    Math.max(...points.map((p) => Math.max(Math.abs(p.inValue), Math.abs(p.outValue))), 0) || 1;
+  const maxAbs = Math.max(
+    ...points.map((p) => Math.max(Math.abs(p.inValue), Math.abs(p.outValue))),
+    0,
+  );
 
-  // A diverging frame: zero sits mid-plot and the axis runs −max..+max, so both directions
-  // read against the ruler the bars are drawn with. The gutter self-sizes against the signed
-  // tick labels it will print.
+  // A diverging frame: zero sits mid-plot and the axis runs −reach..+reach, the round value at
+  // or past `maxAbs`, so both directions read against the ruler the bars are drawn with. The
+  // gutter self-sizes against the signed tick labels it will print.
   const signedWith = (format: (v: number) => string) => (value: number) =>
     `${value > 0 ? "+" : value < 0 ? "−" : ""}${format(Math.abs(value))}`;
   // The readout's net is a stated amount and keeps full precision; the axis ticks need less.
   const signed = signedWith(formatValue);
   const signedTick = signedWith(formatTick);
   const tickFont = TICK_FONT;
-  const ticks = [-1, -0.5, 0, 0.5, 1].map((f) => maxAbs * f);
+  const { max: reach, ticks } = niceAxis(-maxAbs, maxAbs, { symmetric: true, label: signedTick });
   const padL =
     Math.max(...ticks.map((t) => signedTick(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   const plotW = CHART_W - padL - CHART_PAD_R;
@@ -83,7 +86,7 @@ export function FlowBalanceChart({
     padL,
     tickFont,
     x: (i: number) => padL + (i / points.length) * plotW,
-    y: (v: number) => mid - (v / maxAbs) * (plotH / 2),
+    y: (v: number) => mid - (v / reach) * (plotH / 2),
     plotStart: padL / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
 
@@ -122,8 +125,8 @@ export function FlowBalanceChart({
           strokeWidth={1}
         />
         {points.map((point, index) => {
-          const inHeight = (Math.abs(point.inValue) / maxAbs) * (plotH / 2);
-          const outHeight = (Math.abs(point.outValue) / maxAbs) * (plotH / 2);
+          const inHeight = (Math.abs(point.inValue) / reach) * (plotH / 2);
+          const outHeight = (Math.abs(point.outValue) / reach) * (plotH / 2);
           const x = frame.x(index);
           return (
             <g key={point.label}>

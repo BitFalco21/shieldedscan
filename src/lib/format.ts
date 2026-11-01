@@ -167,21 +167,24 @@ function zecCompactTier(zat: number): string | null {
 }
 
 /**
- * A ZEC axis tick: compact, and only as precise as a reference line needs. A tick sits at a
- * fraction of the axis maximum, so full eight-decimal precision there is noise ("1,021.34378535").
- * Never for an amount a reader is told: that is `formatZec` or `formatZecCompact`.
+ * A ZEC axis tick: compact, and only as precise as a reference line needs. Ticks are round steps
+ * (`niceAxis`), so trailing zeros go ("2.5M", not "2.50M") and three significant digits hold any
+ * step below a coin ("0.0125"). Never for an amount a reader is told: that is `formatZec` or
+ * `formatZecCompact`.
  */
 export function formatZecTick(zat: number): string {
-  const tier = zecCompactTier(zat);
-  if (tier !== null) return `${tier} ${coinTicker}`;
   const zec = zat / ZATS_PER_ZEC;
   if (zec === 0) return `0 ${coinTicker}`;
+  const abs = Math.abs(zec);
+  const trimmed = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (abs >= 1_000_000) return `${trimmed(zec / 1_000_000)}M ${coinTicker}`;
+  if (abs >= 10_000) return `${trimmed(zec / 1_000)}K ${coinTicker}`;
   const digits: Intl.NumberFormatOptions =
-    zec >= 100
+    abs >= 100
       ? { maximumFractionDigits: 0 }
-      : zec >= 1
+      : abs >= 1
         ? { maximumFractionDigits: 2 }
-        : { maximumSignificantDigits: 2 };
+        : { maximumSignificantDigits: 3 };
   return `${zec.toLocaleString("en-US", digits)} ${coinTicker}`;
 }
 
@@ -278,6 +281,28 @@ export function formatUsd(value: number): string {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
+}
+
+/**
+ * A USD axis tick: whole dollars on a whole step, cents only on a step that has them. `formatUsd`
+ * drops cents from $100, so a $2.50 step would print $142.50 as "$143".
+ */
+export function formatUsdTick(value: number): string {
+  const fractionDigits = Number.isInteger(value) ? 0 : 2;
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+/**
+ * A percentage axis tick: "20%", "0.25%". A tick is a round reference line, not a measured share,
+ * so it carries the digits its step needs and no "<0.1%" floor.
+ */
+export function formatShareTick(pct: number): string {
+  return `${pct.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
 }
 
 /**
@@ -395,6 +420,25 @@ export function compactCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(Math.round(n));
+}
+
+/**
+ * A count's axis tick: "2.5K", "1.25M", "740", trailing zeros dropped. Ticks are round steps that
+ * the coarser `compactCount` would misprint (2,500 as "3K"). A fraction prints empty, since a tick
+ * at "1.5 transactions" names a quantity that cannot occur; `niceAxis` then picks a whole step.
+ */
+export function compactCountTick(n: number): string {
+  if (!Number.isInteger(n)) return "";
+  const abs = Math.abs(n);
+  const [divisor, suffix] =
+    abs >= 1_000_000_000
+      ? [1_000_000_000, "B"]
+      : abs >= 1_000_000
+        ? [1_000_000, "M"]
+        : abs >= 1_000
+          ? [1_000, "K"]
+          : [1, ""];
+  return `${(n / divisor).toLocaleString("en-US", { maximumFractionDigits: 2 })}${suffix}`;
 }
 
 /** The first character upper-cased and the rest untouched: "shielding" → "Shielding". */

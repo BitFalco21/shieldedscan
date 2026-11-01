@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "@/components/chart-axes";
+import { niceAxis } from "@/lib/nice-ticks";
 
 export interface BarSeries {
   key: string;
@@ -67,8 +68,7 @@ export function StackedBarChart({
   if (n === 0 || series.length === 0) return null;
 
   const totals = labels.map((_, i) => series.reduce((sum, s) => sum + (s.values[i] ?? 0), 0));
-  const peak = Math.max(...totals, 0) || 1;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => peak * f);
+  const { max: ceiling, ticks } = niceAxis(0, Math.max(...totals, 0), { label: formatTick });
   const padL =
     Math.max(...ticks.map((t) => formatTick(t).length)) * tickCharW(TICK_FONT) + CHART_GUTTER_GAP;
   const plotW = CHART_W - padL - CHART_PAD_R;
@@ -76,7 +76,7 @@ export function StackedBarChart({
   const slot = plotW / n;
   // A fifth of the slot as the gap keeps bars dominant at any count, as `FlowBalanceChart` does.
   const barW = slot * 0.8;
-  const y = (v: number) => CHART_H - CHART_PAD_B - (v / peak) * plotH;
+  const y = (v: number) => CHART_H - CHART_PAD_B - (v / ceiling) * plotH;
   const frame = {
     padL,
     tickFont: TICK_FONT,
