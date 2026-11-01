@@ -14,6 +14,7 @@ export interface MetricTx {
   timestamp: bigint;
   kind: string;
   version: number;
+  sprout_joinsplits: number | null;
   sprout_vpub_net_zat: bigint | null;
   sapling_value_balance_zat: bigint | null;
   orchard_value_balance_zat: bigint | null;
@@ -43,7 +44,8 @@ export class DailyTxVersions {
 /**
  * Each shielded pool's gross flows per UTC day: value in (positive balances) and out (negative),
  * never netted per transaction. Sprout's public value is stored in the node's sign (positive =
- * leaving), so it is negated into the domain sign the others use.
+ * leaving), so it is negated into the domain sign the others use; and it is stored as 0, not NULL,
+ * for a transaction without JoinSplits, so Sprout counts only where `sprout_joinsplits > 0`.
  */
 export class DailyPoolFlows {
   private readonly days = new Map<string, { inflow: bigint; outflow: bigint; txs: number }>();
@@ -51,7 +53,12 @@ export class DailyPoolFlows {
   push(tx: MetricTx): void {
     const day = utcDay(tx.timestamp);
     const balances: [string, bigint | null][] = [
-      ["sprout", tx.sprout_vpub_net_zat === null ? null : -tx.sprout_vpub_net_zat],
+      [
+        "sprout",
+        (tx.sprout_joinsplits ?? 0) > 0 && tx.sprout_vpub_net_zat !== null
+          ? -tx.sprout_vpub_net_zat
+          : null,
+      ],
       ["sapling", tx.sapling_value_balance_zat],
       ["orchard", tx.orchard_value_balance_zat],
       ["ironwood", tx.ironwood_value_balance_zat],

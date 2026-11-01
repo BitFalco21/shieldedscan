@@ -18,6 +18,7 @@ const tx = (over: Partial<MetricTx>): MetricTx => ({
   timestamp: T0,
   kind: "transparent",
   version: 5,
+  sprout_joinsplits: null,
   sprout_vpub_net_zat: null,
   sapling_value_balance_zat: null,
   orchard_value_balance_zat: null,
@@ -65,7 +66,10 @@ describe("stream metrics", () => {
     const m = new DailyPoolFlows();
     m.push(tx({ sapling_value_balance_zat: 500n, orchard_value_balance_zat: -200n }));
     m.push(tx({ sapling_value_balance_zat: -300n }));
-    m.push(tx({ sprout_vpub_net_zat: 70n })); // 70 leaving Sprout
+    m.push(tx({ sprout_joinsplits: 1, sprout_vpub_net_zat: 70n })); // 70 leaving Sprout
+    // Every transaction carries a Sprout value; without JoinSplits it is 0 and never counts.
+    m.push(tx({ sprout_joinsplits: 0, sprout_vpub_net_zat: 0n }));
+    m.push(tx({ sprout_joinsplits: null, sprout_vpub_net_zat: 0n }));
     expect(m.rows(day(0))).toEqual([
       { day: day(0), pool: "orchard", inflow_zat: 0n, outflow_zat: 200n, txs: 1 },
       { day: day(0), pool: "sapling", inflow_zat: 500n, outflow_zat: 300n, txs: 2 },
