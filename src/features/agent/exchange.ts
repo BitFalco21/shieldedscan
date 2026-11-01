@@ -1,3 +1,4 @@
+import type { PlottedChart } from "@/domain";
 import type { AgentSource } from "./agent-client";
 import { THINKING_FIRST, type AgentStep } from "./trail-steps";
 import type { ZenoTurn } from "./zeno-mood";
@@ -34,6 +35,11 @@ export interface Exchange {
   answer: string;
   sources: AgentSource[];
   /**
+   * Charts drawn for this answer, from the server's `chart` events. Never part of `answer`, so
+   * never replayed as history or copied with the text.
+   */
+  charts: PlottedChart[];
+  /**
    * What the agent did to reach this answer, in order — see `AgentTrail`. Kept per exchange so
    * scrolling back to an earlier turn still shows how that turn was answered; a turn makes at
    * most `MAX_TOOL_CALLS_PER_TURN` lookups, so the rows are bounded by it.
@@ -66,6 +72,7 @@ export function newExchange(id: number, question: string, at: number): Exchange 
     working: "",
     answer: "",
     sources: [],
+    charts: [],
     // Seeded, not empty: an empty trail renders nothing, and the seconds between pressing send
     // and the first byte are exactly when a reader most needs to see something happen.
     steps: [{ kind: "thinking", label: THINKING_FIRST, startedAt: at, endedAt: null }],

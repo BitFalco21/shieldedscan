@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/CopyButton";
+import { AgentChart } from "./AgentChart";
 import { AnswerMarkdown } from "./AnswerMarkdown";
 import { AgentSources } from "./AgentSources";
 import { AgentTrail } from "./AgentTrail";
@@ -101,6 +102,11 @@ export function AgentExchange({
               zeno&gt;{exchange.unanswered ? " couldn't answer" : ""}
             </div>
             <AnswerMarkdown text={exchange.answer} tone={exchange.unanswered ? "dim" : "normal"} />
+            {/* The answer's charts, under the prose that describes them. They arrive with the
+                answer's end, so they never draw beside a half-written sentence. */}
+            {exchange.charts.map((chart, i) => (
+              <AgentChart key={i} chart={chart} />
+            ))}
           </div>
         )}
       </div>

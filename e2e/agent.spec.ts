@@ -194,6 +194,66 @@ test.describe("the AI agent page", () => {
     await expect(link).toBeHidden();
   });
 
+  test("draws a streamed chart under its answer, accessibly, with no question in any link", async ({
+    page,
+  }) => {
+    const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 1000;
+    const zec = (n: number) => n * 100_000_000;
+    const requests: string[] = [];
+    page.on("request", (r) => requests.push(r.url()));
+    await stubAgent(page, [
+      sse("status", { state: "looking-up", tool: "make_chart", detail: "orchard-balance" }),
+      sse("delta", { text: "Orchard drained into Ironwood after its activation." }),
+      // A chart this console cannot understand is dropped, never half-drawn.
+      sse("chart", { v: 1, type: "line", series: [{ id: "made-up", values: [1] }] }),
+      sse("chart", {
+        v: 1,
+        type: "line",
+        scale: "linear",
+        grain: "week",
+        timestamps: [day("2026-07-06"), day("2026-07-13"), day("2026-07-20"), day("2026-07-27")],
+        series: [
+          { id: "ironwood-balance", values: [null, null, null, zec(836_130)], floors: [] },
+          {
+            id: "orchard-balance",
+            values: [zec(3_766_654), zec(3_769_149), zec(3_769_552), zec(2_922_536)],
+            floors: [],
+          },
+        ],
+        partialLast: false,
+        reachesPresent: true,
+        range: "90d",
+      }),
+      sse("sources", { sources: [] }),
+      sse("done", { stopReason: "complete" }),
+    ]);
+    const question = "compare-ironwood-orchard-balances-please";
+    await ask(page, question);
+
+    const caption = "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line";
+    await expect(page.getByRole("img", { name: caption })).toHaveCount(1);
+    await expect(page.getByText(`Plotted: ${caption}`)).toBeVisible();
+    await expect(page.locator("figure")).toHaveCount(1);
+
+    // The table view states the plotted values.
+    const toggle = page.getByRole("button", { name: "show table" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "2,922,536.00 ZEC" })).toBeVisible();
+
+    // Each series' page, in a new tab, and the question in no URL the page holds or requests.
+    const link = page.getByRole("link", { name: "/charts/pool-balances" });
+    await expect(link).toHaveAttribute("href", "/charts/pool-balances?range=90d");
+    await expect(link).toHaveAttribute("target", "_blank");
+    const hrefs = await page
+      .locator("a[href]")
+      .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+    expect(hrefs.join(" ")).not.toContain(question);
+    expect(requests.join(" ")).not.toContain(question);
+    expect(page.url()).not.toContain(question);
+  });
+
   test("a markdown image in the answer never becomes an element or a request", async ({ page }) => {
     const requests: string[] = [];
     page.on("request", (r) => requests.push(r.url()));

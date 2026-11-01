@@ -10,6 +10,7 @@
  * `fetch` + `ReadableStream` rather than `EventSource`, because EventSource cannot POST.
  */
 
+import { parsePlottedChart, type PlottedChart } from "@/domain";
 import { capitalise } from "@/lib/format";
 
 export interface AgentTurn {
@@ -91,6 +92,12 @@ export type AgentStreamEvent =
    */
   | { event: "working"; text: string }
   | { event: "sources"; sources: AgentSource[] }
+  /**
+   * A chart for the answer, built server-side from this explorer's data. Parsed strictly
+   * (`parsePlottedChart`): anything that is not exactly a chart of catalogue series is dropped,
+   * never half-drawn. An older API sends none.
+   */
+  | { event: "chart"; chart: PlottedChart }
   /**
    * `unanswered` is set only when the text before `done` is the server's own closing ("I could
    * not put that answer into words…") rather than an answer. It is optional: an API that
@@ -284,6 +291,10 @@ function parseEvent(raw: string): AgentStreamEvent | null {
         : null;
     case "sources":
       return { event: "sources", sources: (payload.sources as AgentSource[] | undefined) ?? [] };
+    case "chart": {
+      const chart = parsePlottedChart(payload);
+      return chart === null ? null : { event: "chart", chart };
+    }
     case "done":
       return {
         event: "done",

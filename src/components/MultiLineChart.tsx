@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
   axisFrame,
+  logAxisFrame,
 } from "@/components/chart-axes";
 
 export interface MultiLineSeries {
@@ -79,6 +80,18 @@ export interface MultiLineChartProps {
    * every instant between was measured too.
    */
   markers?: boolean;
+  /**
+   * `"log"` puts the y axis on powers of ten, for series of one measure that differ by orders of
+   * magnitude. A value at or below zero has no place on it and draws as a gap; the readout still
+   * states it. `baseline` and `yMax` describe a linear axis and are ignored.
+   */
+  scale?: "linear" | "log";
+  /**
+   * Fill each line down to the axis floor (zero on the default baseline). Never stacked: these
+   * series need not partition anything, and a stack would draw a total nobody measured. Linear
+   * axes only, since a log axis has no zero.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -105,11 +118,16 @@ export function MultiLineChart({
   phone = false,
   yMax,
   markers = false,
+  scale = "linear",
+  fill = false,
 }: MultiLineChartProps) {
   if (labels.length === 0 || series.length === 0) return null;
 
+  const log = scale === "log";
   const values = series.flatMap((s) => s.values).filter((v): v is number => v !== null);
-  const max = Math.max(...values, yMax ?? 0, 0) || 1;
+  const positives = values.filter((v) => v > 0);
+  if (log && positives.length === 0) return null;
+  const max = log ? Math.max(...positives) : Math.max(...values, yMax ?? 0, 0) || 1;
   /*
    * A clipped axis gets a margin below the lowest point (a tenth of the visible span): a line
    * touching the frame reads as data running off the chart.
@@ -121,30 +139,42 @@ export function MultiLineChart({
    */
   const low = values.length > 0 ? Math.min(...values) : 0;
   const min = baseline === "data" && low > 0 ? Math.max(0, low - (max - low) * 0.1) : 0;
-  const frame = axisFrame(
-    labels.length,
-    max,
-    formatTick,
-    min,
-    phone ? PHONE_TICK_FONT : TICK_FONT,
-    phone ? PHONE_CHART_H : CHART_H,
-  );
+  const tickFont = phone ? PHONE_TICK_FONT : TICK_FONT;
+  const height = phone ? PHONE_CHART_H : CHART_H;
+  const frame = log
+    ? logAxisFrame(labels.length, Math.min(...positives), max, formatTick, tickFont, height)
+    : axisFrame(labels.length, max, formatTick, min, tickFont, height);
 
-  /** Path segments split on nulls, so gaps stay gaps. */
-  const segments = (values: (number | null)[]): string[] => {
-    const out: string[] = [];
-    let current = "";
+  /** Whether a value has a place on the axis: everything on a linear one, only positives on a log. */
+  const drawable = (v: number | null): v is number => v !== null && (!log || v > 0);
+
+  /** Runs of drawable points, split on gaps, so gaps stay gaps. */
+  const runs = (values: (number | null)[]): { i: number; v: number }[][] => {
+    const out: { i: number; v: number }[][] = [];
+    let current: { i: number; v: number }[] = [];
     values.forEach((v, i) => {
-      if (v === null) {
-        if (current) out.push(current);
-        current = "";
+      if (!drawable(v)) {
+        if (current.length > 0) out.push(current);
+        current = [];
         return;
       }
-      current += `${current ? " L" : "M"}${frame.x(i).toFixed(1)} ${frame.y(v).toFixed(1)}`;
+      current.push({ i, v });
     });
-    if (current) out.push(current);
+    if (current.length > 0) out.push(current);
     return out;
   };
+  const line = (run: { i: number; v: number }[]) =>
+    run.map((p, k) => `${k ? "L" : "M"}${frame.x(p.i).toFixed(1)} ${frame.y(p.v).toFixed(1)}`);
+  const segments = (values: (number | null)[]): string[] =>
+    runs(values).map((r) => line(r).join(" "));
+  /** A run closed down to the axis floor (zero unless `baseline` clips it), for `fill`. */
+  const areas = (values: (number | null)[]): string[] =>
+    runs(values).map((r) => {
+      const base = frame.y(min).toFixed(1);
+      const first = frame.x(r[0]!.i).toFixed(1);
+      const last = frame.x(r[r.length - 1]!.i).toFixed(1);
+      return `${line(r).join(" ")} L${last} ${base} L${first} ${base} Z`;
+    });
 
   return (
     <ChartHover
@@ -178,6 +208,20 @@ export function MultiLineChart({
       >
         <YAxis frame={frame} ticks={frame.ticks} formatValue={formatTick} />
         <XAxis frame={frame} labels={labels} />
+        {fill && !log
+          ? series.map((s) =>
+              areas(s.values).map((d, i) => (
+                <path
+                  key={`${s.name}-fill-${i}`}
+                  d={d}
+                  fill="currentColor"
+                  stroke="none"
+                  className={s.className}
+                  opacity={0.12}
+                />
+              )),
+            )
+          : null}
         {series.map((s) =>
           segments(s.values).map((d, i) => (
             <path
@@ -196,7 +240,7 @@ export function MultiLineChart({
         {markers
           ? series.map((s) =>
               s.values.map((v, i) =>
-                v === null ? null : (
+                !drawable(v) ? null : (
                   <circle
                     key={`${s.name}-dot-${i}`}
                     cx={frame.x(i)}

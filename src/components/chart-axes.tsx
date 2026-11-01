@@ -66,6 +66,42 @@ export function axisFrame(
 ): AxisFrame & { ticks: number[] } {
   const { min, max, ticks } = niceAxis(dataMin, dataMax, { label: formatValue });
   const span = max - min;
+  return frameFor(n, ticks, formatValue, tickFont, height, (v) => (v - min) / span);
+}
+
+/**
+ * Gutter + scales for a LOG y axis: one tick per power of ten from the decade at or below the
+ * lowest positive value to the one at or above the highest. For series of one measure that differ
+ * by orders of magnitude; a value at or below zero has no place on it, and callers draw a gap.
+ */
+export function logAxisFrame(
+  n: number,
+  lowestPositive: number,
+  max: number,
+  formatValue: (v: number) => string,
+  tickFont = TICK_FONT,
+  height = CHART_H,
+): AxisFrame & { ticks: number[] } {
+  const bottom = Math.floor(Math.log10(lowestPositive));
+  const top = Math.max(Math.ceil(Math.log10(max)), bottom + 1);
+  // At most ~6 gridlines however many decades the data spans.
+  const step = Math.ceil((top - bottom + 1) / 6);
+  const ticks: number[] = [];
+  for (let k = bottom; k <= top; k += step) ticks.push(10 ** k);
+  return frameFor(n, ticks, formatValue, tickFont, height, (v) =>
+    v > 0 ? (Math.log10(v) - bottom) / (top - bottom) : 0,
+  );
+}
+
+/** The shared geometry: a gutter sized to the ticks, and `y` from a value's fraction of the axis. */
+function frameFor(
+  n: number,
+  ticks: number[],
+  formatValue: (v: number) => string,
+  tickFont: number,
+  height: number,
+  fraction: (v: number) => number,
+): AxisFrame & { ticks: number[] } {
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   // Room for the x labels below and the top tick's upper half above; a larger tick (the
@@ -77,7 +113,7 @@ export function axisFrame(
     ticks,
     tickFont,
     x: (i: number) => padL + (n > 1 ? (i / (n - 1)) * (CHART_W - padL - CHART_PAD_R) : 0),
-    y: (v: number) => height - padB - ((v - min) / span) * (height - padT - padB),
+    y: (v: number) => height - padB - fraction(v) * (height - padT - padB),
     plotStart: padL / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
     height,
