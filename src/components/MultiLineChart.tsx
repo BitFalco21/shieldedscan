@@ -28,6 +28,11 @@ export interface MultiLineSeries {
   omitNullFromReadout?: boolean;
   /** A reference rather than a measurement (a target, a threshold): drawn dashed. */
   dashed?: boolean;
+  /**
+   * A second channel beside colour, for a measured line whose ink sits close to another's on the
+   * same chart: drawn dotted, a pattern no reference line uses.
+   */
+  dotted?: boolean;
 }
 
 export interface MultiLineChartProps {
@@ -232,7 +237,8 @@ export function MultiLineChart({
               strokeWidth={1.5}
               className={s.className}
               opacity={s.opacity ?? 1}
-              strokeDasharray={s.dashed ? "5 4" : undefined}
+              strokeDasharray={s.dashed ? "5 4" : s.dotted ? "1 3" : undefined}
+              strokeLinecap={s.dotted ? "round" : undefined}
               vectorEffect="non-scaling-stroke"
             />
           )),

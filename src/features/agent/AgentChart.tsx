@@ -7,7 +7,7 @@ import { ChartLegend } from "@/components/ChartLegend";
 import { MultiLineChart } from "@/components/MultiLineChart";
 import { formatPlotTick, formatPlotValue } from "@/lib/plot-format";
 import { AgentChartTable } from "./AgentChartTable";
-import { axisLabel, chartLinks, readoutLabel, seriesInks } from "./chart-view";
+import { axisLabel, chartLinks, readoutLabel, seriesDotted, seriesInks } from "./chart-view";
 
 export interface AgentChartProps {
   chart: PlottedChart;
@@ -25,6 +25,7 @@ export function AgentChart({ chart }: AgentChartProps) {
   const series = chartSeries(chart);
   const unit = series[0]!.unit;
   const inks = seriesInks(series);
+  const dotted = seriesDotted(series);
   const caption = chartCaption(chart);
 
   return (
@@ -36,6 +37,7 @@ export function AgentChart({ chart }: AgentChartProps) {
           name: series[i]!.label,
           values: s.values,
           className: inks[i]!,
+          dotted: dotted[i]!,
           // A pool before it existed is absent from the readout, not "—" (see `omitLeadingZeros`).
           omitNullFromReadout: series[i]!.omitLeadingZeros === true,
         }))}
@@ -63,7 +65,8 @@ export function AgentChart({ chart }: AgentChartProps) {
         items={series.map((s, i) => ({
           label: s.label,
           className: inks[i]!,
-          mark: chart.type === "area" ? "area" : "line",
+          // The swatch carries the dots too, or the second channel could not be decoded.
+          mark: dotted[i] ? "dotted" : chart.type === "area" ? "area" : "line",
         }))}
       />
       <figcaption className="mt-3 border-t border-edge-faint pt-2 text-xs text-ink-dim">

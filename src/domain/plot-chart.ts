@@ -6,6 +6,7 @@ import {
   PLOT_GRAINS,
   PLOT_SERIES_IDS,
   plottableSeries,
+  sharedChartProblem,
   type PlotGrain,
   type PlotSeriesId,
   type PlottableSeries,
@@ -135,10 +136,9 @@ export function parsePlottedChart(raw: unknown): PlottedChart | null {
     }
     parsed.push({ id, values: values as (number | null)[], floors: floors as number[] });
   }
-  // One axis per chart (see `PlottableSeries.axis`), checked here too: the console must not draw
-  // two measures on one scale whatever arrived.
-  const axes = new Set(parsed.map((p) => plottableSeries(p.id).axis));
-  if (axes.size !== 1) return null;
+  // One axis and one split per chart (`sharedChartProblem`), checked here too: the console must
+  // not draw two measures on one scale whatever arrived.
+  if (sharedChartProblem(parsed.map((p) => plottableSeries(p.id))) !== null) return null;
   return {
     v: 1,
     type: c.type,

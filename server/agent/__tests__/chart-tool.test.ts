@@ -90,6 +90,7 @@ describe("make_chart's arguments", () => {
     [{ series: ["orchard-balance", "orchard-balance"] }, /listed twice/],
     [{ series: ["orchard-balance", "zec-price"] }, /different measures/],
     [{ series: ["zec-shielded", "fees-paid"] }, /different measures/],
+    [{ series: ["mixed-transactions", "ironwood-transactions"] }, /split the same transactions/],
     [{ series: ["zec-price"], type: "pie" }, /type must be/],
     [{ series: ["zec-price"], scale: "sqrt" }, /scale must be/],
     [{ series: ["zec-price"], type: "area", scale: "log" }, /needs a zero/],

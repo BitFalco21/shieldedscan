@@ -40,6 +40,13 @@ export interface PlottableSeries {
   ink?: { pool: PoolName } | { txKind: "transparent" | "mixed" | "shielded" };
   /** Leading zeros mean the pool did not exist yet, not a measured empty pool. */
   omitLeadingZeros?: boolean;
+  /**
+   * For counts that split the same transactions two ways, which split this series is part of: by
+   * shielded pool, or by privacy kind. One transaction is counted in both, so lines from the two
+   * splits on one chart invite a sum that double-counts; their site-wide colours also coincide
+   * (Ironwood's gold is Mixed's, Sprout's slate is Transparent's).
+   */
+  split?: "pool" | "kind";
 }
 
 const pool = (p: PoolName, label: string) =>
@@ -64,6 +71,7 @@ const poolTxs = (p: PoolName, label: string) =>
     chartSlug: "pool-usage",
     ink: { pool: p },
     omitLeadingZeros: true,
+    split: "pool",
   }) as const;
 
 export const PLOTTABLE_SERIES = [
@@ -111,6 +119,7 @@ export const PLOTTABLE_SERIES = [
     kind: "flow",
     chartSlug: "transactions-by-kind",
     ink: { txKind: "transparent" },
+    split: "kind",
   },
   {
     id: "mixed-transactions",
@@ -120,6 +129,7 @@ export const PLOTTABLE_SERIES = [
     kind: "flow",
     chartSlug: "transactions-by-kind",
     ink: { txKind: "mixed" },
+    split: "kind",
   },
   {
     id: "fully-shielded-transactions",
@@ -129,6 +139,7 @@ export const PLOTTABLE_SERIES = [
     kind: "flow",
     chartSlug: "transactions-by-kind",
     ink: { txKind: "shielded" },
+    split: "kind",
   },
   poolTxs("sprout", "Sprout"),
   poolTxs("sapling", "Sapling"),
@@ -182,6 +193,21 @@ export const PLOT_SERIES_IDS: readonly PlotSeriesId[] = PLOTTABLE_SERIES.map((s)
 
 export function plottableSeries(id: PlotSeriesId): PlottableSeries {
   return PLOTTABLE_SERIES.find((s) => s.id === id)!;
+}
+
+/**
+ * Why these series cannot share one chart, or null when they can: one chart has one axis, so one
+ * measure, and a count split two ways is two charts (see `split`).
+ */
+export function sharedChartProblem(series: readonly PlottableSeries[]): string | null {
+  const ids = series.map((s) => s.id).join(", ");
+  if (new Set(series.map((s) => s.axis)).size > 1) {
+    return `${ids} are different measures, and one chart has one axis — chart them separately, or answer in words`;
+  }
+  if (new Set(series.flatMap((s) => (s.split === undefined ? [] : [s.split]))).size > 1) {
+    return `${ids} split the same transactions two ways, by pool and by privacy kind, so one transaction is in both — chart them separately`;
+  }
+  return null;
 }
 
 /** At most this many series on one chart: past three, lines stop being tellable apart. */

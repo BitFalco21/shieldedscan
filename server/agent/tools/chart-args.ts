@@ -10,6 +10,7 @@ import {
   PLOT_SERIES_IDS,
   PLOT_TYPES,
   plottableSeries,
+  sharedChartProblem,
   type ChartRange,
   type PlotScale,
   type PlotSeriesId,
@@ -66,10 +67,8 @@ export function parseChartArgs(
     if (series.includes(item)) return `series ${item} is listed twice`;
     series.push(item);
   }
-  const axes = new Set(series.map((id) => plottableSeries(id).axis));
-  if (axes.size > 1) {
-    return `${series.join(", ")} are different measures, and one chart has one axis — chart them separately, or answer in words`;
-  }
+  const problem = sharedChartProblem(series.map(plottableSeries));
+  if (problem !== null) return problem;
 
   const type = args.type ?? "line";
   if (typeof type !== "string" || !isOneOf(PLOT_TYPES, type)) {
