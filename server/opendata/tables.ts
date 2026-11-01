@@ -178,10 +178,11 @@ export const MINING_DAILY_COLUMNS: readonly ColumnSpec[] = [
 ];
 
 /**
- * The transparent ledger: every input and output, one row each, in files of
- * `HEIGHTS_PER_LEDGER_FILE` heights. The busiest 10,000 heights hold 1.27M rows (measured
- * 2026-11-01), within what the export container can build. The span can never change: files
- * already published would no longer line up.
+ * The transparent ledger: every input and output, one row each. Each range of
+ * `HEIGHTS_PER_LEDGER_FILE` heights is split into parts of about `LEDGER_PART_ROWS` rows, cut at
+ * block boundaries: some early-2017 ranges hold several times the 1.41M rows of the genesis range,
+ * and a whole range in memory is what took the box down on 2026-11-01. Rows never change, so the
+ * cut points never move. The span and the part size can never change once published.
  */
 export const TRANSPARENT_IO_COLUMNS: readonly ColumnSpec[] = [
   c("txid", "utf8"),
@@ -212,18 +213,22 @@ export const TRANSACTIONS_EXTRA_COLUMNS: readonly ColumnSpec[] = [
   c("inputs_other", "int32"),
   c("outputs_p2pkh", "int32"),
   c("outputs_p2sh", "int32"),
+  c("outputs_p2pk", "int32"),
   c("outputs_other", "int32"),
   c("binding_sig_valid", "bool", true),
 ];
 
 export const HEIGHTS_PER_LEDGER_FILE = 10_000;
+/** Rows per ledger part, at most one block over: the memory a part costs is bounded by this. */
+export const LEDGER_PART_ROWS = 500_000;
 
 /** Bumped when the ledger's columns, span or writer change: a cache built for another is ignored. */
-export const LEDGER_CACHE_VERSION = 1;
+export const LEDGER_CACHE_VERSION = 2;
 
 const ledgerRange = (start: number) =>
   `${String(start).padStart(7, "0")}-${String(start + HEIGHTS_PER_LEDGER_FILE - 1).padStart(7, "0")}`;
-export const transparentIoFile = (start: number) => `transparent_io/${ledgerRange(start)}.parquet`;
+export const transparentIoFile = (start: number, part: number) =>
+  `transparent_io/${ledgerRange(start)}-${String(part).padStart(3, "0")}.parquet`;
 export const transactionsExtraFile = (start: number) =>
   `transactions_extra/${ledgerRange(start)}.parquet`;
 

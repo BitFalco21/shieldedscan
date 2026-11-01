@@ -3,7 +3,7 @@ import { nu7ActiveAt } from "@/domain/consensus";
 import { blockSubsidyZat } from "@/domain/halving";
 import { Findings } from "./checks";
 import type { ColumnValues } from "./parquet";
-import { TRANSACTIONS_EXTRA_COLUMNS, TRANSPARENT_IO_COLUMNS } from "./tables";
+import { LEDGER_PART_ROWS, TRANSACTIONS_EXTRA_COLUMNS, TRANSPARENT_IO_COLUMNS } from "./tables";
 
 /**
  * The transparent ledger, read one height range at a time and held to the blocks it belongs to.
@@ -74,7 +74,8 @@ function extraRow(tx: LedgerTx, ins: readonly LedgerIo[], outs: readonly LedgerI
     count(ins, null),
     count(outs, "p2pkh"),
     count(outs, "p2sh"),
-    count(outs, null) + count(outs, "p2pk"),
+    count(outs, "p2pk"),
+    count(outs, null),
     tx.binding_sig_valid,
   ] as const;
 }
@@ -143,9 +144,10 @@ export class LedgerChecker {
     const contiguous = prev !== null && prev.height === b.height - 1;
     if (b.height > 0 && !contiguous) this.failures.add("ledger range not contiguous", h);
 
+    if (b.transparent_pool_zat === null || b.total_fee_zat === null) this.skippedBlocks++;
     // The node's transparent pool against the ledger: independent of how either was built.
     if (b.transparent_pool_zat === null) {
-      this.skippedBlocks++;
+      // counted above
     } else if (
       b.transparent_pool_zat - orZero(prev?.transparent_pool_zat ?? null) !==
       ledgerDelta
@@ -154,9 +156,7 @@ export class LedgerChecker {
     }
 
     // What the coinbase claimed against what the protocol allowed it.
-    if (b.total_fee_zat === null) {
-      this.skippedBlocks++;
-    } else {
+    if (b.total_fee_zat !== null) {
       const lockboxDelta = orZero(b.lockbox_pool_zat) - orZero(prev?.lockbox_pool_zat ?? null);
       const nsm = nu7ActiveAt("mainnet", b.height) ? (b.total_fee_zat * 6n) / 10n : 0n;
       const claimed = coinbaseOut + coinbaseShielded + lockboxDelta + nsm;
@@ -173,19 +173,29 @@ export class LedgerChecker {
 }
 
 export interface LedgerRange {
-  io: ColumnValues[];
   extra: ColumnValues[];
+  parts: number;
   checker: LedgerChecker;
 }
 
 /** Called after each chunk with the milliseconds it took; "abort" stops the range (resumable). */
-export type ChunkHook = (workedMs: number) => Promise<"continue" | "abort">;
+export type ChunkHook = (workedMs: number, rows: number) => Promise<"continue" | "abort">;
 
 export class LedgerAbort extends Error {
   constructor() {
     super("ledger range stopped by the pacer");
     this.name = "LedgerAbort";
   }
+}
+
+export interface LedgerOptions {
+  /** Receives each finished part of the ledger, in order; its arrays are not reused after. */
+  onPart: (io: ColumnValues[], part: number) => void;
+  afterChunk?: ChunkHook;
+  /** Ledger rows a query should return; the next chunk's height span adapts to the era. */
+  targetRows?: number;
+  firstChunkHeights?: number;
+  partRows?: number;
 }
 
 const TX_COLS =
@@ -201,10 +211,18 @@ export async function readLedgerRange(
   client: Client,
   start: number,
   end: number,
-  chunkHeights: number,
-  afterChunk: ChunkHook = async () => "continue",
+  options: LedgerOptions,
 ): Promise<LedgerRange> {
-  const io: ColumnValues[] = TRANSPARENT_IO_COLUMNS.map(() => []);
+  const afterChunk = options.afterChunk ?? (async () => "continue" as const);
+  const targetRows = options.targetRows ?? 100_000;
+  const partRows = options.partRows ?? LEDGER_PART_ROWS;
+  let chunkHeights = options.firstChunkHeights ?? 100;
+  let io: ColumnValues[] = TRANSPARENT_IO_COLUMNS.map(() => []);
+  let parts = 0;
+  const flush = () => {
+    options.onPart(io, parts++);
+    io = TRANSPARENT_IO_COLUMNS.map(() => []);
+  };
   const extra: ColumnValues[] = TRANSACTIONS_EXTRA_COLUMNS.map(() => []);
   const ioCols = TRANSPARENT_IO_COLUMNS.map((c) => c.name);
 
@@ -220,7 +238,7 @@ export async function readLedgerRange(
         ).rows[0] ?? null);
   const checker = new LedgerChecker(previous);
 
-  for (let a = start; a <= end; a += chunkHeights) {
+  for (let a = start; a <= end;) {
     const b = Math.min(end, a + chunkHeights - 1);
     const began = Date.now();
     const [blocks, txs, rows] = [
@@ -259,6 +277,8 @@ export async function readLedgerRange(
         inBlock.push({ tx, ins, outs });
       }
       checker.block(block, inBlock);
+      // Cut a part at a block boundary once it is full: where depends on the rows alone.
+      if (io[0]!.length >= partRows) flush();
     }
     // Rows the merge never reached belong to no transaction in the range: a broken join.
     if (t !== txs.rows.length || r !== rows.rows.length) {
@@ -266,7 +286,14 @@ export async function readLedgerRange(
     }
     if (blocks.rows.length !== b - a + 1) checker.failures.add("missing blocks", `${a}-${b}`);
 
-    if ((await afterChunk(Date.now() - began)) === "abort") throw new LedgerAbort();
+    if ((await afterChunk(Date.now() - began, rows.rows.length)) === "abort") {
+      throw new LedgerAbort();
+    }
+    a = b + 1;
+    // Dense eras get shorter chunks: each query stays near `targetRows` whatever the era.
+    const scaled = Math.round((chunkHeights * targetRows) / Math.max(rows.rows.length, 1));
+    chunkHeights = Math.min(2_000, Math.max(10, scaled));
   }
-  return { io, extra, checker };
+  if (io[0]!.length > 0 || parts === 0) flush();
+  return { extra, parts, checker };
 }

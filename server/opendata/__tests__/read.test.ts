@@ -256,15 +256,42 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     await client.connect();
     try {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-      const all = await readLedgerRange(client, 0, RELEASE, 40);
-      expect(all.checker.failures.list()).toEqual([]);
-      expect(all.checker.underclaimZat).toBe(0n);
-      expect(all.io[0]!.length).toBe(RELEASE + 1 + (RELEASE - 100));
-      expect(all.extra[0]!.length).toBe((RELEASE + 1) * 2);
+      const read = async (
+        from: number,
+        to: number,
+        opts: { partRows?: number; targetRows?: number },
+      ) => {
+        const parts: number[] = [];
+        const heights: number[][] = [];
+        const range = await readLedgerRange(client, from, to, {
+          ...opts,
+          onPart: (io, part) => {
+            parts.push(part);
+            heights.push(io[1] as number[]);
+          },
+        });
+        return { range, parts, heights };
+      };
+      const all = await read(0, RELEASE, {});
+      expect(all.range.checker.failures.list()).toEqual([]);
+      expect(all.range.checker.underclaimZat).toBe(0n);
+      expect(all.parts).toEqual([0]);
+      expect(all.heights[0]!.length).toBe(RELEASE + 1 + (RELEASE - 100));
+      expect(all.range.extra[0]!.length).toBe((RELEASE + 1) * 2);
+
+      // Small parts and small queries give the same rows, cut only between blocks.
+      const split = await read(0, RELEASE, { partRows: 50, targetRows: 30 });
+      expect(split.range.checker.failures.list()).toEqual([]);
+      expect(split.parts.length).toBeGreaterThan(3);
+      expect(split.heights.flat()).toEqual(all.heights[0]);
+      for (let i = 1; i < split.heights.length; i++) {
+        expect(split.heights[i]![0]).toBeGreaterThan(split.heights[i - 1]!.at(-1)!);
+      }
+
       // A range that starts mid-chain reads its previous block for the deltas.
-      const part = await readLedgerRange(client, 150, 179, 7);
-      expect(part.checker.failures.list()).toEqual([]);
-      expect(part.io[0]!.length).toBe(60);
+      const mid = await read(150, 179, {});
+      expect(mid.range.checker.failures.list()).toEqual([]);
+      expect(mid.heights[0]!.length).toBe(60);
       await client.query("COMMIT");
     } finally {
       await client.end();

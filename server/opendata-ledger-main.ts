@@ -1,5 +1,13 @@
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statfsSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -20,18 +28,29 @@ import {
  * Builds the open dataset's closed ledger files, once, into a persistent cache the nightly
  * release carries forward.
  *
- *   docker run … <opendata-image> node opendata-ledger.mjs --out /out --until 05:30 \
- *     [--max-files N] [--from HEIGHT]
+ *   docker run … --entrypoint node <opendata-image> --max-old-space-size=1500 \
+ *     opendata-ledger.mjs --out /out --until 04:10 [--max-files N] [--from HEIGHT]
  *
- * The one heavy read in the dataset: 354M ledger rows. So it runs at night, in short chunks,
- * paced: it rests in proportion to its work, stops when the follower falls behind the node or the
- * API slows down, and stops at `--until` (UTC). Every range is one REPEATABLE READ snapshot, so no
- * transaction stays open for long; a stopped range is simply read again next time. Finished files
- * are never rebuilt: each has a sidecar with its hashes, re-verified before it is trusted.
+ * The one heavy read in the dataset (354M ledger rows), so it runs at night and protects the
+ * site first. On 2026-11-01 a daytime run held a whole early-2017 range in memory, thrashed at the
+ * container limit and slowed the public API to 33 s while its guards, checked only between chunks
+ * and against /health, saw nothing. Hence:
+ *  - memory is bounded by rows, not heights: queries adapt their span to ~100k rows, parts are
+ *    written as they fill, and the process stops itself above `MAX_RSS`;
+ *  - every statement has a 60 s timeout, so no query outlives a problem;
+ *  - the latency guard probes the routes the site serves, not /health;
+ *  - it rests half the time, and stops when the follower falls behind, when host I/O pressure
+ *    rises, when free disk falls under 100 GB, or before a range that would end past `--until`.
+ *
+ * Every range is one REPEATABLE READ snapshot; a stopped range is read again next time. Finished
+ * files are never rebuilt: each range has a sidecar written last, by rename.
  *
  * Env: PGHOST, PGUSER, PGPASSWORD, PGDATABASE (the read-only `opendata_reader`); OPENDATA_API_URL,
- * the API container on the internal network (never through the CDN, whose cached tip would hide
- * a stall). Exits 0 when it stopped cleanly (done, out of time, or paced out), 1 on a failed check.
+ * the API container on the internal network (never through the CDN, whose cached answers would
+ * hide a slow site).
+ *
+ * Exit codes: 0 stopped cleanly (done, out of time, or paced out); 1 a failed check or a guard a
+ * human must look at (memory, disk); 2 a transient error (API or database unreachable), retried.
  */
 
 const { values: args } = parseArgs({
@@ -50,22 +69,29 @@ if (!OUT) {
 const CACHE = join(OUT, "ledger-cache");
 const API = process.env.OPENDATA_API_URL ?? "http://explorer-api-public:8080";
 const MAX_FILES = args["max-files"] ? Number(args["max-files"]) : Infinity;
-/** First range to consider (a trial on a chosen era); rounded down to a file boundary. */
+/** First range to consider (a trial on a chosen era); rounded down to a range boundary. */
 const FROM = args.from
   ? Math.floor(Number(args.from) / HEIGHTS_PER_LEDGER_FILE) * HEIGHTS_PER_LEDGER_FILE
   : 0;
-/** Heights per query: about 130,000 ledger rows in the busiest era. */
-const CHUNK_HEIGHTS = 1_000;
-/**
- * The API's /health, median of three, above this twice in a row means the site is suffering.
- * It answers in 3–5 ms on the internal network when the database is idle (measured 2026-11-01).
- */
-const SLOW_HEALTH_MS = 300;
-/** Ledger files' dictionary-encoded columns: few distinct values, repeated millions of times. */
-const DICTIONARY = ["io", "script_type", "address"];
+
+/** The routes the site serves; each answers in 5–35 ms on the internal network (2026-11-01). */
+const PROBES = ["/v1/status", "/v1/blocks?limit=5", "/v1/transactions?limit=5"];
+/** A probe's median of three above this, twice in a row, means the site is slowing. */
+const SLOW_PROBE_MS = 200;
+/** Host I/O pressure (some, avg10) that pauses the build; it idles at 12–18 (2026-11-01). */
+const IO_PRESSURE_LIMIT = 40;
+/** Resident memory above this stops the build: parts should keep it far below. */
+const MAX_RSS = 1_800_000_000;
+const MIN_FREE_DISK = 100_000_000_000;
+/** Ledger columns dictionary-encoded: few distinct values, repeated millions of times. */
+const DICTIONARY = ["io", "script_type"];
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
-const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
+/** Unreachable API or database: retried by the driver. */
+class Transient extends Error {}
+/** A guard a human must look at: memory or disk. */
+class Guard extends Error {}
 
 /** The UTC time `--until` names, today or tomorrow, as epoch milliseconds. */
 function deadline(): number {
@@ -77,11 +103,16 @@ function deadline(): number {
   return d.getTime();
 }
 
-async function fetchJson(path: string): Promise<{ ms: number; body: unknown }> {
+/** One timed GET; a failure or timeout counts as a slow answer, never as a crash. */
+async function timedGet(path: string): Promise<{ ms: number; body: unknown }> {
   const began = Date.now();
-  const res = await fetch(API + path, { signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-  return { ms: Date.now() - began, body: await res.json() };
+  try {
+    const res = await fetch(API + path, { signal: AbortSignal.timeout(10_000) });
+    const body: unknown = res.ok ? await res.json() : null;
+    return { ms: res.ok ? Date.now() - began : Infinity, body };
+  } catch {
+    return { ms: Infinity, body: null };
+  }
 }
 
 interface Sidecar {
@@ -96,16 +127,20 @@ interface Sidecar {
   indexerCommit: string;
 }
 
-/** A cached range is done only if its sidecar matches this version and every file its hash. */
+/**
+ * A range is done when its sidecar (written last, by rename) is this version and every file it
+ * names exists at its recorded size. Hashes are verified by the release, not here: re-reading
+ * gigabytes on every restart would itself compete with Postgres for the disk.
+ */
 function cached(start: number): boolean {
   const path = join(CACHE, `${start}.json`);
   if (!existsSync(path)) return false;
   const s = JSON.parse(readFileSync(path, "utf8")) as Sidecar;
   if (s.version !== LEDGER_CACHE_VERSION) return false;
-  return s.files.every(
-    (f) =>
-      existsSync(join(CACHE, f.path)) && sha256(readFileSync(join(CACHE, f.path))) === f.sha256,
-  );
+  return s.files.every((f) => {
+    const p = join(CACHE, f.path);
+    return existsSync(p) && statSync(p).size === f.size;
+  });
 }
 
 const probe = new Client({});
@@ -113,8 +148,12 @@ const snap = new Client({ types: exportTypes });
 let exitCode = 0;
 try {
   mkdirSync(CACHE, { recursive: true });
-  await probe.connect();
-  await snap.connect();
+  try {
+    await probe.connect();
+    await snap.connect();
+  } catch (e) {
+    throw new Transient(`database unreachable: ${e instanceof Error ? e.message : String(e)}`);
+  }
   const stopAt = deadline();
 
   const sync = async () =>
@@ -124,12 +163,13 @@ try {
       )
     ).rows[0]!;
 
-  let slowUnits = 0;
   const pacer = createPacer(
     {
+      // An unreachable API or node is "unknown", which the pacer treats as a stall: it rests and
+      // re-samples, then stops cleanly, rather than crash the run.
       ingestLag: async () => {
-        const [{ body }, s] = await Promise.all([fetchJson("/v1/status"), sync()]);
-        const nodeHeight = (body as { height?: number }).height;
+        const [{ body }, s] = await Promise.all([timedGet("/v1/status"), sync()]);
+        const nodeHeight = (body as { height?: unknown } | null)?.height;
         return {
           blocksBehind: typeof nodeHeight === "number" ? Math.max(0, nodeHeight - s.tip) : Infinity,
           commitAgeSeconds: Math.floor(Date.now() / 1000) - Number(s.updated_at),
@@ -139,18 +179,25 @@ try {
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       log,
     },
-    { duty: 0.5 },
+    { duty: 0.5, pressureThreshold: IO_PRESSURE_LIMIT },
   );
   await pacer.preflight();
 
+  let slowUnits = 0;
   const afterChunk = async (workedMs: number) => {
-    if (Date.now() >= stopAt) return "abort" as const;
-    const samples: number[] = [];
-    for (let i = 0; i < 3; i++) samples.push((await fetchJson("/health")).ms);
-    const median = samples.sort((a, b) => a - b)[1]!;
-    slowUnits = median > SLOW_HEALTH_MS ? slowUnits + 1 : 0;
+    const rss = process.memoryUsage().rss;
+    if (rss > MAX_RSS) throw new Guard(`memory guard: ${Math.round(rss / 1e6)} MB resident`);
+    // A hard stop well past the window; ranges are normally not started unless they fit.
+    if (Date.now() >= stopAt + 10 * 60_000) return "abort" as const;
+    let worst = 0;
+    for (const path of PROBES) {
+      const samples: number[] = [];
+      for (let i = 0; i < 3; i++) samples.push((await timedGet(path)).ms);
+      worst = Math.max(worst, samples.sort((a, b) => a - b)[1]!);
+    }
+    slowUnits = worst > SLOW_PROBE_MS ? slowUnits + 1 : 0;
     if (slowUnits >= 2) {
-      log(`stopping: the API's /health took ${median} ms twice in a row`);
+      log(`stopping: the site's routes took ${worst} ms twice in a row`);
       return "abort" as const;
     }
     return pacer.afterUnit(workedMs);
@@ -158,19 +205,43 @@ try {
 
   const height = (await sync()).tip - CONFIRMATIONS;
   let built = 0;
+  let lastRangeMs = 0;
   for (
     let start = FROM;
     start + HEIGHTS_PER_LEDGER_FILE - 1 <= height;
     start += HEIGHTS_PER_LEDGER_FILE
   ) {
-    if (built >= MAX_FILES || Date.now() >= stopAt) break;
+    if (built >= MAX_FILES) break;
     if (cached(start)) continue;
+    if (Date.now() + lastRangeMs >= stopAt) {
+      log("stopping: the next range would not finish inside the window");
+      break;
+    }
+    const disk = statfsSync(OUT);
+    if (disk.bavail * disk.bsize < MIN_FREE_DISK) {
+      throw new Guard(`disk guard: under ${MIN_FREE_DISK / 1e9} GB free`);
+    }
     const end = start + HEIGHTS_PER_LEDGER_FILE - 1;
+    const began = Date.now();
 
+    // Parts are written as they fill, under a temporary folder, then moved in by rename.
+    const tmp = join(CACHE, ".tmp");
+    rmSync(tmp, { recursive: true, force: true });
+    const files: Sidecar["files"] = [];
     await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     let range;
     try {
-      range = await readLedgerRange(snap, start, end, CHUNK_HEIGHTS, afterChunk);
+      await snap.query("SET LOCAL statement_timeout = '60s'");
+      // The ordered reads sort ~100k rows a chunk: in memory, not in temporary files on disk.
+      await snap.query("SET LOCAL work_mem = '64MB'");
+      range = await readLedgerRange(snap, start, end, {
+        afterChunk,
+        onPart: (io, part) => {
+          files.push(
+            writeFile(tmp, transparentIoFile(start, part), TRANSPARENT_IO_COLUMNS, io, DICTIONARY),
+          );
+        },
+      });
       await snap.query("COMMIT");
     } catch (e) {
       await snap.query("ROLLBACK").catch(() => {});
@@ -178,7 +249,8 @@ try {
         log(`stopped in ${start}-${end}; it is read again next time`);
         break;
       }
-      throw e;
+      if (e instanceof Guard) throw e;
+      throw new Transient(`${start}-${end}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const failures = range.checker.failures.list();
     if (failures.length > 0) {
@@ -187,18 +259,14 @@ try {
       exitCode = 1;
       break;
     }
-
-    // Written under a temporary name, then renamed: a crash never leaves a half file trusted.
-    const tmp = join(CACHE, ".tmp");
-    rmSync(tmp, { recursive: true, force: true });
-    const files = [
-      writeFile(tmp, transparentIoFile(start), TRANSPARENT_IO_COLUMNS, range.io, DICTIONARY),
+    files.push(
       writeFile(tmp, transactionsExtraFile(start), TRANSACTIONS_EXTRA_COLUMNS, range.extra),
-    ];
+    );
     for (const f of files) {
       mkdirSync(join(CACHE, f.path, ".."), { recursive: true });
       renameSync(join(tmp, f.path), join(CACHE, f.path));
     }
+    rmSync(tmp, { recursive: true, force: true });
     const sidecar: Sidecar = {
       version: LEDGER_CACHE_VERSION,
       start,
@@ -210,13 +278,15 @@ try {
       builtAt: new Date().toISOString(),
       indexerCommit: process.env.OPENDATA_GIT_SHA ?? "unknown",
     };
-    rmSync(tmp, { recursive: true, force: true });
     writeFileSync(join(CACHE, `${start}.json.tmp`), JSON.stringify(sidecar, null, 2) + "\n");
     renameSync(join(CACHE, `${start}.json.tmp`), join(CACHE, `${start}.json`));
     built++;
+    lastRangeMs = Date.now() - began;
+    const ledgerRows = files.slice(0, -1).reduce((n, f) => n + f.rows, 0);
     log(
-      `${start}-${end}: ${files[0]!.rows} ledger rows, ${files[1]!.rows} transactions, ` +
-        `${(files[0]!.size / 1e6).toFixed(1)} MB; slept ${Math.round(pacer.stats.sleptMs / 1000)} s so far`,
+      `${start}-${end}: ${ledgerRows} ledger rows in ${range.parts} part(s), ` +
+        `${files.at(-1)!.rows} transactions, ${Math.round(lastRangeMs / 1000)} s, ` +
+        `rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`,
     );
   }
   log(`done for now: ${built} range(s) built`);
@@ -224,6 +294,9 @@ try {
   if (e instanceof IngestionBehindError) {
     // Someone else's stall, not ours: stop cleanly and let the next run try again.
     log(`stopping: ${e.message}`);
+  } else if (e instanceof Transient) {
+    log(`TRANSIENT: ${e.message}`);
+    exitCode = 2;
   } else {
     log(`FAILED: ${e instanceof Error ? e.message || e.name : String(e)}`);
     exitCode = 1;

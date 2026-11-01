@@ -225,6 +225,7 @@ function writerProperties(dictionaryColumns: readonly string[]) {
     .setStatisticsEnabled(EnabledStatistics.Chunk)
     .setMaxRowGroupSize(ROWS_PER_GROUP)
     .setDataPageSizeLimit(1024 * 1024)
+    .setDictionaryPageSizeLimit(1024 * 1024)
     .setWriteBatchSize(1024);
   for (const column of dictionaryColumns) {
     builder = builder.setColumnDictionaryEnabled(column, true);
