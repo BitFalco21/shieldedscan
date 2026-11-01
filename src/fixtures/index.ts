@@ -44,8 +44,10 @@ import {
   type ListedChain,
   matchesCrossChainFilters,
   matchesTxKindFilter,
+  type PoolName,
   txDirection,
   txKind,
+  txPools,
 } from "@/domain";
 import { cursorSlice } from "../data/cursor";
 import { activitySeries } from "./analytics";
@@ -196,9 +198,12 @@ export function getAddressTransactions(
 export function listTransactions(
   query: { before?: string; after?: string; limit: number },
   kind: TxKindFilter,
+  pool: PoolName | null = null,
 ): { items: Transaction[]; nextCursor: string | null; prevCursor: string | null } {
+  // Both filters before the cursor slice, as the store applies them in SQL.
   const sorted = [...transactions]
     .filter((t) => matchesTxKindFilter(t, kind))
+    .filter((t) => pool === null || txPools(t).includes(pool))
     .sort((a, b) => b.timestamp - a.timestamp || b.txid.localeCompare(a.txid))
     .map(withoutRawHex);
   return cursorSlice(sorted, (t) => ({ sortKey: t.timestamp, id: t.txid }), query);

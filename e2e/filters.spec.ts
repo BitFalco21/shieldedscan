@@ -668,3 +668,72 @@ test.describe("chain filters", () => {
     await expect(page.locator("main")).toContainText(/no |none|nothing/i);
   });
 });
+
+/**
+ * `/txs?pool=`: every transaction that used one shielded pool. Reached from the All pools cards,
+ * and never combined with a kind. Shown as a removable filter rather than a chip row, so the
+ * state-machine suite above does not discover it and these restate its properties by hand.
+ */
+test.describe("the pool filter on /txs", () => {
+  const POOLS = ["ironwood", "orchard", "sapling", "sprout"];
+  const poolFilter = (page: Page) => page.getByRole("navigation", { name: "Active pool filter" });
+
+  test("each pool narrows the list, names itself, and lights no kind chip", async ({ page }) => {
+    await page.goto("/txs");
+    const all = await rowKeys(page);
+    const seen = new Set<string>();
+    for (const pool of POOLS) {
+      await page.goto(`/txs?pool=${pool}`);
+      await expect(poolFilter(page), pool).toContainText(pool.toUpperCase());
+      const rows = await rowKeys(page);
+      expect(rows.length, `${pool} listed nothing`).toBeGreaterThan(0);
+      expect(rows.length, `${pool} did not narrow the list`).toBeLessThan(all.length);
+      // Every row used the pool: its DIRECTION cell names each pool a transaction touched.
+      const directions = await page
+        .locator("table tbody tr")
+        .evaluateAll((trs) => trs.map((tr) => tr.children[2]?.textContent ?? ""));
+      for (const direction of directions) {
+        expect(direction, `a row on /txs?pool=${pool} did not use it`).toMatch(
+          new RegExp(pool, "i"),
+        );
+      }
+      seen.add(rows.join("|"));
+      const kinds = page.locator('nav[aria-label="Filter by privacy kind"]');
+      await expect(kinds.locator('a[aria-current="page"]'), pool).toHaveCount(0);
+    }
+    expect(seen.size, "every pool listed the same rows").toBeGreaterThan(1);
+  });
+
+  test("removing the pool, or choosing a kind, leaves the pool view", async ({ page }) => {
+    await page.goto("/txs?pool=orchard");
+    await poolFilter(page)
+      .getByRole("link", { name: /Remove ORCHARD/ })
+      .click();
+    await expect(page).toHaveURL(/\/txs$/);
+    await expect(poolFilter(page)).toHaveCount(0);
+
+    await page.goto("/txs?pool=orchard");
+    await page
+      .locator('nav[aria-label="Filter by privacy kind"]')
+      .getByRole("link", { name: "SHIELDED" })
+      .click();
+    await expect(page).toHaveURL(/\/txs\?kind=shielded$/);
+    await expect(poolFilter(page)).toHaveCount(0);
+  });
+
+  test("an unrecognised pool falls back to the whole list, with no pool named", async ({
+    page,
+  }) => {
+    for (const url of ["/txs?pool=banana", "/txs?pool=transparent", "/txs?pool="]) {
+      await page.goto(url);
+      await expect(poolFilter(page), url).toHaveCount(0);
+      expect(await page.locator("table tbody tr").count(), url).toBeGreaterThan(0);
+    }
+  });
+
+  test("a pool wins over a kind in a hand-edited URL", async ({ page }) => {
+    await page.goto("/txs?kind=transparent&pool=sapling");
+    await expect(poolFilter(page)).toContainText("SAPLING");
+    expect(await page.locator("table tbody tr").count()).toBeGreaterThan(0);
+  });
+});

@@ -48,8 +48,8 @@ export const fixtureDataSource: ExplorerDataSource = {
   async listLatestTransactions(count) {
     return fixtures.listLatestTransactions(count);
   },
-  async listTransactions(query, kind) {
-    return fixtures.listTransactions(query, kind);
+  async listTransactions(query, kind, pool) {
+    return fixtures.listTransactions(query, kind, pool);
   },
   async getTransaction(txid) {
     return fixtures.getTransaction(txid);

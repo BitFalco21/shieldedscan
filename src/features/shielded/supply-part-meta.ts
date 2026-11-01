@@ -1,4 +1,4 @@
-import type { SupplyPart, SupplyPartId } from "@/domain";
+import type { PoolName, SupplyPart, SupplyPartId } from "@/domain";
 import { NU7 } from "@/domain";
 import { formatCount } from "@/lib/format";
 import { network } from "@/lib/network";
@@ -23,7 +23,11 @@ export interface SupplyPartMeta {
 const nu7Height = NU7.activationHeight[network];
 const nu7At = nu7Height === null ? "NU7" : `NU7 (block ${formatCount(nu7Height)})`;
 
-const SHIELDED_LIST = { href: "/charts/pool-usage", label: "Transactions per pool, daily" };
+/** Every transaction that used the pool, newest first. */
+const poolList = (pool: PoolName, label: string) => ({
+  href: `/txs?pool=${pool}`,
+  label: `Latest ${label} transactions`,
+});
 
 /**
  * Every part's words and colour. A `Record` over the part ids, so a new part fails to compile
@@ -48,7 +52,7 @@ function table(nu7Active: boolean): Record<SupplyPartId, SupplyPartMeta> {
       ink: POOL_CLASSES.ironwood,
       privacy: "shielded",
       denominator: "issued",
-      link: SHIELDED_LIST,
+      link: poolList("ironwood", "Ironwood"),
     },
     orchard: {
       label: "Orchard",
@@ -57,7 +61,7 @@ function table(nu7Active: boolean): Record<SupplyPartId, SupplyPartMeta> {
       ink: POOL_CLASSES.orchard,
       privacy: "shielded",
       denominator: "issued",
-      link: SHIELDED_LIST,
+      link: poolList("orchard", "Orchard"),
     },
     sapling: {
       label: "Sapling",
@@ -66,7 +70,7 @@ function table(nu7Active: boolean): Record<SupplyPartId, SupplyPartMeta> {
       ink: POOL_CLASSES.sapling,
       privacy: "shielded",
       denominator: "issued",
-      link: SHIELDED_LIST,
+      link: poolList("sapling", "Sapling"),
     },
     sprout: {
       label: "Sprout",
@@ -77,7 +81,7 @@ function table(nu7Active: boolean): Record<SupplyPartId, SupplyPartMeta> {
       ink: POOL_CLASSES.sprout,
       privacy: "shielded",
       denominator: "issued",
-      link: SHIELDED_LIST,
+      link: poolList("sprout", "Sprout"),
     },
     lockbox: {
       label: "Lockbox",

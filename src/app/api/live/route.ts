@@ -64,7 +64,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     // from the index, while the latter fans out one `getblock` per row to the node, which a
     // polled endpoint must not do.
     data.listBlocks({ limit: BLOCK_COUNT }),
-    data.listTransactions({ limit: TX_COUNT }, kind),
+    // No pool: this feed is keyed on kind and direction only, so `/txs` stops polling under one.
+    data.listTransactions({ limit: TX_COUNT }, kind, null),
   ]);
 
   return NextResponse.json(

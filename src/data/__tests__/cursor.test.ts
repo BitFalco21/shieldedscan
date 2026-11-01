@@ -105,7 +105,7 @@ describe("listBlocks cursor pagination", () => {
 
 describe("listTransactions cursor pagination", () => {
   it("paging forward with before visits every transaction exactly once, in order", async () => {
-    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     expect(full.nextCursor).toBeNull();
 
     const visited: string[] = [];
@@ -114,6 +114,7 @@ describe("listTransactions cursor pagination", () => {
       const page = await fixtureDataSource.listTransactions(
         { before: cursor, limit: SMALL_LIMIT },
         "all",
+        null,
       );
       visited.push(...page.items.map((t) => t.txid));
       if (page.nextCursor === null) break;
@@ -124,10 +125,11 @@ describe("listTransactions cursor pagination", () => {
   });
 
   it("an unknown cursor returns the first page", async () => {
-    const first = await fixtureDataSource.listTransactions({ limit: SMALL_LIMIT }, "all");
+    const first = await fixtureDataSource.listTransactions({ limit: SMALL_LIMIT }, "all", null);
     const garbage = await fixtureDataSource.listTransactions(
       { before: "garbage", limit: SMALL_LIMIT },
       "all",
+      null,
     );
     expect(garbage.items.map((t) => t.txid)).toEqual(first.items.map((t) => t.txid));
   });
@@ -139,6 +141,7 @@ describe("listTransactions cursor pagination", () => {
       const page = await fixtureDataSource.listTransactions(
         { before: cursor, limit: SMALL_LIMIT },
         "shielded",
+        null,
       );
       for (const tx of page.items) {
         expect(txKind(tx)).toBe("shielded");
@@ -153,7 +156,7 @@ describe("listTransactions cursor pagination", () => {
     expect(visited.length).toBeGreaterThan(0);
 
     // Same order as filtering the unfiltered, fully-paged list ourselves.
-    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     const expectedShielded = full.items.filter((t) => txKind(t) === "shielded").map((t) => t.txid);
     expect(visited).toEqual(expectedShielded);
   });
@@ -297,7 +300,7 @@ describe("decodeCursorForColumn — range is part of being usable", () => {
  */
 describe("listTransactions cursor pagination with equal timestamps", () => {
   it("paging one-by-one (limit: 1) visits every transaction exactly once, matching the full sort", async () => {
-    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const full = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     expect(full.nextCursor).toBeNull();
 
     // Sanity: the fixture actually exercises the tie case this test is for.
@@ -307,7 +310,11 @@ describe("listTransactions cursor pagination with equal timestamps", () => {
     const visited: string[] = [];
     let cursor: string | undefined;
     for (let i = 0; i < MAX_PAGES; i++) {
-      const page = await fixtureDataSource.listTransactions({ before: cursor, limit: 1 }, "all");
+      const page = await fixtureDataSource.listTransactions(
+        { before: cursor, limit: 1 },
+        "all",
+        null,
+      );
       expect(page.items.length).toBe(1);
       visited.push(...page.items.map((t) => t.txid));
       if (page.nextCursor === null) break;
@@ -345,10 +352,11 @@ describe("ORIGIN_CURSOR — the oldest page in one hop", () => {
   });
 
   it("lands on the final page of transactions, where the sort key is not unique", async () => {
-    const all = await fixtureDataSource.listTransactions({ limit: 100 }, "all");
+    const all = await fixtureDataSource.listTransactions({ limit: 100 }, "all", null);
     const oldest = await fixtureDataSource.listTransactions(
       { after: ORIGIN_CURSOR, limit: 25 },
       "all",
+      null,
     );
 
     expect(oldest.items.map((t) => t.txid)).toEqual(all.items.slice(-25).map((t) => t.txid));

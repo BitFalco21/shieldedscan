@@ -71,7 +71,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
     // `example` is non-null here: both-null returned above.
     const shape = example as LearnExampleShape;
-    const page = await data.listTransactions({ limit: EXAMPLE_SCAN }, shape);
+    const page = await data.listTransactions({ limit: EXAMPLE_SCAN }, shape, null);
     const tx = simplest(page.items, shape);
     return respond(
       tx ? { ...echo, status: "found", tx: learnTx(tx) } : { ...echo, status: "missing", tx: null },

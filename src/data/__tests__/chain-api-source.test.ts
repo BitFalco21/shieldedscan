@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { blockSummaryOf, type Block } from "@/domain";
 import { readApiConfig, resetApiBreaker } from "../api-request";
 import { createChainApiSource } from "../chain-api-source";
+import { FilterNotAppliedError } from "../filter-not-applied";
 import { isTransientUpstream } from "@/lib/transient-upstream";
 
 /**
@@ -226,14 +227,14 @@ describe("requests", () => {
   it("omits the kind filter when listing all transactions", async () => {
     const fetchMock = stub(200, { items: [], nextCursor: null, prevCursor: null });
     vi.stubGlobal("fetch", fetchMock);
-    await createChainApiSource(config).listTransactions({ limit: 5 }, "all");
+    await createChainApiSource(config).listTransactions({ limit: 5 }, "all", null);
     expect(String(fetchMock.mock.calls[0]![0])).not.toContain("kind=");
   });
 
   it("sends the kind filter when one is chosen", async () => {
     const fetchMock = stub(200, { items: [], nextCursor: null, prevCursor: null });
     vi.stubGlobal("fetch", fetchMock);
-    await createChainApiSource(config).listTransactions({ limit: 5 }, "shielded");
+    await createChainApiSource(config).listTransactions({ limit: 5 }, "shielded", null);
     expect(String(fetchMock.mock.calls[0]![0])).toContain("kind=shielded");
   });
 
@@ -245,7 +246,7 @@ describe("requests", () => {
       applied: { kind: "shielding" },
     });
     vi.stubGlobal("fetch", fetchMock);
-    await createChainApiSource(config).listTransactions({ limit: 5 }, "shielding");
+    await createChainApiSource(config).listTransactions({ limit: 5 }, "shielding", null);
     expect(String(fetchMock.mock.calls[0]![0])).toContain("kind=shielding");
   });
 
@@ -262,7 +263,7 @@ describe("requests", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      createChainApiSource(config).listTransactions({ limit: 5 }, "unshielding"),
+      createChainApiSource(config).listTransactions({ limit: 5 }, "unshielding", null),
     ).rejects.toThrow(/applied kind=\[all\].*asking kind=\[unshielding\]/);
   });
 
@@ -272,7 +273,7 @@ describe("requests", () => {
     const fetchMock = stub(200, { items: [tx], nextCursor: null, prevCursor: null });
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      createChainApiSource(config).listTransactions({ limit: 5 }, "shielding"),
+      createChainApiSource(config).listTransactions({ limit: 5 }, "shielding", null),
     ).rejects.toThrow(/applied kind=\[undefined\]/);
   });
 
@@ -283,9 +284,50 @@ describe("requests", () => {
     vi.stubGlobal("fetch", fetchMock);
     for (const kind of ["all", "transparent", "shielded", "mixed", "coinbase"] as const) {
       await expect(
-        createChainApiSource(config).listTransactions({ limit: 5 }, kind),
+        createChainApiSource(config).listTransactions({ limit: 5 }, kind, null),
       ).resolves.toMatchObject({ items: [tx] });
     }
+  });
+
+  it("sends a pool and accepts the page only when the API echoes that pool", async () => {
+    const fetchMock = stub(200, {
+      items: [tx],
+      nextCursor: null,
+      prevCursor: null,
+      applied: { kind: "all", pool: "sprout" },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      createChainApiSource(config).listTransactions({ limit: 5 }, "all", "sprout"),
+    ).resolves.toMatchObject({ items: [tx] });
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("pool=sprout");
+  });
+
+  it("REFUSES a pool page whose echo is missing, null or another pool, as FilterNotAppliedError", async () => {
+    // An API older than `?pool=` ignores it and answers with every transaction: a well-formed
+    // page that would render under a pool label.
+    for (const applied of [
+      undefined,
+      { kind: "all" },
+      { kind: "all", pool: null },
+      { pool: "orchard" },
+    ]) {
+      vi.stubGlobal(
+        "fetch",
+        stub(200, { items: [tx], nextCursor: null, prevCursor: null, applied }),
+      );
+      const listed = createChainApiSource(config).listTransactions({ limit: 5 }, "all", "sapling");
+      await expect(listed, JSON.stringify(applied)).rejects.toBeInstanceOf(FilterNotAppliedError);
+    }
+  });
+
+  it("sends no pool, and needs no pool echo, when none is asked", async () => {
+    const fetchMock = stub(200, { items: [tx], nextCursor: null, prevCursor: null });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      createChainApiSource(config).listTransactions({ limit: 5 }, "all", null),
+    ).resolves.toMatchObject({ items: [tx] });
+    expect(String(fetchMock.mock.calls[0]![0])).not.toContain("pool=");
   });
 
   it("escapes an address rather than interpolating it into the path", async () => {
@@ -529,7 +571,7 @@ describe("transient upstream retry", () => {
       prevCursor: null,
     });
     vi.stubGlobal("fetch", fetchMock);
-    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all");
+    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all", null);
     expect(page.items).toHaveLength(1);
   });
 
@@ -540,7 +582,7 @@ describe("transient upstream retry", () => {
       prevCursor: null,
     });
     vi.stubGlobal("fetch", fetchMock);
-    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all");
+    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all", null);
     expect(page.items).toHaveLength(1);
   });
 
@@ -549,7 +591,7 @@ describe("transient upstream retry", () => {
     const fetchMock = flaky("/chain/transactions", 99, "stall", {});
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all"),
+      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
     ).rejects.toThrow();
   });
 
@@ -565,7 +607,7 @@ describe("transient upstream retry", () => {
     const fetchMock = stub(200, { items: [{ nope: true }] }, { "/chain/info": facts });
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all"),
+      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
     ).rejects.toThrow(/unrecognised/i);
     const calls = fetchMock.mock.calls.filter(([u]) => String(u).includes("/chain/transactions"));
     expect(calls).toHaveLength(1);
@@ -577,7 +619,7 @@ describe("transient upstream retry", () => {
     const fetchMock = flaky("/chain/transactions", 99, "stall", {});
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all"),
+      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
     ).rejects.toThrow();
     const calls = fetchMock.mock.calls.filter(([u]) => String(u).includes("/chain/transactions"));
     expect(calls).toHaveLength(3);

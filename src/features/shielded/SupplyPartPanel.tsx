@@ -9,9 +9,8 @@ export interface SupplyPartPanelProps {
 }
 
 /**
- * The selected card's panel: what the part is, and the nearest list the site has for it. No
- * pool has a transaction list of its own yet, so the link is to the closest one, named for
- * exactly what it shows.
+ * The selected card's panel: what the part is, and the nearest list the site has for it, named
+ * for exactly what it shows.
  */
 export function SupplyPartPanel({ id, meta }: SupplyPartPanelProps) {
   return (

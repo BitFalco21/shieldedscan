@@ -12,6 +12,13 @@ const ALL = "Every ZEC, in every pool";
 const SHIELDED = "The shielded pools";
 
 const views = (page: Page) => page.getByRole("navigation", { name: "Pool views" });
+/** A part's card: the legend has a button of the same name, but only a card controls the panel. */
+const cardOf = (page: Page, name: string) =>
+  page.locator("button[aria-controls]").filter({ hasText: new RegExp(name) });
+const legendItem = (page: Page, name: string) =>
+  page
+    .getByRole("list", { name: "Highlight a part of the bar" })
+    .getByRole("button", { name: new RegExp(`^${name}`) });
 
 async function expectView(page: Page, heading: string, active: "All pools" | "Shielded pools") {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
@@ -46,7 +53,7 @@ test.describe("with scripting off", () => {
       "NSM",
       "Still to mine",
     ]) {
-      await expect(page.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+      await expect(cardOf(page, label)).toBeVisible();
     }
     await expect(page.getByRole("img", { name: /^21 million ZEC by pool/ })).toBeVisible();
     // Prerendered: the block it was read at, never a claim to be live without a poll.
@@ -102,7 +109,7 @@ test.describe("with scripting on", () => {
 
   test("a card opens its panel below, one at a time", async ({ page }) => {
     await page.goto("/shielded");
-    const card = (name: string) => page.getByRole("button", { name: new RegExp(name) });
+    const card = (name: string) => cardOf(page, name);
     const panel = page.locator("#supply-part-panel");
 
     // Ironwood is open first.
@@ -117,5 +124,41 @@ test.describe("with scripting on", () => {
 
     await card("Transparent").click();
     await expect(panel.getByRole("link")).toHaveAttribute("href", "/txs?kind=transparent");
+
+    // Each shielded pool opens its own transaction list, which lists only that pool.
+    await card("Sprout").click();
+    await expect(panel.getByRole("link")).toHaveAttribute("href", "/txs?pool=sprout");
+    await panel.getByRole("link").click();
+    await expect(page).toHaveURL(/\/txs\?pool=sprout$/);
+    await expect(page.getByRole("navigation", { name: "Active pool filter" })).toContainText(
+      "SPROUT",
+    );
+    await expect(page.locator("table tbody tr").first()).toBeVisible();
+  });
+
+  test("a legend item highlights its segment, and a second press clears it", async ({ page }) => {
+    await page.goto("/shielded");
+    const bar = page.getByRole("img", { name: /^21 million ZEC by pool/ });
+    const dimmed = bar.locator("rect.opacity-25");
+    const widths = () =>
+      bar
+        .locator('rect[fill="currentColor"]')
+        .evaluateAll((rects) => rects.map((r) => r.getAttribute("width")));
+    const before = await widths();
+    await expect(dimmed).toHaveCount(0);
+
+    // By keyboard, as a reader without a mouse would.
+    await legendItem(page, "Sprout").focus();
+    await page.keyboard.press("Enter");
+    await expect(legendItem(page, "Sprout")).toHaveAttribute("aria-pressed", "true");
+    await expect(dimmed).toHaveCount(before.length - 1);
+    expect(await widths(), "highlighting changed a width").toEqual(before);
+    await expect(page.getByText(/^Sprout: [\d,.]+[KM]? ZEC · [<\d.]+% of 21M$/)).toBeAttached();
+    // The cards are not driven by the legend.
+    await expect(cardOf(page, "Ironwood")).toHaveAttribute("aria-pressed", "true");
+
+    await page.keyboard.press("Space");
+    await expect(legendItem(page, "Sprout")).toHaveAttribute("aria-pressed", "false");
+    await expect(dimmed).toHaveCount(0);
   });
 });
