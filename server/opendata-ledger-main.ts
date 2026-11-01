@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { Client } from "pg";
-import { createPacer, ioPressureAvg10 } from "./job-pacer";
+import { createPacer, IngestionBehindError, ioPressureAvg10 } from "./job-pacer";
 import { LedgerAbort, readLedgerRange } from "./opendata/ledger";
 import { CONFIRMATIONS, exportTypes, writeFile } from "./opendata/read";
 import {
@@ -221,8 +221,13 @@ try {
   }
   log(`done for now: ${built} range(s) built`);
 } catch (e) {
-  log(`FAILED: ${e instanceof Error ? e.message || e.name : String(e)}`);
-  exitCode = 1;
+  if (e instanceof IngestionBehindError) {
+    // Someone else's stall, not ours: stop cleanly and let the next run try again.
+    log(`stopping: ${e.message}`);
+  } else {
+    log(`FAILED: ${e instanceof Error ? e.message || e.name : String(e)}`);
+    exitCode = 1;
+  }
 } finally {
   await snap.end().catch(() => {});
   await probe.end().catch(() => {});
