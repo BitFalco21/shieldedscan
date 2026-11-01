@@ -197,8 +197,9 @@ export interface LedgerOptions {
   afterChunk?: ChunkHook;
   /**
    * Block bytes per query. A ledger row needs at least 9 bytes of its block (an output), so this
-   * bounds a query's rows BEFORE it runs, whatever the era: 16 MB is at most ~1.8M rows of dust and
-   * ~400k of ordinary payments. Measured afterwards it would be too late (2026-11-01).
+   * bounds a query's rows BEFORE it runs, whatever the era: 8 MB is at most ~900k rows of dust and
+   * ~200k of ordinary payments, well inside the 60 s statement timeout. Measured afterwards it
+   * would be too late (2026-11-01).
    */
   chunkBytes?: number;
   partRows?: number;
@@ -228,7 +229,7 @@ export async function readLedgerRange(
   options: LedgerOptions,
 ): Promise<LedgerRange> {
   const afterChunk = options.afterChunk ?? (async () => "continue" as const);
-  const chunkBytes = options.chunkBytes ?? 16_000_000;
+  const chunkBytes = options.chunkBytes ?? 8_000_000;
   const partRows = options.partRows ?? LEDGER_PART_ROWS;
   let io: ColumnValues[] = TRANSPARENT_IO_COLUMNS.map(() => []);
   let parts = 0;
