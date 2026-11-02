@@ -1,28 +1,13 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  statfsSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, rmSync, statfsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { Client } from "pg";
 import { createPacer, IngestionBehindError, ioPressureAvg10 } from "./job-pacer";
-import { LedgerAbort, readLedgerRange } from "./opendata/ledger";
-import { CONFIRMATIONS, exportTypes, writeFile } from "./opendata/read";
-import {
-  HEIGHTS_PER_LEDGER_FILE,
-  LEDGER_CACHE_VERSION,
-  TRANSACTIONS_EXTRA_COLUMNS,
-  TRANSPARENT_IO_COLUMNS,
-  transactionsExtraFile,
-  transparentIoFile,
-} from "./opendata/tables";
+import { LedgerAbort } from "./opendata/ledger";
+import { buildLedgerRange, commitRange, isCached, rangeEnd } from "./opendata/ledger-cache";
+import { CONFIRMATIONS, exportTypes } from "./opendata/read";
+import { HEIGHTS_PER_LEDGER_FILE } from "./opendata/tables";
 
 /**
  * Builds the open dataset's closed ledger files, once, into a persistent cache the nightly
@@ -43,7 +28,8 @@ import {
  *    rises, when free disk falls under 100 GB, or before a range that would end past `--until`.
  *
  * Every range is one REPEATABLE READ snapshot; a stopped range is read again next time. Finished
- * files are never rebuilt: each range has a sidecar written last, by rename.
+ * files are never rebuilt: each range has a sidecar written last, by rename. It builds closed
+ * ranges only; the range still filling is the release's (see `opendata/ledger-release.ts`).
  *
  * Env: PGHOST, PGUSER, PGPASSWORD, PGDATABASE (the read-only `opendata_reader`); OPENDATA_API_URL,
  * the API container on the internal network (never through the CDN, whose cached answers would
@@ -91,8 +77,6 @@ const PROBE_EVERY_MS = 5_000;
 /** A chunk that took this long counts as a sign of strain, whatever the probes say. */
 const SLOW_CHUNK_MS = 20_000;
 const MIN_FREE_DISK = 100_000_000_000;
-/** Ledger columns dictionary-encoded: few distinct values, repeated millions of times. */
-const DICTIONARY = ["io", "script_type"];
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 
@@ -135,34 +119,6 @@ async function timedGet(path: string): Promise<{ ms: number; body: unknown }> {
   } catch {
     return { ms: Infinity, body: null };
   }
-}
-
-interface Sidecar {
-  version: number;
-  start: number;
-  end: number;
-  files: { path: string; rows: number; size: number; sha256: string; contentSha256: string }[];
-  underclaimZat: string;
-  underclaimedBlocks: number;
-  skippedBlocks: number;
-  builtAt: string;
-  indexerCommit: string;
-}
-
-/**
- * A range is done when its sidecar (written last, by rename) is this version and every file it
- * names exists at its recorded size. Hashes are verified by the release, not here: re-reading
- * gigabytes on every restart would itself compete with Postgres for the disk.
- */
-function cached(start: number): boolean {
-  const path = join(CACHE, `${start}.json`);
-  if (!existsSync(path)) return false;
-  const s = JSON.parse(readFileSync(path, "utf8")) as Sidecar;
-  if (s.version !== LEDGER_CACHE_VERSION) return false;
-  return s.files.every((f) => {
-    const p = join(CACHE, f.path);
-    return existsSync(p) && statSync(p).size === f.size;
-  });
 }
 
 const probe = new Client({});
@@ -246,7 +202,7 @@ try {
     start += HEIGHTS_PER_LEDGER_FILE
   ) {
     if (built >= MAX_FILES) break;
-    if (cached(start)) continue;
+    if (isCached(CACHE, start)) continue;
     if (Date.now() + lastRangeMs >= stopAt) {
       log("stopping: the next range would not finish inside the window");
       break;
@@ -255,33 +211,16 @@ try {
     if (disk.bavail * disk.bsize < MIN_FREE_DISK) {
       throw new Guard(`disk guard: under ${MIN_FREE_DISK / 1e9} GB free`);
     }
-    const end = start + HEIGHTS_PER_LEDGER_FILE - 1;
+    const end = rangeEnd(start);
     const began = Date.now();
 
     // Parts are written as they fill, under a temporary folder, then moved in by rename.
     const tmp = join(CACHE, ".tmp");
     rmSync(tmp, { recursive: true, force: true });
-    const files: Sidecar["files"] = [];
-    await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     let range;
     try {
-      await snap.query("SET LOCAL statement_timeout = '60s'");
-      // The ordered reads sort ~100k rows a chunk: in memory, not in temporary files on disk.
-      await snap.query("SET LOCAL work_mem = '64MB'");
-      range = await readLedgerRange(snap, start, end, {
-        afterChunk,
-        onPart: (io, part, failing) => {
-          // A range that already failed a check is not written: the failure is reported at its
-          // end, and a NULL where none may be would otherwise throw here as something else.
-          if (failing) return;
-          files.push(
-            writeFile(tmp, transparentIoFile(start, part), TRANSPARENT_IO_COLUMNS, io, DICTIONARY),
-          );
-        },
-      });
-      await snap.query("COMMIT");
+      range = await buildLedgerRange(snap, start, end, tmp, afterChunk);
     } catch (e) {
-      await snap.query("ROLLBACK").catch(() => {});
       if (e instanceof LedgerAbort) {
         log(`stopped in ${start}-${end}; it is read again next time`);
         break;
@@ -296,27 +235,7 @@ try {
       exitCode = 1;
       break;
     }
-    files.push(
-      writeFile(tmp, transactionsExtraFile(start), TRANSACTIONS_EXTRA_COLUMNS, range.extra),
-    );
-    for (const f of files) {
-      mkdirSync(join(CACHE, f.path, ".."), { recursive: true });
-      renameSync(join(tmp, f.path), join(CACHE, f.path));
-    }
-    rmSync(tmp, { recursive: true, force: true });
-    const sidecar: Sidecar = {
-      version: LEDGER_CACHE_VERSION,
-      start,
-      end,
-      files,
-      underclaimZat: range.checker.underclaimZat.toString(),
-      underclaimedBlocks: range.checker.underclaimedBlocks,
-      skippedBlocks: range.checker.skippedBlocks,
-      builtAt: new Date().toISOString(),
-      indexerCommit: process.env.OPENDATA_GIT_SHA ?? "unknown",
-    };
-    writeFileSync(join(CACHE, `${start}.json.tmp`), JSON.stringify(sidecar, null, 2) + "\n");
-    renameSync(join(CACHE, `${start}.json.tmp`), join(CACHE, `${start}.json`));
+    const { files } = commitRange(CACHE, tmp, start, range);
     built++;
     lastRangeMs = Date.now() - began;
     const ledgerRows = files.slice(0, -1).reduce((n, f) => n + f.rows, 0);
