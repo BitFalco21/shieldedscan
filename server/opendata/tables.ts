@@ -295,8 +295,9 @@ export const NU7_CAPABLE_RELEASES_COLUMNS: readonly ColumnSpec[] = [
 ];
 
 /**
- * The first release of each client whose own notes schedule NU7 on mainnet at 3,543,405, read
- * 2026-11-02. Per client because the protocol version cannot tell: Zakura 1.5.0 to 1.6.0 already
+ * The first stable release of each client whose own notes schedule NU7 on mainnet at 3,543,405,
+ * read 2026-11-02. Stable only: the dataset makes no claim about release candidates (the site's
+ * `NU7_RELEASES` tracks those). Per client because the protocol version cannot tell: Zakura 1.5.0 to 1.6.0 already
  * declare NU7's 170190 without carrying its height. Published so `node_releases_daily` can be
  * joined against it; readiness is never a daily table of its own.
  */

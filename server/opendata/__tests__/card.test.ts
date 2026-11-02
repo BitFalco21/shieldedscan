@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { datasetCard } from "../card";
 import {
   ADDRESS_COLUMNS,
+  BLOCK_COINBASE_COLUMNS,
   BLOCK_COLUMNS,
   SMALL_TABLES,
   TRANSACTION_COLUMNS,
@@ -13,6 +14,7 @@ describe("dataset card", () => {
   const card = datasetCard({ ledger: true });
   const tables = {
     blocks: BLOCK_COLUMNS,
+    blocks_coinbase: BLOCK_COINBASE_COLUMNS,
     transactions: TRANSACTION_COLUMNS,
     transparent_io: TRANSPARENT_IO_COLUMNS,
     transactions_extra: TRANSACTIONS_EXTRA_COLUMNS,
@@ -26,6 +28,18 @@ describe("dataset card", () => {
       expect(card).toContain(`### \`${name}\``);
       for (const c of columns) expect(card).toContain(`| \`${c.name}\` |`);
     }
+  });
+
+  it("says what the NU7 and coinbase tables can and cannot tell", () => {
+    expect(card).toContain('data_files: "blocks_coinbase/*.parquet"');
+    expect(card).toMatch(/miner-written[^]*sanitised at parse/);
+    expect(card).not.toContain("miner-written coinbase text, and");
+    expect(card).toContain("Empty before NU7 activates");
+    expect(card).toContain("Release candidates are not covered");
+    expect(card).toContain("The protocol version alone is not enough");
+    expect(card).toContain(
+      "One operator can use several addresses, so this understates concentration.",
+    );
   });
 
   it("leaves nothing undescribed", () => {

@@ -205,7 +205,7 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
   },
   nu7_capable_releases: {
     client: "Node software, as in `node_releases_daily`.",
-    min_version: "The first release whose own notes activate NU7 on mainnet.",
+    min_version: "The first stable release whose own notes activate NU7 on mainnet.",
     source_url: "Those release notes.",
   },
   hashrate_daily: {
@@ -337,7 +337,7 @@ const TABLE_INTROS: Record<string, string> = {
   nsm_daily:
     "Fees removed from circulation into the Network Sustainability Mechanism per UTC day: from NU7 (height 3,543,405), floor(6 × fees / 10) of each block (ZIP 235). Empty before NU7 activates. Equal to `supply_daily`'s NSM columns.",
   nu7_capable_releases:
-    "The first release of each node client that activates NU7 on mainnet. Join with `node_releases_daily` on `client`; a release is capable when its `version` is at least `min_version`, compared number by number (a release candidate comes before its release). The protocol version alone is not enough: Zakura 1.5.0 to 1.6.0 also declare 170190.",
+    "The first stable release of each node client that activates NU7 on mainnet. Join with `node_releases_daily` on `client`; a release is capable when its `version` is at least `min_version`, compared number by number. Release candidates are not covered. The protocol version alone is not enough: Zakura 1.5.0 to 1.6.0 also declare 170190.",
   hashrate_daily: "Estimated network solution rate per UTC day, from difficulty.",
   supply_daily:
     "The supply audit per UTC day: what the schedule allowed, what exists, and what miners never claimed.",
