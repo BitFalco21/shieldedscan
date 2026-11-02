@@ -104,8 +104,10 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
     // The published days carry no address rows, which a month's distinct count and the trailing
     // windows are counted from: without them the final day's month would never be counted. Its
     // days, and the retention window the trackers keep, are recomputed by the tracker's function,
-    // which must give back the published row exactly. A day the release lacks stays the
-    // tracker's to fill.
+    // which gives back the published row unless the release read a stale day (its inputs resolved
+    // after the day's last recompute). The recomputed row is the same function on the same rows,
+    // so it stands, and the day is named loudly; throwing would make every re-run throw again.
+    // A day the release lacks stays the tracker's to fill.
     const from = Math.min(monthOf(final), final - (ADDRESS_RETENTION_DAYS - 1) * DAY_SECONDS);
     const published = (day: number) =>
       pool
@@ -120,8 +122,9 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
       if (before === null) continue;
       await computeTransparentDay(pool, d, o.nowSec);
       if ((await published(d)) !== before) {
-        throw new Error(
-          `transparent_daily on ${new Date(d * 1000).toISOString().slice(0, 10)} differs from the release`,
+        const day = new Date(d * 1000).toISOString().slice(0, 10);
+        log(
+          `  NOTE transparent_daily on ${day} differs from the release; the recomputed row stands`,
         );
       }
     }

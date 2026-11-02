@@ -78,7 +78,8 @@ export function planImport(manifest: Manifest, allowMissingCoinbase = false): Im
   if (!coinbase && !allowMissingCoinbase) {
     problems.push(
       "this release has no blocks_coinbase/ (miner addresses); use a later release, or accept " +
-        "it with --allow-missing-coinbase and run repair-miner against a node before serving miners",
+        "it with --allow-missing-coinbase (SELFHOST_ALLOW_MISSING_COINBASE=1) and run repair-miner " +
+        "against a node before serving miners",
     );
   }
 

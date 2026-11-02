@@ -56,6 +56,7 @@ services:
       # A mirror of the Hub, if you use one.
       HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
       SELFHOST_JOBS: ${SELFHOST_JOBS:-2}
+      SELFHOST_ALLOW_MISSING_COINBASE: ${SELFHOST_ALLOW_MISSING_COINBASE:-0}
       SELFHOST_MAINTENANCE_WORK_MEM: ${SELFHOST_MAINTENANCE_WORK_MEM:-1GB}
     volumes:
       - downloads:/data

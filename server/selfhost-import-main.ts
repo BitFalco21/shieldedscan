@@ -17,7 +17,8 @@ import { DEFAULT_ENDPOINT, DEFAULT_REPO, huggingFaceSource } from "./selfhost/so
  * Env: DATABASE_URL or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (required); HF_ENDPOINT (a mirror,
  * default the Hub); SELFHOST_REPO, SELFHOST_REVISION, SELFHOST_DATA_DIR, SELFHOST_JOBS,
  * SELFHOST_KEEP_FILES=1, SELFHOST_MAINTENANCE_WORK_MEM, SCHEMA_DIR. No token: the dataset is
- * public. `--allow-missing-coinbase` accepts a release from before miner addresses were published.
+ * public. `--allow-missing-coinbase` (SELFHOST_ALLOW_MISSING_COINBASE=1) accepts a release from
+ * before miner addresses were published.
  */
 
 const { values: args } = parseArgs({
@@ -53,7 +54,8 @@ try {
     schemaDir: args["schema-dir"] ?? env.SCHEMA_DIR ?? ".",
     jobs,
     keepFiles: args["keep-files"] || env.SELFHOST_KEEP_FILES === "1",
-    allowMissingCoinbase: args["allow-missing-coinbase"],
+    allowMissingCoinbase:
+      args["allow-missing-coinbase"] || env.SELFHOST_ALLOW_MISSING_COINBASE === "1",
     maintenanceWorkMem: env.SELFHOST_MAINTENANCE_WORK_MEM ?? "1GB",
     log,
   });
