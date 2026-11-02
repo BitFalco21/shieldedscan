@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { readAddresses } from "./opendata/addresses";
 import { datasetCard } from "./opendata/card";
 import { compareHistory, type PublishedFile } from "./opendata/history";
 import {
@@ -117,6 +118,11 @@ interface Manifest {
   acceptedHistoryChanges: string[];
   checks: { underClaimedHeights: number; alerts: string[] };
   ledger: LedgerManifest;
+  /**
+   * Files replaced whole by each release (`REPLACED` in history.ts), with the height they stand
+   * at and the rich list's height they were rewound from.
+   */
+  snapshots: { path: string; height: number; rewoundFrom: number }[];
 }
 
 type LedgerManifest =
@@ -181,11 +187,15 @@ try {
         trusted: (path, sha) => !args.full && before.get(path) === sha,
         log,
       }),
+    addresses: (ctx) => readAddresses(ctx, { outDir: STAGING }),
   });
   // The ledger is the read's last and largest step: logged before any verdict, failed runs too,
   // to show its memory against the container's limit.
   log(`after the ledger: rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
   if (release.failures.length > 0) fail("checks failed", release.failures);
+  const addresses = release.addresses;
+  if (!addresses?.file || addresses.rewoundFrom === null) fail("the release read no addresses");
+  log(`addresses: ${addresses.rows} rows, rewound from ${addresses.rewoundFrom}`);
   for (const a of release.alerts) log(`alert: ${a}`);
 
   const ledger = release.ledger;
@@ -239,6 +249,13 @@ try {
     acceptedHistoryChanges: args["accept-history-change"] ? history.failures : [],
     checks: { underClaimedHeights: release.underClaimed, alerts: release.alerts },
     ledger: ledgerManifest(ledger),
+    snapshots: [
+      {
+        path: addresses.file.path,
+        height: addresses.height,
+        rewoundFrom: addresses.rewoundFrom,
+      },
+    ],
   };
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2) + "\n");
 

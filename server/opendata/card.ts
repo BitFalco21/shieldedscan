@@ -1,5 +1,6 @@
 import type { ColumnSpec } from "./parquet";
 import {
+  ADDRESS_COLUMNS,
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
   HEIGHTS_PER_LEDGER_FILE,
@@ -272,6 +273,12 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     max_migration_ties: "Transactions sharing that largest value.",
     max_migration_txid: "That transaction when it alone holds the maximum; NULL otherwise.",
   },
+  addresses: {
+    address: "Transparent address, t1… or t3….",
+    balance_zat: "Its balance at the release height, zatoshis; always positive.",
+    tx_count:
+      "Transactions it appears in, either side, up to the release height. NULL where not known: not yet counted, or the address emptied after the release height.",
+  },
   mining_payouts_daily: {
     kind: "transparent, shielded (a shielded coinbase, ZIP 213) or unknown (the coinbase names no address).",
     address:
@@ -315,6 +322,8 @@ const TABLE_INTROS: Record<string, string> = {
     "The day's largest shielding, unshielding and pool migration per UTC day. A transaction is named only when it alone holds the maximum.",
   mining_payouts_daily:
     "Blocks per UTC day by miner kind and payout address, with what the miners were paid.",
+  addresses:
+    "Every transparent address with a positive balance at the release height, in address order. A snapshot: each release replaces the file, and the repository's history keeps the earlier ones. For the site's rich-list order, sort by `balance_zat` descending, then `address`.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,
   pool_usage_daily: "Each shielded pool's activity per UTC day.",
   shielding_daily:
@@ -362,6 +371,7 @@ export function datasetCard({ ledger }: CardOptions): string {
     ...Object.entries(SMALL_TABLES).map(
       ([name, cols]) => [name, cols, `${name}.parquet`] as [string, readonly ColumnSpec[], string],
     ),
+    ["addresses", ADDRESS_COLUMNS, "addresses.parquet"],
   ];
   const configs = tables
     .map(
@@ -390,7 +400,7 @@ ${configs}
 
 The chain index behind [ShieldedScan](https://shieldedscan.xyz), a privacy-first Zcash explorer,
 as plain Parquet files: every block since 2016 with every pool's balance, every transaction's
-public values, and the daily series behind the site's charts. Refreshed daily. Query it on your own machine: nobody sees your questions.
+public values, every transparent address's balance, and the daily series behind the site's charts. Refreshed daily. Query it on your own machine: nobody sees your questions.
 
 ## Loading
 
@@ -433,12 +443,14 @@ Each release stops 100 blocks below the chain tip, far deeper than any Zcash reo
 includes a day only once it is three days behind the release's last block. \`manifest.json\` gives
 the release height and its block hash (check it against any node), the indexer version that
 produced it, each file's SHA-256 and row count, and any corrections. Published rows do not change,
-except a value that was unknown becoming known, which the manifest records.
+except a value that was unknown becoming known, which the manifest records, and \`addresses\`, a
+snapshot that each release replaces.
 
 Every release passes checks before it is published: no missing heights, each block linked to the
 previous one, each pool's recorded flow equal to its balance change, the pools growing by no more
 than the block subsidy, the daily counts agreeing with the blocks, and each block's transactions
-matching its own count, kinds, fee total and pool flows.${ledger ? LEDGER_CHECKS : ""}
+matching its own count, kinds, fee total and pool flows. The address balances, plus the
+transparent value no single address holds, equal the transparent pool at the release height.${ledger ? LEDGER_CHECKS : ""}
 
 The site's precomputed series are held to the same blocks and transactions day by day; one that
 has not caught up with the release is not published.
@@ -453,7 +465,8 @@ ${ledger ? "" : "Transparent inputs and outputs by address are not in this relea
 miner-written coinbase text, and third-party price and location data are left out.
 
 No transaction is singled out, except a day's largest shielding, unshielding or pool
-migration when it alone holds that maximum (\`shielding_records_daily\`).
+migration when it alone holds that maximum (\`shielding_records_daily\`). Addresses are as the
+chain shows them: no labels, owners or groupings.
 
 ## Licence and citation
 

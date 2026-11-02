@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { compareHistory, rowKey, type PublishedFile } from "../history";
+import { compareHistory, REPLACED, rowKey, type PublishedFile } from "../history";
 import { arrowTable, toParquet, type ColumnSpec } from "../parquet";
 
 const COLUMNS: ColumnSpec[] = [
@@ -109,5 +109,63 @@ describe("the ledger's history", () => {
       },
     };
     expect(compareHistory([carried], [carried]).failures).toEqual([]);
+  });
+});
+
+describe("a snapshot's history", () => {
+  const COLS: ColumnSpec[] = [
+    { name: "address", type: "utf8", nullable: false },
+    { name: "balance_zat", type: "int64", nullable: false },
+  ];
+  const snapshot = (rows: [string, bigint][], path = "addresses.parquet"): PublishedFile => {
+    const bytes = toParquet(arrowTable(COLS, [rows.map((r) => r[0]), rows.map((r) => r[1])]));
+    return { path, sha256: createHash("sha256").update(bytes).digest("hex"), read: () => bytes };
+  };
+  const BEFORE: [string, bigint][] = [
+    ["t1a", 5n],
+    ["t1b", 7n],
+  ];
+  const AFTER: [string, bigint][] = [
+    ["t1a", 6n],
+    ["t1c", 1n],
+  ];
+
+  it("lets each release replace the addresses file, rows changed and gone", () => {
+    expect(REPLACED.has("addresses.parquet")).toBe(true);
+    expect(compareHistory([snapshot(BEFORE)], [snapshot(AFTER)])).toEqual({
+      failures: [],
+      fills: [],
+    });
+  });
+
+  it("still stops when the snapshot is dropped, or its columns change", () => {
+    expect(compareHistory([snapshot(BEFORE)], []).failures).toEqual([
+      "addresses.parquet: published before, missing now",
+    ]);
+    const renamed = toParquet(
+      arrowTable(
+        [COLS[0]!, { name: "balance", type: "int64", nullable: false }],
+        [AFTER.map((r) => r[0]), AFTER.map((r) => r[1])],
+      ),
+    );
+    const next = {
+      path: "addresses.parquet",
+      sha256: createHash("sha256").update(renamed).digest("hex"),
+      read: () => renamed,
+    };
+    expect(compareHistory([snapshot(BEFORE)], [next]).failures).toEqual([
+      "addresses.parquet: columns changed",
+    ]);
+  });
+
+  it("holds every other file to its rows", () => {
+    const day = (v: bigint) =>
+      file([
+        ["2026-10-01", v],
+        ["2026-10-02", 1n],
+      ]);
+    expect(compareHistory([day(5n)], [day(6n)]).failures).toEqual([
+      "shielding_daily.parquet: 1 published values changed",
+    ]);
   });
 });

@@ -5,8 +5,9 @@
 -- published by accident. Views run with their owner's rights (the PostgreSQL default), so the
 -- export's role needs nothing on the base tables and cannot read them.
 --
--- What is deliberately absent, and why, is listed in the dataset card: per-transaction amounts,
--- addresses, miner-written text, node IP addresses, third-party price and GeoIP data.
+-- What is deliberately absent, and why, is listed in the dataset card: miner-written text, node
+-- IP addresses, third-party price and GeoIP data, and any label on an address. Transparent addresses are
+-- published, by the owner's decision: they are chain facts, as the chain shows them.
 
 CREATE SCHEMA IF NOT EXISTS opendata;
 
@@ -170,6 +171,19 @@ FROM boundary_daily;
 CREATE OR REPLACE VIEW opendata.mining_payouts_daily AS
 SELECT day, kind, NULLIF(address, '') AS address, blocks, reward_zat, fee_zat, fee_blocks
 FROM mining_day_payout;
+
+-- The transparent balances behind the site's rich list, published as `addresses`: a snapshot
+-- replaced by each release. No `rank`: it is rewritten hourly in batches, so one snapshot can hold
+-- two numberings. `tx_count` is NULL on rows the backfill has not counted yet.
+CREATE OR REPLACE VIEW opendata.addresses AS
+SELECT address, balance_zat, tx_count
+FROM chain_address_balance;
+
+-- The height those balances cover and the value no single address holds, read in the same
+-- snapshot: together they must equal the transparent pool at that height.
+CREATE OR REPLACE VIEW opendata.addresses_meta AS
+SELECT computed_height, unattributed_zat
+FROM chain_rich_list_meta;
 
 -- The export's role. Created separately with its password on the box (never in this file):
 --   CREATE ROLE opendata_reader LOGIN CONNECTION LIMIT 2 PASSWORD '…';
