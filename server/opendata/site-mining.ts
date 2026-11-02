@@ -80,6 +80,10 @@ function perDay(rows: readonly Row[]): Row[] {
 export function miningPayouts(f: Findings, v: SiteViews, x: SiteInputs): Row[] {
   const blocks = new Map(x.blocksDaily.map((b) => [String(b.day), b]));
   if (v.check_mining_day) {
+    const days = upTo(v.check_mining_day, x.finalDay);
+    // A calendar day with no block (a halt) has a tracker row of zero blocks and none in the
+    // stream: it is held to zero rather than reported missing.
+    const blockless = days.filter((d) => !blocks.has(String(d.day)));
     compareRows(
       f,
       {
@@ -88,8 +92,12 @@ export function miningPayouts(f: Findings, v: SiteViews, x: SiteInputs): Row[] {
         key: ["day"],
         columns: ["blocks", "unrecorded_blocks"],
       },
-      x.blocksDaily.map((b) => ({ day: b.day, blocks: b.blocks, unrecorded_blocks: 0 })),
-      upTo(v.check_mining_day, x.finalDay),
+      [...x.blocksDaily, ...blockless.map((d) => ({ day: d.day, blocks: 0 }))].map((b) => ({
+        day: b.day,
+        blocks: b.blocks,
+        unrecorded_blocks: 0,
+      })),
+      days,
     );
   }
   if (!v.mining_payouts_daily) return [];

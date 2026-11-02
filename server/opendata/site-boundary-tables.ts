@@ -1,4 +1,4 @@
-import type { Findings } from "./checks";
+import { addDays, type Findings } from "./checks";
 import { checkFresh, checkUtcMidnights, compareRows, daysOf, HEX64, upTo } from "./site-checks";
 import type { SiteInputs } from "./site-series";
 import type { SiteViews } from "./site-views";
@@ -26,8 +26,6 @@ const COUNT_COLUMNS = ["shielding_txs", "unshielding_txs", "indeterminate_txs", 
 const MAXIMA = ["shielding", "unshielding", "migration"] as const;
 const RECORD_COLUMNS = MAXIMA.flatMap((k) => [`max_${k}_zat`, `max_${k}_ties`, `max_${k}_txid`]);
 
-const addDays = (day: string, n: number) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const monthOf = (day: string) => `${day.slice(0, 7)}-01`;
 
 /** The last day of the UTC month that starts on `month`. */
@@ -174,7 +172,9 @@ function shieldingRecords(f: Findings, v: SiteViews, x: SiteInputs): Row[] {
       columns: [...COUNT_COLUMNS, ...RECORD_COLUMNS],
     },
     rows.map((r) => ({ ...counts.get(String(r.day)), ...r })),
-    x.stream.boundary.recordRows(x.finalDay, x.stream.days()),
+    // The tracker writes a zero row for a calendar day with no block (a halt), which the stream
+    // never sees: such a day is held to zero, not reported missing every night after.
+    x.stream.boundary.recordRows(x.finalDay, new Set([...x.stream.days(), ...daysOf(rows)])),
   );
   return rows;
 }

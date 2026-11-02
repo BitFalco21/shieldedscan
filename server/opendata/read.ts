@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
+  addDays,
   BlockChecker,
   byCodePoint,
   checkPoolUsage,
@@ -157,9 +158,6 @@ export function writeFile(
 function toColumns(columns: readonly ColumnSpec[], rows: readonly Record<string, unknown>[]) {
   return columns.map((c) => rows.map((r) => (r[c.name] ?? null) as ColumnValues[number]));
 }
-
-const addDays = (day: string, n: number) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export async function readRelease(opts: ReadOptions): Promise<Release> {
   const log = opts.log ?? (() => {});

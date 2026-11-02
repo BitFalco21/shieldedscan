@@ -29,7 +29,11 @@ interface DayMiners {
 /** `miner_kind`'s values, and `unrecorded` for a block without one. */
 export const MINER_KINDS = ["transparent", "shielded", "unknown", "unrecorded"] as const;
 
-/** The miner's share of one block's fees: all of it before NU7, less floor(6 × fees / 10) from it. */
+/**
+ * The miner's share of one block's fees: all of it before NU7, less floor(6 × fees / 10) from it.
+ * The domain's `minerFeeShareZat` in BigInt, because a day's sum must stay exact; a test holds
+ * the two equal.
+ */
 export function minerFeeShare(height: number, fee: bigint): bigint {
   return nu7ActiveAt("mainnet", height) ? fee - (fee * 6n) / 10n : fee;
 }

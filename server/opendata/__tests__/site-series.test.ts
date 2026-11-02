@@ -236,6 +236,38 @@ describe("the site's series, consistent", () => {
     expect(siteSeries(views, inputs).failures).toEqual([]);
   });
 
+  it("holds a day with no block (a halt) to the trackers' zero rows", () => {
+    // The trackers walk calendar days; the stream only sees days with blocks.
+    const { views, inputs } = chain();
+    const halt = "2026-01-30";
+    views.check_mining_day!.unshift({ day: halt, blocks: 0, unrecorded_blocks: 0 });
+    views.shielding_daily!.unshift({
+      day: halt,
+      shielding_txs: 0n,
+      unshielding_txs: 0n,
+      indeterminate_txs: 0n,
+      migration_txs: 0n,
+    });
+    views.shielding_records_daily!.unshift({
+      day: halt,
+      max_shielding_zat: null,
+      max_shielding_ties: 0,
+      max_shielding_txid: null,
+      max_unshielding_zat: null,
+      max_unshielding_ties: 0,
+      max_unshielding_txid: null,
+      max_migration_zat: null,
+      max_migration_ties: 0,
+      max_migration_txid: null,
+    });
+    expect(siteSeries(views, inputs).failures).toEqual([]);
+    // But not one that claims a block there.
+    views.check_mining_day![0]!.blocks = 1;
+    expect(siteSeries(views, inputs).failures.join("\n")).toMatch(
+      /the stream differs from mining_day/,
+    );
+  });
+
   it("fails, without crashing, when every view is unreadable", () => {
     const { views, inputs } = chain();
     for (const k of Object.keys(views) as (keyof SiteViews)[]) views[k] = null;
@@ -297,7 +329,12 @@ describe("the site's series, disagreeing with the stream", () => {
     [
       "the supply identity",
       (_, x) => void ((x.supply.at(-1) as Row).issued_zat = 1n),
-      /pools_daily \+ NSM differs from supply_daily.issued_zat/,
+      /chain_day_supply_close \+ NSM differs from supply_daily.issued_zat/,
+    ],
+    [
+      "a site close that breaks the supply identity",
+      (v) => void (on(v.check_day_supply_close, FINAL).transparent_pool_zat = 1n),
+      /chain_day_supply_close \+ NSM differs from supply_daily.issued_zat: 1 \(e\.g\. 2026-02-01\)/,
     ],
     [
       "an average past rounding",

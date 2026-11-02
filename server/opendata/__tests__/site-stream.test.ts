@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { minerFeeShareZat } from "@/domain/consensus";
 import { NU7_HEIGHT } from "@/domain/halving";
 import type { BlockRow } from "../checks";
 import { minerFeeShare, SiteStream } from "../site-stream";
@@ -79,7 +80,13 @@ describe("the site's block series, from the stream", () => {
   });
 
   it("gives the miner all fees before NU7 and four tenths, rounded up, from it", () => {
-    expect(minerFeeShare(NU7_HEIGHT - 1, 1_005n)).toBe(1_005n);
+    for (const height of [NU7_HEIGHT - 1, NU7_HEIGHT, NU7_HEIGHT + 1_000]) {
+      for (const fee of [0, 1, 9, 10, 1_005, 123_456_789]) {
+        expect(minerFeeShare(height, BigInt(fee))).toBe(
+          BigInt(minerFeeShareZat("mainnet", height, fee)),
+        );
+      }
+    }
     expect(minerFeeShare(NU7_HEIGHT, 1_005n)).toBe(1_005n - 603n);
     const s = new SiteStream();
     s.pushBlock(block({ height: NU7_HEIGHT - 1, total_fee_zat: 1_000n }));

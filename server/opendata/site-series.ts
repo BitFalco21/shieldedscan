@@ -81,16 +81,18 @@ function streamTables(f: Findings, v: SiteViews, x: SiteInputs): [SiteTable, Row
       pools,
       upTo(v.check_day_supply_close, x.finalDay),
     );
-  }
 
-  // The supply audit reads the same last blocks: what exists is the pools plus the NSM.
-  const closes = new Map(pools.map((p) => [p.day, p]));
-  for (const s of x.supply) {
-    const p = closes.get(s.day);
-    if (s.issued_zat === null || s.nsm_total_zat === null || p === undefined) continue;
-    const held = POOL_COLUMNS.reduce((sum, col) => sum + ((p[col] as bigint | null) ?? 0n), 0n);
-    if (held + (s.nsm_total_zat as bigint) !== s.issued_zat) {
-      f.add("pools_daily + NSM differs from supply_daily.issued_zat", String(s.day));
+    // The supply audit against the site's own closes, not the stream's (which it is computed
+    // from): what exists at a day's last block is its pools plus the NSM. A missing close is
+    // already a failure above.
+    const closes = new Map(v.check_day_supply_close.map((p) => [String(p.day), p]));
+    for (const s of x.supply) {
+      const p = closes.get(String(s.day));
+      if (s.issued_zat === null || s.nsm_total_zat === null || p === undefined) continue;
+      const held = POOL_COLUMNS.reduce((sum, col) => sum + ((p[col] as bigint | null) ?? 0n), 0n);
+      if (held + (s.nsm_total_zat as bigint) !== s.issued_zat) {
+        f.add("chain_day_supply_close + NSM differs from supply_daily.issued_zat", String(s.day));
+      }
     }
   }
   return [
