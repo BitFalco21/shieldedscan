@@ -23,7 +23,7 @@ import {
   START,
   TIP,
 } from "./support/chain";
-import { OPENDATA_ROLE_LOCK } from "./support/role-lock";
+import { OPENDATA_ROLE_LOCK, READER_PASSWORD } from "./support/role-lock";
 
 /**
  * The export end to end against a real PostgreSQL, through the restricted `opendata_reader` role,
@@ -34,7 +34,6 @@ import { OPENDATA_ROLE_LOCK } from "./support/role-lock";
  */
 const ADMIN_URL = process.env.TEST_DATABASE_URL;
 const DB = `opendata_test_${process.pid}`;
-const READER_PASSWORD = "opendata-test-only";
 const ROOT = join(__dirname, "../../..");
 
 /** A second well-formed mainnet P2PKH address (prefix 1cbd), for a payout that disagrees. */

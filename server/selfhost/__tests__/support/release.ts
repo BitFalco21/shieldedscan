@@ -5,19 +5,16 @@ import { computeTransparentDay } from "../../../transparent-daily";
 import { readAddresses } from "../../../opendata/addresses";
 import { releaseLedger } from "../../../opendata/ledger-release";
 import { ledgerManifest, type Manifest } from "../../../opendata/manifest";
-import { readRelease, writeFile } from "../../../opendata/read";
+import { readRelease } from "../../../opendata/read";
 import { MINER, seedChain, SPACING, START, TIP } from "../../../opendata/__tests__/support/chain";
 import { OPENDATA_ROLE_LOCK } from "../../../opendata/__tests__/support/role-lock";
-import { BLOCKS_COINBASE_COLUMNS } from "../../units";
 
 /**
  * A real release of the export suites' small chain, written by the exporter itself into `outDir`
  * with its manifest, as the daily job would publish it: the input the importer is tested on.
- * `blocks_coinbase/` is written beside it with its frozen schema, as the exporter will.
  */
 
 const ROOT = join(__dirname, "../../../..");
-const READER_PASSWORD = "selfhost-test-only";
 
 export async function buildRelease(
   adminUrl: string,
@@ -36,13 +33,11 @@ export async function buildRelease(
     for (const f of ["server/schema-chain.sql", "server/schema.sql", "server/schema-net.sql"]) {
       await owner.query(readFileSync(join(ROOT, f), "utf8"));
     }
+    // The views only: this release is read as the owner, like ledger-release.test.ts, because
+    // `opendata_reader` allows two connections in the whole cluster and read.test.ts (which proves
+    // the role's confinement) runs alongside. The role block runs under the shared lock.
     await admin.query("SELECT pg_advisory_lock($1)", [OPENDATA_ROLE_LOCK]);
     try {
-      await owner.query(`DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opendata_reader') THEN
-          CREATE ROLE opendata_reader LOGIN CONNECTION LIMIT 2 PASSWORD '${READER_PASSWORD}';
-        END IF; END $$`);
-      await owner.query(`ALTER ROLE opendata_reader PASSWORD '${READER_PASSWORD}'`);
       await owner.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
     } finally {
       await admin.query("SELECT pg_advisory_unlock($1)", [OPENDATA_ROLE_LOCK]);
@@ -72,11 +67,8 @@ export async function buildRelease(
       [TIP],
     );
 
-    const reader = new URL(url.toString());
-    reader.username = "opendata_reader";
-    reader.password = READER_PASSWORD;
     const release = await readRelease({
-      connection: { connectionString: reader.toString() },
+      connection: { connectionString: url.toString() },
       outDir,
       now: () => START + (TIP + 8) * SPACING,
       ledger: (ctx) =>
@@ -90,20 +82,7 @@ export async function buildRelease(
     if (release.failures.length > 0) throw new Error(release.failures.join("; "));
     if (!release.ledger || !release.addresses?.file) throw new Error("no ledger or addresses");
 
-    const coinbase = await owner.query<{
-      height: number;
-      miner_address: string | null;
-      coinbase_tag: string | null;
-    }>("SELECT height, miner_address, coinbase_tag FROM block WHERE height <= $1 ORDER BY height", [
-      release.height,
-    ]);
-    const coinbaseFile = writeFile(
-      outDir,
-      "blocks_coinbase/0000000-0499999.parquet",
-      BLOCKS_COINBASE_COLUMNS,
-      BLOCKS_COINBASE_COLUMNS.map((c) => coinbase.rows.map((r) => r[c.name as keyof typeof r])),
-    );
-    const files = [...release.files, coinbaseFile];
+    const files = release.files;
     const manifest: Manifest = {
       format: 1,
       network: "mainnet",
