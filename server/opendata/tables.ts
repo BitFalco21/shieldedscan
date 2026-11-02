@@ -395,6 +395,19 @@ export const SMALL_TABLES = {
 
 export type SmallTable = keyof typeof SMALL_TABLES;
 
+/**
+ * Every transparent address with a positive balance at the release height. A snapshot, replaced
+ * whole by each release (`REPLACED` in `history.ts`), in address order. No rank column: users sort
+ * by (balance_zat DESC, address), the site's own order.
+ */
+export const ADDRESS_COLUMNS: readonly ColumnSpec[] = [
+  c("address", "utf8"),
+  c("balance_zat", "int64"),
+  c("tx_count", "int64", true),
+];
+
+export const ADDRESSES_FILE = "addresses.parquet";
+
 /** The clients whose names are published; any other self-declared name becomes `other`. */
 export const PUBLISHED_CLIENTS = new Set(["Zebra", "Zakura", "zcashd", "Seeder"]);
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { datasetCard } from "../card";
 import {
+  ADDRESS_COLUMNS,
   BLOCK_COLUMNS,
   SMALL_TABLES,
   TRANSACTION_COLUMNS,
@@ -16,6 +17,7 @@ describe("dataset card", () => {
     transparent_io: TRANSPARENT_IO_COLUMNS,
     transactions_extra: TRANSACTIONS_EXTRA_COLUMNS,
     ...SMALL_TABLES,
+    addresses: ADDRESS_COLUMNS,
   };
 
   it("documents every published table and column", () => {
@@ -40,5 +42,14 @@ describe("dataset card", () => {
     expect(card).toContain("first ~5 GB");
     expect(card).toContain("`transparent_io/<start>-<end>-<part>.parquet`");
     expect(card).toMatch(/unclaimed figure/);
+  });
+
+  it("says addresses are published as a snapshot, with no labels", () => {
+    expect(card).toContain('data_files: "addresses.parquet"');
+    expect(card).toContain("every transparent address's balance");
+    expect(card).toMatch(/`addresses`, a\nsnapshot that each release replaces/);
+    expect(card).toContain("sort by `balance_zat` descending, then `address`");
+    expect(card).toContain("no labels, owners or groupings");
+    expect(card).not.toMatch(/\| `rank` \|/);
   });
 });

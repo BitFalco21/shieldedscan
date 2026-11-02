@@ -21,6 +21,7 @@ import { SiteStream } from "./site-stream";
 import { readSiteViews } from "./site-views";
 import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
 import type { LedgerContext, LedgerOutcome } from "./ledger-release";
+import type { AddressesContext, AddressesOutcome } from "./addresses";
 import {
   DailyHashrate,
   DailyPoolFlows,
@@ -104,6 +105,8 @@ export interface Release {
   underClaimed: number;
   /** The transparent ledger, when the release was asked for it. */
   ledger: LedgerOutcome | null;
+  /** The `addresses` snapshot, when the release was asked for it. */
+  addresses: AddressesOutcome | null;
 }
 
 export interface ReadOptions {
@@ -118,6 +121,8 @@ export interface ReadOptions {
    * range in its own snapshot below N like the transactions.
    */
   ledger?: (ctx: LedgerContext) => Promise<LedgerOutcome>;
+  /** The `addresses` snapshot (`addresses.ts`), read in its own snapshot after the series. */
+  addresses?: (ctx: AddressesContext) => Promise<AddressesOutcome>;
 }
 
 const sha256 = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
@@ -467,6 +472,13 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       files.push(file(`${name}.parquet`, columns, toColumns(columns, rows)));
     }
 
+    let addresses: AddressesOutcome | null = null;
+    if (opts.addresses) {
+      addresses = await opts.addresses({ client: snap, height, hash, afterChunk: watchFollower });
+      failures.push(...addresses.failures);
+      if (addresses.file) files.push(addresses.file);
+    }
+
     let ledger: LedgerOutcome | null = null;
     if (opts.ledger) {
       ledger = await opts.ledger({
@@ -495,6 +507,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       alerts: checker.alerts.list(),
       underClaimed: checker.underClaimed,
       ledger,
+      addresses,
     };
   } catch (e) {
     await snap.query("ROLLBACK").catch(() => {});

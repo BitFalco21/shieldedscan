@@ -26,6 +26,12 @@ export interface HistoryResult {
   fills: Fill[];
 }
 
+/**
+ * Snapshots: files replaced whole by each release, so the rule above cannot apply to their rows.
+ * They are still never dropped, and the manifest records the height each one stands at.
+ */
+export const REPLACED: ReadonlySet<string> = new Set(["addresses.parquet"]);
+
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
@@ -87,7 +93,7 @@ export function compareHistory(
       failures.push(`${prev.path}: published before, missing now`);
       continue;
     }
-    if (prev.sha256 === now.sha256) continue;
+    if (prev.sha256 === now.sha256 || REPLACED.has(prev.path)) continue;
 
     const a = read(prev.read());
     const b = read(now.read());

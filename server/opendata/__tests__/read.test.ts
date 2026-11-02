@@ -9,6 +9,7 @@ import { base58checkEncode } from "@/domain/encoding/base58check";
 import { blockSubsidyZat } from "@/domain/halving";
 import { computeBoundaryDay, upsertBoundaryDay } from "../../boundary-daily";
 import { computeMiningDay } from "../../mining-daily";
+import { readAddresses } from "../addresses";
 import { readLedgerRange } from "../ledger";
 import { releaseLedger } from "../ledger-release";
 import { CONFIRMATIONS, exportTypes, readRelease, type Release } from "../read";
@@ -465,6 +466,50 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       await expect(reader.query("SELECT 1 FROM net_node")).rejects.toThrow(/permission denied/);
     } finally {
       await reader.end();
+    }
+  });
+
+  it("publishes the addresses snapshot, rewound to the release height", async () => {
+    // The ledger's one address made a real t-address, and the rich list built from it at the tip.
+    await db.query("UPDATE tx_transparent_io SET address = $1 WHERE address = 't1coinbase'", [
+      MINER,
+    ]);
+    await db.query(
+      `INSERT INTO chain_address_balance (address, balance_zat, received_zat, first_height, last_height, tx_count)
+       SELECT address, SUM(CASE WHEN io = 'out' THEN value_zat ELSE -value_zat END),
+              SUM(CASE WHEN io = 'out' THEN value_zat ELSE 0 END), MIN(block_height),
+              MAX(block_height), COUNT(DISTINCT txid)
+         FROM tx_transparent_io GROUP BY address`,
+    );
+    await db.query(
+      "INSERT INTO chain_rich_list_meta (id, unattributed_zat, computed_height) VALUES (true, 0, $1)",
+      [TIP],
+    );
+    try {
+      const outDir = mkdtempSync(join(tmpdir(), "opendata-test-"));
+      const r = await readRelease({
+        connection,
+        outDir,
+        now: () => START + (TIP + 8) * SPACING,
+        addresses: (ctx) => readAddresses(ctx, { outDir }),
+      });
+      outDirs.set(r, outDir);
+      expect(r.failures).toEqual([]);
+      expect(r.addresses).toMatchObject({ height: RELEASE, rewoundFrom: TIP, rows: 1 });
+      expect(r.files.map((f) => f.path).at(-1)).toBe("addresses.parquet");
+      const n = BigInt(RELEASE);
+      // Every coinbase up to N, less the 1,000 zat spent from 101; its coinbases and spends.
+      expect(
+        read(r, "addresses.parquet")
+          .toArray()
+          .map((x) => [x.address, x.balance_zat, x.tx_count]),
+      ).toEqual([[MINER, (62_500n * n * (n + 1n)) / 2n - (n - 100n) * 1000n, 2n * n - 99n]]);
+    } finally {
+      await db.query("DELETE FROM chain_rich_list_meta");
+      await db.query("DELETE FROM chain_address_balance");
+      await db.query("UPDATE tx_transparent_io SET address = 't1coinbase' WHERE address = $1", [
+        MINER,
+      ]);
     }
   });
 
