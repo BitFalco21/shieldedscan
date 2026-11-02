@@ -277,7 +277,7 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     address: "Transparent address, t1… or t3….",
     balance_zat: "Its balance at the release height, zatoshis; always positive.",
     tx_count:
-      "Transactions it appears in, either side, up to the release height. NULL where not yet counted.",
+      "Transactions it appears in, either side, up to the release height. NULL where not known: not yet counted, or the address emptied after the release height.",
   },
   mining_payouts_daily: {
     kind: "transparent, shielded (a shielded coinbase, ZIP 213) or unknown (the coinbase names no address).",

@@ -504,6 +504,27 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
           .toArray()
           .map((x) => [x.address, x.balance_zat, x.tx_count]),
       ).toEqual([[MINER, (62_500n * n * (n + 1n)) / 2n - (n - 100n) * 1000n, 2n * n - 99n]]);
+
+      // The role reads the rich list through its two views, never the tables or the rank.
+      const reader = new Client(connection);
+      await reader.connect();
+      try {
+        for (const sql of [
+          "SELECT address FROM chain_address_balance LIMIT 1",
+          "SELECT computed_height FROM chain_rich_list_meta",
+        ]) {
+          await expect(reader.query(sql)).rejects.toThrow(/permission denied/);
+        }
+        await expect(reader.query("SELECT rank FROM opendata.addresses")).rejects.toThrow(
+          /column "rank" does not exist/,
+        );
+        const { rows } = await reader.query<{ n: number }>(
+          "SELECT count(*)::int AS n FROM opendata.addresses",
+        );
+        expect(rows[0]!.n).toBe(1);
+      } finally {
+        await reader.end();
+      }
     } finally {
       await db.query("DELETE FROM chain_rich_list_meta");
       await db.query("DELETE FROM chain_address_balance");

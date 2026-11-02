@@ -93,7 +93,7 @@ export function compareHistory(
       failures.push(`${prev.path}: published before, missing now`);
       continue;
     }
-    if (prev.sha256 === now.sha256 || REPLACED.has(prev.path)) continue;
+    if (prev.sha256 === now.sha256) continue;
 
     const a = read(prev.read());
     const b = read(now.read());
@@ -103,6 +103,7 @@ export function compareHistory(
       failures.push(`${prev.path}: columns changed`);
       continue;
     }
+    if (REPLACED.has(prev.path)) continue;
     const key = rowKey(prev.path);
     const keyOf = (t: Table, i: number) => JSON.stringify(key.map((k) => cell(t, k, i)));
     const index = new Map<string, number>();

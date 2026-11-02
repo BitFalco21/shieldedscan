@@ -138,9 +138,23 @@ describe("a snapshot's history", () => {
     });
   });
 
-  it("still stops when the snapshot is dropped", () => {
+  it("still stops when the snapshot is dropped, or its columns change", () => {
     expect(compareHistory([snapshot(BEFORE)], []).failures).toEqual([
       "addresses.parquet: published before, missing now",
+    ]);
+    const renamed = toParquet(
+      arrowTable(
+        [COLS[0]!, { name: "balance", type: "int64", nullable: false }],
+        [AFTER.map((r) => r[0]), AFTER.map((r) => r[1])],
+      ),
+    );
+    const next = {
+      path: "addresses.parquet",
+      sha256: createHash("sha256").update(renamed).digest("hex"),
+      read: () => renamed,
+    };
+    expect(compareHistory([snapshot(BEFORE)], [next]).failures).toEqual([
+      "addresses.parquet: columns changed",
     ]);
   });
 

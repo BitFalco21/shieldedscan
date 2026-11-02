@@ -22,7 +22,10 @@ import { ADDRESS_COLUMNS, ADDRESSES_FILE } from "./tables";
 const CHUNK = 100_000;
 /** Heights per rewind query. */
 const REWIND_CHUNK = 1_000;
-/** How far above N the balances may stand: further means a stalled release, not a lag. */
+/**
+ * How far above N the balances may stand. C never passes the tip, so only a release whose sync
+ * state lags the rich list by this much reaches it: a guard on the rewind's size, not a lag rule.
+ */
 export const MAX_REWIND = 2_000;
 
 export interface AddressesContext {
@@ -137,8 +140,9 @@ export function sortAndValidate(b: Balances, f: Findings): Balances {
 
 const DELTA_SQL = `
   SELECT address,
-         SUM(CASE WHEN io = 'out' THEN value_zat ELSE -value_zat END)::bigint AS zat,
-         COUNT(DISTINCT txid)::bigint AS txs
+         COALESCE(SUM(CASE WHEN io = 'out' THEN value_zat ELSE -value_zat END), 0)::bigint AS zat,
+         COUNT(DISTINCT txid)::bigint AS txs,
+         COUNT(*) FILTER (WHERE value_zat IS NULL)::bigint AS unknown
     FROM opendata.transparent_io
    WHERE block_height BETWEEN $1 AND $2
    GROUP BY address`;
@@ -194,6 +198,8 @@ export async function readAddresses(
     const pool = (h: number) => blocks.rows.find((r) => r.height === h);
     if (pool(height)?.hash !== ctx.hash) {
       f.add("block at the release height changed under the address read", `height ${height}`);
+      await client.query("COMMIT");
+      return outcome(from);
     }
 
     at = { address: [], balance: [], txCount: [] };
@@ -229,11 +235,17 @@ export async function readAddresses(
 
     const step = opts.rewindChunk ?? REWIND_CHUNK;
     for (let a = height + 1; a <= from; a += step) {
-      const { rows } = await client.query<{ address: string | null; zat: bigint; txs: bigint }>(
-        DELTA_SQL,
-        [a, Math.min(from, a + step - 1)],
-      );
+      const { rows } = await client.query<{
+        address: string | null;
+        zat: bigint;
+        txs: bigint;
+        unknown: bigint;
+      }>(DELTA_SQL, [a, Math.min(from, a + step - 1)]);
       for (const r of rows) {
+        // An input not yet resolved: the follower's sum skipped it too, so the rewind cannot be
+        // trusted (the identity at C would show it as well).
+        if (r.unknown > 0n)
+          f.add("transparent value unknown in the rewind range", `${r.unknown} rows`);
         if (r.address === null) {
           unattributed -= r.zat;
           continue;

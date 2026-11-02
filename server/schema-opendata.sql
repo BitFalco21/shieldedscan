@@ -5,8 +5,8 @@
 -- published by accident. Views run with their owner's rights (the PostgreSQL default), so the
 -- export's role needs nothing on the base tables and cannot read them.
 --
--- What is deliberately absent, and why, is listed in the dataset card: node IP addresses,
--- third-party price and GeoIP data, and any label on an address. Transparent addresses are
+-- What is deliberately absent, and why, is listed in the dataset card: miner-written text, node
+-- IP addresses, third-party price and GeoIP data, and any label on an address. Transparent addresses are
 -- published, by the owner's decision: they are chain facts, as the chain shows them.
 
 CREATE SCHEMA IF NOT EXISTS opendata;

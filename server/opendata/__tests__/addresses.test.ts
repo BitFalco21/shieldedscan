@@ -103,13 +103,14 @@ describe("rewinding the rich list to the release height", () => {
 });
 
 /**
- * Against a real PostgreSQL, through `opendata_reader`: a small chain whose rich list is built
- * by the follower's own `bootstrapRichList`, then read and rewound. Skips without
- * TEST_DATABASE_URL, like the other DB suites.
+ * Against a real PostgreSQL, through the `opendata` views: a small chain whose rich list is built
+ * by the follower's own code (`bootstrapRichList` at N, then its per-block delta up to the tip),
+ * then read and rewound. Read as the database owner, like ledger-release.test.ts: the reader role
+ * allows two connections in the whole cluster, and read.test.ts proves its confinement to these
+ * views. Skips without TEST_DATABASE_URL, like the other DB suites.
  */
 const ADMIN_URL = process.env.TEST_DATABASE_URL;
 const DB = `opendata_addr_test_${process.pid}`;
-const READER_PASSWORD = "opendata-test-only";
 const ROOT = join(__dirname, "../../..");
 
 const TIP = 140;
@@ -121,6 +122,7 @@ const B = tAddress(2, true);
 const C = tAddress(3);
 const D = tAddress(4);
 const E = tAddress(5);
+const F = tAddress(6, true);
 
 interface Io {
   address: string | null;
@@ -136,8 +138,9 @@ interface Tx {
 
 /**
  * Each block's coinbase pays A 1,000 zat, and every tenth also pays 7 zat to a bare key (no
- * address). Then: A pays B and D at 10, A pays C at 20; after N, D spends everything to E (D
- * leaves the rich list), B pays itself and A, and the bare key's 7 zat goes to A.
+ * address). Then: A pays B and D at 10, A pays C at 20, A pays F at 30; after N, D spends
+ * everything to E (D leaves the rich list), B pays itself and A, the bare key's 7 zat goes to A,
+ * and F empties at 90 and is paid again at 100 (re-derived in full by the follower).
  */
 function chain(): Tx[] {
   const txs: Tx[] = [];
@@ -175,6 +178,22 @@ function chain(): Tx[] {
     ],
   );
   pay(80, 5, [{ address: null, value: 7n, prev: [cb(0), 1] }], [{ address: A, value: 7n }]);
+  pay(30, 6, [{ address: A, value: 1000n, prev: [cb(29), 0] }], [{ address: F, value: 1000n }]);
+  pay(
+    90,
+    7,
+    [{ address: F, value: 1000n, prev: [hex(2_000_006), 0] }],
+    [{ address: A, value: 1000n }],
+  );
+  pay(
+    100,
+    8,
+    [{ address: A, value: 1000n, prev: [cb(99), 0] }],
+    [
+      { address: F, value: 250n },
+      { address: A, value: 750n },
+    ],
+  );
   return txs;
 }
 
@@ -183,7 +202,6 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
   let db: Client;
   let reader: Client;
   let ownerUrl: string;
-  let connection: { connectionString: string };
   const outDirs: string[] = [];
 
   const read = async (
@@ -223,18 +241,13 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
     for (const f of ["server/schema-chain.sql", "server/schema.sql", "server/schema-net.sql"]) {
       await db.query(readFileSync(join(ROOT, f), "utf8"));
     }
-    await db.query(`DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opendata_reader') THEN
-        CREATE ROLE opendata_reader LOGIN CONNECTION LIMIT 2 PASSWORD '${READER_PASSWORD}';
-      END IF; END $$`);
-    await db.query(`ALTER ROLE opendata_reader PASSWORD '${READER_PASSWORD}'`);
-    await db.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
-    const r = new URL(ownerUrl);
-    r.username = "opendata_reader";
-    r.password = READER_PASSWORD;
-    connection = { connectionString: r.toString() };
+    // The views only: the role block alters a cluster-wide role, and running it alongside the
+    // other suites' copies fails with "tuple concurrently updated".
+    const views = readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8");
+    await db.query(views.slice(0, views.indexOf("\nDO $$")));
 
     const txs = chain();
+    const store = new PostgresChainStore(ownerUrl);
     let pool = 0n;
     for (let h = 0; h <= TIP; h++) {
       const here = txs.filter((t) => t.height === h);
@@ -277,15 +290,15 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
           );
         }
       }
+      if (h === N) await store.bootstrapRichList();
     }
-    // The rich list as the follower builds it, at the tip.
-    const store = new PostgresChainStore(ownerUrl);
+    // The rest as the follower applies it, block by block, up to the tip.
     try {
-      await store.bootstrapRichList();
+      expect(await store.catchUpRichList()).toBe(TIP - N);
     } finally {
       await store.close();
     }
-    reader = new Client({ ...connection, types: exportTypes });
+    reader = new Client({ connectionString: ownerUrl, types: exportTypes });
     await reader.connect();
   }, 120_000);
 
@@ -297,26 +310,14 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
     for (const dir of outDirs) rmSync(dir, { recursive: true, force: true });
   });
 
-  it("reads the rich list through its views only, and never its rank", async () => {
-    const plain = new Client(connection);
-    await plain.connect();
-    try {
-      for (const sql of [
-        "SELECT address FROM chain_address_balance LIMIT 1",
-        "SELECT computed_height FROM chain_rich_list_meta",
-      ]) {
-        await expect(plain.query(sql)).rejects.toThrow(/permission denied/);
-      }
-      await expect(plain.query("SELECT rank FROM opendata.addresses")).rejects.toThrow(
-        /column "rank" does not exist/,
-      );
-      const { rows } = await plain.query<{ n: number }>(
-        "SELECT count(*)::int AS n FROM opendata.addresses",
-      );
-      expect(rows[0]!.n).toBe(4); // A, B, C and E: D spent everything at 60
-    } finally {
-      await plain.end();
-    }
+  it("exposes the rich list without its rank", async () => {
+    await expect(db.query("SELECT rank FROM opendata.addresses")).rejects.toThrow(
+      /column "rank" does not exist/,
+    );
+    const { rows } = await db.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM opendata.addresses",
+    );
+    expect(rows[0]!.n).toBe(5); // A, B, C, E and F: D spent everything at 60
   });
 
   it("publishes the balances at N, rewound from the rich list's height", async () => {
@@ -335,8 +336,29 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
       .map((r) => [r.address, BigInt(r.balance), r.address === D ? null : BigInt(r.txs)] as const)
       .sort((a, b) => (a[0] < b[0] ? -1 : 1));
     expect(rowsOf(o)).toEqual(expected);
-    expect(expected.map((r) => r[0]).sort()).toEqual([A, B, C, D].sort());
-    expect(o.rows).toBe(4);
+    expect(expected.map((r) => r[0]).sort()).toEqual([A, B, C, D, F].sort());
+    expect(o.rows).toBe(5);
+    // F came back after N, so the follower re-derived it in full; the rewind still lands on N.
+    const f = await db.query<{ tx_count: string; balance_zat: string }>(
+      "SELECT tx_count::text, balance_zat::text FROM chain_address_balance WHERE address = $1",
+      [F],
+    );
+    expect(f.rows[0]).toEqual({ tx_count: "3", balance_zat: "250" });
+    expect(rowsOf(o).find((r) => r[0] === F)).toEqual([F, 1000n, 1n]);
+  });
+
+  it("publishes the rich list as it is when it stands at the release height", async () => {
+    const o = await read({ height: TIP });
+    expect(o.failures).toEqual([]);
+    expect(o.rewoundFrom).toBe(TIP);
+    const { rows } = await db.query<{ address: string; balance: string; txs: string }>(
+      "SELECT address, balance_zat::text AS balance, tx_count::text AS txs FROM chain_address_balance",
+    );
+    expect(rowsOf(o)).toEqual(
+      rows
+        .map((r) => [r.address, BigInt(r.balance), BigInt(r.txs)] as const)
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1)),
+    );
   });
 
   it("keeps a count the backfill has not filled as NULL, never 0", async () => {
@@ -371,6 +393,12 @@ describe.skipIf(!ADMIN_URL)("the addresses snapshot", () => {
       `UPDATE block SET transparent_pool_zat = transparent_pool_zat + 1 WHERE height = ${N}`,
       `UPDATE block SET transparent_pool_zat = transparent_pool_zat - 1 WHERE height = ${N}`,
       new RegExp(`do not add up to the transparent pool: 1 \\(e\\.g\\. height ${N}:`),
+    ],
+    [
+      "an input of unknown value in the rewind range",
+      `UPDATE tx_transparent_io SET value_zat = NULL WHERE txid = '${hex(2_000_003)}' AND io = 'in'`,
+      `UPDATE tx_transparent_io SET value_zat = 400 WHERE txid = '${hex(2_000_003)}' AND io = 'in'`,
+      /transparent value unknown in the rewind range: 1/,
     ],
     [
       "an address that is not a mainnet t-address",
