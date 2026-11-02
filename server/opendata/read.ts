@@ -7,11 +7,15 @@ import {
   addDays,
   BlockChecker,
   byCodePoint,
+  checkCapableReleases,
+  checkNsm,
   checkPoolUsage,
+  Findings,
   checkUnderclaim,
   checkShieldingDaily,
   publishedRelease,
   scanStrings,
+  utcDay,
   type BlockRow,
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
@@ -19,11 +23,22 @@ import type { BoundaryTx } from "./site-boundary";
 import { siteSeries } from "./site-series";
 import { SiteStream } from "./site-stream";
 import { readSiteViews } from "./site-views";
-import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
+import { compareRows } from "./site-checks";
+import {
+  BlockExpectations,
+  CoinbaseChecker,
+  DailyBlocks,
+  DailyMining,
+  MiningConcentration,
+  TxChecker,
+  type MinerRow,
+  type TxRow,
+} from "./derived";
 import type { LedgerContext, LedgerOutcome } from "./ledger-release";
 import type { AddressesContext, AddressesOutcome } from "./addresses";
 import {
   DailyHashrate,
+  DailyNsm,
   DailyPoolFlows,
   DailyShieldedCoinbase,
   DailySupply,
@@ -31,9 +46,12 @@ import {
   type MetricTx,
 } from "./metrics";
 import {
+  BLOCK_COINBASE_COLUMNS,
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
+  blocksCoinbaseFile,
   blocksFile,
+  NU7_CAPABLE_RELEASES,
   HEIGHTS_PER_TX_FILE,
   TRANSACTION_COLUMNS,
   transactionsFile,
@@ -211,41 +229,74 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const dailyMining = new DailyMining();
     const dailyHashrate = new DailyHashrate();
     const dailySupply = new DailySupply();
+    const dailyNsm = new DailyNsm();
+    const coinbaseChecker = new CoinbaseChecker();
+    const coinbaseFailures: string[] = [];
+    const concentration = new MiningConcentration();
     const site = new SiteStream();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
       const values: ColumnValues[] = BLOCK_COLUMNS.map(() => []);
+      const coinbase: ColumnValues[] = BLOCK_COINBASE_COLUMNS.map(() => []);
       for (let a = start; a <= end; a += CHUNK) {
         const b = Math.min(end, a + CHUNK - 1);
         const { rows } = await snap.query<Record<string, unknown>>(
           `SELECT ${cols} FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
           [a, b],
         );
-        for (const r of rows) {
+        // The same rows of `block`, in the same snapshot and order: paired by position, and the
+        // checker requires each pair to share its height.
+        const miners = await snap.query<MinerRow>(
+          `SELECT height, timestamp, miner_address, coinbase_tag FROM opendata.block_miners
+            WHERE height BETWEEN $1 AND $2 ORDER BY height`,
+          [a, b],
+        );
+        if (miners.rows.length !== rows.length) {
+          coinbaseFailures.push(
+            `blocks_coinbase: ${miners.rows.length} rows for ${rows.length} blocks`,
+          );
+        }
+        rows.forEach((r, i) => {
           const row = r as unknown as BlockRow;
           checker.push(row);
           expected.record(row);
           dailyBlocks.push(row);
           dailyHashrate.push(row);
           dailySupply.push(row);
+          dailyNsm.push(row);
           site.pushBlock(row);
-          BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
-        }
-        // The coinbase text is read only to match the fixed list of self-named operators.
-        const miners = await snap.query<{ timestamp: bigint; coinbase_tag: string | null }>(
-          "SELECT timestamp, coinbase_tag FROM opendata.block_miners WHERE height BETWEEN $1 AND $2",
-          [a, b],
-        );
-        for (const m of miners.rows) dailyMining.push(m.timestamp, m.coinbase_tag);
+          BLOCK_COLUMNS.forEach((c, j) => (values[j] as unknown[]).push(r[c.name] ?? null));
+          const m = miners.rows[i];
+          coinbaseChecker.push(row, m);
+          if (m === undefined) return;
+          dailyMining.push(m.timestamp, m.coinbase_tag);
+          concentration.push(utcDay(row.timestamp), row.miner_kind, m.miner_address);
+          (coinbase[0] as unknown[]).push(m.height);
+          (coinbase[1] as unknown[]).push(m.miner_address);
+          (coinbase[2] as unknown[]).push(m.coinbase_tag);
+        });
         await watchFollower();
       }
       files.push(file(blocksFile(start), BLOCK_COLUMNS, values));
       log(`${blocksFile(start)}: ${values[0]!.length} rows`);
+      // Both text columns are exempt from the scan by name (`scanStrings`), and held instead to
+      // a t-address and to the sanitised form by `coinbaseChecker`.
+      BLOCK_COINBASE_COLUMNS.forEach((c, j) => {
+        if (c.type !== "utf8") return;
+        coinbaseFailures.push(
+          ...scanStrings("blocks_coinbase", c.name, coinbase[j] as (string | null)[]),
+        );
+      });
+      files.push(file(blocksCoinbaseFile(start), BLOCK_COINBASE_COLUMNS, coinbase));
     }
 
     const last = checker.last;
-    const failures = checker.failures.list();
+    const failures = [
+      ...checker.failures.list(),
+      ...coinbaseChecker.failures.list(),
+      ...coinbaseFailures,
+    ];
     if (last === null || last.height !== height) {
       failures.push(`blocks end at ${last?.height ?? "nothing"}, expected ${height}`);
     }
@@ -394,6 +445,13 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         failures.push(`supply above the protocol schedule on ${String(r.day)}`);
       }
     }
+    // Empty before NU7, which is not a failure: the card says so.
+    const nsmRows = dailyNsm.rows(finalDay);
+    const nsm = checkNsm(nsmRows, supplyRows, {
+      nsm: dailyNsm.total,
+      supply: dailySupply.nsmTotalAtRelease,
+    });
+    failures.push(...nsm.failures, ...checkCapableReleases(NU7_CAPABLE_RELEASES).failures);
 
     const tables: [SmallTable, readonly ColumnSpec[], readonly Record<string, unknown>[]][] = [
       ["pool_usage_daily", poolUsage.columns, poolUsage.rows],
@@ -407,6 +465,8 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["mining_daily", SMALL_TABLES.mining_daily, dailyMining.rows(finalDay)],
       ["hashrate_daily", SMALL_TABLES.hashrate_daily, dailyHashrate.rows(finalDay)],
       ["supply_daily", SMALL_TABLES.supply_daily, supplyRows],
+      ["nsm_daily", SMALL_TABLES.nsm_daily, nsmRows],
+      ["nu7_capable_releases", SMALL_TABLES.nu7_capable_releases, NU7_CAPABLE_RELEASES],
     ];
     writeTables(tables);
 
@@ -471,6 +531,36 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       const columns = SMALL_TABLES[name];
       files.push(file(`${name}.parquet`, columns, toColumns(columns, rows)));
     }
+
+    // Concentration from the stream, held to the same windows built from the site's payout rows:
+    // the payouts are checked per day in total, this checks them per address as well.
+    const concentrationRows = concentration.rows(finalDay);
+    const fromPayouts = new MiningConcentration();
+    for (const p of series.tables.find(([name]) => name === "mining_payouts_daily")?.[1] ?? []) {
+      fromPayouts.push(
+        String(p.day),
+        String(p.kind),
+        (p.address as string | null) ?? null,
+        p.blocks as number,
+      );
+    }
+    const concentrationFindings = new Findings();
+    compareRows(
+      concentrationFindings,
+      {
+        name: "mining_concentration_daily",
+        against: "mining_payouts_daily",
+        key: ["day"],
+        columns: SMALL_TABLES.mining_concentration_daily.map((c) => c.name).slice(1),
+        floats: ["top1_share", "top3_share", "top5_share"],
+      },
+      concentrationRows,
+      fromPayouts.rows(finalDay),
+    );
+    failures.push(...concentrationFindings.list());
+    writeTables([
+      ["mining_concentration_daily", SMALL_TABLES.mining_concentration_daily, concentrationRows],
+    ]);
 
     const alerts = checker.alerts.list();
     let addresses: AddressesOutcome | null = null;

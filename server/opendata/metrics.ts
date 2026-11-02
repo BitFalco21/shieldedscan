@@ -1,5 +1,5 @@
 import { blockSubsidyZat } from "@/domain/halving";
-import { nu7ActiveAt } from "@/domain/consensus";
+import { minerFeeShareZat, nu7ActiveAt } from "@/domain/consensus";
 import { SOLUTIONS_PER_DIFFICULTY } from "@/domain/mining";
 import { byCodePoint, utcDay, type BlockRow, type SupplyAtRelease } from "./checks";
 
@@ -182,6 +182,58 @@ export class DailyHashrate {
 }
 
 /**
+ * What a block moved into the NSM (ZIP 235): its fees less the miner's share, through the site's
+ * one formula (`minerFeeShareZat`), so the dataset and the site can never split a fee two ways.
+ * Zero before NU7; unknown from NU7 when the block's fee total is.
+ */
+export function nsmShareZat(height: number, feeZat: bigint | null): bigint | null {
+  if (!nu7ActiveAt("mainnet", height)) return 0n;
+  if (feeZat === null) return null;
+  const fee = Number(feeZat);
+  // A block's fees are far below 2^53 zat; a value that is not is a corrupt row, never rounded.
+  if (!Number.isSafeInteger(fee)) throw new Error(`block ${height}: fee ${feeZat} out of range`);
+  return feeZat - BigInt(minerFeeShareZat("mainnet", height, fee));
+}
+
+/**
+ * Fees moved into the NSM per UTC day, from NU7, and the running total. A block whose fee total
+ * is unknown leaves its day's inflow unknown, and the total from then on, exactly as
+ * `DailySupply` does: the two are held to each other day by day (`checkNsm`). Pre-NU7 blocks
+ * add no row, so before activation the table is empty.
+ */
+export class DailyNsm {
+  private readonly days = new Map<string, { inflow: bigint | null; total: bigint | null }>();
+  private runningTotal: bigint | null = 0n;
+
+  /** The total at the last block pushed (the release height). */
+  get total(): bigint | null {
+    return this.runningTotal;
+  }
+
+  push(row: BlockRow): void {
+    if (!nu7ActiveAt("mainnet", row.height)) return;
+    const share = nsmShareZat(row.height, row.total_fee_zat);
+    this.runningTotal =
+      this.runningTotal === null || share === null ? null : this.runningTotal + share;
+    const day = utcDay(row.timestamp);
+    const d = this.days.get(day) ?? { inflow: 0n, total: 0n };
+    d.inflow = d.inflow === null || share === null ? null : d.inflow + share;
+    d.total = this.runningTotal;
+    this.days.set(day, d);
+  }
+
+  rows(finalDay: string): Record<string, unknown>[] {
+    return [...this.days.keys()]
+      .filter((day) => day <= finalDay)
+      .sort(byCodePoint)
+      .map((day) => {
+        const d = this.days.get(day)!;
+        return { day, nsm_inflow_zat: d.inflow, nsm_total_zat: d.total };
+      });
+  }
+}
+
+/**
  * Supply per UTC day, at the day's last block: what the protocol's schedule allowed so far, what
  * exists (every pool, the lockbox and, from NU7, the NSM), and the difference, which is subsidy
  * miners never claimed. NSM receives floor(6 × fees / 10) of each block from NU7 (ZIP 235),
@@ -204,12 +256,14 @@ export class DailySupply {
     return this.last;
   }
 
+  /** All fees moved into the NSM up to the last block pushed, for `nsm_daily`'s cross-check. */
+  get nsmTotalAtRelease(): bigint | null {
+    return this.nsmTotal;
+  }
+
   push(row: BlockRow): void {
     this.schedule += BigInt(blockSubsidyZat(row.height));
-    let nsm: bigint | null = 0n;
-    if (nu7ActiveAt("mainnet", row.height)) {
-      nsm = row.total_fee_zat === null ? null : (row.total_fee_zat * 6n) / 10n;
-    }
+    const nsm = nsmShareZat(row.height, row.total_fee_zat);
     const unknownFeeFrom = this.last.unknownFeeFrom ?? (nsm === null ? row.height : null);
     this.nsmTotal = this.nsmTotal === null || nsm === null ? null : this.nsmTotal + nsm;
 

@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { minerFeeShareZat } from "@/domain/consensus";
 import { NU7_HEIGHT } from "@/domain/halving";
-import type { BlockRow } from "../checks";
+import { checkCapableReleases, checkNsm, type BlockRow } from "../checks";
 import {
   DailyHashrate,
+  DailyNsm,
   DailyPoolFlows,
   DailyShieldedCoinbase,
   DailySupply,
   DailyTxVersions,
+  nsmShareZat,
   type MetricTx,
 } from "../metrics";
+import { NU7_CAPABLE_RELEASES } from "../tables";
 
 const DAY = 86_400n;
 const T0 = 1_700_000_000n - (1_700_000_000n % DAY); // a UTC midnight
@@ -197,5 +201,115 @@ describe("DailySupply", () => {
     m.push(block({ height: NU7_HEIGHT - 1, total_fee_zat: 1_000n, transparent_pool_zat: 0n }));
     m.push(block({ height: NU7_HEIGHT, total_fee_zat: 1_005n, transparent_pool_zat: 0n }));
     expect(m.rows(day(0))[0]).toMatchObject({ nsm_zat: 603n, nsm_total_zat: 603n });
+  });
+});
+
+describe("nsm_daily", () => {
+  const supplyAndNsm = (rows: Partial<BlockRow>[]) => {
+    const supply = new DailySupply();
+    const nsm = new DailyNsm();
+    for (const r of rows) {
+      const b = block({ transparent_pool_zat: 0n, ...r });
+      supply.push(b);
+      nsm.push(b);
+    }
+    return { supply, nsm };
+  };
+  const check = ({ supply, nsm }: ReturnType<typeof supplyAndNsm>) =>
+    checkNsm(nsm.rows(day(9)), supply.rows(day(9)), {
+      nsm: nsm.total,
+      supply: supply.nsmTotalAtRelease,
+    }).failures;
+
+  it("splits a fee exactly as the site's miner share does", () => {
+    for (const fee of [0, 1, 7, 10, 1_005, 123_456_789]) {
+      const nsm = nsmShareZat(NU7_HEIGHT, BigInt(fee))!;
+      expect(nsm).toBe(BigInt(Math.floor((fee * 6) / 10)));
+      expect(nsm + BigInt(minerFeeShareZat("mainnet", NU7_HEIGHT, fee))).toBe(BigInt(fee));
+    }
+    expect(nsmShareZat(NU7_HEIGHT - 1, 1_000n)).toBe(0n);
+    // Before NU7 nothing goes to the NSM whatever the fee, so an unknown fee is still zero there.
+    expect(nsmShareZat(NU7_HEIGHT - 1, null)).toBe(0n);
+    expect(nsmShareZat(NU7_HEIGHT, null)).toBeNull();
+  });
+
+  it("has no rows before NU7, and that is not a failure", () => {
+    const both = supplyAndNsm([{ height: NU7_HEIGHT - 2 }, { height: NU7_HEIGHT - 1 }]);
+    expect(both.nsm.rows(day(9))).toEqual([]);
+    expect(both.nsm.total).toBe(0n);
+    expect(check(both)).toEqual([]);
+  });
+
+  it("starts on the activation day, where pre-NU7 blocks add nothing", () => {
+    const both = supplyAndNsm([
+      { height: NU7_HEIGHT - 1, total_fee_zat: 1_000n },
+      { height: NU7_HEIGHT, total_fee_zat: 1_005n },
+      { height: NU7_HEIGHT + 1, total_fee_zat: 10n, timestamp: T0 + DAY },
+    ]);
+    expect(both.nsm.rows(day(9))).toEqual([
+      { day: day(0), nsm_inflow_zat: 603n, nsm_total_zat: 603n },
+      { day: day(1), nsm_inflow_zat: 6n, nsm_total_zat: 609n },
+    ]);
+    expect(both.nsm.rows(day(0))).toHaveLength(1);
+    expect(both.nsm.total).toBe(609n);
+    expect(check(both)).toEqual([]);
+  });
+
+  it("makes an unknown fee's day, and every later total, NULL, never zero", () => {
+    const both = supplyAndNsm([
+      { height: NU7_HEIGHT, total_fee_zat: 10n },
+      { height: NU7_HEIGHT + 1, total_fee_zat: null },
+      { height: NU7_HEIGHT + 2, total_fee_zat: 20n, timestamp: T0 + DAY },
+    ]);
+    expect(both.nsm.rows(day(9))).toEqual([
+      { day: day(0), nsm_inflow_zat: null, nsm_total_zat: null },
+      { day: day(1), nsm_inflow_zat: 12n, nsm_total_zat: null },
+    ]);
+    expect(both.nsm.total).toBeNull();
+    expect(check(both)).toEqual([]);
+  });
+
+  it("fails when it and the supply audit disagree", () => {
+    const { supply, nsm } = supplyAndNsm([
+      { height: NU7_HEIGHT - 1, timestamp: T0 - DAY },
+      { height: NU7_HEIGHT, total_fee_zat: 10n },
+    ]);
+    const supplyRows = supply.rows(day(9));
+    const totals = { nsm: nsm.total, supply: supply.nsmTotalAtRelease };
+    const changed = nsm.rows(day(9)).map((r) => ({ ...r, nsm_inflow_zat: 7n }));
+    expect(checkNsm(changed, supplyRows, totals).failures.join()).toMatch(
+      /nsm_daily differs from supply_daily/,
+    );
+    expect(checkNsm([], supplyRows, totals).failures.join()).toMatch(
+      /NSM in supply_daily on a day without an nsm_daily row/,
+    );
+    const elsewhere = [{ day: day(5), nsm_inflow_zat: 6n, nsm_total_zat: 6n }];
+    expect(checkNsm(elsewhere, supplyRows, totals).failures.join()).toMatch(
+      /nsm_daily day missing from supply_daily/,
+    );
+    expect(
+      checkNsm(nsm.rows(day(9)), supplyRows, { nsm: null, supply: 6n }).failures.join(),
+    ).toMatch(/NSM total at the release differs/);
+  });
+});
+
+describe("nu7_capable_releases", () => {
+  it("publishes Zakura 1.7.0 and Zebra 7.0.0, both well formed", () => {
+    expect(NU7_CAPABLE_RELEASES.map((r) => [r.client, r.min_version])).toEqual([
+      ["Zakura", "1.7.0"],
+      ["Zebra", "7.0.0"],
+    ]);
+    expect(checkCapableReleases(NU7_CAPABLE_RELEASES).failures).toEqual([]);
+  });
+
+  it("refuses an unpublished client, a malformed version or a non-https source", () => {
+    const failures = checkCapableReleases([
+      { client: "MyNode", min_version: "1.0.0", source_url: "https://example.org/x" },
+      { client: "Zebra", min_version: "7.0", source_url: "https://example.org/x" },
+      { client: "Zakura", min_version: "1.7.0", source_url: "http://example.org/x" },
+    ]).failures.join("\n");
+    expect(failures).toMatch(/unpublished client/);
+    expect(failures).toMatch(/version malformed/);
+    expect(failures).toMatch(/not an https link/);
   });
 });

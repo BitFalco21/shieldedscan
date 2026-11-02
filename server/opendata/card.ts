@@ -1,6 +1,7 @@
 import type { ColumnSpec } from "./parquet";
 import {
   ADDRESS_COLUMNS,
+  BLOCK_COINBASE_COLUMNS,
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
   HEIGHTS_PER_LEDGER_FILE,
@@ -47,7 +48,7 @@ const DESCRIPTIONS: Record<string, string> = {
     "Ironwood pool balance after this block, zatoshis. NULL before Ironwood activated.",
   difficulty: "Difficulty as the node computes it from the header bits.",
   miner_kind:
-    "Where the miner was paid: transparent, shielded (a shielded coinbase, ZIP 213) or unknown. No address is published.",
+    "Where the miner was paid: transparent, shielded (a shielded coinbase, ZIP 213) or unknown. The address is in `blocks_coinbase`.",
   miner_reward_zat:
     "What the miner was paid, zatoshis, excluding funding-stream outputs. Only for a transparent coinbase; NULL otherwise, because a shielded amount is not public.",
   day: "UTC day.",
@@ -99,6 +100,12 @@ const DESCRIPTIONS: Record<string, string> = {
 
 /** Where a column name means something different in one table, its meaning there. */
 const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  blocks_coinbase: {
+    miner_address:
+      "Payout address: the coinbase's largest transparent output. NULL for a shielded coinbase, when that output names no address, or where the block's miner is not recorded yet.",
+    coinbase_tag:
+      "Text the miner wrote in the coinbase, sanitised at parse. NULL when none is printable, or where not recorded yet.",
+  },
   transactions: {
     txid: "Transaction id, hex.",
     block_height: "Height of the block that mined it.",
@@ -176,6 +183,30 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     miner:
       "An operator that names itself in its coinbase text, from a fixed list (a claim, not proof), or unidentified.",
     blocks: "Blocks it mined that day.",
+  },
+  mining_concentration_daily: {
+    blocks:
+      "Blocks in the 30 UTC days ending that day. The three counts below add up to it unless a block's miner is not recorded yet.",
+    transparent_blocks: "Of those, paid to a transparent address.",
+    shielded_blocks: "Of those, a shielded coinbase (ZIP 213): the payee is not public.",
+    no_address_blocks: "Of those, a coinbase whose largest output names no address.",
+    distinct_addresses:
+      "Distinct payout addresses in the window. NULL if a block's miner is not recorded yet.",
+    top1_share:
+      "Share of `blocks` paid to the most frequent address, 0 to 1. NULL if a block's miner is not recorded yet.",
+    top3_share: "Share of `blocks` paid to the three most frequent addresses.",
+    top5_share: "Share of `blocks` paid to the five most frequent addresses.",
+  },
+  nsm_daily: {
+    nsm_inflow_zat:
+      "Fees moved into the NSM that day, zatoshis. NULL if a block's fee total is unknown.",
+    nsm_total_zat:
+      "All fees moved into the NSM since NU7, zatoshis. NULL from the first block with an unknown fee total.",
+  },
+  nu7_capable_releases: {
+    client: "Node software, as in `node_releases_daily`.",
+    min_version: "The first release whose own notes activate NU7 on mainnet.",
+    source_url: "Those release notes.",
   },
   hashrate_daily: {
     solutions_per_second:
@@ -301,6 +332,12 @@ const TABLE_INTROS: Record<string, string> = {
   fees_daily: "Fee percentiles per UTC day and transaction kind.",
   mining_daily:
     "Blocks per UTC day by self-named mining operator. Few operators name themselves, so most blocks are unidentified.",
+  mining_concentration_daily:
+    "Block production over the 30 UTC days ending each day, by payout address. One operator can use several addresses, so this understates concentration. Shielded coinbases and coinbases naming no address count in `blocks` but in no address's share. The chain's first 29 days have shorter windows.",
+  nsm_daily:
+    "Fees removed from circulation into the Network Sustainability Mechanism per UTC day: from NU7 (height 3,543,405), floor(6 × fees / 10) of each block (ZIP 235). Empty before NU7 activates. Equal to `supply_daily`'s NSM columns.",
+  nu7_capable_releases:
+    "The first release of each node client that activates NU7 on mainnet. Join with `node_releases_daily` on `client`; a release is capable when its `version` is at least `min_version`, compared number by number (a release candidate comes before its release). The protocol version alone is not enough: Zakura 1.5.0 to 1.6.0 also declare 170190.",
   hashrate_daily: "Estimated network solution rate per UTC day, from difficulty.",
   supply_daily:
     "The supply audit per UTC day: what the schedule allowed, what exists, and what miners never claimed.",
@@ -325,6 +362,8 @@ const TABLE_INTROS: Record<string, string> = {
   addresses:
     "Every transparent address with a positive balance at the release height, in address order. A snapshot: each release replaces the file, and the repository's history keeps the earlier ones. For the site's rich-list order, sort by `balance_zat` descending, then `address`.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,
+  blocks_coinbase:
+    "Per block, the payout address and the coinbase text, in files covering the same heights as `blocks`. The text is miner-written: whoever mines a block chooses it. It is sanitised at parse (printable characters, whitespace collapsed, at most 120 characters); treat it as untrusted text, never markup.",
   pool_usage_daily: "Each shielded pool's activity per UTC day.",
   shielding_daily:
     "Value crossing between the transparent and shielded sides, counted per UTC day.",
@@ -361,6 +400,7 @@ export interface CardOptions {
 export function datasetCard({ ledger }: CardOptions): string {
   const tables: [string, readonly ColumnSpec[], string][] = [
     ["blocks", BLOCK_COLUMNS, "blocks/*.parquet"],
+    ["blocks_coinbase", BLOCK_COINBASE_COLUMNS, "blocks_coinbase/*.parquet"],
     ["transactions", TRANSACTION_COLUMNS, "transactions/*.parquet"],
     ...(ledger
       ? ([
@@ -461,8 +501,8 @@ Anyone with a Zcash node can rebuild these tables and compare.
 ## What is not here
 
 Shielded amounts: the chain encrypts them, and only what crosses a pool's boundary is public.
-${ledger ? "" : "Transparent inputs and outputs by address are not in this release yet. "}Node IP addresses,
-miner-written coinbase text, and third-party price and location data are left out.
+${ledger ? "" : "Transparent inputs and outputs by address are not in this release yet. "}Node IP addresses
+and third-party price and location data are left out.
 
 No transaction is singled out, except a day's largest shielding, unshielding or pool
 migration when it alone holds that maximum (\`shielding_records_daily\`). Addresses are as the

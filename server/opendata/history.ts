@@ -35,6 +35,7 @@ export const REPLACED: ReadonlySet<string> = new Set(["addresses.parquet"]);
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
+  if (path.startsWith("blocks_coinbase/")) return ["height"];
   if (path.startsWith("transactions/")) return ["txid"];
   if (path.startsWith("transparent_io/")) return ["txid", "io", "ordinal"];
   if (path.startsWith("transactions_extra/")) return ["txid"];
@@ -44,12 +45,15 @@ export function rowKey(path: string): readonly string[] {
     "transparent_daily.parquet": ["day"],
     "transparent_monthly.parquet": ["month"],
     "node_releases_daily.parquet": ["day", "client", "version", "protocol_version"],
+    "nu7_capable_releases.parquet": ["client"],
     "reorgs.parquet": ["height", "orphaned_hash"],
     "blocks_daily.parquet": ["day"],
     "fees_daily.parquet": ["day", "kind"],
     "mining_daily.parquet": ["day", "miner"],
+    "mining_concentration_daily.parquet": ["day"],
     "hashrate_daily.parquet": ["day"],
     "supply_daily.parquet": ["day"],
+    "nsm_daily.parquet": ["day"],
     "tx_versions_daily.parquet": ["day", "version"],
     "pool_flows_daily.parquet": ["day", "pool"],
     "coinbase_shielded_daily.parquet": ["day"],

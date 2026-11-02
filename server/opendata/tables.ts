@@ -114,9 +114,26 @@ export const REORG_COLUMNS: readonly ColumnSpec[] = [
 /** Heights per `blocks` file. Partitioned by height, never by date: miner timestamps can cross a year. */
 export const BLOCKS_PER_FILE = 500_000;
 
+const blocksRange = (start: number) =>
+  `${String(start).padStart(7, "0")}-${String(start + BLOCKS_PER_FILE - 1).padStart(7, "0")}`;
+
 /** File name for the `blocks` partition starting at `start`, zero-padded so names sort in order. */
-export const blocksFile = (start: number) =>
-  `blocks/${String(start).padStart(7, "0")}-${String(start + BLOCKS_PER_FILE - 1).padStart(7, "0")}.parquet`;
+export const blocksFile = (start: number) => `blocks/${blocksRange(start)}.parquet`;
+
+/**
+ * Per block, the coinbase's payout address and the miner's own text, in files spanning exactly
+ * the heights of the `blocks` file of the same name. A table of its own because published
+ * `blocks` files never change, and so that miner-written text stays out of the default table.
+ * The self-host importer reads it as is: its columns and layout are frozen.
+ */
+export const BLOCK_COINBASE_COLUMNS: readonly ColumnSpec[] = [
+  c("height", "int32"),
+  c("miner_address", "utf8", true),
+  c("coinbase_tag", "utf8", true),
+];
+
+export const blocksCoinbaseFile = (start: number) =>
+  `blocks_coinbase/${blocksRange(start)}.parquet`;
 
 /**
  * One row per mined transaction: kind, direction, fee, size, and each shielded part with the value
@@ -175,6 +192,23 @@ export const MINING_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("day", "date"),
   c("miner", "utf8"),
   c("blocks", "int32"),
+];
+
+/**
+ * Block production over the 30 UTC days ending each day, by payout address. Shares are over every
+ * block in the window, so blocks with no public payee (shielded, or no address) dilute them
+ * rather than being attributed to anyone.
+ */
+export const MINING_CONCENTRATION_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("blocks", "int32"),
+  c("transparent_blocks", "int32"),
+  c("shielded_blocks", "int32"),
+  c("no_address_blocks", "int32"),
+  c("distinct_addresses", "int32", true),
+  c("top1_share", "float64", true),
+  c("top3_share", "float64", true),
+  c("top5_share", "float64", true),
 ];
 
 /**
@@ -245,6 +279,42 @@ export const SUPPLY_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("unclaimed_zat", "int64", true),
   c("nsm_zat", "int64", true),
   c("nsm_total_zat", "int64", true),
+];
+
+/** ZIP 235's fee removal per UTC day, from NU7; no rows before it. */
+export const NSM_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("nsm_inflow_zat", "int64", true),
+  c("nsm_total_zat", "int64", true),
+];
+
+export const NU7_CAPABLE_RELEASES_COLUMNS: readonly ColumnSpec[] = [
+  c("client", "utf8"),
+  c("min_version", "utf8"),
+  c("source_url", "utf8"),
+];
+
+/**
+ * The first release of each client whose own notes schedule NU7 on mainnet at 3,543,405, read
+ * 2026-11-02. Per client because the protocol version cannot tell: Zakura 1.5.0 to 1.6.0 already
+ * declare NU7's 170190 without carrying its height. Published so `node_releases_daily` can be
+ * joined against it; readiness is never a daily table of its own.
+ */
+export const NU7_CAPABLE_RELEASES: readonly {
+  client: string;
+  min_version: string;
+  source_url: string;
+}[] = [
+  {
+    client: "Zakura",
+    min_version: "1.7.0",
+    source_url: "https://github.com/zakura-core/zakura/releases/tag/v1.7.0",
+  },
+  {
+    client: "Zebra",
+    min_version: "7.0.0",
+    source_url: "https://zfnd.org/zebra-7-0-0-release/",
+  },
 ];
 
 export const TX_VERSIONS_DAILY_COLUMNS: readonly ColumnSpec[] = [
@@ -367,19 +437,22 @@ export const SITE_TABLES = [
 
 export type SiteTable = (typeof SITE_TABLES)[number];
 
-/** Every daily or event table: its file and its published columns. */
+/** Every daily, event or reference table: its file and its published columns. */
 export const SMALL_TABLES = {
   pool_usage_daily: POOL_USAGE_DAILY_COLUMNS,
   shielding_daily: SHIELDING_DAILY_COLUMNS,
   transparent_daily: TRANSPARENT_DAILY_COLUMNS,
   transparent_monthly: TRANSPARENT_MONTHLY_COLUMNS,
   node_releases_daily: NODE_RELEASES_DAILY_COLUMNS,
+  nu7_capable_releases: NU7_CAPABLE_RELEASES_COLUMNS,
   reorgs: REORG_COLUMNS,
   blocks_daily: BLOCKS_DAILY_COLUMNS,
   fees_daily: FEES_DAILY_COLUMNS,
   mining_daily: MINING_DAILY_COLUMNS,
+  mining_concentration_daily: MINING_CONCENTRATION_DAILY_COLUMNS,
   hashrate_daily: HASHRATE_DAILY_COLUMNS,
   supply_daily: SUPPLY_DAILY_COLUMNS,
+  nsm_daily: NSM_DAILY_COLUMNS,
   tx_versions_daily: TX_VERSIONS_DAILY_COLUMNS,
   pool_flows_daily: POOL_FLOWS_DAILY_COLUMNS,
   coinbase_shielded_daily: COINBASE_SHIELDED_DAILY_COLUMNS,

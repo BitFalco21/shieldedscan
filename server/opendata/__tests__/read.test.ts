@@ -35,6 +35,7 @@ const hex = (n: number) => n.toString(16).padStart(64, "0");
 const dayOf = (h: number) => new Date((START + h * SPACING) * 1000).toISOString().slice(0, 10);
 /** A well-formed mainnet P2PKH address (prefix 1cb8), so the payout address check passes. */
 const MINER = base58checkEncode(Uint8Array.from([0x1c, 0xb8, ...new Array<number>(20).fill(7)]));
+const MINER_2 = base58checkEncode(Uint8Array.from([0x1c, 0xbd, ...new Array<number>(20).fill(9)]));
 /** One Sapling-to-Orchard migration of 500 zat, so the migration series have a row. */
 const MIGRATION_HEIGHT = 130;
 /** Every matview the export reads, refreshed as the follower would. */
@@ -236,6 +237,7 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     expect(r.hash).toBe(hex(RELEASE + 1));
     expect(r.files.map((f) => f.path)).toEqual([
       "blocks/0000000-0499999.parquet",
+      "blocks_coinbase/0000000-0499999.parquet",
       "pool_usage_daily.parquet",
       "shielding_daily.parquet",
       "transparent_daily.parquet",
@@ -247,6 +249,8 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "mining_daily.parquet",
       "hashrate_daily.parquet",
       "supply_daily.parquet",
+      "nsm_daily.parquet",
+      "nu7_capable_releases.parquet",
       "transactions/0000000-0099999.parquet",
       "tx_versions_daily.parquet",
       "pool_flows_daily.parquet",
@@ -259,6 +263,7 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "fees_monthly.parquet",
       "shielding_records_daily.parquet",
       "mining_payouts_daily.parquet",
+      "mining_concentration_daily.parquet",
     ]);
     expect(read(r, "transactions/0000000-0099999.parquet").numRows).toBe((RELEASE + 1) * 2 + 1);
     const balances = read(r, "transactions/0000000-0099999.parquet").getChild(
@@ -344,6 +349,57 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       ["2016-11-01", "shielded", 1],
     ]);
     expect(rows("pool_boundary_daily.parquet").some((x) => x.pool === "hub")).toBe(true);
+  });
+
+  it("publishes each block's coinbase beside its blocks file, and the NU7 tables", async () => {
+    const r = await run();
+    expect(r.failures).toEqual([]);
+    const coinbase = read(r, "blocks_coinbase/0000000-0499999.parquet");
+    expect(coinbase.schema.fields.map((f) => [f.name, String(f.type), f.nullable])).toEqual([
+      ["height", "Int32", false],
+      ["miner_address", "Utf8", true],
+      ["coinbase_tag", "Utf8", true],
+    ]);
+    const rows = coinbase.toArray();
+    expect(rows.map((x) => x.height)).toEqual(
+      [...read(r, "blocks/0000000-0499999.parquet").getChild("height")!].map(Number),
+    );
+    expect(rows[3]).toMatchObject({
+      height: 3,
+      miner_address: MINER,
+      coinbase_tag: "Foundry Zcash Pool",
+    });
+    expect(rows[4]).toMatchObject({ height: 4, coinbase_tag: "tag" });
+
+    // NU7 is far above this chain: the table is empty, with its schema, and that is no failure.
+    const nsm = read(r, "nsm_daily.parquet");
+    expect(nsm.numRows).toBe(0);
+    expect(nsm.schema.fields.map((f) => f.name)).toEqual([
+      "day",
+      "nsm_inflow_zat",
+      "nsm_total_zat",
+    ]);
+
+    expect(
+      read(r, "nu7_capable_releases.parquet")
+        .toArray()
+        .map((x) => [x.client, x.min_version, x.source_url]),
+    ).toEqual([
+      ["Zakura", "1.7.0", "https://github.com/zakura-core/zakura/releases/tag/v1.7.0"],
+      ["Zebra", "7.0.0", "https://zfnd.org/zebra-7-0-0-release/"],
+    ]);
+
+    // One payout address mines everything; four blocks a day, so the window fills at 120.
+    const concentration = read(r, "mining_concentration_daily.parquet").toArray();
+    expect(concentration.length).toBe(read(r, "blocks_daily.parquet").numRows);
+    expect(concentration[0]).toMatchObject({ blocks: 4, distinct_addresses: 1, top1_share: 1 });
+    expect(concentration.at(-1)).toMatchObject({
+      blocks: 120,
+      transparent_blocks: 120,
+      shielded_blocks: 0,
+      no_address_blocks: 0,
+      top5_share: 1,
+    });
   });
 
   it("writes the same bytes twice", async () => {
@@ -707,6 +763,30 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       `UPDATE mining_day_payout SET address = 't1' || repeat('a', 33) WHERE day = '${dayOf(40)}'`,
       `UPDATE mining_day_payout SET address = '${MINER}' WHERE day = '${dayOf(40)}'`,
       /mining payout address is not a mainnet t-address/,
+    ],
+    [
+      "a coinbase payout address that is not a t-address",
+      `UPDATE block SET miner_address = 't1' || repeat('a', 33) WHERE height = 50`,
+      `UPDATE block SET miner_address = '${MINER}' WHERE height = 50`,
+      /miner_address is not a mainnet t-address: 1 \(e\.g\. 50\)/,
+    ],
+    [
+      "a transparent coinbase with no payout address",
+      "UPDATE block SET miner_address = NULL WHERE height = 50",
+      `UPDATE block SET miner_address = '${MINER}' WHERE height = 50`,
+      /miner_address does not match miner_kind/,
+    ],
+    [
+      "coinbase text not in its sanitised form",
+      `UPDATE block SET coinbase_tag = E'raw\\x01bytes' WHERE height = 50`,
+      "UPDATE block SET coinbase_tag = 'tag' WHERE height = 50",
+      /coinbase_tag is not in its sanitised form: 1 \(e\.g\. 50\)/,
+    ],
+    [
+      "payouts credited to another address than the blocks name",
+      `UPDATE mining_day_payout SET address = '${MINER_2}' WHERE day = '${dayOf(40)}'`,
+      `UPDATE mining_day_payout SET address = '${MINER}' WHERE day = '${dayOf(40)}'`,
+      /mining_concentration_daily differs from mining_payouts_daily/,
     ],
     [
       "a published day with blocks of no recorded miner",

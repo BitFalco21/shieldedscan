@@ -269,6 +269,57 @@ export function checkUnderclaim(
   };
 }
 
+/**
+ * `nsm_daily` against `supply_daily`, day by day: two accumulators over the same blocks, so they
+ * must agree exactly, NULLs included. A supply day with no NSM row is before NU7 and must hold
+ * zero. The running totals at the release height must agree too.
+ */
+export function checkNsm(
+  nsmRows: readonly Record<string, unknown>[],
+  supplyRows: readonly Record<string, unknown>[],
+  totals: { nsm: bigint | null; supply: bigint | null },
+): Report {
+  const f = new Findings();
+  const supply = new Map(supplyRows.map((r) => [String(r.day), r]));
+  const nsmDays = new Set<string>();
+  for (const r of nsmRows) {
+    const day = String(r.day);
+    nsmDays.add(day);
+    const s = supply.get(day);
+    if (s === undefined) f.add("nsm_daily day missing from supply_daily", day);
+    else if (r.nsm_inflow_zat !== s.nsm_zat || r.nsm_total_zat !== s.nsm_total_zat) {
+      f.add("nsm_daily differs from supply_daily", day);
+    }
+  }
+  for (const [day, s] of supply) {
+    if (!nsmDays.has(day) && (s.nsm_zat !== 0n || s.nsm_total_zat !== 0n)) {
+      f.add("NSM in supply_daily on a day without an nsm_daily row", day);
+    }
+  }
+  if (totals.nsm !== totals.supply) {
+    f.add(
+      "NSM total at the release differs from the supply audit's",
+      `${totals.nsm ?? "NULL"} vs ${totals.supply ?? "NULL"}`,
+    );
+  }
+  return { failures: f.list(), alerts: [] };
+}
+
+/** The NU7 release mapping: published clients, plain versions, https release notes. */
+export function checkCapableReleases(
+  rows: readonly { client: string; min_version: string; source_url: string }[],
+): Report {
+  const f = new Findings();
+  for (const r of rows) {
+    if (!PUBLISHED_CLIENTS.has(r.client)) f.add("NU7 release of an unpublished client", r.client);
+    if (!PUBLISHED_VERSION.test(r.min_version)) f.add("NU7 release version malformed", r.client);
+    if (!/^https:\/\/[a-z0-9.-]+\/\S*$/.test(r.source_url)) {
+      f.add("NU7 release source is not an https link", r.client);
+    }
+  }
+  return { failures: f.list(), alerts: [] };
+}
+
 /** What a published node row may say about the client: a known name and a well-formed version. */
 export function publishedRelease(client: string, version: string | null) {
   const known = PUBLISHED_CLIENTS.has(client);
@@ -291,6 +342,23 @@ const ZCASH_ADDRESS = /\b(?:t1|t3|zs1|u1|tex1|zc)[0-9a-z]{20,}/i;
 const HEX_ONLY = /^[0-9a-f]*$/i;
 
 /**
+ * Columns the scan does not apply to, each held by its own check instead. Listed by name so no
+ * other column can slip past it.
+ * - `blocks_coinbase.coinbase_tag`: miner-written text, published as such (the card says so).
+ *   Pool tags carry URLs and handles; it is sanitised at parse and held to that form
+ *   (`CoinbaseChecker`).
+ * - `blocks_coinbase.miner_address`: a payout address is the column's content; each one must be
+ *   a mainnet t-address (`CoinbaseChecker`).
+ * - `nu7_capable_releases.source_url`: our own constant, never read from the database
+ *   (`checkCapableReleases`).
+ */
+const SCAN_EXEMPT: ReadonlySet<string> = new Set([
+  "blocks_coinbase.coinbase_tag",
+  "blocks_coinbase.miner_address",
+  "nu7_capable_releases.source_url",
+]);
+
+/**
  * The second lock behind the per-column formats: no published string may look like an address of
  * any kind. Version strings are allowed their dots (`1.7.0` is not an IPv4 address).
  */
@@ -299,6 +367,7 @@ export function scanStrings(
   column: string,
   values: Iterable<string | null>,
 ): string[] {
+  if (SCAN_EXEMPT.has(`${table}.${column}`)) return [];
   const out: string[] = [];
   for (const v of values) {
     if (v === null || HEX_ONLY.test(v)) continue;
