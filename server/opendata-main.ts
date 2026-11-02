@@ -35,7 +35,9 @@ import { readRelease } from "./opendata/read";
  * `opendata/ledger-release.ts`), hard-linked into the release and trusted by hash once verified:
  * `--full` re-hashes every file, published and cached, instead of trusting the manifest. It
  * verifies, it never rebuilds: a closed range is rebuilt by removing its sidecar, so the paced
- * builder reads it again, and the next release holds its rows to the published ones.
+ * builder reads it again, and the next release holds its rows to the published ones. A damaged
+ * cached range (a file off its hash or size, or a check it fails) fails every release until then:
+ * delete `/out/ledger-cache/<start>.json`, and the builder rebuilds that range in its next window.
  *
  * Its own entrypoint, never the API's or the follower's: it applies no schema, and its database
  * role can read the `opendata` views and nothing else.
@@ -180,6 +182,9 @@ try {
         log,
       }),
   });
+  // The ledger is the read's last and largest step: logged before any verdict, failed runs too,
+  // to show its memory against the container's limit.
+  log(`after the ledger: rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
   if (release.failures.length > 0) fail("checks failed", release.failures);
   for (const a of release.alerts) log(`alert: ${a}`);
 

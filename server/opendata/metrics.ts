@@ -1,7 +1,7 @@
 import { blockSubsidyZat } from "@/domain/halving";
 import { nu7ActiveAt } from "@/domain/consensus";
 import { SOLUTIONS_PER_DIFFICULTY } from "@/domain/mining";
-import { byCodePoint, utcDay, type BlockRow } from "./checks";
+import { byCodePoint, utcDay, type BlockRow, type SupplyAtRelease } from "./checks";
 
 /**
  * Daily series derived from the block and transaction streams the export already reads, so they
@@ -197,10 +197,10 @@ export class DailySupply {
   private schedule = 0n;
   private nsmTotal: bigint | null = 0n;
   private readonly started = new Set<string>();
-  private last: bigint | null = null;
+  private last: SupplyAtRelease = { unclaimedZat: null, unknownFeeFrom: null, poolsKnown: false };
 
-  /** Unclaimed subsidy at the last block pushed (the release height), or null if unknown. */
-  get unclaimedZat(): bigint | null {
+  /** The supply at the last block pushed (the release height), for the ledger's cross-check. */
+  get atRelease(): SupplyAtRelease {
     return this.last;
   }
 
@@ -210,9 +210,11 @@ export class DailySupply {
     if (nu7ActiveAt("mainnet", row.height)) {
       nsm = row.total_fee_zat === null ? null : (row.total_fee_zat * 6n) / 10n;
     }
+    const unknownFeeFrom = this.last.unknownFeeFrom ?? (nsm === null ? row.height : null);
     this.nsmTotal = this.nsmTotal === null || nsm === null ? null : this.nsmTotal + nsm;
 
-    let issued: bigint | null = this.nsmTotal;
+    let poolsKnown = true;
+    let pooled = 0n;
     const pools: [string, bigint | null][] = [
       ["transparent", row.transparent_pool_zat],
       ["sprout", row.sprout_pool_zat],
@@ -224,13 +226,18 @@ export class DailySupply {
     for (const [pool, value] of pools) {
       if (value !== null) {
         this.started.add(pool);
-        if (issued !== null) issued += value;
+        pooled += value;
       } else if (this.started.has(pool)) {
-        issued = null;
+        poolsKnown = false;
       }
     }
+    const issued = poolsKnown && this.nsmTotal !== null ? this.nsmTotal + pooled : null;
 
-    this.last = issued === null ? null : this.schedule - issued;
+    this.last = {
+      unclaimedZat: issued === null ? null : this.schedule - issued,
+      unknownFeeFrom,
+      poolsKnown,
+    };
 
     const day = utcDay(row.timestamp);
     const d = this.days.get(day) ?? { schedule: 0n, issued: null, nsm: 0n, nsmTotal: 0n };

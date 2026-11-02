@@ -150,10 +150,18 @@ describe("unknown inputs stay unknown", () => {
     m.push(block({ height: NU7_HEIGHT, total_fee_zat: 10n, transparent_pool_zat: 0n }));
     m.push(block({ height: NU7_HEIGHT + 1, total_fee_zat: null, transparent_pool_zat: 0n }));
     m.push(block({ height: NU7_HEIGHT + 2, timestamp: T0 + DAY, transparent_pool_zat: 0n }));
-    expect(m.rows(day(1)).map((r) => [r.nsm_total_zat, r.issued_zat])).toEqual([
-      [null, null],
-      [null, null],
+    expect(
+      m.rows(day(1)).map((r) => [r.nsm_zat, r.nsm_total_zat, r.issued_zat, r.unclaimed_zat]),
+    ).toEqual([
+      [null, null, null, null],
+      [0n, null, null, null],
     ]);
+    // What the ledger's cross-check reads: unknown, and from which height.
+    expect(m.atRelease).toEqual({
+      unclaimedZat: null,
+      unknownFeeFrom: NU7_HEIGHT + 1,
+      poolsKnown: true,
+    });
   });
 });
 
@@ -181,6 +189,7 @@ describe("DailySupply", () => {
     m.push(block({ height: 1, transparent_pool_zat: 62_500n, sprout_pool_zat: 0n }));
     m.push(block({ height: 2, transparent_pool_zat: 187_500n, sprout_pool_zat: null }));
     expect(m.rows(day(0))[0]).toMatchObject({ issued_zat: null, unclaimed_zat: null });
+    expect(m.atRelease).toEqual({ unclaimedZat: null, unknownFeeFrom: null, poolsKnown: false });
   });
 
   it("moves six tenths of fees, rounded down, into the NSM from NU7 and counts it as issued", () => {

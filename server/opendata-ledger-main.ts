@@ -5,7 +5,13 @@ import { parseArgs } from "node:util";
 import { Client } from "pg";
 import { createPacer, IngestionBehindError, ioPressureAvg10 } from "./job-pacer";
 import { LedgerAbort } from "./opendata/ledger";
-import { buildLedgerRange, commitRange, isCached, rangeEnd } from "./opendata/ledger-cache";
+import {
+  buildLedgerRange,
+  closedRanges,
+  commitRange,
+  isCached,
+  rangeEnd,
+} from "./opendata/ledger-cache";
 import { CONFIRMATIONS, exportTypes } from "./opendata/read";
 import { HEIGHTS_PER_LEDGER_FILE } from "./opendata/tables";
 
@@ -196,11 +202,7 @@ try {
   const height = (await sync()).tip - CONFIRMATIONS;
   let built = 0;
   let lastRangeMs = 0;
-  for (
-    let start = FROM;
-    start + HEIGHTS_PER_LEDGER_FILE - 1 <= height;
-    start += HEIGHTS_PER_LEDGER_FILE
-  ) {
+  for (const start of closedRanges(height, FROM)) {
     if (built >= MAX_FILES) break;
     if (isCached(CACHE, start)) continue;
     if (Date.now() + lastRangeMs >= stopAt) {

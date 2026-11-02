@@ -423,34 +423,62 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     expect(read(r, "transactions_extra/0000000-0009999.parquet").numRows).toBe(rows[0]!.n);
   });
 
-  it("stops when the ledger's underclaim and the supply audit disagree", async () => {
-    // A block whose fee total is unknown escapes the coinbase check, so a coinbase that left
-    // 5 zat unclaimed there is seen by the supply audit alone.
-    const coinbase150 = "lpad(to_hex(1000000 + 150 * 2), 64, '0')";
-    const shift = async (sign: "-" | "+", fee: string) => {
-      await db.query(`UPDATE block SET total_fee_zat = ${fee} WHERE height = 150`);
-      await db.query(
-        `UPDATE tx_transparent_io SET value_zat = value_zat ${sign} 5 WHERE txid = ${coinbase150}`,
-      );
-      await db.query(
-        `UPDATE block SET transparent_pool_zat = transparent_pool_zat ${sign} 5 WHERE height >= 150`,
-      );
-      // The site's series follow the base tables, as the follower's refresh would make them.
-      for (const m of MATVIEWS) await db.query(`REFRESH MATERIALIZED VIEW ${m}`);
-    };
-    await shift("-", "NULL");
+  /**
+   * Block `h` without a fee total, its coinbase 5 zat short and the pools with it; the trackers
+   * and matviews follow, as the follower would make them.
+   */
+  const feeless = async (h: number, sign: "-" | "+") => {
+    const coinbase = `lpad(to_hex(1000000 + ${h} * 2), 64, '0')`;
+    await db.query(
+      `UPDATE block SET total_fee_zat = ${sign === "-" ? "NULL" : "0"} WHERE height = ${h}`,
+    );
+    await db.query(
+      `UPDATE tx_transparent_io SET value_zat = value_zat ${sign} 5 WHERE txid = ${coinbase}`,
+    );
+    await db.query(
+      `UPDATE block SET transparent_pool_zat = transparent_pool_zat ${sign} 5 WHERE height >= ${h}`,
+    );
+    const url = new URL(ADMIN_URL!);
+    url.pathname = `/${DB}`;
+    const pool = new Pool({ connectionString: url.toString(), max: 1 });
+    try {
+      await computeMiningDay(pool, START + Math.floor((h * SPACING) / 86_400) * 86_400, 0);
+    } finally {
+      await pool.end();
+    }
+    for (const m of MATVIEWS) await db.query(`REFRESH MATERIALIZED VIEW ${m}`);
+  };
+
+  it("reads a fee-less block's underclaim from the pools, so the cross-check still holds", async () => {
+    await feeless(150, "-");
     try {
       const r = await run(true);
-      // mining_day_payout is written at ingestion, not refreshed, so it still counts block 150's
-      // fee as known: the payouts check flags the edit too, as it should.
+      expect(r.failures).toEqual([]);
+      expect(r.ledger).toMatchObject({
+        underclaimZat: 5n,
+        underclaimedBlocks: 1,
+        skippedBlocks: 0,
+      });
+      const supply = read(r, "supply_daily.parquet").toArray();
+      expect(supply.at(-1)!.unclaimed_zat).toBe(5n);
+    } finally {
+      await feeless(150, "+");
+    }
+  });
+
+  it("stops when the ledger's underclaim and the supply audit disagree", async () => {
+    // At 100 Sapling starts reporting, so a fee-less block there has no pool change to read: its
+    // 5 zat are in the supply audit and not in the ledger's sum.
+    await feeless(100, "-");
+    try {
+      const r = await run(true);
       expect(r.failures).toEqual([
-        "mining_payouts_daily differs from the stream: 1 (e.g. 2016-12-04 fee_blocks: 4 vs 3)",
         "ledger underclaim 0 zat differs from the supply audit's 5 zat; " +
-          "1 skipped blocks are outside the ledger's sum",
+          "1 blocks whose underclaim could not be derived are outside the ledger's sum",
       ]);
       expect(r.ledger).toMatchObject({ skippedBlocks: 1 });
     } finally {
-      await shift("+", "0");
+      await feeless(100, "+");
     }
     expect((await run(true)).failures).toEqual([]);
   });

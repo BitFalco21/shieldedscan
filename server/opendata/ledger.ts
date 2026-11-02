@@ -2,8 +2,14 @@ import type { Client } from "pg";
 import { nu7ActiveAt } from "@/domain/consensus";
 import { blockSubsidyZat } from "@/domain/halving";
 import { Findings } from "./checks";
+import { checkLedgerStrings, LEDGER_TEXT_COLUMNS, type LedgerTextColumns } from "./ledger-strings";
 import type { ColumnValues } from "./parquet";
-import { LEDGER_PART_ROWS, TRANSACTIONS_EXTRA_COLUMNS, TRANSPARENT_IO_COLUMNS } from "./tables";
+import {
+  LEDGER_PART_ROWS,
+  POOL_COLUMNS,
+  TRANSACTIONS_EXTRA_COLUMNS,
+  TRANSPARENT_IO_COLUMNS,
+} from "./tables";
 
 /**
  * The transparent ledger, read one height range at a time and held to the blocks it belongs to.
@@ -40,14 +46,13 @@ export interface LedgerIo {
   prev_vout: number | null;
 }
 
-export interface LedgerBlock {
-  height: number;
-  transparent_pool_zat: bigint | null;
-  lockbox_pool_zat: bigint | null;
-  total_fee_zat: bigint | null;
-}
+/** A block's fee total and every pool, which the underclaim needs when the fee is unknown. */
+export type LedgerBlock = { height: number; total_fee_zat: bigint | null } & Record<
+  (typeof POOL_COLUMNS)[number],
+  bigint | null
+>;
 
-const HEX64 = /^[0-9a-f]{64}$/;
+const BLOCK_COLS = ["height", "total_fee_zat", ...POOL_COLUMNS].join(", ");
 
 /** The ledger's script types, by the names ZIP 317's size bounds need. */
 const SCRIPT_KIND: Record<string, "p2pkh" | "p2sh" | "p2pk"> = {
@@ -83,15 +88,42 @@ function extraRow(tx: LedgerTx, ins: readonly LedgerIo[], outs: readonly LedgerI
 /** A pool cell before the range, where a NULL is the unreported prefix (zero), never a gap. */
 const orZero = (v: bigint | null) => v ?? 0n;
 
+/**
+ * What a block without a fee total left unclaimed, from the pools alone: its subsidy less what
+ * every pool gained, the quantity `BlockChecker` bounds, and what the fee-based reading gives
+ * wherever both apply (fees only move between pools). Null where it cannot be known: from NU7 the
+ * NSM's share of the unknown fee is missing from the pools, and a pool that starts or stops
+ * reporting at this block has no change to read (`BlockChecker`'s `sameShape`).
+ */
+function underclaimFromPools(prev: LedgerBlock | null, b: LedgerBlock): bigint | null {
+  if (nu7ActiveAt("mainnet", b.height)) return null;
+  if (prev === null ? b.height !== 0 : prev.height !== b.height - 1) return null;
+  if (prev !== null && POOL_COLUMNS.some((col) => (b[col] === null) !== (prev[col] === null))) {
+    return null;
+  }
+  const total = (r: LedgerBlock | null) =>
+    POOL_COLUMNS.reduce((s, col) => s + orZero(r?.[col] ?? null), 0n);
+  return BigInt(blockSubsidyZat(b.height)) - (total(b) - total(prev));
+}
+
 export class LedgerChecker {
   readonly failures = new Findings();
   /** Subsidy and fees that coinbases left unclaimed in the range, zatoshi. */
   underclaimZat = 0n;
   underclaimedBlocks = 0;
-  /** Blocks whose identities could not be evaluated (a NULL pool or fee total), counted. */
+  /**
+   * Blocks outside `underclaimZat` because their underclaim could not be derived: an unknown fee
+   * total where the pools cannot stand in for it (`underclaimFromPools`). A NULL transparent pool
+   * skips only the pool-against-ledger identity; its block's underclaim is still counted.
+   */
   skippedBlocks = 0;
 
   constructor(private previous: LedgerBlock | null) {}
+
+  /** A part's text columns, before it is written (`ledger-strings.ts`). */
+  part(columns: LedgerTextColumns): void {
+    checkLedgerStrings(this.failures, columns);
+  }
 
   /** One block, its transactions in order, each with its inputs and outputs. */
   block(b: LedgerBlock, txs: readonly { tx: LedgerTx; ins: LedgerIo[]; outs: LedgerIo[] }[]) {
@@ -111,9 +143,6 @@ export class LedgerChecker {
             this.failures.add("ledger ordinals not contiguous", tx.txid);
           if (r.value_zat === null) this.failures.add(`${io}put without a value`, tx.txid);
           else if (r.value_zat < 0n) this.failures.add("negative ledger value", tx.txid);
-          if (r.prev_txid !== null && !HEX64.test(r.prev_txid)) {
-            this.failures.add("malformed prev_txid", tx.txid);
-          }
         });
       }
       const inZat = ins.reduce((s, r) => s + (r.value_zat ?? 0n), 0n);
@@ -144,19 +173,24 @@ export class LedgerChecker {
     const contiguous = prev !== null && prev.height === b.height - 1;
     if (b.height > 0 && !contiguous) this.failures.add("ledger range not contiguous", h);
 
-    if (b.transparent_pool_zat === null || b.total_fee_zat === null) this.skippedBlocks++;
     // The node's transparent pool against the ledger: independent of how either was built.
-    if (b.transparent_pool_zat === null) {
-      // counted above
-    } else if (
-      b.transparent_pool_zat - orZero(prev?.transparent_pool_zat ?? null) !==
-      ledgerDelta
+    if (
+      b.transparent_pool_zat !== null &&
+      b.transparent_pool_zat - orZero(prev?.transparent_pool_zat ?? null) !== ledgerDelta
     ) {
       this.failures.add("transparent pool change differs from the ledger", h);
     }
 
     // What the coinbase claimed against what the protocol allowed it.
-    if (b.total_fee_zat !== null) {
+    if (b.total_fee_zat === null) {
+      const unclaimed = underclaimFromPools(prev, b);
+      if (unclaimed === null) this.skippedBlocks++;
+      else if (unclaimed < 0n) this.failures.add("pools grew by more than the subsidy", h);
+      else if (unclaimed > 0n) {
+        this.underclaimZat += unclaimed;
+        this.underclaimedBlocks++;
+      }
+    } else {
       const lockboxDelta = orZero(b.lockbox_pool_zat) - orZero(prev?.lockbox_pool_zat ?? null);
       const nsm = nu7ActiveAt("mainnet", b.height) ? (b.total_fee_zat * 6n) / 10n : 0n;
       const claimed = coinbaseOut + coinbaseShielded + lockboxDelta + nsm;
@@ -233,19 +267,25 @@ export async function readLedgerRange(
   const partRows = options.partRows ?? LEDGER_PART_ROWS;
   let io: ColumnValues[] = TRANSPARENT_IO_COLUMNS.map(() => []);
   let parts = 0;
-  const flush = () => {
-    options.onPart(io, parts++, checker.failures.list().length > 0);
-    io = TRANSPARENT_IO_COLUMNS.map(() => []);
-  };
   const extra: ColumnValues[] = TRANSACTIONS_EXTRA_COLUMNS.map(() => []);
   const ioCols = TRANSPARENT_IO_COLUMNS.map((c) => c.name);
+  const flush = () => {
+    const column = (name: string) => io[ioCols.indexOf(name)]!;
+    checker.part(
+      Object.fromEntries(
+        LEDGER_TEXT_COLUMNS.map((name) => [name, column(name)]),
+      ) as LedgerTextColumns,
+    );
+    options.onPart(io, parts++, checker.failures.size > 0);
+    io = TRANSPARENT_IO_COLUMNS.map(() => []);
+  };
 
   const previous =
     start === 0
       ? null
       : ((
           await client.query<LedgerBlock>(
-            `SELECT height, transparent_pool_zat, lockbox_pool_zat, total_fee_zat
+            `SELECT ${BLOCK_COLS}
                FROM opendata.blocks WHERE height = $1`,
             [start - 1],
           )
@@ -271,7 +311,7 @@ export async function readLedgerRange(
   const readChunk = async (a: number, b: number) =>
     [
       await client.query<LedgerBlock>(
-        `SELECT height, transparent_pool_zat, lockbox_pool_zat, total_fee_zat
+        `SELECT ${BLOCK_COLS}
          FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
         [a, b],
       ),

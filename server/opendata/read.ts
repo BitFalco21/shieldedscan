@@ -467,6 +467,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       files.push(file(`${name}.parquet`, columns, toColumns(columns, rows)));
     }
 
+    const alerts = checker.alerts.list();
     let ledger: LedgerOutcome | null = null;
     if (opts.ledger) {
       ledger = await opts.ledger({
@@ -479,10 +480,13 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       });
       if (ledger.status === "published") {
         files.push(...ledger.files);
-        failures.push(
-          ...ledger.failures,
-          ...checkUnderclaim(ledger.underclaimZat, dailySupply.unclaimedZat, ledger.skippedBlocks),
+        const cross = checkUnderclaim(
+          ledger.underclaimZat,
+          dailySupply.atRelease,
+          ledger.skippedBlocks,
         );
+        failures.push(...ledger.failures, ...cross.failures);
+        alerts.push(...cross.alerts);
       }
     }
 
@@ -492,7 +496,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       finalDay,
       files,
       failures,
-      alerts: checker.alerts.list(),
+      alerts,
       underClaimed: checker.underClaimed,
       ledger,
     };

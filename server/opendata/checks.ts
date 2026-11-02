@@ -215,25 +215,58 @@ export function checkShieldingDaily(
   return { failures: f.list(), alerts: [] };
 }
 
+/** What the supply audit knows at the release height (`DailySupply`). */
+export interface SupplyAtRelease {
+  unclaimedZat: bigint | null;
+  /** The first post-NU7 height whose fee total is unknown, which leaves the NSM unknown. */
+  unknownFeeFrom: number | null;
+  /** Whether every reporting pool had a value at the release height. */
+  poolsKnown: boolean;
+}
+
 /**
  * The ledger's underclaim against the supply audit at the release height: what coinbases left
  * unclaimed, read from their outputs and the fees, must equal the schedule less every pool's
  * balance. The subsidy appears on both sides and cancels, so this holds the ledger's values to
- * the node's pools, not the schedule. A block without a fee total is outside the ledger's sum
- * (`skippedBlocks`) and inside the audit's, so the two can then differ by its underclaim.
+ * the node's pools, not the schedule. A block whose underclaim the ledger could not derive is
+ * outside its sum (`skippedBlocks`) and inside the audit's, so the two can then differ.
+ *
+ * From NU7 a block's unknown fee leaves its NSM share unknown, and with it the supply: nothing
+ * to compare, and nothing wrong in the data, so that one case is an alert. The published supply
+ * stays NULL from that block on; any other unknown supply still stops the release.
  */
 export function checkUnderclaim(
   ledgerZat: bigint,
-  supplyZat: bigint | null,
+  supply: SupplyAtRelease,
   skippedBlocks = 0,
-): string[] {
-  if (supplyZat === null) return ["ledger underclaim: the supply at the release height is unknown"];
-  if (ledgerZat === supplyZat) return [];
+): Report {
+  if (supply.unclaimedZat === null) {
+    if (supply.poolsKnown && supply.unknownFeeFrom !== null) {
+      return {
+        failures: [],
+        alerts: [
+          "ledger underclaim not cross-checked: the supply is unknown from " +
+            `${supply.unknownFeeFrom}, a post-NU7 block whose fee is unknown`,
+        ],
+      };
+    }
+    return {
+      failures: ["ledger underclaim: the supply at the release height is unknown"],
+      alerts: [],
+    };
+  }
+  if (ledgerZat === supply.unclaimedZat) return { failures: [], alerts: [] };
   const skipped =
-    skippedBlocks > 0 ? `; ${skippedBlocks} skipped blocks are outside the ledger's sum` : "";
-  return [
-    `ledger underclaim ${ledgerZat} zat differs from the supply audit's ${supplyZat} zat${skipped}`,
-  ];
+    skippedBlocks > 0
+      ? `; ${skippedBlocks} blocks whose underclaim could not be derived are outside the ledger's sum`
+      : "";
+  return {
+    failures: [
+      `ledger underclaim ${ledgerZat} zat differs from the supply audit's ` +
+        `${supply.unclaimedZat} zat${skipped}`,
+    ],
+    alerts: [],
+  };
 }
 
 /** What a published node row may say about the client: a known name and a well-formed version. */
@@ -251,6 +284,13 @@ const URLISH = /[a-z][a-z0-9+.-]*:\/\/|www\.|\.onion\b|@/i;
 const ZCASH_ADDRESS = /\b(?:t1|t3|zs1|u1|tex1|zc)[0-9a-z]{20,}/i;
 
 /**
+ * Only hex digits. None of the patterns below can match such a string (each needs a dot, a colon,
+ * an `@`, a `w`, or a `t`/`u`/`z` prefix), so skipping it is exact, and it makes the ledger's
+ * hundreds of millions of txids cheap to scan.
+ */
+const HEX_ONLY = /^[0-9a-f]*$/i;
+
+/**
  * The second lock behind the per-column formats: no published string may look like an address of
  * any kind. Version strings are allowed their dots (`1.7.0` is not an IPv4 address).
  */
@@ -261,7 +301,7 @@ export function scanStrings(
 ): string[] {
   const out: string[] = [];
   for (const v of values) {
-    if (v === null) continue;
+    if (v === null || HEX_ONLY.test(v)) continue;
     const ipv4 = column !== "version" && IPV4.test(v);
     if (ipv4 || IPV6.test(v) || URLISH.test(v) || ZCASH_ADDRESS.test(v)) {
       out.push(`${table}.${column}: a value looks like an address`);

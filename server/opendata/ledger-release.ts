@@ -1,16 +1,21 @@
-import { rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Client } from "pg";
+import { Findings } from "./checks";
 import type { ChunkHook } from "./ledger";
 import {
   buildLedgerRange,
+  closedRanges,
   commitRange,
   hashFile,
   linkInto,
+  markStringsChecked,
   rangeEnd,
   readSidecar,
   sidecarProblems,
 } from "./ledger-cache";
+import { checkLedgerStrings, readLedgerText } from "./ledger-strings";
 import type { OutputFile } from "./read";
 import { HEIGHTS_PER_LEDGER_FILE, LEDGER_CACHE_VERSION } from "./tables";
 
@@ -24,6 +29,9 @@ import { HEIGHTS_PER_LEDGER_FILE, LEDGER_CACHE_VERSION } from "./tables";
  *  - The open range is built by every release, up to N, and never cached: it is not final.
  *  - While an older closed range is not cached, the release publishes no ledger at all, never part
  *    of one. No flag: the first release after the cache is complete publishes it.
+ *  - A range cached before the text-column checks existed is read back, a part at a time, by the
+ *    first release that carries it, held to those checks, and marked `stringsChecked` in its
+ *    sidecar, so it is read once, not rebuilt.
  * Builder and release share a lock and the sidecar is the only "done" mark, so a range is built
  * once; built twice, it would give the same bytes.
  */
@@ -52,10 +60,7 @@ export function planLedger(
   state: (start: number) => RangeState,
   buildsAtMost = RELEASE_BUILDS_AT_MOST,
 ): LedgerPlan {
-  const closed: number[] = [];
-  for (let start = 0; rangeEnd(start) < height; start += HEIGHTS_PER_LEDGER_FILE) {
-    closed.push(start);
-  }
+  const closed = closedRanges(height);
   const plan: LedgerPlan = {
     open: { start: closed.length * HEIGHTS_PER_LEDGER_FILE, end: height },
     carry: [],
@@ -122,6 +127,21 @@ export function withheldFailure(
   return `the ledger was published, but ${outcome.notCached} of ${outcome.closed} closed ranges are not cached${stale}`;
 }
 
+/**
+ * A range cached before `stringsChecked` existed also predates two changes to its figures: its
+ * underclaim left out every block without a fee total, and its `skippedBlocks` counted those and
+ * blocks without a transparent pool alike. With nothing skipped, both readings give the same
+ * figures; otherwise only a rebuild can say which blocks they were.
+ */
+function legacySkipped(where: string, skipped: number): string {
+  return (
+    `${where}: cached before blocks without a fee total entered the underclaim, and it skipped ` +
+    `${skipped}; delete its sidecar so the builder rebuilds it`
+  );
+}
+
+const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
 export async function releaseLedger(
   ctx: LedgerContext,
   opts: LedgerReleaseOptions,
@@ -171,19 +191,47 @@ export async function releaseLedger(
 
   for (const start of [...plan.carry, ...built].sort((a, b) => a - b)) {
     const s = readSidecar(opts.cacheDir, start)!;
+    const where = `ledger cache ${start}`;
     const problems = sidecarProblems(opts.cacheDir, s, start);
+    const legacy = s.stringsChecked !== true;
+    if (problems.length === 0 && legacy && s.skippedBlocks > 0) {
+      problems.push(legacySkipped(where, s.skippedBlocks));
+    }
     if (problems.length > 0) {
       failures.push(...problems);
       continue;
     }
+    const strings = new Findings();
+    let intact = true;
     for (const f of s.files) {
       const from = join(opts.cacheDir, f.path);
-      if (!opts.trusted(f.path, f.sha256) && hashFile(from) !== f.sha256) {
-        failures.push(`ledger cache ${start}: ${f.path} does not match its sidecar's hash`);
+      let matches: boolean;
+      if (legacy && f.path.startsWith("transparent_io/")) {
+        // Read once, a part at a time: hashed and checked from the same bytes.
+        const bytes = new Uint8Array(readFileSync(from));
+        matches = sha256(bytes) === f.sha256;
+        if (matches) {
+          const text = readLedgerText(bytes);
+          if (text === null) strings.add("a text column is missing", f.path);
+          else checkLedgerStrings(strings, text);
+        }
+      } else {
+        matches = opts.trusted(f.path, f.sha256) || hashFile(from) === f.sha256;
+      }
+      if (!matches) {
+        failures.push(`${where}: ${f.path} does not match its sidecar's hash`);
+        intact = false;
         continue;
       }
       linkInto(from, join(opts.outDir, f.path));
       files.push(f);
+    }
+    if (legacy && intact) {
+      if (strings.size > 0) failures.push(...strings.list().map((x) => `${where}: ${x}`));
+      else {
+        markStringsChecked(opts.cacheDir, s);
+        log(`${where}: text columns checked, once`);
+      }
     }
     underclaimZat += BigInt(s.underclaimZat);
     underclaimedBlocks += s.underclaimedBlocks;

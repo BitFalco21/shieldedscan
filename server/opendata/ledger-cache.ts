@@ -52,11 +52,42 @@ export interface Sidecar {
   skippedBlocks: number;
   builtAt: string;
   indexerCommit: string;
+  /**
+   * Its parts passed the text-column checks (`ledger-strings.ts`). Set at build since those
+   * checks exist; a range cached before them is read and checked once by a release, which then
+   * sets it (`ledger-release.ts`).
+   */
+  stringsChecked?: true;
 }
 
 export const rangeEnd = (start: number) => start + HEIGHTS_PER_LEDGER_FILE - 1;
 
+/**
+ * The starts of the ranges closed at release height `height`, from `from` (a range boundary): a
+ * range is closed once it ends below the height. The one that holds it is open, even at its last
+ * height, so the open range is never empty. One rule for the builder and the release.
+ */
+export function closedRanges(height: number, from = 0): number[] {
+  const starts: number[] = [];
+  for (let start = from; rangeEnd(start) < height; start += HEIGHTS_PER_LEDGER_FILE) {
+    starts.push(start);
+  }
+  return starts;
+}
+
 const sidecarPath = (cache: string, start: number) => join(cache, `${start}.json`);
+
+/** Written beside and renamed over, so a reader sees the old sidecar or the new, whole. */
+function writeSidecar(cache: string, s: Sidecar): void {
+  const path = sidecarPath(cache, s.start);
+  writeFileSync(`${path}.tmp`, JSON.stringify(s, null, 2) + "\n");
+  renameSync(`${path}.tmp`, path);
+}
+
+/** Records that a range cached before the text checks has now passed them. */
+export function markStringsChecked(cache: string, s: Sidecar): void {
+  writeSidecar(cache, { ...s, stringsChecked: true });
+}
 
 export function readSidecar(cache: string, start: number): Sidecar | null {
   const path = sidecarPath(cache, start);
@@ -81,6 +112,9 @@ export function sidecarProblems(cache: string, s: Sidecar, start: number): strin
     return [`${where}: unexpected files`];
   }
   if (!/^\d+$/.test(s.underclaimZat)) return [`${where}: malformed underclaim`];
+  if (s.stringsChecked !== undefined && s.stringsChecked !== true) {
+    return [`${where}: malformed stringsChecked`];
+  }
   const problems: string[] = [];
   for (const f of s.files) {
     const p = join(cache, f.path);
@@ -209,9 +243,8 @@ export function commitRange(cache: string, tmp: string, start: number, built: Bu
     skippedBlocks: built.checker.skippedBlocks,
     builtAt: new Date().toISOString(),
     indexerCommit: process.env.OPENDATA_GIT_SHA ?? "unknown",
+    stringsChecked: true,
   };
-  const path = sidecarPath(cache, start);
-  writeFileSync(`${path}.tmp`, JSON.stringify(sidecar, null, 2) + "\n");
-  renameSync(`${path}.tmp`, path);
+  writeSidecar(cache, sidecar);
   return sidecar;
 }

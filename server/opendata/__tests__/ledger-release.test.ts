@@ -10,16 +10,25 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tableFromIPC } from "apache-arrow";
+import { readParquet } from "parquet-wasm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { blockSubsidyZat } from "@/domain/halving";
-import { checkUnderclaim } from "../checks";
+import { blockSubsidyZat, NU7_HEIGHT } from "@/domain/halving";
+import { checkUnderclaim, type BlockRow } from "../checks";
 import { compareHistory } from "../history";
-import { readSidecar, sidecarProblems, type Sidecar } from "../ledger-cache";
+import {
+  closedRanges,
+  LEDGER_DICTIONARY,
+  readSidecar,
+  sidecarProblems,
+  type Sidecar,
+} from "../ledger-cache";
 import { planLedger, releaseLedger, withheldFailure, type LedgerOutcome } from "../ledger-release";
+import { DailySupply } from "../metrics";
 import { readBackSample } from "../publish";
-import { exportTypes, type OutputFile } from "../read";
-import { LEDGER_CACHE_VERSION } from "../tables";
+import { exportTypes, writeFile, type OutputFile } from "../read";
+import { LEDGER_CACHE_VERSION, TRANSPARENT_IO_COLUMNS } from "../tables";
 
 describe("which ranges a release carries, builds or lacks", () => {
   const all = (state: "cached" | "stale" | "absent") => (): "cached" | "stale" | "absent" => state;
@@ -57,19 +66,80 @@ describe("which ranges a release carries, builds or lacks", () => {
   });
 });
 
+describe("the builder and the release, on which ranges are closed", () => {
+  it("leaves a range open at its own last height, in both", () => {
+    // N % 10,000 = 9,999: the range ending at N is still the open one, never an empty open range.
+    expect(closedRanges(19_999)).toEqual([0]);
+    expect(planLedger(19_999, () => "absent").open).toEqual({ start: 10_000, end: 19_999 });
+    expect(closedRanges(20_000)).toEqual([0, 10_000]);
+    expect(closedRanges(29_999, 10_000)).toEqual([10_000]);
+  });
+});
+
 describe("the underclaim cross-check", () => {
+  const known = (unclaimedZat: bigint) => ({
+    unclaimedZat,
+    unknownFeeFrom: null,
+    poolsKnown: true,
+  });
+
   it("passes only when the ledger and the supply audit agree to the zatoshi", () => {
-    expect(checkUnderclaim(7n, 7n)).toEqual([]);
-    expect(checkUnderclaim(7n, 8n)).toEqual([
+    expect(checkUnderclaim(7n, known(7n))).toEqual({ failures: [], alerts: [] });
+    expect(checkUnderclaim(7n, known(8n)).failures).toEqual([
       "ledger underclaim 7 zat differs from the supply audit's 8 zat",
     ]);
-    expect(checkUnderclaim(0n, null)).toEqual([
-      "ledger underclaim: the supply at the release height is unknown",
-    ]);
-    expect(checkUnderclaim(0n, 5n, 1)).toEqual([
+    expect(checkUnderclaim(0n, known(5n), 1).failures).toEqual([
       "ledger underclaim 0 zat differs from the supply audit's 5 zat; " +
-        "1 skipped blocks are outside the ledger's sum",
+        "1 blocks whose underclaim could not be derived are outside the ledger's sum",
     ]);
+  });
+
+  it("only alerts when a post-NU7 block's unknown fee leaves the supply unknown", () => {
+    // The supply audit as the release builds it: the second block's fee is unknown.
+    const supply = new DailySupply();
+    const row = (height: number, fee: bigint | null): BlockRow => ({
+      height,
+      hash: "",
+      prev_hash: "",
+      timestamp: 1_800_000_000n,
+      size_bytes: 1000,
+      tx_count: 1,
+      transparent_tx_count: 0,
+      mixed_tx_count: 0,
+      shielded_tx_count: 0,
+      total_fee_zat: fee,
+      sapling_flow_zat: 0n,
+      orchard_flow_zat: 0n,
+      transparent_pool_zat: 1n,
+      sprout_pool_zat: null,
+      sapling_pool_zat: null,
+      orchard_pool_zat: null,
+      lockbox_pool_zat: null,
+      ironwood_pool_zat: null,
+      difficulty: null,
+      miner_kind: null,
+      miner_reward_zat: null,
+    });
+    supply.push(row(NU7_HEIGHT, 10n));
+    supply.push(row(NU7_HEIGHT + 1, null));
+    supply.push(row(NU7_HEIGHT + 2, 10n));
+    expect(checkUnderclaim(0n, supply.atRelease, 1)).toEqual({
+      failures: [],
+      alerts: [
+        "ledger underclaim not cross-checked: the supply is unknown from " +
+          `${NU7_HEIGHT + 1}, a post-NU7 block whose fee is unknown`,
+      ],
+    });
+    // Unknown for any other reason, it still stops the release.
+    expect(
+      checkUnderclaim(0n, { unclaimedZat: null, unknownFeeFrom: NU7_HEIGHT, poolsKnown: false }),
+    ).toEqual({
+      failures: ["ledger underclaim: the supply at the release height is unknown"],
+      alerts: [],
+    });
+    expect(
+      checkUnderclaim(0n, { unclaimedZat: null, unknownFeeFrom: null, poolsKnown: false }),
+    ).toMatchObject({ failures: [expect.stringMatching(/unknown/)] });
   });
 });
 
@@ -391,6 +461,77 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
     writeFileSync(sidecar, JSON.stringify({ ...s, underclaimZat: "8" }));
     const o = published((await release(10_150, cache)).outcome);
     expect(o.underclaimZat).toBe(8n);
-    expect(checkUnderclaim(o.underclaimZat, UNDER)).toHaveLength(1);
+    const supply = { unclaimedZat: UNDER, unknownFeeFrom: null, poolsKnown: true };
+    expect(checkUnderclaim(o.underclaimZat, supply).failures).toHaveLength(1);
+  });
+
+  /** A cache as one built before the text checks: its sidecar without `stringsChecked`. */
+  const legacy = (cache: string, over: Partial<Sidecar> = {}) => {
+    const { stringsChecked: _, ...s } = readSidecar(cache, 0)!;
+    writeFileSync(join(cache, "0.json"), JSON.stringify({ ...s, ...over }));
+  };
+
+  it("checks a range cached before the text checks once, then trusts its mark", async () => {
+    const cache = dir();
+    const first = published((await release(10_150, cache)).outcome);
+    expect(readSidecar(cache, 0)!.stringsChecked).toBe(true);
+    legacy(cache);
+    const checked = published((await release(10_150, cache, { trusted: true })).outcome);
+    expect(checked.failures).toEqual([]);
+    expect(shas(checked)).toEqual(shas(first));
+    expect(readSidecar(cache, 0)!.stringsChecked).toBe(true);
+
+    // Marked, a trusted part is not read again: other bytes of its size go unnoticed...
+    const part = join(cache, RANGE0[0]!);
+    const size = statSync(part).size;
+    unlinkSync(part);
+    writeFileSync(part, Buffer.alloc(size));
+    expect(published((await release(10_150, cache, { trusted: true })).outcome).failures).toEqual(
+      [],
+    );
+    // ...while an unmarked one is read, and hashed from the bytes it checks, trusted or not.
+    legacy(cache);
+    expect(published((await release(10_150, cache, { trusted: true })).outcome).failures).toEqual([
+      `ledger cache 0: ${RANGE0[0]} does not match its sidecar's hash`,
+    ]);
+    expect(readSidecar(cache, 0)!.stringsChecked).toBeUndefined();
+  });
+
+  it("fails a range cached before the text checks whose text fails them, naming it", async () => {
+    const cache = dir();
+    await release(10_150, cache);
+    const path = join(cache, RANGE0[0]!);
+    const table = tableFromIPC(readParquet(new Uint8Array(readFileSync(path))).intoIPCStream());
+    const values = TRANSPARENT_IO_COLUMNS.map((c) =>
+      Array.from(table.getChild(c.name)! as Iterable<string | number | bigint | null>),
+    );
+    // The coinbase output at height 5 gets a script type no node would name.
+    values[TRANSPARENT_IO_COLUMNS.findIndex((c) => c.name === "script_type")]![5] = "Pay To Me";
+    unlinkSync(path);
+    const rewritten = writeFile(
+      cache,
+      RANGE0[0]!,
+      TRANSPARENT_IO_COLUMNS,
+      values,
+      LEDGER_DICTIONARY,
+    );
+    const s = readSidecar(cache, 0)!;
+    writeFileSync(join(cache, "0.json"), JSON.stringify({ ...s, files: [rewritten, s.files[1]] }));
+    legacy(cache);
+
+    expect(published((await release(10_150, cache)).outcome).failures).toEqual([
+      "ledger cache 0: malformed script_type: 1 (e.g. 5)",
+    ]);
+    expect(readSidecar(cache, 0)!.stringsChecked).toBeUndefined();
+  });
+
+  it("fails a range cached before fee-less blocks entered the underclaim, if it skipped any", async () => {
+    const cache = dir();
+    await release(10_150, cache);
+    legacy(cache, { skippedBlocks: 2 });
+    expect(published((await release(10_150, cache)).outcome).failures).toEqual([
+      "ledger cache 0: cached before blocks without a fee total entered the underclaim, and it " +
+        "skipped 2; delete its sidecar so the builder rebuilds it",
+    ]);
   });
 });
