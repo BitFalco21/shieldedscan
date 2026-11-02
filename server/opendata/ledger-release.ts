@@ -211,8 +211,14 @@ export async function releaseLedger(
         const bytes = new Uint8Array(readFileSync(from));
         matches = sha256(bytes) === f.sha256;
         if (matches) {
-          const text = readLedgerText(bytes);
-          if (text === null) strings.add("a text column is missing", f.path);
+          // A part the reader rejects is a finding of this range, never an anonymous crash.
+          let text;
+          try {
+            text = readLedgerText(bytes);
+          } catch {
+            text = null;
+          }
+          if (text === null) strings.add("unreadable part, or a text column missing", f.path);
           else checkLedgerStrings(strings, text);
         }
       } else {

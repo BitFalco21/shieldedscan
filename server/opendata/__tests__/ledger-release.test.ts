@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -495,6 +496,17 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
       `ledger cache 0: ${RANGE0[0]} does not match its sidecar's hash`,
     ]);
     expect(readSidecar(cache, 0)!.stringsChecked).toBeUndefined();
+
+    // Bytes that match the sidecar but are no Parquet file: a finding of the range, not a crash.
+    const s = readSidecar(cache, 0)!;
+    const garbage = createHash("sha256").update(Buffer.alloc(size)).digest("hex");
+    writeFileSync(
+      join(cache, "0.json"),
+      JSON.stringify({ ...s, files: [{ ...s.files[0]!, sha256: garbage }, s.files[1]] }),
+    );
+    expect(published((await release(10_150, cache)).outcome).failures).toEqual([
+      `ledger cache 0: unreadable part, or a text column missing: 1 (e.g. ${RANGE0[0]})`,
+    ]);
   });
 
   it("fails a range cached before the text checks whose text fails them, naming it", async () => {
