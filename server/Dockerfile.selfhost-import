@@ -1,0 +1,30 @@
+# The self-host importer (server/selfhost-import-main.ts): one release of the open dataset into
+# an empty Postgres. A one-shot job: it exits 0 once the database matches the release.
+#
+# parquet-wasm loads its WebAssembly file from its own package directory at runtime, so it stays
+# outside the bundle and its package (no dependencies of its own) is copied beside it.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+COPY server ./server
+RUN npx esbuild server/selfhost-import-main.ts \
+      --bundle --platform=node --target=node22 --format=esm \
+      --external:parquet-wasm \
+      --outfile=dist/selfhost-import.mjs \
+      --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist/selfhost-import.mjs ./selfhost-import.mjs
+COPY --from=build /app/node_modules/parquet-wasm ./node_modules/parquet-wasm
+# The schema it applies, the same files the follower and the API apply on boot.
+COPY --from=build /app/server/schema-chain.sql /app/server/schema.sql /app/server/schema-net.sql ./
+# Downloads land here until their rows are in; mount a volume to keep them across restarts.
+RUN mkdir /data && chown node:node /data
+USER node
+ENV SELFHOST_DATA_DIR=/data
+ENTRYPOINT ["node", "selfhost-import.mjs"]
