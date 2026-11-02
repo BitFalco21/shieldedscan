@@ -47,6 +47,14 @@ export function rowKey(path: string): readonly string[] {
     "tx_versions_daily.parquet": ["day", "version"],
     "pool_flows_daily.parquet": ["day", "pool"],
     "coinbase_shielded_daily.parquet": ["day"],
+    "tx_kinds_daily.parquet": ["day"],
+    "pools_daily.parquet": ["day"],
+    "pool_boundary_daily.parquet": ["day", "pool"],
+    "shielding_flow_daily.parquet": ["day"],
+    "pool_migration_daily.parquet": ["day", "destination", "source"],
+    "fees_monthly.parquet": ["month", "kind"],
+    "shielding_records_daily.parquet": ["day"],
+    "mining_payouts_daily.parquet": ["day", "kind", "address"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);

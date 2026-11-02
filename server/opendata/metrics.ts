@@ -16,8 +16,12 @@ export interface MetricTx {
   version: number;
   sprout_joinsplits: number | null;
   sprout_vpub_net_zat: bigint | null;
+  sapling_spends: number | null;
+  sapling_outputs: number | null;
   sapling_value_balance_zat: bigint | null;
+  orchard_actions: number | null;
   orchard_value_balance_zat: bigint | null;
+  ironwood_actions: number | null;
   ironwood_value_balance_zat: bigint | null;
 }
 
@@ -43,28 +47,28 @@ export class DailyTxVersions {
 
 /**
  * Each shielded pool's gross flows per UTC day: value in (positive balances) and out (negative),
- * never netted per transaction. Sprout's public value is stored in the node's sign (positive =
- * leaving), so it is negated into the domain sign the others use; and it is stored as 0, not NULL,
- * for a transaction without JoinSplits, so Sprout counts only where `sprout_joinsplits > 0`.
+ * never netted per transaction. A pool counts only where the transaction used it (a spend, output,
+ * action or JoinSplit), the site's one definition (`POOL_USED_SQL`), so these rows can be held to
+ * `chain_day_pool_tx` exactly. Sprout's public value is stored in the node's sign (positive =
+ * leaving), so it is negated into the domain sign the others use.
  */
 export class DailyPoolFlows {
   private readonly days = new Map<string, { inflow: bigint; outflow: bigint; txs: number }>();
 
   push(tx: MetricTx): void {
     const day = utcDay(tx.timestamp);
-    const balances: [string, bigint | null][] = [
+    const used: [string, boolean, bigint][] = [
+      ["sprout", (tx.sprout_joinsplits ?? 0) > 0, -(tx.sprout_vpub_net_zat ?? 0n)],
       [
-        "sprout",
-        (tx.sprout_joinsplits ?? 0) > 0 && tx.sprout_vpub_net_zat !== null
-          ? -tx.sprout_vpub_net_zat
-          : null,
+        "sapling",
+        (tx.sapling_spends ?? 0) > 0 || (tx.sapling_outputs ?? 0) > 0,
+        tx.sapling_value_balance_zat ?? 0n,
       ],
-      ["sapling", tx.sapling_value_balance_zat],
-      ["orchard", tx.orchard_value_balance_zat],
-      ["ironwood", tx.ironwood_value_balance_zat],
+      ["orchard", (tx.orchard_actions ?? 0) > 0, tx.orchard_value_balance_zat ?? 0n],
+      ["ironwood", (tx.ironwood_actions ?? 0) > 0, tx.ironwood_value_balance_zat ?? 0n],
     ];
-    for (const [pool, balance] of balances) {
-      if (balance === null) continue;
+    for (const [pool, isUsed, balance] of used) {
+      if (!isUsed) continue;
       const key = `${day} ${pool}`;
       const d = this.days.get(key) ?? { inflow: 0n, outflow: 0n, txs: 0 };
       if (balance > 0n) d.inflow += balance;

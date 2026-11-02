@@ -68,6 +68,10 @@ export class Findings {
 const utcDay = (unixSeconds: bigint) =>
   new Date(Number(unixSeconds) * 1000).toISOString().slice(0, 10);
 
+/** A `YYYY-MM-DD` day `n` days later (or earlier), in UTC. */
+const addDays = (day: string, n: number) =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 /**
  * Checks blocks one at a time, in height order from 0, so a full release never needs all three
  * and a half million rows in memory at once.
@@ -273,4 +277,4 @@ export function scanStrings(
  */
 const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-export { byCodePoint, utcDay };
+export { addDays, byCodePoint, utcDay };

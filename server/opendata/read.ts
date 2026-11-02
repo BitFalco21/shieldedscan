@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
+  addDays,
   BlockChecker,
   byCodePoint,
   checkPoolUsage,
@@ -14,6 +15,10 @@ import {
   type BlockRow,
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
+import type { BoundaryTx } from "./site-boundary";
+import { siteSeries } from "./site-series";
+import { SiteStream } from "./site-stream";
+import { readSiteViews } from "./site-views";
 import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
 import type { LedgerContext, LedgerOutcome } from "./ledger-release";
 import {
@@ -163,9 +168,6 @@ function toColumns(columns: readonly ColumnSpec[], rows: readonly Record<string,
   return columns.map((c) => rows.map((r) => (r[c.name] ?? null) as ColumnValues[number]));
 }
 
-const addDays = (day: string, n: number) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-
 export async function readRelease(opts: ReadOptions): Promise<Release> {
   const log = opts.log ?? (() => {});
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000));
@@ -204,6 +206,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const dailyMining = new DailyMining();
     const dailyHashrate = new DailyHashrate();
     const dailySupply = new DailySupply();
+    const site = new SiteStream();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
@@ -221,6 +224,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
           dailyBlocks.push(row);
           dailyHashrate.push(row);
           dailySupply.push(row);
+          site.pushBlock(row);
           BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
         // The coinbase text is read only to match the fixed list of self-named operators.
@@ -423,6 +427,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
           dailyVersions.push(r as unknown as MetricTx);
           dailyPoolFlows.push(r as unknown as MetricTx);
           dailyCoinbase.push(r as unknown as MetricTx);
+          site.pushTx(r as unknown as BoundaryTx);
           TRANSACTION_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
       }
@@ -443,6 +448,24 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         dailyCoinbase.rows(finalDay),
       ],
     ]);
+
+    // The site's precomputed series: views read in their own short snapshot, and every table
+    // held to the stream above; a disagreement or a stale view fails the release.
+    await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const siteViews = await readSiteViews(snap);
+    await snap.query("COMMIT");
+    const series = siteSeries(siteViews.views, {
+      finalDay,
+      stream: site,
+      blocksDaily: dailyBlocks.rows(finalDay),
+      poolFlows: dailyPoolFlows.rows(finalDay),
+      supply: supplyRows,
+    });
+    failures.push(...siteViews.failures, ...series.failures);
+    for (const [name, rows] of series.tables) {
+      const columns = SMALL_TABLES[name];
+      files.push(file(`${name}.parquet`, columns, toColumns(columns, rows)));
+    }
 
     let ledger: LedgerOutcome | null = null;
     if (opts.ledger) {
