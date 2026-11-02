@@ -3,6 +3,10 @@
 How to run the whole stack: a Zcash node, Postgres, the services in `server/`, and the Next.js
 frontend. The frontend alone needs none of this; `npm run dev` serves fixtures.
 
+The quickest start skips indexing the chain from 2016: [`selfhost/`](../selfhost/README.md)
+imports the open dataset into Postgres with one command, then a node keeps it current. This page
+is the full path: every service, built and indexed from the node.
+
 Every variable mentioned here is listed, with its default, in [`.env.example`](../.env.example).
 
 ## What runs

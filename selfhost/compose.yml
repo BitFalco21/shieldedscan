@@ -1,0 +1,119 @@
+# ShieldedScan from the open dataset, without indexing the chain from 2016.
+#
+#   docker compose --profile db up -d     Postgres, filled from the dataset (+ the follower with a node)
+#   docker compose --profile api up -d    the same, plus the API on 127.0.0.1:8080
+#
+# Settings come from `.env` beside this file (copy `env.example`). See README.md.
+name: shieldedscan
+
+# libpq's variables rather than a URL, so any character in the password is safe.
+x-database: &database
+  PGHOST: postgres
+  PGUSER: shieldedscan
+  PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+  PGDATABASE: shieldedscan
+
+services:
+  postgres:
+    image: postgres:17
+    profiles: [db, api]
+    environment:
+      POSTGRES_USER: shieldedscan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: shieldedscan
+    # Sized for the import's bulk load and index builds; the defaults are for a laptop.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-2GB}
+      - -c
+      - max_wal_size=16GB
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - max_parallel_maintenance_workers=4
+    shm_size: 1g
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Loopback only: the database is never published beyond this machine.
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT:-5432}:5432
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U shieldedscan -d shieldedscan]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # One-shot: imports the release, then exits 0. Re-running it resumes, or does nothing once done.
+  importer:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile.selfhost-import
+    profiles: [db, api]
+    environment:
+      <<: *database
+      SELFHOST_REVISION: ${SELFHOST_REVISION:-main}
+      # A mirror of the Hub, if you use one.
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      SELFHOST_JOBS: ${SELFHOST_JOBS:-2}
+      SELFHOST_ALLOW_MISSING_COINBASE: ${SELFHOST_ALLOW_MISSING_COINBASE:-0}
+      SELFHOST_MAINTENANCE_WORK_MEM: ${SELFHOST_MAINTENANCE_WORK_MEM:-1GB}
+    volumes:
+      - downloads:/data
+    # For an HF_ENDPOINT mirror on this machine.
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Continues from the release block with a synced node; without NODE_RPC_URL it exits at once
+  # and the database stays at the release height.
+  follower:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile.follower
+    profiles: [db, api]
+    environment:
+      <<: *database
+      NODE_RPC_URL: ${NODE_RPC_URL:-}
+      CHAIN_INGEST_MODE: full
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        if [ -z "$$NODE_RPC_URL" ]; then echo "NODE_RPC_URL is not set: no follower, the database
+        stays at the release height"; exit 0; fi; exec node follower.mjs
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      importer:
+        condition: service_completed_successfully
+    restart: on-failure
+
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    profiles: [api]
+    environment:
+      <<: *database
+      EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:?set EXPLORER_API_TOKEN in .env}
+      PUBLIC_API_ENABLED: "1"
+      NODE_RPC_URL: ${NODE_RPC_URL:-}
+      # Prices, market caps, swap venues, the ZIP index and names are polled from the internet
+      # only when this is 1.
+      EXTERNAL_SOURCES: ${EXTERNAL_SOURCES:-0}
+    ports:
+      - 127.0.0.1:${API_PORT:-8080}:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      importer:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  downloads:

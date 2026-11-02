@@ -61,6 +61,8 @@ export function createLiveSources(deps: {
   publicChainIndex: ChainIndexStore | undefined;
   /** A replica's reader of the primary's figures; absent on the primary, which tracks them. */
   remoteLiveState: RemoteLiveState | undefined;
+  /** False when the off-chain sources are off (`EXTERNAL_SOURCES=0`): no price is polled. */
+  externalSources: boolean;
   coingeckoApiKey: string | undefined;
   log: (message: string) => void;
 }): LiveSources {
@@ -80,7 +82,7 @@ export function createLiveSources(deps: {
     if (!deps.isTestnet) price = deps.remoteLiveState.price;
     stats24h = deps.remoteLiveState.stats24h;
   } else {
-    if (!deps.isTestnet) {
+    if (!deps.isTestnet && deps.externalSources) {
       const tracker = new PriceTracker(deps.log, deps.coingeckoApiKey);
       tracker.start();
       price = tracker;

@@ -14,12 +14,8 @@ import { parseArgs } from "node:util";
 import { readAddresses } from "./opendata/addresses";
 import { datasetCard } from "./opendata/card";
 import { compareHistory, type PublishedFile } from "./opendata/history";
-import {
-  isLedgerPath,
-  releaseLedger,
-  withheldFailure,
-  type LedgerOutcome,
-} from "./opendata/ledger-release";
+import { isLedgerPath, releaseLedger, withheldFailure } from "./opendata/ledger-release";
+import { ledgerManifest, type Manifest } from "./opendata/manifest";
 import { publishRelease, readBackSample } from "./opendata/publish";
 import { readRelease } from "./opendata/read";
 
@@ -95,59 +91,6 @@ function fail(reason: string, details: string[] = []): never {
   for (const d of safe) log(`  ${d}`);
   writeStatus({ ok: false, reason: redact(reason), details: safe });
   process.exit(1);
-}
-
-interface ManifestFile {
-  path: string;
-  rows: number;
-  bytes: number;
-  sha256: string;
-  contentSha256: string;
-}
-
-interface Manifest {
-  format: 1;
-  network: "mainnet";
-  height: number;
-  hash: string;
-  finalDay: string;
-  generatedAt: string;
-  indexerCommit: string;
-  files: ManifestFile[];
-  fills: { path: string; column: string; cells: number }[];
-  acceptedHistoryChanges: string[];
-  checks: { underClaimedHeights: number; alerts: string[] };
-  ledger: LedgerManifest;
-  /**
-   * Files replaced whole by each release (`REPLACED` in history.ts), with the height they stand
-   * at and the rich list's height they were rewound from.
-   */
-  snapshots: { path: string; height: number; rewoundFrom: number }[];
-}
-
-type LedgerManifest =
-  | { status: "withheld"; closedRanges: number; notCached: number }
-  | {
-      status: "published";
-      closedRanges: number;
-      openRange: [number, number];
-      underclaimZat: string;
-      underclaimedBlocks: number;
-      skippedBlocks: number;
-    };
-
-function ledgerManifest(l: LedgerOutcome): LedgerManifest {
-  if (l.status === "withheld") {
-    return { status: "withheld", closedRanges: l.closed, notCached: l.notCached };
-  }
-  return {
-    status: "published",
-    closedRanges: l.carried + l.built.length,
-    openRange: [l.open.start, l.open.end],
-    underclaimZat: l.underclaimZat.toString(),
-    underclaimedBlocks: l.underclaimedBlocks,
-    skippedBlocks: l.skippedBlocks,
-  };
 }
 
 /**
