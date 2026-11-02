@@ -30,6 +30,8 @@ export interface HistoryResult {
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
   if (path.startsWith("transactions/")) return ["txid"];
+  if (path.startsWith("transparent_io/")) return ["txid", "io", "ordinal"];
+  if (path.startsWith("transactions_extra/")) return ["txid"];
   const keys: Record<string, readonly string[]> = {
     "pool_usage_daily.parquet": ["day", "pool"],
     "shielding_daily.parquet": ["day"],

@@ -7,8 +7,9 @@ import { commit, downloadFile, type CommitOperation } from "@huggingface/hub";
  * The commit carries the changed data files, the manifest and the card together, so visitors see
  * the previous release or this one, never a mix. `parentCommit` makes the Hub refuse it if the
  * dataset moved since our last release (a second run, a hand edit): we never overwrite what we
- * have not seen. After it lands, every file it carried is downloaded at the new commit and its
- * hash compared with what was sent.
+ * have not seen. After it lands, the files it carried are downloaded at the new commit and their
+ * hashes compared with what was sent: all of them, except in a commit too large to read back
+ * whole (the ledger's first), where `readBackSample` picks which.
  */
 
 export interface UploadFile {
@@ -16,6 +17,20 @@ export interface UploadFile {
   /** Read from disk as it uploads: a first release is larger than the memory we run in. */
   content: Blob;
   sha256: string;
+  /** Downloaded and compared after the commit; true unless said otherwise. */
+  readBack?: boolean;
+}
+
+/** Files read back from a large batch: evenly spread, the first and the last included. */
+export const READ_BACK_SAMPLE = 20;
+
+export function readBackSample(paths: readonly string[], max = READ_BACK_SAMPLE): Set<string> {
+  if (paths.length <= max) return new Set(paths);
+  const picked = new Set<string>();
+  for (let i = 0; i < max; i++) {
+    picked.add(paths[Math.round((i * (paths.length - 1)) / (max - 1))]!);
+  }
+  return picked;
 }
 
 export interface PublishOptions {
@@ -53,6 +68,7 @@ export async function publishRelease(opts: PublishOptions): Promise<string> {
 
   const mismatched: string[] = [];
   for (const f of opts.files) {
+    if (f.readBack === false) continue;
     const blob = await downloadFile({
       repo,
       path: f.path,

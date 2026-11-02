@@ -1,11 +1,20 @@
 import type { ColumnSpec } from "./parquet";
-import { BLOCK_COLUMNS, BLOCKS_PER_FILE, SMALL_TABLES, TRANSACTION_COLUMNS } from "./tables";
+import {
+  BLOCK_COLUMNS,
+  BLOCKS_PER_FILE,
+  HEIGHTS_PER_LEDGER_FILE,
+  LEDGER_PART_ROWS,
+  SMALL_TABLES,
+  TRANSACTION_COLUMNS,
+  TRANSACTIONS_EXTRA_COLUMNS,
+  TRANSPARENT_IO_COLUMNS,
+} from "./tables";
 
 /**
  * The dataset card (the README on Hugging Face), generated from the same table definitions the
  * export writes, so the documented columns are always the published ones. It holds no release
  * values: those are in `manifest.json`, so the card only changes when the schema or the wording
- * does.
+ * does, or when the transparent ledger first appears.
  */
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -114,6 +123,37 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     ironwood_value_balance_zat:
       "Net value into the Ironwood pool, zatoshis: positive entering, negative leaving.",
   },
+  transparent_io: {
+    txid: "Transaction id, hex.",
+    block_height: "Height of the block that mined it.",
+    io: "in (a transparent input) or out (a transparent output).",
+    ordinal: "Position among the transaction's inputs, or among its outputs, from 0.",
+    address:
+      "Transparent address the output pays, or that the input's spent output paid. NULL when the script names no address (OP_RETURN) or several (multisig).",
+    value_zat: "Value, zatoshis. For an input, the value of the output it spends.",
+    script_type:
+      "Script type as the node names it (pubkeyhash, scripthash, pubkey, nulldata, multisig, nonstandard, …).",
+    prev_txid: "For an input, the transaction whose output it spends, hex; NULL for an output.",
+    prev_vout: "For an input, that output's index; NULL for an output.",
+  },
+  transactions_extra: {
+    txid: "Transaction id, hex.",
+    block_height: "Height of the block that mined it.",
+    inputs: "Transparent inputs.",
+    outputs: "Transparent outputs.",
+    transparent_in_zat: "Value of the transparent inputs, zatoshis.",
+    transparent_out_zat: "Value of the transparent outputs, zatoshis.",
+    inputs_p2pkh: "Inputs spending pay-to-public-key-hash outputs.",
+    inputs_p2sh: "Inputs spending pay-to-script-hash outputs.",
+    inputs_p2pk: "Inputs spending pay-to-public-key outputs.",
+    inputs_other: "Inputs spending any other script type.",
+    outputs_p2pkh: "Pay-to-public-key-hash outputs.",
+    outputs_p2sh: "Pay-to-script-hash outputs.",
+    outputs_p2pk: "Pay-to-public-key outputs.",
+    outputs_other: "Outputs of any other script type.",
+    binding_sig_valid:
+      "Whether its binding signature verified, as the indexer recorded it; NULL where not recorded.",
+  },
   blocks_daily: {
     blocks: "Blocks with a header time on that day.",
     median_interval_s: "Median seconds since the previous block (nearest rank).",
@@ -173,6 +213,8 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
 const TABLE_INTROS: Record<string, string> = {
   transactions:
     "Every mined transaction since 2016: kind, direction, fee, size, and what each shielded part publicly moved into or out of its pool, in files of 100,000 heights.",
+  transparent_io: `Every transparent input and output since 2016, one row each. Files cover ${HEIGHTS_PER_LEDGER_FILE.toLocaleString("en-US")} heights each, split at block boundaries into parts of about ${LEDGER_PART_ROWS.toLocaleString("en-US")} rows: \`transparent_io/<start>-<end>-<part>.parquet\`. The Hugging Face viewer previews only the first ~5 GB; query the files for the rest.`,
+  transactions_extra: `Per transaction, its transparent totals and its inputs and outputs by script type, in files of ${HEIGHTS_PER_LEDGER_FILE.toLocaleString("en-US")} heights: \`transactions_extra/<start>-<end>.parquet\`.`,
   blocks_daily: "Block spacing, size, difficulty and fees per UTC day, computed from `blocks`.",
   fees_daily: "Fee percentiles per UTC day and transaction kind.",
   mining_daily:
@@ -195,6 +237,15 @@ const TABLE_INTROS: Record<string, string> = {
   reorgs: "Chain reorganisations this indexer observed.",
 };
 
+const LEDGER_CHECKS = `
+
+The transparent ledger is held to the chain block by block: the transparent pool's change equals
+the block's outputs less its inputs; the coinbase claims no more than the subsidy and fees, and
+what coinbases left unclaimed, summed, equals \`supply_daily\`'s unclaimed figure; each
+transaction's fee equals its value balance. Only the newest range's files grow from one release to
+the next; a range the chain has passed is written once and never changes, except in a deliberate
+rebuild, which the manifest records.`;
+
 function columnTable(table: string, columns: readonly ColumnSpec[]): string {
   const rows = columns.map((c) => {
     const desc = TABLE_DESCRIPTIONS[table]?.[c.name] ?? DESCRIPTIONS[c.name];
@@ -204,10 +255,21 @@ function columnTable(table: string, columns: readonly ColumnSpec[]): string {
   return ["| Column | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n");
 }
 
-export function datasetCard(): string {
+export interface CardOptions {
+  /** The transparent ledger is in this release (it is published whole or not at all). */
+  ledger: boolean;
+}
+
+export function datasetCard({ ledger }: CardOptions): string {
   const tables: [string, readonly ColumnSpec[], string][] = [
     ["blocks", BLOCK_COLUMNS, "blocks/*.parquet"],
     ["transactions", TRANSACTION_COLUMNS, "transactions/*.parquet"],
+    ...(ledger
+      ? ([
+          ["transparent_io", TRANSPARENT_IO_COLUMNS, "transparent_io/*.parquet"],
+          ["transactions_extra", TRANSACTIONS_EXTRA_COLUMNS, "transactions_extra/*.parquet"],
+        ] as [string, readonly ColumnSpec[], string][])
+      : []),
     ...Object.entries(SMALL_TABLES).map(
       ([name, cols]) => [name, cols, `${name}.parquet`] as [string, readonly ColumnSpec[], string],
     ),
@@ -230,7 +292,7 @@ tags:
 - blockchain
 - privacy
 size_categories:
-- 10M<n<100M
+- ${ledger ? "100M<n<1B" : "10M<n<100M"}
 configs:
 ${configs}
 ---
@@ -276,7 +338,7 @@ except a value that was unknown becoming known, which the manifest records.
 Every release passes checks before it is published: no missing heights, each block linked to the
 previous one, each pool's recorded flow equal to its balance change, the pools growing by no more
 than the block subsidy, the daily counts agreeing with the blocks, and each block's transactions
-matching its own count, kinds, fee total and pool flows.
+matching its own count, kinds, fee total and pool flows.${ledger ? LEDGER_CHECKS : ""}
 
 The indexer is open source: [github.com/BitFalco21/shieldedscan](https://github.com/BitFalco21/shieldedscan).
 Anyone with a Zcash node can rebuild these tables and compare.
@@ -284,7 +346,7 @@ Anyone with a Zcash node can rebuild these tables and compare.
 ## What is not here
 
 Shielded amounts: the chain encrypts them, and only what crosses a pool's boundary is public.
-Transparent inputs and outputs by address are not in this release yet. Node IP addresses,
+${ledger ? "" : "Transparent inputs and outputs by address are not in this release yet. "}Node IP addresses,
 miner-written coinbase text, and third-party price and location data are left out.
 
 ## Licence and citation

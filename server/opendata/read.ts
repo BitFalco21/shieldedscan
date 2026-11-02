@@ -7,6 +7,7 @@ import {
   BlockChecker,
   byCodePoint,
   checkPoolUsage,
+  checkUnderclaim,
   checkShieldingDaily,
   publishedRelease,
   scanStrings,
@@ -14,6 +15,7 @@ import {
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
 import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
+import type { LedgerContext, LedgerOutcome } from "./ledger-release";
 import {
   DailyHashrate,
   DailyPoolFlows,
@@ -95,6 +97,8 @@ export interface Release {
   failures: string[];
   alerts: string[];
   underClaimed: number;
+  /** The transparent ledger, when the release was asked for it. */
+  ledger: LedgerOutcome | null;
 }
 
 export interface ReadOptions {
@@ -104,6 +108,11 @@ export interface ReadOptions {
   /** Seconds since the epoch, for "yesterday" in the node table. */
   now?: () => number;
   log?: (line: string) => void;
+  /**
+   * The transparent ledger (`ledger-release.ts`), read last, on the snapshot connection, each
+   * range in its own snapshot below N like the transactions.
+   */
+  ledger?: (ctx: LedgerContext) => Promise<LedgerOutcome>;
 }
 
 const sha256 = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
@@ -435,6 +444,25 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ],
     ]);
 
+    let ledger: LedgerOutcome | null = null;
+    if (opts.ledger) {
+      ledger = await opts.ledger({
+        client: snap,
+        height,
+        afterChunk: async () => {
+          await watchFollower();
+          return "continue";
+        },
+      });
+      if (ledger.status === "published") {
+        files.push(...ledger.files);
+        failures.push(
+          ...ledger.failures,
+          ...checkUnderclaim(ledger.underclaimZat, dailySupply.unclaimedZat),
+        );
+      }
+    }
+
     return {
       height,
       hash,
@@ -443,6 +471,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       failures,
       alerts: checker.alerts.list(),
       underClaimed: checker.underClaimed,
+      ledger,
     };
   } catch (e) {
     await snap.query("ROLLBACK").catch(() => {});

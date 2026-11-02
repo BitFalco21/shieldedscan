@@ -193,6 +193,12 @@ export class DailySupply {
   private schedule = 0n;
   private nsmTotal: bigint | null = 0n;
   private readonly started = new Set<string>();
+  private last: bigint | null = null;
+
+  /** Unclaimed subsidy at the last block pushed (the release height), or null if unknown. */
+  get unclaimedZat(): bigint | null {
+    return this.last;
+  }
 
   push(row: BlockRow): void {
     this.schedule += BigInt(blockSubsidyZat(row.height));
@@ -219,6 +225,8 @@ export class DailySupply {
         issued = null;
       }
     }
+
+    this.last = issued === null ? null : this.schedule - issued;
 
     const day = utcDay(row.timestamp);
     const d = this.days.get(day) ?? { schedule: 0n, issued: null, nsm: 0n, nsmTotal: 0n };

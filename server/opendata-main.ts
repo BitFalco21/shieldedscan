@@ -6,23 +6,29 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { datasetCard } from "./opendata/card";
 import { compareHistory, type PublishedFile } from "./opendata/history";
-import { publishRelease } from "./opendata/publish";
+import { isLedgerPath, releaseLedger, type LedgerOutcome } from "./opendata/ledger-release";
+import { publishRelease, readBackSample } from "./opendata/publish";
 import { readRelease } from "./opendata/read";
 
 /**
  * The open dataset's daily release: ShieldedScan's chain index as Parquet files on Hugging Face.
  *
- *   docker run --rm … <opendata-image> node opendata.mjs --out /out [--publish] [--accept-history-change]
+ *   docker run --rm … <opendata-image> node opendata.mjs --out /out [--publish] [--accept-history-change] [--full]
  *
  * Without `--publish` it is a dry run: the release is read, checked and written to `/out/staging`,
  * and nothing leaves the machine. With it, the release is committed to Hugging Face, read back,
  * and kept in `/out/published` as the base the next run is compared with.
+ *
+ * The transparent ledger's closed ranges come from `/out/ledger-cache` (see
+ * `opendata/ledger-release.ts`), hard-linked into the release and trusted by hash once verified:
+ * `--full` re-hashes every file, published and cached, instead of trusting the manifest.
  *
  * Its own entrypoint, never the API's or the follower's: it applies no schema, and its database
  * role can read the `opendata` views and nothing else.
@@ -37,6 +43,7 @@ const { values: args } = parseArgs({
     out: { type: "string" },
     publish: { type: "boolean", default: false },
     "accept-history-change": { type: "boolean", default: false },
+    full: { type: "boolean", default: false },
   },
 });
 const OUT = args.out;
@@ -47,6 +54,7 @@ if (!OUT) {
 
 const STAGING = join(OUT, "staging");
 const PUBLISHED = join(OUT, "published");
+const CACHE = join(OUT, "ledger-cache");
 const startedAt = new Date().toISOString();
 
 /** Anything shaped like a credential is removed from what this process prints or stores. */
@@ -99,16 +107,51 @@ interface Manifest {
   fills: { path: string; column: string; cells: number }[];
   acceptedHistoryChanges: string[];
   checks: { underClaimedHeights: number; alerts: string[] };
+  ledger: LedgerManifest;
 }
 
-/** The last published release, every file verified against its manifest before it is trusted. */
+type LedgerManifest =
+  | { status: "withheld"; closedRanges: number; notCached: number }
+  | {
+      status: "published";
+      closedRanges: number;
+      openRange: [number, number];
+      underclaimZat: string;
+      underclaimedBlocks: number;
+      skippedBlocks: number;
+    };
+
+function ledgerManifest(l: LedgerOutcome): LedgerManifest {
+  if (l.status === "withheld") {
+    return { status: "withheld", closedRanges: l.closed, notCached: l.notCached };
+  }
+  return {
+    status: "published",
+    closedRanges: l.carried + l.built.length,
+    openRange: [l.open.start, l.open.end],
+    underclaimZat: l.underclaimZat.toString(),
+    underclaimedBlocks: l.underclaimedBlocks,
+    skippedBlocks: l.skippedBlocks,
+  };
+}
+
+/**
+ * The last published release, every file verified against its manifest before it is trusted. The
+ * ledger's files are checked by size only, unless `--full`: hashing them would read ~25 GB a day,
+ * and they were hashed when they entered a release.
+ */
 function loadPublished(): { manifest: Manifest; files: PublishedFile[]; commit: string } | null {
   if (!existsSync(join(PUBLISHED, "manifest.json"))) return null;
   const manifest = JSON.parse(readFileSync(join(PUBLISHED, "manifest.json"), "utf8")) as Manifest;
   const commit = readFileSync(join(PUBLISHED, "COMMIT"), "utf8").trim();
   const files = manifest.files.map((f) => {
-    const read = () => new Uint8Array(readFileSync(join(PUBLISHED, f.path)));
-    if (sha256(read()) !== f.sha256) fail(`local copy of ${f.path} does not match its manifest`);
+    const path = join(PUBLISHED, f.path);
+    const read = () => new Uint8Array(readFileSync(path));
+    const intact =
+      isLedgerPath(f.path) && !args.full
+        ? existsSync(path) && statSync(path).size === f.bytes
+        : sha256(read()) === f.sha256;
+    if (!intact) fail(`local copy of ${f.path} does not match its manifest`);
     return { path: f.path, sha256: f.sha256, read };
   });
   return { manifest, files, commit };
@@ -116,11 +159,41 @@ function loadPublished(): { manifest: Manifest; files: PublishedFile[]; commit: 
 
 try {
   rmSync(STAGING, { recursive: true, force: true });
-  const release = await readRelease({ connection: {}, log, outDir: STAGING });
+  const previous = loadPublished();
+  const before = new Map(previous?.manifest.files.map((f) => [f.path, f.sha256]) ?? []);
+  const release = await readRelease({
+    connection: {},
+    log,
+    outDir: STAGING,
+    ledger: (ctx) =>
+      releaseLedger(ctx, {
+        cacheDir: CACHE,
+        outDir: STAGING,
+        trusted: (path, sha) => !args.full && before.get(path) === sha,
+        log,
+      }),
+  });
   if (release.failures.length > 0) fail("checks failed", release.failures);
   for (const a of release.alerts) log(`alert: ${a}`);
 
-  const previous = loadPublished();
+  const ledger = release.ledger;
+  if (!ledger) fail("the release read no ledger");
+  if (ledger.status === "withheld") {
+    const why = `${ledger.notCached} of ${ledger.closed} closed ranges not cached`;
+    // Once published, the ledger cannot be withheld again: its files would leave the manifest.
+    if (previous?.manifest.files.some((f) => isLedgerPath(f.path))) {
+      fail(`the ledger was published, but ${why}`);
+    }
+    log(
+      `ledger withheld: ${why}${ledger.stale ? ` (${ledger.stale} for another cache version)` : ""}`,
+    );
+  } else {
+    log(
+      `ledger: ${ledger.carried} closed ranges carried, ${ledger.built.length} built, ` +
+        `open ${ledger.open.start}-${ledger.open.end}, underclaim ${ledger.underclaimZat} zat`,
+    );
+  }
+
   const history = compareHistory(
     previous?.files ?? [],
     release.files.map((f) => ({
@@ -133,7 +206,7 @@ try {
     fail("published data would change", history.failures);
   }
 
-  const card = new TextEncoder().encode(datasetCard());
+  const card = new TextEncoder().encode(datasetCard({ ledger: ledger.status === "published" }));
   const manifest: Manifest = {
     format: 1,
     network: "mainnet",
@@ -152,6 +225,7 @@ try {
     fills: history.fills,
     acceptedHistoryChanges: args["accept-history-change"] ? history.failures : [],
     checks: { underClaimedHeights: release.underClaimed, alerts: release.alerts },
+    ledger: ledgerManifest(ledger),
   };
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2) + "\n");
 
@@ -160,7 +234,6 @@ try {
   writeFileSync(join(STAGING, "manifest.json"), manifestBytes);
 
   // Only what changed goes up, with the manifest and the card always together with it.
-  const before = new Map(previous?.manifest.files.map((f) => [f.path, f.sha256]) ?? []);
   const changed = release.files.filter((f) => before.get(f.path) !== f.sha256);
   log(
     `release ${release.height}: ${release.files.length} files, ${changed.length} changed, ` +
@@ -178,6 +251,8 @@ try {
     process.exit(0);
   }
 
+  // The ledger's first commit is ~25 GB: read back a sample of it, everything else in full.
+  const readBack = readBackSample(changed.filter((f) => isLedgerPath(f.path)).map((f) => f.path));
   const token = process.env.HF_TOKEN;
   const repo = process.env.OPENDATA_REPO;
   if (!token || !repo) fail("HF_TOKEN and OPENDATA_REPO are required with --publish");
@@ -192,6 +267,7 @@ try {
           path: f.path,
           content: await openAsBlob(join(STAGING, f.path)),
           sha256: f.sha256,
+          readBack: !isLedgerPath(f.path) || readBack.has(f.path),
         })),
       )),
       { path: "README.md", content: new Blob([card]), sha256: sha256(card) },

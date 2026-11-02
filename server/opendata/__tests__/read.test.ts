@@ -7,6 +7,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { blockSubsidyZat } from "@/domain/halving";
 import { readLedgerRange } from "../ledger";
+import { releaseLedger } from "../ledger-release";
 import { CONFIRMATIONS, exportTypes, readRelease, type Release } from "../read";
 
 /**
@@ -35,9 +36,17 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
 
   // Each run writes into its own directory, remembered so `read` can find the files.
   const outDirs = new Map<Release, string>();
-  const run = async (): Promise<Release> => {
+  const run = async (withLedger = false): Promise<Release> => {
     const outDir = mkdtempSync(join(tmpdir(), "opendata-test-"));
-    const r = await readRelease({ connection, outDir, now: () => START + (TIP + 8) * SPACING });
+    const cacheDir = join(outDir, "ledger-cache");
+    const r = await readRelease({
+      connection,
+      outDir,
+      now: () => START + (TIP + 8) * SPACING,
+      ...(withLedger
+        ? { ledger: (ctx) => releaseLedger(ctx, { cacheDir, outDir, trusted: () => false }) }
+        : {}),
+    });
     outDirs.set(r, outDir);
     return r;
   };
@@ -296,6 +305,49 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     } finally {
       await client.end();
     }
+  });
+
+  it("publishes the ledger's open range, held to the supply audit", async () => {
+    const r = await run(true);
+    expect(r.failures).toEqual([]);
+    expect(r.ledger).toMatchObject({
+      status: "published",
+      carried: 0,
+      built: [],
+      underclaimZat: 0n,
+    });
+    expect(r.files.map((f) => f.path).slice(-2)).toEqual([
+      "transparent_io/0000000-0009999-000.parquet",
+      "transactions_extra/0000000-0009999.parquet",
+    ]);
+    const io = read(r, "transparent_io/0000000-0009999-000.parquet");
+    expect(io.numRows).toBe(RELEASE + 1 + (RELEASE - 100));
+    expect([...io.getChild("block_height")!].at(-1)).toBe(RELEASE);
+    expect(read(r, "transactions_extra/0000000-0009999.parquet").numRows).toBe((RELEASE + 1) * 2);
+  });
+
+  it("stops when the ledger's underclaim and the supply audit disagree", async () => {
+    // A block whose fee total is unknown escapes the coinbase check, so a coinbase that left
+    // 5 zat unclaimed there is seen by the supply audit alone.
+    const coinbase150 = "lpad(to_hex(1000000 + 150 * 2), 64, '0')";
+    const shift = async (sign: "-" | "+", fee: string) => {
+      await db.query(`UPDATE block SET total_fee_zat = ${fee} WHERE height = 150`);
+      await db.query(
+        `UPDATE tx_transparent_io SET value_zat = value_zat ${sign} 5 WHERE txid = ${coinbase150}`,
+      );
+      await db.query(
+        `UPDATE block SET transparent_pool_zat = transparent_pool_zat ${sign} 5 WHERE height >= 150`,
+      );
+    };
+    await shift("-", "NULL");
+    try {
+      const r = await run(true);
+      expect(r.failures).toEqual(["ledger underclaim 0 zat differs from the supply audit's 5 zat"]);
+      expect(r.ledger).toMatchObject({ skippedBlocks: 1 });
+    } finally {
+      await shift("+", "0");
+    }
+    expect((await run(true)).failures).toEqual([]);
   });
 
   it("cannot read anything outside the views", async () => {

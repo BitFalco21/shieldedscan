@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { compareHistory, type PublishedFile } from "../history";
+import { compareHistory, rowKey, type PublishedFile } from "../history";
 import { arrowTable, toParquet, type ColumnSpec } from "../parquet";
 
 const COLUMNS: ColumnSpec[] = [
@@ -58,5 +58,56 @@ describe("what a release may change in published data", () => {
 
   it("accepts a file that is new in this release", () => {
     expect(compareHistory([], [file(BASE, "transparent_daily.parquet")]).failures).toEqual([]);
+  });
+});
+
+describe("the ledger's history", () => {
+  const IO: ColumnSpec[] = [
+    { name: "txid", type: "utf8", nullable: false },
+    { name: "io", type: "utf8", nullable: false },
+    { name: "ordinal", type: "int32", nullable: false },
+    { name: "value_zat", type: "int64", nullable: false },
+  ];
+  const PATH = "transparent_io/0000000-0009999-000.parquet";
+  type Row = [string, string, number, bigint];
+  const ledger = (rows: Row[]): PublishedFile => {
+    const values = IO.map((_, i) => rows.map((r) => r[i]!));
+    const bytes = toParquet(arrowTable(IO, values));
+    return {
+      path: PATH,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      read: () => bytes,
+    };
+  };
+  const OPEN: Row[] = [
+    ["a", "out", 0, 5n],
+    ["b", "in", 0, 5n],
+    ["b", "out", 0, 4n],
+  ];
+
+  it("keys ledger rows by txid, io and ordinal, and extra rows by txid", () => {
+    expect(rowKey(PATH)).toEqual(["txid", "io", "ordinal"]);
+    expect(rowKey("transactions_extra/0000000-0009999.parquet")).toEqual(["txid"]);
+  });
+
+  it("lets the open range grow, and nothing else", () => {
+    const grown = ledger([...OPEN, ["c", "out", 0, 9n]]);
+    expect(compareHistory([ledger(OPEN)], [grown])).toEqual({ failures: [], fills: [] });
+    // An input and an output share a txid and an ordinal: only `io` tells them apart.
+    const swapped = ledger([OPEN[0]!, ["b", "in", 0, 4n], ["b", "out", 0, 5n]]);
+    expect(compareHistory([ledger(OPEN)], [swapped]).failures).toEqual([
+      `${PATH}: 2 published values changed`,
+    ]);
+  });
+
+  it("never reads a carried file whose hash the manifest already has", () => {
+    const published = ledger(OPEN);
+    const carried = {
+      ...published,
+      read: () => {
+        throw new Error("read");
+      },
+    };
+    expect(compareHistory([carried], [carried]).failures).toEqual([]);
   });
 });

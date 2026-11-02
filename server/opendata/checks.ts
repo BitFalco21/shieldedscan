@@ -211,6 +211,17 @@ export function checkShieldingDaily(
   return { failures: f.list(), alerts: [] };
 }
 
+/**
+ * The ledger's underclaim against the supply audit at the release height: what coinbases left
+ * unclaimed, read from their outputs and the fees, must equal the schedule less every pool's
+ * balance. One side reads the ledger, the other the node's pools: a wrong row in either shows.
+ */
+export function checkUnderclaim(ledgerZat: bigint, supplyZat: bigint | null): string[] {
+  if (supplyZat === null) return ["ledger underclaim: the supply at the release height is unknown"];
+  if (ledgerZat === supplyZat) return [];
+  return [`ledger underclaim ${ledgerZat} zat differs from the supply audit's ${supplyZat} zat`];
+}
+
 /** What a published node row may say about the client: a known name and a well-formed version. */
 export function publishedRelease(client: string, version: string | null) {
   const known = PUBLISHED_CLIENTS.has(client);
