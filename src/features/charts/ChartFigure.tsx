@@ -25,9 +25,12 @@ import { chainName } from "@/lib/chains";
 import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
 import {
   compactCount,
+  compactCountTick,
   formatCount,
   formatSharePct,
+  formatShareTick,
   formatUsd,
+  formatUsdTick,
   formatZec,
   formatZecCompact,
   formatZecVolumeCompact,
@@ -178,6 +181,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           readoutLabels={points.map((p) => readoutLabel(p.timestamp, daily))}
           markers={upgradeMarkers(points)}
           formatValue={compactCount}
+          formatTick={compactCountTick}
           ariaLabel={`Transactions per ${daily ? "day" : "month"} by privacy kind`}
         />
       );
@@ -222,6 +226,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             ironwood: points.map((p) => p.ironwoodTxs),
           })}
           formatValue={compactCount}
+          formatTick={compactCountTick}
           ariaLabel="Transactions touching each shielded pool per day"
         />
       );
@@ -322,6 +327,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={formatZecWhole}
+          formatTick={formatZecTick}
           ariaLabel="Ironwood pool balance since activation, hourly"
         />
       );
@@ -340,6 +346,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={formatUsd}
+          formatTick={formatUsdTick}
           ariaLabel="Daily ZEC price in USD"
         />
       );
@@ -449,6 +456,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={(v) => `${v.toLocaleString("en-US", { maximumFractionDigits: 1 })} kB`}
+          formatTick={(v) => `${v.toLocaleString("en-US", { maximumFractionDigits: 2 })} kB`}
           ariaLabel="Daily average block size in kilobytes"
         />
       );
@@ -467,6 +475,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
+          formatTick={formatShareTick}
           // The denominator of every share at that point.
           contextRows={[
             {
@@ -505,6 +514,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={compactCount}
+          formatTick={compactCountTick}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
         />
       );
@@ -540,6 +550,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
             },
           ]}
           formatValue={compactCount}
+          formatTick={compactCountTick}
           ariaLabel="Distinct transparent addresses active per day"
         />
       );
@@ -576,6 +587,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
+          formatTick={formatShareTick}
           contextRows={[
             {
               // The denominator, and whether the month is complete in the index.
@@ -671,6 +683,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           yMax={100}
           formatValue={(v) => formatSharePct(v)}
+          formatTick={formatShareTick}
           ariaLabel="Share of swaps into ZEC each month sent to a shielded-capable address, by swaps and by ZEC"
         />
       );
@@ -685,6 +698,7 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           readoutLabels={tableReadout(t)}
           series={[{ name: "Shielded", values: column(t, 0), className: KIND_CLASSES.shielded }]}
           formatValue={(v) => formatSharePct(v)}
+          formatTick={formatShareTick}
           contextRows={[
             { name: "Shielded ZEC", values: column(t, 1).map(zec) },
             { name: "Circulating ZEC", values: column(t, 2).map(zec) },

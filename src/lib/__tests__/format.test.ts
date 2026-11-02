@@ -36,13 +36,13 @@ describe("formatZecTick", () => {
   it("rounds an axis tick to what a reference line needs", () => {
     expect(formatZecTick(102_134_378_535)).toBe("1,021 ZEC");
     expect(formatZecTick(1_234_567_890)).toBe("12.35 ZEC");
-    expect(formatZecTick(12_345)).toBe("0.00012 ZEC");
+    expect(formatZecTick(12_345)).toBe("0.000123 ZEC");
     expect(formatZecTick(0)).toBe("0 ZEC");
   });
 
-  it("shares the K and M tiers with the compact form", () => {
-    expect(formatZecTick(1_500_000_000_000)).toBe("15.0K ZEC");
-    expect(formatZecTick(250_000_000_000_000)).toBe("2.50M ZEC");
+  it("keeps the K and M tiers, without the trailing zeros a round tick does not need", () => {
+    expect(formatZecTick(1_500_000_000_000)).toBe("15K ZEC");
+    expect(formatZecTick(250_000_000_000_000)).toBe("2.5M ZEC");
   });
 });
 
