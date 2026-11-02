@@ -2,7 +2,7 @@ import { ChainIndexStore } from "../chain-index-store";
 import { MemoryStorePort, type CrossChainStorePort } from "../crosschain-store";
 import { createPool } from "../pg-pool";
 import { PostgresStorePort } from "../postgres-crosschain-store";
-import { DATABASE_URL, IS_PRIMARY, SCHEMA_PATH, USE_POSTGRES } from "./config";
+import { DATABASE_URL, EXTERNAL_SOURCES, IS_PRIMARY, SCHEMA_PATH, USE_POSTGRES } from "./config";
 import { startPriceAndFxHistory } from "./jobs";
 
 /** The API's two stores: the cross-chain transfers and the chain index. */
@@ -31,7 +31,7 @@ export async function createCrossChainStore(
   }
   await store.migrate(SCHEMA_PATH);
   log("postgres store ready, schema applied");
-  startPriceAndFxHistory(DATABASE_URL, log);
+  if (EXTERNAL_SOURCES) startPriceAndFxHistory(DATABASE_URL, log);
   return store;
 }
 
