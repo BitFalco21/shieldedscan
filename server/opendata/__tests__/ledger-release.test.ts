@@ -1,5 +1,6 @@
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -14,10 +15,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { blockSubsidyZat } from "@/domain/halving";
 import { checkUnderclaim } from "../checks";
 import { compareHistory } from "../history";
-import { readSidecar, type Sidecar } from "../ledger-cache";
-import { planLedger, releaseLedger, type LedgerOutcome } from "../ledger-release";
+import { readSidecar, sidecarProblems, type Sidecar } from "../ledger-cache";
+import { planLedger, releaseLedger, withheldFailure, type LedgerOutcome } from "../ledger-release";
 import { readBackSample } from "../publish";
-import { exportTypes } from "../read";
+import { exportTypes, type OutputFile } from "../read";
+import { LEDGER_CACHE_VERSION } from "../tables";
 
 describe("which ranges a release carries, builds or lacks", () => {
   const all = (state: "cached" | "stale" | "absent") => (): "cached" | "stale" | "absent" => state;
@@ -63,6 +65,79 @@ describe("the underclaim cross-check", () => {
     ]);
     expect(checkUnderclaim(0n, null)).toEqual([
       "ledger underclaim: the supply at the release height is unknown",
+    ]);
+    expect(checkUnderclaim(0n, 5n, 1)).toEqual([
+      "ledger underclaim 0 zat differs from the supply audit's 5 zat; " +
+        "1 skipped blocks are outside the ledger's sum",
+    ]);
+  });
+});
+
+describe("a withheld ledger", () => {
+  const withheld = { status: "withheld", closed: 355, notCached: 2, stale: 1 } as const;
+
+  it("waits quietly until it is first published, and stops every release after", () => {
+    expect(withheldFailure(withheld, false)).toBeNull();
+    expect(withheldFailure(withheld, true)).toBe(
+      "the ledger was published, but 2 of 355 closed ranges are not cached, " +
+        "1 of them for another cache version",
+    );
+  });
+});
+
+describe("a sidecar's own consistency", () => {
+  const cache = mkdtempSync(join(tmpdir(), "opendata-sidecar-"));
+  afterAll(() => rmSync(cache, { recursive: true, force: true }));
+  const part = (n: number) => `transparent_io/0010000-0019999-00${n}.parquet`;
+  const extra = "transactions_extra/0010000-0019999.parquet";
+  const entry = (path: string, size = 1): OutputFile => ({
+    path,
+    rows: 1,
+    size,
+    sha256: "",
+    contentSha256: "",
+  });
+  const sidecar = (files: OutputFile[], over: Partial<Sidecar> = {}): Sidecar => ({
+    version: LEDGER_CACHE_VERSION,
+    start: 10_000,
+    end: 19_999,
+    files,
+    underclaimZat: "0",
+    underclaimedBlocks: 0,
+    skippedBlocks: 0,
+    builtAt: "",
+    indexerCommit: "",
+    ...over,
+  });
+
+  it("names only its own range: its parts from 000, then its extra file", () => {
+    const ok = [entry(part(0)), entry(part(1)), entry(extra)];
+    expect(sidecarProblems(cache, sidecar(ok, { start: 0 }), 10_000)).toEqual([
+      "ledger cache 10000: names another range",
+    ]);
+    for (const files of [
+      [entry(extra)],
+      [entry(part(1)), entry(extra)],
+      [entry(extra), entry(part(0))],
+      [entry("../../etc/passwd"), entry(extra)],
+    ]) {
+      expect(sidecarProblems(cache, sidecar(files), 10_000)).toEqual([
+        "ledger cache 10000: unexpected files",
+      ]);
+    }
+    expect(sidecarProblems(cache, sidecar(ok, { underclaimZat: "-1" }), 10_000)).toEqual([
+      "ledger cache 10000: malformed underclaim",
+    ]);
+  });
+
+  it("finds each file it names, at its recorded size", () => {
+    mkdirSync(join(cache, "transparent_io"), { recursive: true });
+    writeFileSync(join(cache, part(0)), "x");
+    writeFileSync(join(cache, part(1)), "xx");
+    const files = [entry(part(0)), entry(part(1)), entry(extra)];
+    expect(sidecarProblems(cache, sidecar(files), 10_000)).toEqual([
+      `ledger cache 10000: ${part(1)} has another size`,
+      `ledger cache 10000: ${extra} is missing`,
     ]);
   });
 });
@@ -202,7 +277,11 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
     expect(o.files.find((f) => f.path === RANGE1[0])!.rows).toBe(151);
 
     // Cached with its sidecar, and placed in the release by hard link: one copy on disk.
-    expect(readSidecar(cache, 0)).toMatchObject({ version: 2, start: 0, end: 9_999 });
+    expect(readSidecar(cache, 0)).toMatchObject({
+      version: LEDGER_CACHE_VERSION,
+      start: 0,
+      end: 9_999,
+    });
     expect(statSync(join(outDir, RANGE0[0]!)).ino).toBe(statSync(join(cache, RANGE0[0]!)).ino);
     // The open range is never cached: it is not final.
     expect(readSidecar(cache, 10_000)).toBeNull();
@@ -279,6 +358,29 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
     expect(published((await release(10_150, cache)).outcome).failures).toEqual([
       `ledger cache 0: ${RANGE0[0]} is missing`,
     ]);
+  });
+
+  it("caches nothing of a newly closed range that fails a check", async () => {
+    const cache = dir();
+    const coinbase = "lpad(to_hex(1000000 + 4000), 64, '0')";
+    await reader.query(
+      `UPDATE tx_transparent_io SET value_zat = value_zat + 1 WHERE txid = ${coinbase}`,
+    );
+    try {
+      const o = published((await release(10_150, cache)).outcome);
+      expect(o.failures.join("\n")).toMatch(
+        /^ledger 0-9999: transparent pool change differs from the ledger/,
+      );
+      expect(o.built).toEqual([]);
+      expect(readSidecar(cache, 0)).toBeNull();
+      expect(existsSync(join(cache, ".tmp-release"))).toBe(false);
+      // The open range is still built and checked.
+      expect(o.files.map((f) => f.path)).toEqual(RANGE1);
+    } finally {
+      await reader.query(
+        `UPDATE tx_transparent_io SET value_zat = value_zat - 1 WHERE txid = ${coinbase}`,
+      );
+    }
   });
 
   it("sums each closed range's underclaim from its sidecar, for the cross-check", async () => {

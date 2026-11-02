@@ -13,7 +13,12 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { datasetCard } from "./opendata/card";
 import { compareHistory, type PublishedFile } from "./opendata/history";
-import { isLedgerPath, releaseLedger, type LedgerOutcome } from "./opendata/ledger-release";
+import {
+  isLedgerPath,
+  releaseLedger,
+  withheldFailure,
+  type LedgerOutcome,
+} from "./opendata/ledger-release";
 import { publishRelease, readBackSample } from "./opendata/publish";
 import { readRelease } from "./opendata/read";
 
@@ -28,7 +33,9 @@ import { readRelease } from "./opendata/read";
  *
  * The transparent ledger's closed ranges come from `/out/ledger-cache` (see
  * `opendata/ledger-release.ts`), hard-linked into the release and trusted by hash once verified:
- * `--full` re-hashes every file, published and cached, instead of trusting the manifest.
+ * `--full` re-hashes every file, published and cached, instead of trusting the manifest. It
+ * verifies, it never rebuilds: a closed range is rebuilt by removing its sidecar, so the paced
+ * builder reads it again, and the next release holds its rows to the published ones.
  *
  * Its own entrypoint, never the API's or the follower's: it applies no schema, and its database
  * role can read the `opendata` views and nothing else.
@@ -179,13 +186,14 @@ try {
   const ledger = release.ledger;
   if (!ledger) fail("the release read no ledger");
   if (ledger.status === "withheld") {
-    const why = `${ledger.notCached} of ${ledger.closed} closed ranges not cached`;
-    // Once published, the ledger cannot be withheld again: its files would leave the manifest.
-    if (previous?.manifest.files.some((f) => isLedgerPath(f.path))) {
-      fail(`the ledger was published, but ${why}`);
-    }
+    const stop = withheldFailure(
+      ledger,
+      previous?.manifest.files.some((f) => isLedgerPath(f.path)) ?? false,
+    );
+    if (stop) fail(stop);
     log(
-      `ledger withheld: ${why}${ledger.stale ? ` (${ledger.stale} for another cache version)` : ""}`,
+      `ledger withheld: ${ledger.notCached} of ${ledger.closed} closed ranges not cached` +
+        (ledger.stale ? ` (${ledger.stale} for another cache version)` : ""),
     );
   } else {
     log(

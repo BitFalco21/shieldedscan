@@ -243,8 +243,8 @@ The transparent ledger is held to the chain block by block: the transparent pool
 the block's outputs less its inputs; the coinbase claims no more than the subsidy and fees, and
 what coinbases left unclaimed, summed, equals \`supply_daily\`'s unclaimed figure; each
 transaction's fee equals its value balance. Only the newest range's files grow from one release to
-the next; a range the chain has passed is written once and never changes, except in a deliberate
-rebuild, which the manifest records.`;
+the next; a range the chain has passed is written once and never changes. If one is ever rebuilt
+by hand, any change to its rows is listed in \`manifest.json\`, like any other correction.`;
 
 function columnTable(table: string, columns: readonly ColumnSpec[]): string {
   const rows = columns.map((c) => {

@@ -342,7 +342,10 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     await shift("-", "NULL");
     try {
       const r = await run(true);
-      expect(r.failures).toEqual(["ledger underclaim 0 zat differs from the supply audit's 5 zat"]);
+      expect(r.failures).toEqual([
+        "ledger underclaim 0 zat differs from the supply audit's 5 zat; " +
+          "1 skipped blocks are outside the ledger's sum",
+      ]);
       expect(r.ledger).toMatchObject({ skippedBlocks: 1 });
     } finally {
       await shift("+", "0");

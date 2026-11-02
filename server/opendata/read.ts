@@ -458,7 +458,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         files.push(...ledger.files);
         failures.push(
           ...ledger.failures,
-          ...checkUnderclaim(ledger.underclaimZat, dailySupply.unclaimedZat),
+          ...checkUnderclaim(ledger.underclaimZat, dailySupply.unclaimedZat, ledger.skippedBlocks),
         );
       }
     }

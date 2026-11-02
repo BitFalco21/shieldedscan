@@ -108,6 +108,20 @@ export type LedgerOutcome =
       skippedBlocks: number;
     };
 
+/**
+ * Why a withheld ledger must stop the release, or null if it may simply wait. Once published it
+ * cannot be withheld again: its files would leave the manifest, and the dataset would silently
+ * lose a table. Until the cache is whole again (after a version bump, or a lost cache), no release.
+ */
+export function withheldFailure(
+  outcome: Extract<LedgerOutcome, { status: "withheld" }>,
+  publishedBefore: boolean,
+): string | null {
+  if (!publishedBefore) return null;
+  const stale = outcome.stale > 0 ? `, ${outcome.stale} of them for another cache version` : "";
+  return `the ledger was published, but ${outcome.notCached} of ${outcome.closed} closed ranges are not cached${stale}`;
+}
+
 export async function releaseLedger(
   ctx: LedgerContext,
   opts: LedgerReleaseOptions,
@@ -139,10 +153,11 @@ export async function releaseLedger(
   const range = (start: number, end = rangeEnd(start)) => `ledger ${start}-${end}`;
 
   // Newly closed ranges first, into the cache, so every closed range is then carried one way.
+  // The temporary folder is cleared first: a crashed run may have left one behind.
   const built: number[] = [];
   const tmp = join(opts.cacheDir, ".tmp-release");
+  rmSync(tmp, { recursive: true, force: true });
   for (const start of plan.build) {
-    rmSync(tmp, { recursive: true, force: true });
     const b = await buildLedgerRange(ctx.client, start, rangeEnd(start), tmp, ctx.afterChunk);
     if (b.checker.failures.size > 0) {
       failures.push(...b.checker.failures.list().map((f) => `${range(start)}: ${f}`));

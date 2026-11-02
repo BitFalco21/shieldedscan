@@ -214,12 +214,22 @@ export function checkShieldingDaily(
 /**
  * The ledger's underclaim against the supply audit at the release height: what coinbases left
  * unclaimed, read from their outputs and the fees, must equal the schedule less every pool's
- * balance. One side reads the ledger, the other the node's pools: a wrong row in either shows.
+ * balance. The subsidy appears on both sides and cancels, so this holds the ledger's values to
+ * the node's pools, not the schedule. A block without a fee total is outside the ledger's sum
+ * (`skippedBlocks`) and inside the audit's, so the two can then differ by its underclaim.
  */
-export function checkUnderclaim(ledgerZat: bigint, supplyZat: bigint | null): string[] {
+export function checkUnderclaim(
+  ledgerZat: bigint,
+  supplyZat: bigint | null,
+  skippedBlocks = 0,
+): string[] {
   if (supplyZat === null) return ["ledger underclaim: the supply at the release height is unknown"];
   if (ledgerZat === supplyZat) return [];
-  return [`ledger underclaim ${ledgerZat} zat differs from the supply audit's ${supplyZat} zat`];
+  const skipped =
+    skippedBlocks > 0 ? `; ${skippedBlocks} skipped blocks are outside the ledger's sum` : "";
+  return [
+    `ledger underclaim ${ledgerZat} zat differs from the supply audit's ${supplyZat} zat${skipped}`,
+  ];
 }
 
 /** What a published node row may say about the client: a known name and a well-formed version. */
