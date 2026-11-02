@@ -1,9 +1,16 @@
 import type { Pool } from "pg";
 import { DAY_SECONDS } from "@/domain/time";
 import { computeMiningDay } from "../mining-daily";
+import { epochDay } from "../opendata/parquet";
 import { chainDayExtent } from "../pool-usage";
 import { PostgresChainStore } from "../postgres-chain-store";
-import { dropValueStaging, foldValueExtremes, stageValueExtremes } from "../value-extremes";
+import { ADDRESS_RETENTION_DAYS, computeTransparentDay, monthOf } from "../transparent-daily";
+import {
+  dropValueStaging,
+  foldValueExtremes,
+  stageValueExtremes,
+  ValueBackfillRefused,
+} from "../value-extremes";
 import { once } from "./state";
 
 /**
@@ -11,15 +18,17 @@ import { once } from "./state";
  * the functions that keep them in production, never by a second derivation. The paced jobs'
  * pacers watch a follower's lag behind a node; here nothing ingests, so they run unpaced.
  *
- * Not rebuilt here, because they need a node (`startChainTrackers`, run by the API when
- * `NODE_RPC_URL` is set): pool usage after the release's final day (the anonymity set is read from
- * the node), `address_tx_count`, the transparent address rows behind trailing windows. The days
- * the release publishes for those trackers were loaded from it.
+ * The day-grained tables stop at the release's final day (three days before block N's day), like
+ * the published daily tables: the trackers recompute only their newest three days, so a day
+ * written short here would never be completed. The API starts those trackers only with
+ * `NODE_RPC_URL` set (pool usage needs the node's note-tree sizes), and they carry on from there.
  */
 
 export interface DeriveOptions {
   pool: Pool;
   height: number;
+  /** The release's last final day, `YYYY-MM-DD`. */
+  finalDay: string;
   /** Whether miner addresses were imported: without them every mining day would be wrong. */
   coinbase: boolean;
   nowSec: number;
@@ -56,7 +65,15 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
   await once(pool, "value-extremes", log, async () => {
     // Through N itself: the release is already final (cut 100 blocks below the tip it was read
     // at), so the follower's usual reorg margin would only leave its last 100 blocks uncovered.
-    const staged = await stageValueExtremes({ pool, log, reorgMargin: 0 });
+    const stage = () => stageValueExtremes({ pool, log, reorgMargin: 0 });
+    // Its scratch tables are UNLOGGED: a Postgres crash mid-walk empties them, and the walk then
+    // refuses to resume. This step is not marked until the fold, so it starts the walk over.
+    const staged = await stage().catch(async (e: unknown) => {
+      if (!(e instanceof ValueBackfillRefused)) throw e;
+      log(`value-extremes: ${e.message} — starting the walk over`);
+      await dropValueStaging(pool);
+      return stage();
+    });
     if (!staged.complete) throw new Error("the value-extremes walk stopped short; run again");
     await foldValueExtremes(pool);
     await dropValueStaging(pool);
@@ -82,17 +99,42 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
     }
   });
 
+  const final = epochDay(o.finalDay) * DAY_SECONDS;
+  await once(pool, "transparent-days", log, async () => {
+    // The published days carry no address rows, which a month's distinct count and the trailing
+    // windows are counted from: without them the final day's month would never be counted. Its
+    // days, and the retention window the trackers keep, are recomputed by the tracker's function,
+    // which must give back the published row exactly. A day the release lacks stays the
+    // tracker's to fill.
+    const from = Math.min(monthOf(final), final - (ADDRESS_RETENTION_DAYS - 1) * DAY_SECONDS);
+    const published = (day: number) =>
+      pool
+        .query<{ row: string }>(
+          `SELECT (to_jsonb(t) - 'computed_at')::text AS row FROM transparent_daily t
+            WHERE day = (to_timestamp($1) AT TIME ZONE 'UTC')::date`,
+          [day],
+        )
+        .then((r) => r.rows[0]?.row ?? null);
+    for (let d = from; d <= final; d += DAY_SECONDS) {
+      const before = await published(d);
+      if (before === null) continue;
+      await computeTransparentDay(pool, d, o.nowSec);
+      if ((await published(d)) !== before) {
+        throw new Error(
+          `transparent_daily on ${new Date(d * 1000).toISOString().slice(0, 10)} differs from the release`,
+        );
+      }
+    }
+  });
+
   if (!o.coinbase) {
-    log(
-      "mining days: SKIPPED — this release has no blocks_coinbase/, so no block names its miner's " +
-        "address, and every day would file its blocks under no address",
-    );
+    log("mining days: SKIPPED — no block names its miner's address in this release");
     return;
   }
   await once(pool, "mining-days", log, async () => {
     const extent = await chainDayExtent(pool, o.nowSec);
     if (extent === null) return;
-    for (let d = extent.first; d <= extent.last; d += DAY_SECONDS) {
+    for (let d = extent.first; d <= final; d += DAY_SECONDS) {
       await computeMiningDay(pool, d, o.nowSec);
     }
   });

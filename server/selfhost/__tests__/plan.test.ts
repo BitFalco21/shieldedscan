@@ -54,7 +54,7 @@ const CHAIN = [
 
 describe("planImport", () => {
   it("pairs each transactions file with the extra files covering its heights", () => {
-    const plan = planImport(manifest(CHAIN));
+    const plan = planImport(manifest(CHAIN), true);
     expect(plan.problems).toEqual([]);
     expect(plan.coinbase).toBe(false);
     const tx = plan.units.find((u) => u.kind === "transactions")!;
@@ -64,8 +64,10 @@ describe("planImport", () => {
       "transactions_extra/0010000-0019999.parquet",
     ]);
     expect(plan.units.filter((u) => u.kind === "transparent_io")).toHaveLength(3);
-    // The block files carry no coinbase companion in an older release: those columns stay NULL.
+    // The block files carry no coinbase companion in an older release: those columns stay NULL,
+    // and only when asked for, since the mining tracker would file those blocks under no address.
     expect(plan.units.find((u) => u.kind === "blocks")!.files).toHaveLength(1);
+    expect(planImport(manifest(CHAIN)).problems[0]).toMatch(/no blocks_coinbase/);
   });
 
   it("joins blocks_coinbase to its blocks file when the release carries it", () => {
@@ -79,9 +81,9 @@ describe("planImport", () => {
   });
 
   it("refuses a release without the ledger, or with a gap in what pairs with its rows", () => {
-    expect(planImport(manifest(CHAIN, "withheld")).problems[0]).toMatch(/transparent ledger/);
+    expect(planImport(manifest(CHAIN, "withheld"), true).problems[0]).toMatch(/transparent ledger/);
     const gap = CHAIN.filter((p) => p !== "transactions_extra/0000000-0009999.parquet");
-    expect(planImport(manifest(gap)).problems).toEqual([
+    expect(planImport(manifest(gap), true).problems).toEqual([
       "transactions/0000000-0099999.parquet: transactions_extra/ does not cover its heights",
     ]);
     const partial = [

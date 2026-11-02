@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Pool } from "pg";
-import type { Manifest } from "../opendata/manifest";
 import { deferIndexes, restoreIndexes } from "./ddl";
 import { deriveTables } from "./derive";
 import { loadUnits } from "./load";
@@ -39,14 +38,17 @@ export interface ImportOptions {
   schemaDir: string;
   jobs: number;
   keepFiles: boolean;
+  /** Accept a release from before `blocks_coinbase/` (see `planImport`). */
+  allowMissingCoinbase?: boolean;
   maintenanceWorkMem: string;
   log: (line: string) => void;
   now?: () => number;
 }
 
 export interface ImportResult {
-  manifest: Manifest;
   commit: string;
+  height: number;
+  hash: string;
   failures: string[];
 }
 
@@ -75,17 +77,18 @@ export async function runImport(o: ImportOptions): Promise<ImportResult> {
       throw new Error(`this database holds release ${existing.commit}, not ${o.revision}`);
     }
     commit = existing.commit;
+    // Answered from the database alone, so a finished stack restarts with the Hub unreachable.
+    if (existing.finishedAt !== null) {
+      log(`already imported: block ${existing.height}, nothing to do`);
+      return { commit, height: existing.height, hash: existing.hash, failures: [] };
+    }
     log(`resuming the import of ${existing.repo} at ${commit} (block ${existing.height})`);
   } else {
     commit = await o.source.resolve(o.revision);
     log(`importing ${o.repo} at ${commit}`);
   }
   const manifest = await readManifest(o.source, commit);
-  if (existing?.finishedAt != null) {
-    log(`already imported: block ${existing.height}, nothing to do`);
-    return { manifest, commit, failures: [] };
-  }
-  const plan = planImport(manifest);
+  const plan = planImport(manifest, o.allowMissingCoinbase ?? false);
   if (plan.problems.length > 0) throw new Error(`cannot import: ${plan.problems.join("; ")}`);
   log(
     `release at block ${manifest.height} (${manifest.hash}), ${manifest.files.length} files, ` +
@@ -124,15 +127,16 @@ export async function runImport(o: ImportOptions): Promise<ImportResult> {
 
   await once(pool, "indexes", log, async () => {
     await restoreIndexes(pool, o.maintenanceWorkMem, log);
-    // Re-applied now that the tables are full: every statement is a no-op but the planner hint
+    await pool.query("ANALYZE");
+    // Re-applied once the statistics exist: every statement is a no-op but the planner hint
     // `schema-chain.sql` derives from the row counts (`n_distinct` on the ledger's txid).
     await applySchema(pool, o.schemaDir);
-    await pool.query("ANALYZE");
   });
 
   await deriveTables({
     pool,
     height: manifest.height,
+    finalDay: manifest.finalDay,
     coinbase: plan.coinbase,
     nowSec: nowSec(),
     log,
@@ -153,5 +157,5 @@ export async function runImport(o: ImportOptions): Promise<ImportResult> {
     await pool.query(`TRUNCATE ${ADDRESS_SNAPSHOT_TABLE}`);
     await pool.query("UPDATE selfhost_import SET finished_at = $1", [nowSec()]);
   }
-  return { manifest, commit, failures };
+  return { commit, height: manifest.height, hash: manifest.hash, failures };
 }

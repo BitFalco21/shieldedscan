@@ -35,7 +35,8 @@ release: row counts, the last block's hash, each block against its transactions,
 transparent balances against the chain's transparent pool to the zatoshi. Stop it at any time;
 running it again resumes where it stopped, and once it has passed it does nothing.
 
-To import a specific release, set `SELFHOST_REVISION` to its dataset commit.
+To import a specific release, set `SELFHOST_REVISION` to its dataset commit. The importer refuses
+releases from before the transparent ledger and the miner addresses were published.
 
 ## Keep it current with a node
 
@@ -49,14 +50,16 @@ node projects publish snapshots of their state that shorten it.
 ## What is there without a node
 
 Everything up to the release block: blocks, transactions, the transparent ledger, address
-balances and the rich list, every daily and monthly series, fee and value records, miners per day,
-and pool usage and boundary crossings up to three days before the release block. The `/v1` routes
+balances and the rich list, the materialized daily and monthly series, and fee and value records.
+The day-by-day tables (pool usage, boundary crossings, transparent activity, miners per day) stop
+at the release's final day, three days before the release block's day, as in the dataset. The `/v1` routes
 that read the database work: lists, address history, the rich list, analytics. Block and
 transaction detail, `/v1/status` and the supply figures ask the node, and answer 503 without one.
 
-Empty until a node is configured: anything after the release block, pool usage and the other
-trackers' newest days, transaction counts for addresses with a zero balance, and the reorg log
-(observation starts when your follower does). `block.received_at` stays NULL: it is when our node
+Empty until a node is configured: anything after the release block, the day-by-day tables'
+newest days, transaction counts for addresses with a zero balance, and the reorg log (observation
+starts when your follower does). With a node, the API also counts every address's transactions
+from genesis, a slow background walk of the ledger that yields to the follower. `block.received_at` stays NULL: it is when our node
 first saw a block, not chain data.
 
 Empty unless you run their collectors: prices and FX rates, market caps, cross-chain swaps, the

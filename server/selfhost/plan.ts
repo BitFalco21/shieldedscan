@@ -48,7 +48,12 @@ const under = (files: readonly ManifestFile[], dir: string) =>
     .filter((f) => f.path.startsWith(dir))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 
-export function planImport(manifest: Manifest): ImportPlan {
+/**
+ * `allowMissingCoinbase` accepts a release from before `blocks_coinbase/`. Its blocks then name no
+ * miner address, and the API's mining tracker would file every one of them under no address once
+ * a node is attached: such a database needs `repair-miner` against a node before it serves miners.
+ */
+export function planImport(manifest: Manifest, allowMissingCoinbase = false): ImportPlan {
   const problems: string[] = [];
   const byPath = new Map(manifest.files.map((f) => [f.path, f]));
   const units: ImportUnit[] = [];
@@ -70,6 +75,12 @@ export function planImport(manifest: Manifest): ImportPlan {
     problems.push("blocks_coinbase/ does not span the same heights as blocks/");
   }
   if (units.length === 0) problems.push("the release has no blocks");
+  if (!coinbase && !allowMissingCoinbase) {
+    problems.push(
+      "this release has no blocks_coinbase/ (miner addresses); use a later release, or accept " +
+        "it with --allow-missing-coinbase and run repair-miner against a node before serving miners",
+    );
+  }
 
   // Both files are ordered by (height, txid), one row per transaction, so a transactions file's
   // rows are exactly the concatenation of the extra files covering its heights.

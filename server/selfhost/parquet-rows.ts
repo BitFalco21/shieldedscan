@@ -108,6 +108,12 @@ export class RowCursor {
     }
   }
 
+  /** Releases the open file; safe to call at any point. */
+  async close(): Promise<void> {
+    await this.#groups?.return(undefined);
+    this.#files = [];
+  }
+
   get(column: string): Value {
     if (!this.#group || this.#i < 0) throw new Error("the cursor is not on a row");
     return this.#group.get(column, this.#i);

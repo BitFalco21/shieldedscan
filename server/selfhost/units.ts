@@ -74,26 +74,30 @@ async function* alignedRows(
   companionColumns: readonly string[],
   derived: (get: (c: string) => Value) => Value[],
 ): AsyncGenerator<string> {
-  for await (const g of rowGroups(primary, columns)) {
-    const lines: string[] = [];
-    for (let i = 0; i < g.rows; i++) {
-      const get = (c: string) => g.get(c, i);
-      const values: Value[] = [...columns.map((c) => get(c.name)), ...derived(get)];
-      if (companion) {
-        if (!(await companion.next())) throw new Error(`${primary}: its companion ends early`);
-        if (companion.get(companionKey) !== get(key)) {
-          throw new Error(
-            `${primary}: companion row ${String(companion.get(companionKey))} where ${String(get(key))} was expected`,
-          );
+  try {
+    for await (const g of rowGroups(primary, columns)) {
+      const lines: string[] = [];
+      for (let i = 0; i < g.rows; i++) {
+        const get = (c: string) => g.get(c, i);
+        const values: Value[] = [...columns.map((c) => get(c.name)), ...derived(get)];
+        if (companion) {
+          if (!(await companion.next())) throw new Error(`${primary}: its companion ends early`);
+          if (companion.get(companionKey) !== get(key)) {
+            throw new Error(
+              `${primary}: companion row ${String(companion.get(companionKey))} where ${String(get(key))} was expected`,
+            );
+          }
+          values.push(...companionColumns.map((c) => companion.get(c)));
         }
-        values.push(...companionColumns.map((c) => companion.get(c)));
+        lines.push(copyLine(values));
       }
-      lines.push(copyLine(values));
+      yield lines.join("");
     }
-    yield lines.join("");
-  }
-  if (companion && (await companion.next())) {
-    throw new Error(`${primary}: its companion has extra rows`);
+    if (companion && (await companion.next())) {
+      throw new Error(`${primary}: its companion has extra rows`);
+    }
+  } finally {
+    await companion?.close();
   }
 }
 

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Client } from "pg";
+import { Client, Pool } from "pg";
+import { computeTransparentDay } from "../../../transparent-daily";
 import { readAddresses } from "../../../opendata/addresses";
 import { releaseLedger } from "../../../opendata/ledger-release";
 import { ledgerManifest, type Manifest } from "../../../opendata/manifest";
@@ -47,6 +48,13 @@ export async function buildRelease(
       await admin.query("SELECT pg_advisory_unlock($1)", [OPENDATA_ROLE_LOCK]);
     }
     await seedChain(owner, url);
+    // The transparent tracker's days, by its own function, as the API keeps them.
+    const tracker = new Pool({ connectionString: url.toString(), max: 1 });
+    try {
+      for (let d = 0; d < 75; d++) await computeTransparentDay(tracker, START + d * 86_400, 0);
+    } finally {
+      await tracker.end();
+    }
     // The ledger's one address made a real t-address, and the rich list built at the tip, as the
     // follower keeps it.
     await owner.query("UPDATE tx_transparent_io SET address = $1 WHERE address = 't1coinbase'", [

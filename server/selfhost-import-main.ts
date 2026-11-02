@@ -17,7 +17,7 @@ import { DEFAULT_ENDPOINT, DEFAULT_REPO, huggingFaceSource } from "./selfhost/so
  * Env: DATABASE_URL or PGHOST/PGUSER/PGPASSWORD/PGDATABASE (required); HF_ENDPOINT (a mirror,
  * default the Hub); SELFHOST_REPO, SELFHOST_REVISION, SELFHOST_DATA_DIR, SELFHOST_JOBS,
  * SELFHOST_KEEP_FILES=1, SELFHOST_MAINTENANCE_WORK_MEM, SCHEMA_DIR. No token: the dataset is
- * public.
+ * public. `--allow-missing-coinbase` accepts a release from before miner addresses were published.
  */
 
 const { values: args } = parseArgs({
@@ -28,6 +28,7 @@ const { values: args } = parseArgs({
     "schema-dir": { type: "string" },
     jobs: { type: "string" },
     "keep-files": { type: "boolean", default: false },
+    "allow-missing-coinbase": { type: "boolean", default: false },
   },
 });
 
@@ -52,6 +53,7 @@ try {
     schemaDir: args["schema-dir"] ?? env.SCHEMA_DIR ?? ".",
     jobs,
     keepFiles: args["keep-files"] || env.SELFHOST_KEEP_FILES === "1",
+    allowMissingCoinbase: args["allow-missing-coinbase"],
     maintenanceWorkMem: env.SELFHOST_MAINTENANCE_WORK_MEM ?? "1GB",
     log,
   });
@@ -62,7 +64,7 @@ try {
     process.exitCode = 1;
   } else {
     log(
-      `done in ${minutes} min: block ${result.manifest.height} (${result.manifest.hash}), ` +
+      `done in ${minutes} min: block ${result.height} (${result.hash}), ` +
         `release ${result.commit}`,
     );
   }

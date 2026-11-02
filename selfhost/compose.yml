@@ -6,8 +6,12 @@
 # Settings come from `.env` beside this file (copy `env.example`). See README.md.
 name: shieldedscan
 
+# libpq's variables rather than a URL, so any character in the password is safe.
 x-database: &database
-  DATABASE_URL: postgres://shieldedscan:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/shieldedscan
+  PGHOST: postgres
+  PGUSER: shieldedscan
+  PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+  PGDATABASE: shieldedscan
 
 services:
   postgres:
@@ -55,6 +59,7 @@ services:
       SELFHOST_MAINTENANCE_WORK_MEM: ${SELFHOST_MAINTENANCE_WORK_MEM:-1GB}
     volumes:
       - downloads:/data
+    # For an HF_ENDPOINT mirror on this machine.
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:

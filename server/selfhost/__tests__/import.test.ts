@@ -132,11 +132,19 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
       n: 0,
     });
     expect(
-      await one("SELECT count(*)::int AS days, sum(blocks)::int AS blocks FROM mining_day"),
-    ).toEqual({
-      days: 50,
-      blocks: manifest.height + 1,
-    });
+      await one(
+        `SELECT max(day)::text AS last,
+                sum(blocks)::int = (SELECT count(*)::int FROM block
+                                     WHERE to_timestamp(timestamp)::date <= max(day)) AS whole
+           FROM mining_day`,
+      ),
+    ).toEqual({ last: manifest.finalDay, whole: true });
+    // The days the trackers keep address rows for, recomputed so the final month can be counted.
+    expect(
+      await one(
+        "SELECT max(day)::text AS last, count(DISTINCT day) > 0 AS some FROM transparent_day_address",
+      ),
+    ).toEqual({ last: manifest.finalDay, some: true });
     expect(
       await one(
         "SELECT covered_through_height FROM chain_value_extremes WHERE scope = 'transaction'",
@@ -169,7 +177,7 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
     expect(answers.health.code).toBe(200);
   }, 120_000);
 
-  it("refuses a file whose bytes differ from the manifest", async () => {
+  it("refuses a file whose bytes differ from the manifest, then resumes", async () => {
     const tampered = await serveRelease({
       dir: join(work, "release"),
       repo: REPO,
@@ -188,6 +196,19 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
       expect(rows[0]!.n).toBe(0);
     } finally {
       await tampered.close();
+    }
+    // Run again against good files: it resumes, never fetching a unit already in.
+    const good = await serveRelease({ dir: join(work, "release"), repo: REPO, commit: COMMIT });
+    try {
+      const done = await pool.query<{ path: string }>("SELECT path FROM selfhost_import_file");
+      expect(done.rows.length).toBeGreaterThan(0);
+      const result = await runImport(options(pool, good.endpoint, join(work, "spare")));
+      expect(result.failures).toEqual([]);
+      for (const { path } of done.rows) {
+        expect(good.requests.some((r) => r.endsWith(`/${path}`))).toBe(false);
+      }
+    } finally {
+      await good.close();
     }
   }, 120_000);
 });
