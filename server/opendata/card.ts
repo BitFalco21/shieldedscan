@@ -168,6 +168,81 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     to_orchard_zat: "Block rewards paid straight into Orchard, zatoshis.",
     to_ironwood_zat: "Block rewards paid straight into Ironwood, zatoshis.",
   },
+  tx_kinds_daily: {
+    transparent_txs: "Transactions touching only transparent inputs and outputs.",
+    mixed_txs: "Transactions crossing between the transparent and shielded sides.",
+    shielded_txs: "Fully shielded transactions.",
+  },
+  pools_daily: {
+    top_height: "Height of the day's last block (the highest stamped that day).",
+    hash: "Hash of that block, hex.",
+    transparent_pool_zat: "Transparent pool balance at the day's last block, zatoshis.",
+    sprout_pool_zat:
+      "Sprout pool balance at the day's last block, zatoshis; NULL where the node reports it as not monitored.",
+    sapling_pool_zat:
+      "Sapling pool balance at the day's last block, zatoshis; NULL before Sapling activated.",
+    orchard_pool_zat:
+      "Orchard pool balance at the day's last block, zatoshis; NULL before Orchard activated.",
+    lockbox_pool_zat: "Lockbox balance at the day's last block, zatoshis; NULL before NU6.",
+    ironwood_pool_zat:
+      "Ironwood pool balance at the day's last block, zatoshis; NULL before Ironwood activated.",
+  },
+  pool_boundary_daily: {
+    pool: "sprout, sapling, orchard or ironwood; or hub, one row per day for the transactions the pools do not settle.",
+    shielded_zat: "Value shielding transactions moved into this pool, zatoshis.",
+    shielded_txs: "Shielding transactions with a leg in this pool.",
+    unshielded_zat: "Value unshielding transactions moved out of this pool, zatoshis.",
+    unshielded_txs: "Unshielding transactions with a leg in this pool.",
+    coinbase_zat:
+      "Block rewards paid straight into this pool, zatoshis (issuance, not a crossing).",
+    coinbase_txs: "Coinbase transactions paying into this pool.",
+    hub_zat:
+      "On the hub row: all value its transactions' pools moved, either way, zatoshis (not a directed flow); 0 elsewhere.",
+    hub_txs:
+      "On the hub row: mixed transactions with no settled direction, each counted once; 0 elsewhere.",
+  },
+  shielding_flow_daily: {
+    shielded_zat: "Sum of the positive per-transaction nets, zatoshis.",
+    unshielded_zat: "Sum of the negative per-transaction nets, as a positive amount, zatoshis.",
+  },
+  pool_migration_daily: {
+    destination: "The pool that gained.",
+    source: "The pool that lost, or multi when more than one did.",
+    txs: "Such transactions that day.",
+    zat: "Value the destination gained, zatoshis.",
+  },
+  fees_monthly: {
+    kind: "transparent, shielded or mixed (coinbase has no fee).",
+    txs: "Transactions of that kind with a known fee that month.",
+    p25_zat: "25th-percentile fee, zatoshis.",
+    median_zat: "Median fee, zatoshis.",
+    p75_zat: "75th-percentile fee, zatoshis.",
+  },
+  shielding_records_daily: {
+    max_shielding_zat:
+      "Largest net value one shielding transaction moved into the shielded pools that day, zatoshis; NULL with none.",
+    max_shielding_ties: "Transactions sharing that largest value.",
+    max_shielding_txid: "That transaction when it alone holds the maximum; NULL otherwise.",
+    max_unshielding_zat:
+      "Largest net value one unshielding transaction moved out of the shielded pools that day, zatoshis; NULL with none.",
+    max_unshielding_ties: "Transactions sharing that largest value.",
+    max_unshielding_txid: "That transaction when it alone holds the maximum; NULL otherwise.",
+    max_migration_zat:
+      "Largest value one pool migration moved into its destination that day, zatoshis; NULL with none.",
+    max_migration_ties: "Transactions sharing that largest value.",
+    max_migration_txid: "That transaction when it alone holds the maximum; NULL otherwise.",
+  },
+  mining_payouts_daily: {
+    kind: "transparent, shielded (a shielded coinbase, ZIP 213) or unknown (the coinbase names no address).",
+    address:
+      "Payout address: the coinbase's largest transparent output. NULL unless kind is transparent. One operator can use several.",
+    blocks: "Blocks paid that way that day.",
+    reward_zat:
+      "The miner's own outputs, excluding funding streams, zatoshis; NULL unless known for every block (never for shielded).",
+    fee_zat:
+      "The miner's share of fees, over the blocks with a known fee total, zatoshis: all of them before NU7, four tenths (rounded in the miner's favour) from NU7 (ZIP 235).",
+    fee_blocks: "Blocks whose fee total is known.",
+  },
 };
 
 const TABLE_INTROS: Record<string, string> = {
@@ -184,6 +259,20 @@ const TABLE_INTROS: Record<string, string> = {
     "Transactions per UTC day by format version (v4 is disallowed from NU7, ZIP 2003).",
   pool_flows_daily: "Value into and out of each shielded pool per UTC day, gross, never netted.",
   coinbase_shielded_daily: "Block rewards paid straight into shielded pools per UTC day.",
+  tx_kinds_daily: "Transactions per UTC day by kind, coinbase excluded, summed from `blocks`.",
+  pools_daily: "Every value pool at each UTC day's last block, from `blocks`.",
+  pool_boundary_daily:
+    "What crossed the shielded boundary at each pool per UTC day, one leg per pool a transaction moved value in. A mixed transaction counts under its direction unless a pool moved the other way; such transactions go to the day's `hub` row. Sprout legs are its public JoinSplit value.",
+  shielding_flow_daily:
+    "Each non-coinbase transaction's net change across all shielded pools, summed per UTC day by sign.",
+  pool_migration_daily:
+    "Value moved between shielded pools per UTC day: no transparent side, exactly one pool gaining, at least one losing. A day with none has no row.",
+  fees_monthly:
+    "Fee percentiles per complete UTC month and transaction kind (percentiles do not add up from `fees_daily`).",
+  shielding_records_daily:
+    "The day's largest shielding, unshielding and pool migration per UTC day. A transaction is named only when it alone holds the maximum.",
+  mining_payouts_daily:
+    "Blocks per UTC day by miner kind and payout address, with what the miners were paid.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,
   pool_usage_daily: "Each shielded pool's activity per UTC day.",
   shielding_daily:
@@ -265,6 +354,17 @@ display them. NULL means unknown, never zero.
 
 ${sections}
 
+## Shielding, four ways
+
+Four tables count shielding, each exact under its own definition:
+
+- \`shielding_daily\`: mixed transactions by direction, counted once each.
+- \`pool_usage_daily\`: per pool, the transactions that used it, by kind and direction.
+- \`pool_boundary_daily\`: per pool, the value each crossing moved there, coinbase apart.
+- \`shielding_flow_daily\`: per transaction, its net into or out of the shielded side.
+
+One transaction shielding into two pools is one count, two legs and one net.
+
 ## Releases and verification
 
 Each release stops 100 blocks below the chain tip, far deeper than any Zcash reorganisation, and
@@ -278,6 +378,9 @@ previous one, each pool's recorded flow equal to its balance change, the pools g
 than the block subsidy, the daily counts agreeing with the blocks, and each block's transactions
 matching its own count, kinds, fee total and pool flows.
 
+The site's precomputed series are held to the same blocks and transactions day by day; one that
+has not caught up with the release is not published.
+
 The indexer is open source: [github.com/BitFalco21/shieldedscan](https://github.com/BitFalco21/shieldedscan).
 Anyone with a Zcash node can rebuild these tables and compare.
 
@@ -286,6 +389,9 @@ Anyone with a Zcash node can rebuild these tables and compare.
 Shielded amounts: the chain encrypts them, and only what crosses a pool's boundary is public.
 Transparent inputs and outputs by address are not in this release yet. Node IP addresses,
 miner-written coinbase text, and third-party price and location data are left out.
+
+No transaction is singled out, except a day's largest shielding, unshielding or pool
+migration when it alone holds that maximum (\`shielding_records_daily\`).
 
 ## Licence and citation
 

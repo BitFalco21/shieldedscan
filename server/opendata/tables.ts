@@ -270,6 +270,103 @@ export const COINBASE_SHIELDED_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("to_ironwood_zat", "int64"),
 ];
 
+/**
+ * The site's precomputed series. Block- and transaction-derived ones are computed from the
+ * export's own stream and the site's views are only their cross-checks; the rest are read from
+ * the views (`server/opendata/site-views.ts`), where the stream does not hold the classification.
+ */
+export const TX_KINDS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("transparent_txs", "int32"),
+  c("mixed_txs", "int32"),
+  c("shielded_txs", "int32"),
+];
+
+export const POOLS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("top_height", "int32"),
+  c("hash", "utf8"),
+  c("transparent_pool_zat", "int64", true),
+  c("sprout_pool_zat", "int64", true),
+  c("sapling_pool_zat", "int64", true),
+  c("orchard_pool_zat", "int64", true),
+  c("lockbox_pool_zat", "int64", true),
+  c("ironwood_pool_zat", "int64", true),
+];
+
+export const POOL_BOUNDARY_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("pool", "utf8"),
+  c("shielded_zat", "int64"),
+  c("shielded_txs", "int32"),
+  c("unshielded_zat", "int64"),
+  c("unshielded_txs", "int32"),
+  c("coinbase_zat", "int64"),
+  c("coinbase_txs", "int32"),
+  c("hub_zat", "int64"),
+  c("hub_txs", "int32"),
+];
+
+export const SHIELDING_FLOW_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("shielded_zat", "int64"),
+  c("unshielded_zat", "int64"),
+];
+
+export const POOL_MIGRATION_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("destination", "utf8"),
+  c("source", "utf8"),
+  c("txs", "int32"),
+  c("zat", "int64"),
+];
+
+export const FEES_MONTHLY_COLUMNS: readonly ColumnSpec[] = [
+  c("month", "date"),
+  c("kind", "utf8"),
+  c("txs", "int32"),
+  c("p25_zat", "int64"),
+  c("median_zat", "int64"),
+  c("p75_zat", "int64"),
+];
+
+export const SHIELDING_RECORDS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("max_shielding_zat", "int64", true),
+  c("max_shielding_ties", "int32"),
+  c("max_shielding_txid", "utf8", true),
+  c("max_unshielding_zat", "int64", true),
+  c("max_unshielding_ties", "int32"),
+  c("max_unshielding_txid", "utf8", true),
+  c("max_migration_zat", "int64", true),
+  c("max_migration_ties", "int32"),
+  c("max_migration_txid", "utf8", true),
+];
+
+export const MINING_PAYOUTS_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("kind", "utf8"),
+  c("address", "utf8", true),
+  c("blocks", "int32"),
+  c("reward_zat", "int64", true),
+  c("fee_zat", "int64"),
+  c("fee_blocks", "int32"),
+];
+
+/** The site's series, in the order they are written; each is also in `SMALL_TABLES`. */
+export const SITE_TABLES = [
+  "tx_kinds_daily",
+  "pools_daily",
+  "pool_boundary_daily",
+  "shielding_flow_daily",
+  "pool_migration_daily",
+  "fees_monthly",
+  "shielding_records_daily",
+  "mining_payouts_daily",
+] as const;
+
+export type SiteTable = (typeof SITE_TABLES)[number];
+
 /** Every daily or event table: its file and its published columns. */
 export const SMALL_TABLES = {
   pool_usage_daily: POOL_USAGE_DAILY_COLUMNS,
@@ -286,6 +383,14 @@ export const SMALL_TABLES = {
   tx_versions_daily: TX_VERSIONS_DAILY_COLUMNS,
   pool_flows_daily: POOL_FLOWS_DAILY_COLUMNS,
   coinbase_shielded_daily: COINBASE_SHIELDED_DAILY_COLUMNS,
+  tx_kinds_daily: TX_KINDS_DAILY_COLUMNS,
+  pools_daily: POOLS_DAILY_COLUMNS,
+  pool_boundary_daily: POOL_BOUNDARY_DAILY_COLUMNS,
+  shielding_flow_daily: SHIELDING_FLOW_DAILY_COLUMNS,
+  pool_migration_daily: POOL_MIGRATION_DAILY_COLUMNS,
+  fees_monthly: FEES_MONTHLY_COLUMNS,
+  shielding_records_daily: SHIELDING_RECORDS_DAILY_COLUMNS,
+  mining_payouts_daily: MINING_PAYOUTS_DAILY_COLUMNS,
 } as const satisfies Record<string, readonly ColumnSpec[]>;
 
 export type SmallTable = keyof typeof SMALL_TABLES;
