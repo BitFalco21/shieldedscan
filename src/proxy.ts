@@ -71,6 +71,30 @@ function clientId(request: NextRequest): string | null {
   return null;
 }
 
+/**
+ * The internal route a view query is served from, or null to serve the path as asked.
+ *
+ * `/shielded?view=shielded` is its own prerendered page at `/shielded/pools`. Reading `?view=`
+ * on `/shielded` would make the page dynamic, and Netlify's CDN key ignores the query string, so
+ * only a rewrite here, before the CDN, gives each view its own cache entry. Any other value is
+ * the default (all-pools) view, as an unknown filter is everywhere on this site.
+ */
+export function viewRewritePath(pathname: string, search: URLSearchParams): string | null {
+  return pathname === "/shielded" && search.get("view") === "shielded" ? "/shielded/pools" : null;
+}
+
+/**
+ * Lets the request through, to the view it names. The query is kept whole, `_rsc` included, so
+ * a flight request and the HTML for the same view never share a cache entry.
+ */
+function pass(request: NextRequest): NextResponse {
+  const target = viewRewritePath(request.nextUrl.pathname, request.nextUrl.searchParams);
+  if (target === null) return NextResponse.next();
+  const url = request.nextUrl.clone();
+  url.pathname = target;
+  return NextResponse.rewrite(url);
+}
+
 export function proxy(request: NextRequest): NextResponse {
   // The crawl guard runs first on every deployment: it exists to avoid paying for renders,
   // and a private preview is as billable as the public site.
@@ -99,10 +123,10 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   const password = process.env.SITE_PASSWORD;
-  if (!password) return NextResponse.next();
+  if (!password) return pass(request);
 
   if (isAuthorized(request.headers.get("authorization"), password)) {
-    return NextResponse.next();
+    return pass(request);
   }
 
   return new NextResponse("Authentication required.", {
@@ -121,11 +145,11 @@ export const config = {
    *
    * The proxy is an edge invocation that runs before the CDN cache, so every matched request
    * pays for it. Static assets and the CDN-cached polling endpoints (`/api/live`,
-   * `/api/stats`, `/api/pulse/*`, `/api/network/*`) are excluded: the crawl guard does not
-   * apply to them and their flat cost depends on the CDN answering. `/api/resolve` stays
-   * matched because each distinct query is a real function call.
+   * `/api/stats`, `/api/supply`, `/api/pulse/*`, `/api/network/*`) are excluded: the crawl guard
+   * does not apply to them and their flat cost depends on the CDN answering. `/api/resolve`
+   * stays matched because each distinct query is a real function call.
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/(?:live|stats|pulse|network)|fonts/|hero-city/|brand/|og.png|icon.png|icon-|apple-icon.png|donate-qr.svg|robots.txt|sitemap.xml).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/(?:live|stats|supply|pulse|network)|fonts/|hero-city/|brand/|og.png|icon.png|icon-|apple-icon.png|donate-qr.svg|robots.txt|sitemap.xml).*)",
   ],
 };

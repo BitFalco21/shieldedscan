@@ -1,8 +1,10 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CHART_PAD_R, CHART_W, PHONE_TICK_FONT, TICK_FONT, tickCharW } from "../chart-axes";
+import { FlowBalanceChart } from "../FlowBalanceChart";
 import { MultiLineChart } from "../MultiLineChart";
 import { StackedAreaChart } from "../StackedAreaChart";
+import { StackedBarChart } from "../StackedBarChart";
 
 /**
  * The y-axis ticks only. `XAxis` shares the `chart-tick` class, so the two are told apart by
@@ -147,7 +149,8 @@ describe("MultiLineChart's y-axis floor", () => {
    */
   it("still clips a narrow window, so a real move keeps its shape", () => {
     const { container } = render(priceLike([759.91, 887.76]));
-    expect(Math.min(...yAxisTicks(container))).toBeGreaterThan(700);
+    // The floor is the round step at or below the margin: clipped, nowhere near zero.
+    expect(Math.min(...yAxisTicks(container))).toBe(700);
   });
 
   it("leaves the default zero-based axis alone", () => {
@@ -194,5 +197,71 @@ describe("MultiLineChart's hover sits on the points it drew", () => {
     );
     expect(Math.max(...yAxisTicks(container))).toBe(100);
     expect(container.querySelectorAll("circle")).toHaveLength(2);
+  });
+});
+
+describe("round ticks on every chart with a y axis", () => {
+  /*
+   * Each chart once divided its own maximum into quarters, printing 867,250 / 1,734,500 / …
+   * One shared rule now: round steps, the axis grown to the next one, the scale run to it.
+   */
+  const tickLabels = (container: HTMLElement) =>
+    [...container.querySelectorAll("g > text.chart-tick")].map((t) => t.textContent);
+  const gridYs = (container: HTMLElement) =>
+    [...container.querySelectorAll("line.chart-grid")].map((l) => Number(l.getAttribute("y1")));
+  const values = [1_200_000, 3_469_000];
+  const labels = ["Jun 26", "Jul 26"];
+  const ROUND = ["0", "1000000", "2000000", "3000000", "4000000"];
+
+  it("MultiLineChart", () => {
+    const { container } = render(
+      <MultiLineChart
+        labels={labels}
+        series={[{ name: "a", values, className: "text-green" }]}
+        ariaLabel="a"
+        formatValue={String}
+      />,
+    );
+    expect(tickLabels(container)).toEqual(ROUND);
+  });
+
+  it("StackedAreaChart, whose top band ends below the top tick", () => {
+    const { container } = render(
+      <StackedAreaChart
+        ariaLabel="a"
+        series={[{ key: "a", label: "A", colorClass: "band-shielded", values }]}
+        labels={labels}
+        formatValue={String}
+      />,
+    );
+    expect(tickLabels(container)).toEqual(ROUND);
+    const top = Math.min(...gridYs(container));
+    const band = container.querySelector("path.chart-band")!.getAttribute("d")!;
+    const ys = [...band.matchAll(/[ML][\d.]+,([\d.]+)/g)].map((m) => Number(m[1]));
+    expect(Math.min(...ys)).toBeGreaterThan(top);
+  });
+
+  it("StackedBarChart", () => {
+    const { container } = render(
+      <StackedBarChart
+        ariaLabel="a"
+        series={[{ key: "a", label: "A", colorClass: "flow-1", values }]}
+        labels={labels}
+        formatValue={String}
+      />,
+    );
+    expect(tickLabels(container)).toEqual(ROUND);
+  });
+
+  it("FlowBalanceChart, mirrored about zero", () => {
+    const { container } = render(
+      <FlowBalanceChart
+        inLabel="In"
+        outLabel="Out"
+        points={[{ label: "Jun 26", inValue: 3_469_000, outValue: 1_200_000 }]}
+        ariaLabel="a"
+      />,
+    );
+    expect(tickLabels(container)).toEqual(["−4000000", "−2000000", "0", "+2000000", "+4000000"]);
   });
 });

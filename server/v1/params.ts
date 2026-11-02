@@ -5,9 +5,10 @@ import type { CacheClass } from "./http";
 /**
  * Query parsing shared across `/v1`. Every parameter is strict: a value this API cannot read is a
  * 400 naming it, never a silent "all", because a widened answer to a narrowed question is
- * well-formed and wrong. The private `/chain/*` routes coerce instead, since their one caller ships
- * in lockstep with them and reads the echo; a stranger's client (often an AI agent doing function
- * calling) cannot see that.
+ * well-formed and wrong. The private `/chain/*` routes mostly coerce instead, since their one caller
+ * ships in lockstep with them and reads the echo; a stranger's client (often an AI agent doing
+ * function calling) cannot see that. `pool` on `/chain/transactions` is strict on both, through
+ * `parseTxListPool`.
  */
 
 /**
@@ -55,6 +56,19 @@ export function parsePoolParam(raw: string | undefined): PoolName | undefined {
   const pool = raw.trim().toLowerCase();
   if (!isOneOf(POOL_NAMES, pool)) {
     throw new ParamError("invalid_parameter", `pool: ${V1_POOL_LIST}`);
+  }
+  return pool;
+}
+
+/**
+ * A transaction list's `pool`: `parsePoolParam`, plus the rule that a transparent kind uses no
+ * shielded pool, so the pair is a 400 rather than a page that can only ever be empty. Shared by
+ * `/v1/transactions` and the site's `/chain/transactions`, so the two cannot disagree.
+ */
+export function parseTxListPool(raw: string | undefined, kind: string): PoolName | undefined {
+  const pool = parsePoolParam(raw);
+  if (pool && kind === "transparent") {
+    throw new ParamError("invalid_parameter", "a transparent transaction uses no shielded pool");
   }
   return pool;
 }

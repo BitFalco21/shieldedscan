@@ -26,6 +26,7 @@ const VALID_ROUTES: readonly RegExp[] = [
   /^\/txs$/,
   /^\/tx\/[0-9a-f]{64}$/,
   /^\/address\/(t[13][a-zA-Z0-9]{20,40}|zs1[a-z0-9]{20,300}|u1[a-z0-9]{20,300})$/,
+  // Both views; `?view=` is stripped with every other query before matching.
   /^\/shielded$/,
   /^\/cross-chain$/,
   /^\/cross-chain\/flows$/,

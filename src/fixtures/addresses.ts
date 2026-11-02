@@ -46,10 +46,27 @@ export const addresses: AddressInfo[] = [
   {
     kind: "transparent",
     address: ADDR_ALICE,
-    balanceZat: 4_120_090_000,
-    totalReceivedZat: 9_800_000_000,
+    balanceZat: 4_220_090_000,
+    totalReceivedZat: 9_900_000_000,
     totalSentZat: 5_679_910_000,
-    txids: [hex64("77d10b12"), hex64("e09a44f7c21b88e0d3a6")],
+    txids: [hex64("77d10b12"), hex64("e09a44f7c21b88e0d3a6"), hex64("f2a0c4b7")],
+  },
+  // The two senders of f2a0c4b7: spent in full there, after receipts this fixture does not hold.
+  {
+    kind: "transparent",
+    address: "t1SenderOneFixtureAddress0001",
+    balanceZat: 0,
+    totalReceivedZat: 70_000_000,
+    totalSentZat: 70_000_000,
+    txids: [hex64("f2a0c4b7")],
+  },
+  {
+    kind: "transparent",
+    address: "t1SenderTwoFixtureAddress0002",
+    balanceZat: 0,
+    totalReceivedZat: 30_010_000,
+    totalSentZat: 30_010_000,
+    txids: [hex64("f2a0c4b7")],
   },
   {
     kind: "transparent",

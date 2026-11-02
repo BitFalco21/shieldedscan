@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { niceAxis } from "@/lib/nice-ticks";
 
 /**
  * Shared axis geometry, so every chart states its scale the same way. The hover readout
@@ -51,17 +52,20 @@ export interface AxisFrame {
   height: number;
 }
 
-/** Gutter + scales for a chart whose y axis runs 0..max (or min..max when given). */
+/**
+ * Gutter + scales for a chart whose data runs 0..max (or min..max when given). The axis is the
+ * round one around that range (`niceAxis`), and the scale runs to its top tick.
+ */
 export function axisFrame(
   n: number,
-  max: number,
+  dataMax: number,
   formatValue: (v: number) => string,
-  min = 0,
+  dataMin = 0,
   tickFont = TICK_FONT,
   height = CHART_H,
 ): AxisFrame & { ticks: number[] } {
-  const span = max - min || 1;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => min + span * f);
+  const { min, max, ticks } = niceAxis(dataMin, dataMax, { label: formatValue });
+  const span = max - min;
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   // Room for the x labels below and the top tick's upper half above; a larger tick (the

@@ -36,6 +36,7 @@ import type {
   NetSummary,
   NetTopology,
   NetTopologyScope,
+  PoolName,
   ReorgEvent,
   ReorgSummary,
   ShieldedPool,
@@ -177,7 +178,16 @@ export interface ExplorerDataSource {
   getOldestHeight(): Promise<number>;
 
   listLatestTransactions(count: number): Promise<Transaction[]>;
-  listTransactions(query: CursorQuery, kind: TxKindFilter): Promise<CursorPage<Transaction>>;
+  /**
+   * `pool`, when set, lists only transactions that used that shielded pool. It is required, not
+   * optional, so a pass-through adapter cannot drop it without failing to compile. An adapter
+   * that cannot prove the pool was applied throws `FilterNotAppliedError`, never a wider list.
+   */
+  listTransactions(
+    query: CursorQuery,
+    kind: TxKindFilter,
+    pool: PoolName | null,
+  ): Promise<CursorPage<Transaction>>;
   getTransaction(txid: string): Promise<Transaction | undefined>;
 
   getAddress(address: string): Promise<AddressInfo | undefined>;

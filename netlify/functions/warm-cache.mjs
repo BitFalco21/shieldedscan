@@ -23,6 +23,8 @@
 const PATHS = [
   "/",
   "/shielded",
+  // The shielded-pools view: the edge proxy serves it from its own route and cache entry.
+  "/shielded?view=shielded",
   // Each of these prints the block height its figures were read at.
   "/halving",
   "/stats",

@@ -10,7 +10,7 @@ import {
   POOL_MIGRATION_SOURCES,
 } from "./analytics";
 import { isOneOf } from "./closed-set";
-import type { PoolName } from "./pool";
+import { POOL_NAMES, type PoolName } from "./pool";
 import { utcDayFromMs } from "./time";
 
 /**
@@ -36,6 +36,28 @@ const FILTERS: TxKindFilter[] = [
 /** Parse an untrusted `?kind=` value; anything unrecognised means "all". */
 export function parseTxKindFilter(raw: string | undefined): TxKindFilter {
   return FILTERS.find((filter) => filter === raw) ?? "all";
+}
+
+/**
+ * What `/txs` lists: transactions of one kind, or every transaction that used one shielded pool.
+ *
+ * The two never combine on the site, and a pool wins. Some pairs are empty by protocol (no
+ * coinbase ever entered Sprout), and proving that walks a whole index on every visit; the pool
+ * cards only ever ask for a pool. An unrecognised pool means none, as an unrecognised kind means
+ * "all", so a hand-edited URL never reaches the API.
+ */
+export interface TxListFilter {
+  kind: TxKindFilter;
+  pool: PoolName | null;
+}
+
+export function parseTxListFilter(
+  rawKind: string | undefined,
+  rawPool: string | undefined,
+): TxListFilter {
+  return isOneOf(POOL_NAMES, rawPool)
+    ? { kind: "all", pool: rawPool }
+    : { kind: parseTxKindFilter(rawKind), pool: null };
 }
 
 export function txKindFilterLabel(filter: TxKindFilter): string {

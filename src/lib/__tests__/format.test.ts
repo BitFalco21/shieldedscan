@@ -8,6 +8,7 @@ import {
   formatUtc,
   formatZec,
   formatZecCompact,
+  formatZecSupply,
   formatZecTick,
   usdAtDay,
   shortHash,
@@ -35,13 +36,13 @@ describe("formatZecTick", () => {
   it("rounds an axis tick to what a reference line needs", () => {
     expect(formatZecTick(102_134_378_535)).toBe("1,021 ZEC");
     expect(formatZecTick(1_234_567_890)).toBe("12.35 ZEC");
-    expect(formatZecTick(12_345)).toBe("0.00012 ZEC");
+    expect(formatZecTick(12_345)).toBe("0.000123 ZEC");
     expect(formatZecTick(0)).toBe("0 ZEC");
   });
 
-  it("shares the K and M tiers with the compact form", () => {
-    expect(formatZecTick(1_500_000_000_000)).toBe("15.0K ZEC");
-    expect(formatZecTick(250_000_000_000_000)).toBe("2.50M ZEC");
+  it("keeps the K and M tiers, without the trailing zeros a round tick does not need", () => {
+    expect(formatZecTick(1_500_000_000_000)).toBe("15K ZEC");
+    expect(formatZecTick(250_000_000_000_000)).toBe("2.5M ZEC");
   });
 });
 
@@ -242,5 +243,16 @@ describe("usdAtDay", () => {
 
   it("has no price for a past day without a close, rather than today's in its place", () => {
     expect(usdAtDay(day(5), closes, 999, day(12))).toBeNull();
+  });
+});
+
+describe("formatZecSupply", () => {
+  it("prints a supply-scale balance at two decimals", () => {
+    expect(formatZecSupply(1_701_723_298_000_000)).toBe("17,017,232.98 ZEC");
+  });
+
+  it("never prints a small non-zero balance as 0.00", () => {
+    expect(formatZecSupply(300_000)).toBe("0.003 ZEC");
+    expect(formatZecSupply(0)).toBe("0 ZEC");
   });
 });

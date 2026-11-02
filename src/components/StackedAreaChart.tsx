@@ -9,6 +9,7 @@ import {
   TICK_FONT,
   XAxis,
 } from "@/components/chart-axes";
+import { niceAxis } from "@/lib/nice-ticks";
 
 export interface AreaSeries {
   key: string;
@@ -41,8 +42,8 @@ export interface StackedAreaChartProps {
   /** Formats the y-axis ticks and the peak callout. */
   formatValue: (value: number) => string;
   /**
-   * The y-axis labels, where they need less precision than a stated value: a tick is a reference
-   * line at a fraction of the peak, so eight decimals there are noise. Defaults to `formatValue`;
+   * The y-axis labels, where they need less precision than a stated value: a tick is a round
+   * reference line, so eight decimals there are noise. Defaults to `formatValue`;
    * the hover readout always uses `formatValue`.
    */
   formatTick?: (value: number) => string;
@@ -93,18 +94,17 @@ export function StackedAreaChart({
     for (let i = 0; i < n; i += 1) running[i] = (running[i] ?? 0) + (s.values[i] ?? 0);
     tops.push([...running]);
   }
-  const peak = Math.max(...running, 1);
+  const { max: ceiling, ticks } = niceAxis(0, Math.max(...running, 0), { label: formatTick });
 
   // The axis gutter is sized to its own longest tick rather than fixed: a fixed gutter clips
   // "1.18M ZEC" to ".18M ZEC".
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => peak * f);
   const padL =
     Math.max(...ticks.map((t) => formatTick(t).length)) * (TICK_CHAR_W / TICK_FONT) * tickFont +
     CHART_GUTTER_GAP;
 
   const x = (i: number) => padL + (i / (n - 1)) * (CHART_W - padL - CHART_PAD_R);
   const y = (v: number) =>
-    CHART_H - CHART_PAD_B - (v / peak) * (CHART_H - CHART_PAD_T - CHART_PAD_B);
+    CHART_H - CHART_PAD_B - (v / ceiling) * (CHART_H - CHART_PAD_T - CHART_PAD_B);
 
   // The shared XAxis draws the x labels, so density, edge anchoring and collision handling
   // match every other chart.
@@ -151,7 +151,7 @@ export function StackedAreaChart({
         aria-label={ariaLabel}
         preserveAspectRatio="none"
       >
-        {/* Gridlines first, so the bands sit over them. Quarters: enough to read a value off,
+        {/* Gridlines first, so the bands sit over them. Round steps: enough to read a value off,
           few enough not to compete with the data. */}
         {ticks.map((t) => (
           <g key={t}>

@@ -387,6 +387,31 @@ const interesting: Transaction[] = [
     orchard: null,
     ironwood: null,
   },
+  // Transparent, into ADDR_ALICE from several senders: the address page's FROM / TO column
+  // summarises them by count ("2 inputs") and lists both, rather than naming one.
+  {
+    txid: hex64("f2a0c4b7"),
+    blockHeight: TIP_HEIGHT - 3,
+    blockHash: blockHashAt(TIP_HEIGHT - 3),
+    timestamp: ts(TIP_HEIGHT - 3),
+    isCoinbase: false,
+    version: 5,
+    sizeBytes: 520,
+    lockTime: 0,
+    expiryHeight: TIP_HEIGHT + 37,
+    rawHex: fakeRawHex(hex64("f2a0c4b7")),
+    feeZat: 10_000,
+    bindingSigValid: null,
+    transparentInputs: [
+      { address: "t1SenderOneFixtureAddress0001", valueZat: 70_000_000 },
+      { address: "t1SenderTwoFixtureAddress0002", valueZat: 30_010_000 },
+    ],
+    transparentOutputs: [{ address: ADDR_ALICE, valueZat: 100_000_000 }],
+    sprout: null,
+    sapling: null,
+    orchard: null,
+    ironwood: null,
+  },
 ];
 
 export const transactions: Transaction[] = [...HEIGHTS.map(coinbase), ...interesting];

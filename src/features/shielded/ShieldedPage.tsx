@@ -19,6 +19,7 @@ import { VeilPanel } from "@/components/VeilPanel";
 import { formatCount, formatZecCompact } from "@/lib/format";
 import { PoolCard } from "./PoolCard";
 import { PageHeader } from "@/components/PageHeader";
+import { ShieldedViewTabs } from "./ShieldedViewTabs";
 
 export interface ShieldedPageProps {
   chain: ChainInfo;
@@ -47,7 +48,9 @@ export function ShieldedPage({ chain, pools, series, supply, ironwood }: Shielde
         eyebrow="SHIELDED"
         title="The shielded pools"
         lede="ZEC held behind zero-knowledge encryption. Pool totals are public — everything inside them is not."
-      />
+      >
+        <ShieldedViewTabs active="shielded" />
+      </PageHeader>
 
       <StatGrid columns={3}>
         <StatCard

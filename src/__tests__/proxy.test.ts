@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { config, isAuthorized } from "../proxy";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { config, isAuthorized, proxy, viewRewritePath } from "../proxy";
 
 const PASSWORD = "correct horse battery staple";
 const header = (user: string, pass: string) => `Basic ${btoa(`${user}:${pass}`)}`;
@@ -73,12 +74,15 @@ describe("matcher", () => {
     "/ai-agent",
     "/api/resolve",
     "/network/nodes",
+    // The view rewrite lives here, so the page must stay matched.
+    "/shielded",
   ])("still runs on a page: %s", (p) => expect(matches(p)).toBe(true));
 
   it.each([
     "/_next/static/chunks/x.js",
     "/api/live",
     "/api/stats",
+    "/api/supply",
     "/api/pulse/live",
     "/api/pulse/window",
     "/api/network/topology",
@@ -93,4 +97,46 @@ describe("matcher", () => {
     "/robots.txt",
     "/sitemap.xml",
   ])("skips a static asset or a CDN-keyed poll: %s", (p) => expect(matches(p)).toBe(false));
+});
+
+/**
+ * `/shielded?view=shielded` is served by its own prerendered route. The CDN keys on the path the
+ * proxy hands on, so the rewrite is what keeps the two views from sharing one cache entry.
+ */
+describe("view rewrite", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const params = (search: string) => new URLSearchParams(search);
+
+  it("sends ?view=shielded to the shielded-pools route, whatever else rides along", () => {
+    expect(viewRewritePath("/shielded", params("view=shielded"))).toBe("/shielded/pools");
+    expect(viewRewritePath("/shielded", params("utm_source=x&view=shielded"))).toBe(
+      "/shielded/pools",
+    );
+  });
+
+  it("serves the default (all-pools) view for anything else", () => {
+    expect(viewRewritePath("/shielded", params(""))).toBeNull();
+    expect(viewRewritePath("/shielded", params("view=all"))).toBeNull();
+    expect(viewRewritePath("/shielded", params("view=SHIELDED"))).toBeNull();
+    expect(viewRewritePath("/shielded", params("view=nonsense"))).toBeNull();
+    expect(viewRewritePath("/shielded/pools", params("view=shielded"))).toBeNull();
+    expect(viewRewritePath("/blocks", params("view=shielded"))).toBeNull();
+  });
+
+  it("keeps the whole query on the rewrite, so a flight request keeps its own key", () => {
+    vi.stubEnv("SITE_PASSWORD", "");
+    const res = proxy(new NextRequest("http://localhost/shielded?view=shielded&_rsc=abc"));
+    const target = new URL(res.headers.get("x-middleware-rewrite") ?? "", "http://localhost");
+    expect(target.pathname).toBe("/shielded/pools");
+    expect(target.searchParams.get("_rsc")).toBe("abc");
+    expect(target.searchParams.get("view")).toBe("shielded");
+  });
+
+  it("rewrites nothing behind the password gate until the password is given", () => {
+    vi.stubEnv("SITE_PASSWORD", "secret");
+    const res = proxy(new NextRequest("http://localhost/shielded?view=shielded"));
+    expect(res.status).toBe(401);
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+  });
 });

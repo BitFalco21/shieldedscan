@@ -16,7 +16,7 @@ import { VIEWPORTS } from "./surface";
 /** The routes that draw something. */
 const CHART_ROUTES = [
   "/analytics",
-  "/shielded",
+  "/shielded?view=shielded",
   "/cross-chain/flows",
   "/mempool",
   "/",
@@ -402,7 +402,7 @@ test.describe("chart hover readouts", () => {
   test("stepping right never moves the readout backwards in time", async ({ page }) => {
     // Monotonicity is the property that catches an off-by-one or an inverted axis, without
     // needing to know any particular value.
-    await page.goto("/shielded");
+    await page.goto("/shielded?view=shielded");
     await page.waitForLoadState("networkidle");
     const chart = page.getByRole("group", { name: /arrow keys/i }).first();
     await chart.focus();

@@ -1,10 +1,16 @@
 import { Hono } from "hono";
 import { blockRowsReader, type BlockRowsReader } from "./block-list";
 import type { ChainIndexStore } from "./chain-index-store";
-import { classifySearchQuery, classifyZcashAddress, parseTxKindFilter } from "@/domain";
+import {
+  classifySearchQuery,
+  classifyZcashAddress,
+  parseTxKindFilter,
+  type PoolName,
+} from "@/domain";
 import type { NodeChainSource } from "./chain-source";
 import type { PriceTracker, Stats24hTracker } from "./chain-stats";
 import { clampPageSize } from "./page-size";
+import { ParamError, parseTxListPool } from "./v1/params";
 
 export interface ChainRouteExtras {
   // Structural, so a replica's readers of the primary's state (`live-state.ts`) fit as well.
@@ -142,24 +148,38 @@ export function chainRoutes(source: NodeChainSource, extras: ChainRouteExtras = 
     };
     // The domain parser: an unknown value degrades to "all", exactly as the /txs page would.
     const parsedKind = parseTxKindFilter(kind);
+    // The pool is parsed exactly as `/v1/transactions` parses it, strictly: the site sends only a
+    // pool its own parser accepted, so a 400 here is a bug, never a reader's typo. This router has
+    // no `onError`, and Hono's default would answer 500, which the site retries as an outage.
+    let pool: PoolName | undefined;
+    try {
+      pool = parseTxListPool(c.req.query("pool"), parsedKind);
+    } catch (err) {
+      if (err instanceof ParamError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
     // The index when it exists, the node walk when it does not (dev without a database). Unlike the
     // address route there is a fallback, because the walk is correct, merely capped at 60 blocks,
-    // so a rare kind can come back short. The index has no cap.
+    // so a rare kind can come back short. The index has no cap. The walk cannot narrow by pool,
+    // and an unfiltered list is the one answer a pool filter must never get.
+    if (pool && !extras.chainIndex) {
+      return c.json({ error: "a pool filter requires the chain index" }, 503);
+    }
     const page = extras.chainIndex
-      ? await extras.chainIndex.listChainTransactions(parsedKind, query)
+      ? await extras.chainIndex.listChainTransactions(parsedKind, query, pool ? { pool } : {})
       : await source.listTransactions(query, parsedKind);
     return c.json({
       ...page,
       /*
-       * The kind this response was narrowed to, echoed so the adapter can refuse a page it did not
-       * ask for. An API that did not know `?kind=shielding` would degrade it to "all" and answer
-       * with every transaction under a chip reading "MIXED · SHIELDING"; no shape check can catch
-       * that, an echo can.
+       * The filters this response was narrowed to, echoed so the adapter can refuse a page it did
+       * not ask for. An API that did not know `?kind=shielding` would degrade it to "all" and
+       * answer with every transaction under a chip reading "MIXED · SHIELDING"; one that did not
+       * know `?pool=` would ignore it the same way. No shape check can catch that, an echo can.
        *
-       * Always emitted, including for "all", so the adapter can tell an API that understood and was
-       * asked for nothing from one too old to have the key.
+       * Always emitted, including for "all" and no pool, so the adapter can tell an API that
+       * understood and was asked for nothing from one too old to have the key.
        */
-      applied: { kind: parsedKind },
+      applied: { kind: parsedKind, pool: pool ?? null },
     });
   });
 

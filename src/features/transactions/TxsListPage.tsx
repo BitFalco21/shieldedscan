@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/Link";
-import type { Fees24h, Transaction, TxKindFilter } from "@/domain";
+import type { Fees24h, PoolName, Transaction, TxKindFilter } from "@/domain";
 import {
   isMixedDirectionFilter,
   publicValueZat,
@@ -37,6 +37,8 @@ import {
 } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { ActiveFilterList } from "@/components/ActiveFilterList";
+import { txsHref } from "./txsHref";
 
 /**
  * VALUE: the public amount, or the Veil for a fully shielded transaction — the same pairing
@@ -60,7 +62,8 @@ const COLUMNS: TableColumn[] = [
   { label: "TIME", align: "right" },
 ];
 
-const kindHref = (value: TxKindFilter) => (value === "all" ? "/txs" : `/txs?kind=${value}`);
+// Kind chips carry no pool: the two filters never combine (`parseTxListFilter`).
+const kindHref = (kind: TxKindFilter) => txsHref({ kind, pool: null });
 
 /**
  * Filter chip options for `/txs` — no cursor params, so selecting one resets paging.
@@ -107,17 +110,19 @@ function mixedChipLabel(activeKind: TxKindFilter): string {
 }
 
 /**
- * Lowercase noun phrase for a filter, e.g. "shielded transactions" or "transactions".
+ * Noun phrase for a filter, e.g. "shielded transactions", "Sprout transactions" or
+ * "transactions".
  *
  * The direction filters read as "shielding transactions", which is the vocabulary the TYPE
  * column on every row already uses — one word for one fact.
  */
-function kindNounPhrase(kind: TxKindFilter): string {
+function listNounPhrase(kind: TxKindFilter, pool: PoolName | null): string {
+  if (pool !== null) return `${pool[0]!.toUpperCase()}${pool.slice(1)} transactions`;
   return kind === "all" ? "transactions" : `${kind} transactions`;
 }
 
-function EmptyTxs({ kind }: { kind: TxKindFilter }) {
-  return <EmptyState>No {kindNounPhrase(kind)} on this page of the chain.</EmptyState>;
+function EmptyTxs({ kind, pool }: { kind: TxKindFilter; pool: PoolName | null }) {
+  return <EmptyState>No {listNounPhrase(kind, pool)} on this page of the chain.</EmptyState>;
 }
 
 export interface TxsListPageProps {
@@ -134,6 +139,13 @@ export interface TxsListPageProps {
   fees24h: Fees24h | null;
   txCount24h: number | null;
   activeKind: TxKindFilter;
+  /** The shielded pool the list is narrowed to, or null. Never combined with a kind. */
+  activePool: PoolName | null;
+  /**
+   * The API could not prove it applied `activePool` (its echo was missing or different), so
+   * there are no rows to show: an unfiltered list must not render under a pool label.
+   */
+  poolUnavailable: boolean;
   /** Href for the previous (newer) page; null when already at the head of the list. */
   newerHref: string | null;
   /** Href for the next (older) page; null when there is no older page. */
@@ -148,6 +160,8 @@ export function TxsListPage({
   txs,
   now,
   activeKind,
+  activePool,
+  poolUnavailable,
   newerHref,
   olderHref,
   newestHref,
@@ -167,14 +181,18 @@ export function TxsListPage({
    * is discarded. Without the echo, an API one deploy behind would answer `?kind=shielding` with
    * every transaction on the chain, and no shape check can catch that — an unfiltered list is a
    * well-formed list.
+   *
+   * Not under a pool: the feed is keyed on kind alone, so it would grow the table with rows from
+   * every pool. A pool view is a snapshot, and says nothing about being live.
    */
   const atTip = newestHref === null;
+  const live = atTip && activePool === null;
   const feed = useLiveFeed({
     kind: activeKind,
     mode: "grow",
     cap: LIVE_ROW_CAP,
     server: { transactions: txs },
-    enabled: atTip,
+    enabled: live,
   });
   const displayNow = useDisplayNow(feed.tip?.lastBlockTimestamp ?? now);
 
@@ -227,7 +245,7 @@ export function TxsListPage({
       </StatGrid>
       {/* Filter-aware line, only when a filter narrows the list — unfiltered it would
           restate the TOTAL TRANSACTIONS card word for word. */}
-      {totalForKind !== null && activeKind !== "all" ? (
+      {totalForKind !== null && activeKind !== "all" && activePool === null ? (
         <p className="mb-2 text-sm text-ink-dim">
           A total of <span className="text-ink tabular-nums">{formatCount(totalForKind)}</span>{" "}
           {`${activeKind} `}transactions
@@ -238,18 +256,42 @@ export function TxsListPage({
           options={FILTER_OPTIONS.map((option) =>
             option.value === "mixed" ? { ...option, label: mixedChipLabel(activeKind) } : option,
           )}
-          activeValue={activeKind}
+          // Under a pool no kind chip is lit: ALL would claim the list is unfiltered.
+          activeValue={activePool === null ? activeKind : ""}
           ariaLabel="Filter by privacy kind"
         />
         {/* Absent, never "live", on a paged view — an indicator claiming to be live over a
             page that is deliberately not polling is the lie it exists to prevent. */}
-        {atTip && (
+        {live && (
           <LiveIndicator status={feed.status === "live" ? feed.transactions.status : feed.status} />
         )}
       </div>
-      {rows.length === 0 ? (
+      {activePool === null ? null : (
+        <div className="mt-2">
+          <ActiveFilterList
+            ariaLabel="Active pool filter"
+            groups={[
+              {
+                label: "POOL",
+                values: [
+                  {
+                    label: activePool.toUpperCase(),
+                    removeHref: txsHref({ kind: "all", pool: null }),
+                  },
+                ],
+              },
+            ]}
+          />
+        </div>
+      )}
+      {poolUnavailable ? (
+        // Our outage, not an empty chain: no rows, and words rather than an empty-state finding.
+        <p className="panel mt-3 px-5 py-8 text-center text-sm text-ink-dim">
+          Filtering by pool is <Unmeasured /> right now.
+        </p>
+      ) : rows.length === 0 ? (
         <div className="mt-3">
-          <EmptyTxs kind={activeKind} />
+          <EmptyTxs kind={activeKind} pool={activePool} />
         </div>
       ) : (
         <Panel className="mt-3">
