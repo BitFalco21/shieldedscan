@@ -99,7 +99,9 @@ services:
     profiles: [api]
     environment:
       <<: *database
-      EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:?set EXPLORER_API_TOKEN in .env}
+      # Not `:?`: Compose interpolates every service before it applies profiles, so a required
+      # variable here would stop the `db` profile too. The API refuses to start without it.
+      EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:-}
       PUBLIC_API_ENABLED: "1"
       NODE_RPC_URL: ${NODE_RPC_URL:-}
       # Prices, market caps, swap venues, the ZIP index and names are polled from the internet

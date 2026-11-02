@@ -7,7 +7,7 @@
 --
 -- What is deliberately absent, and why, is listed in the dataset card: node IP addresses,
 -- third-party price and GeoIP data, and any label on an address. Transparent addresses are
--- published, by the owner's decision: they are chain facts, as the chain shows them. So is the
+-- published: they are chain facts, as the chain shows them. So is the
 -- coinbase text, in `blocks_coinbase/` only, as sanitised at parse and labelled miner-written.
 
 CREATE SCHEMA IF NOT EXISTS opendata;
@@ -155,8 +155,8 @@ SELECT (to_timestamp(ts) AT TIME ZONE 'UTC')::date AS month, ts, kind, txs,
        p25_zat, median_zat, p75_zat
 FROM chain_month_fee_kind;
 
--- The day's largest shielding, unshielding and migration. Public per-transaction values (owner,
--- 2026-10-31); a txid only where that maximum is unique, so a tie never names one of several.
+-- The day's largest shielding, unshielding and migration: public per-transaction values; a txid
+-- only where that maximum is unique, so a tie never names one of several.
 CREATE OR REPLACE VIEW opendata.shielding_records_daily AS
 SELECT day,
        max_shielding_zat, max_shielding_ties,

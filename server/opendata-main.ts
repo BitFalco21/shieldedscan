@@ -168,6 +168,8 @@ try {
       read: () => new Uint8Array(readFileSync(join(STAGING, f.path))),
     })),
   );
+  // Comparing the open ledger range parses two of its parts: the release's other memory peak.
+  log(`after history: rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
   if (history.failures.length > 0 && !args["accept-history-change"]) {
     fail("published data would change", history.failures);
   }

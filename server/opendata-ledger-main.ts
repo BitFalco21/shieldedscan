@@ -20,12 +20,11 @@ import { HEIGHTS_PER_LEDGER_FILE } from "./opendata/tables";
  * release carries forward.
  *
  *   docker run … --entrypoint node <opendata-image> --max-old-space-size=1500 \
- *     opendata-ledger.mjs --out /out --until 04:10 [--max-files N] [--from HEIGHT]
+ *     opendata-ledger.mjs --out /out --until 02:10 [--max-files N] [--from HEIGHT]
  *
  * The one heavy read in the dataset (354M ledger rows), so it runs at night and protects the
- * site first. On 2026-11-01 a daytime run held a whole early-2017 range in memory, thrashed at the
- * container limit and slowed the public API to 33 s while its guards, checked only between chunks
- * and against /health, saw nothing. Hence:
+ * site first. A whole dense range held in memory thrashes at the container limit and slows the
+ * site while guards that check only between chunks, and only /health, see nothing. Hence:
  *  - memory is bounded by rows, not heights: queries adapt their span to ~100k rows, parts are
  *    written as they fill, and the process stops itself above `MAX_RSS`;
  *  - every statement has a 60 s timeout, so no query outlives a problem;
@@ -59,18 +58,23 @@ if (!OUT) {
   process.exit(1);
 }
 const CACHE = join(OUT, "ledger-cache");
-const API = process.env.OPENDATA_API_URL ?? "http://explorer-api-public:8080";
+/** The public API the site serves, on the internal network: what the latency guard probes. */
+const API = process.env.OPENDATA_API_URL;
+if (!API) {
+  console.error("OPENDATA_API_URL is required: the build must watch the site it could slow");
+  process.exit(1);
+}
 const MAX_FILES = args["max-files"] ? Number(args["max-files"]) : Infinity;
 /** First range to consider (a trial on a chosen era); rounded down to a range boundary. */
 const FROM = args.from
   ? Math.floor(Number(args.from) / HEIGHTS_PER_LEDGER_FILE) * HEIGHTS_PER_LEDGER_FILE
   : 0;
 
-/** The routes the site serves; each answers in 5–35 ms on the internal network (2026-11-01). */
+/** The routes the site serves; each answers in tens of milliseconds on the internal network. */
 const PROBES = ["/v1/status", "/v1/blocks?limit=5", "/v1/transactions?limit=5"];
 /** A probe's median of three above this, twice in a row, means the site is slowing. */
 const SLOW_PROBE_MS = 200;
-/** Host I/O pressure (some, avg10) that pauses the build; it idles at 12–18 (2026-11-01). */
+/** Host I/O pressure (some, avg10) that pauses the build, well above where the host idles. */
 const IO_PRESSURE_LIMIT = 40;
 /**
  * Resident memory above this stops the build. It guards against thrash at the 3 GB container
@@ -91,13 +95,14 @@ class Transient extends Error {}
 
 /**
  * Errors worth retrying later: a cancelled statement, a lost or refused connection, the role's
- * connection limit, a network failure. Anything else is a failure a human must see.
+ * connection limit, an idle transaction timed out during a long rest, a network failure. Anything else is a failure a human must see.
  */
 function isTransient(e: unknown): boolean {
   const code = String((e as { code?: unknown }).code ?? "");
   return (
     code === "57014" ||
     code === "53300" ||
+    code === "25P03" ||
     code.startsWith("08") ||
     ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EPIPE"].includes(code)
   );
@@ -105,13 +110,17 @@ function isTransient(e: unknown): boolean {
 /** A guard a human must look at: memory or disk. */
 class Guard extends Error {}
 
-/** The UTC time `--until` names, today or tomorrow, as epoch milliseconds. */
+/**
+ * The UTC time `--until` names, as epoch milliseconds. Tomorrow's only when today's passed more
+ * than 12 h ago (a start before midnight for a window after it); a start just after `--until`
+ * finds its window over, never a 24-hour run into the release's two connections.
+ */
 function deadline(): number {
   if (!args.until) return Infinity;
   const [hh, mm] = args.until.split(":").map(Number);
   const d = new Date();
   d.setUTCHours(hh!, mm!, 0, 0);
-  if (d.getTime() <= Date.now()) d.setUTCDate(d.getUTCDate() + 1);
+  if (Date.now() - d.getTime() > 12 * 3600_000) d.setUTCDate(d.getUTCDate() + 1);
   return d.getTime();
 }
 

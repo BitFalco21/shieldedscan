@@ -54,10 +54,11 @@ const DESCRIPTIONS: Record<string, string> = {
   day: "UTC day.",
   month: "First day of the UTC month.",
   pool: "Shielded pool: sprout, sapling, orchard or ironwood.",
-  txs: "Transactions that carried a bundle in the pool that day; the next four columns partition it.",
+  txs: "Transactions that carried a bundle in the pool that day; fully_shielded, mixed and coinbase partition it.",
   fully_shielded: "Of those, fully shielded.",
   mixed: "Of those, crossing between transparent and shielded.",
-  shielding: "Mixed transactions moving value into the shielded side.",
+  shielding:
+    "Mixed transactions moving value into the shielded side; with unshielding and indeterminate, it partitions mixed.",
   unshielding: "Mixed transactions moving value out of the shielded side.",
   indeterminate: "Mixed transactions whose direction the chain does not settle.",
   coinbase: "Of those, coinbase transactions.",

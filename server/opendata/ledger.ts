@@ -233,7 +233,7 @@ export interface LedgerOptions {
    * Block bytes per query. A ledger row needs at least 9 bytes of its block (an output), so this
    * bounds a query's rows BEFORE it runs, whatever the era: 8 MB is at most ~900k rows of dust and
    * ~200k of ordinary payments, well inside the 60 s statement timeout. Measured afterwards it
-   * would be too late (2026-11-01).
+   * would be too late.
    */
   chunkBytes?: number;
   partRows?: number;

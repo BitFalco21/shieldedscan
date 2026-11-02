@@ -32,7 +32,8 @@ COPY --from=build /app/dist/opendata.mjs ./opendata.mjs
 COPY --from=build /app/dist/opendata-ledger.mjs ./opendata-ledger.mjs
 COPY --from=build /app/node_modules/parquet-wasm ./node_modules/parquet-wasm
 USER node
-# Under the container's 2 GB limit, so running out of memory is a stack trace, not a silent kill.
-# The release by default. The ledger builder runs with `--entrypoint node` and its own heap:
-#   node --max-old-space-size=2500 opendata-ledger.mjs --out /out --until 05:30
+# Under the container's 3 GB limit, so running out of memory is a stack trace, not a silent kill.
+# The release by default. The ledger builder runs with `--entrypoint node` and its own heap, and
+# must end before the release starts (they share the reader role's two connections):
+#   node --max-old-space-size=1500 opendata-ledger.mjs --out /out --until <before the release>
 ENTRYPOINT ["node", "--max-old-space-size=1200", "opendata.mjs"]

@@ -215,7 +215,7 @@ export const MINING_CONCENTRATION_DAILY_COLUMNS: readonly ColumnSpec[] = [
  * The transparent ledger: every input and output, one row each. Each range of
  * `HEIGHTS_PER_LEDGER_FILE` heights is split into parts of about `LEDGER_PART_ROWS` rows, cut at
  * block boundaries: some early-2017 ranges hold several times the 1.41M rows of the genesis range,
- * and a whole range in memory is what took the box down on 2026-11-01. Rows never change, so the
+ * and a whole range in memory exceeds the container. Rows never change, so the
  * cut points never move. The span and the part size can never change once published.
  */
 export const TRANSPARENT_IO_COLUMNS: readonly ColumnSpec[] = [

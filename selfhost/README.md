@@ -12,7 +12,9 @@ the database directly, put the explorer's API in front of it, or both.
   the transparent ledger is about 130 GB with its indexes, transactions about 9 GB, blocks about
   2 GB, everything else under 2 GB. Building the indexes needs about 40 GB more for a while. The
   download is 20–27 GB; each file is deleted once its rows are in. These are estimates from row
-  counts and the size per row measured on a synthetic import, not yet from a full one.
+  counts and the size per row measured on a synthetic import, not yet from a full one. Both the
+  database and the downloads live in Docker named volumes, so the space is needed where Docker
+  keeps its data (`docker info --format '{{.DockerRootDir}}'`), not in this directory.
 - **RAM: 8 GB at least, 16 GB recommended.**
 - **Time:** a few hours on a machine with 8 cores and NVMe storage (an estimate, as above).
   Slower disks take longer, and so does a slow connection.
