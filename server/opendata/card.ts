@@ -159,7 +159,7 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     pool: "sprout, sapling, orchard or ironwood.",
     inflow_zat: "Value that entered the pool that day, zatoshis, summed per transaction.",
     outflow_zat: "Value that left the pool that day, zatoshis, summed per transaction.",
-    txs: "Transactions with a part in that pool that day.",
+    txs: "Transactions that used the pool that day (at least one spend, output, action or JoinSplit).",
   },
   coinbase_shielded_daily: {
     coinbase_txs: "Coinbase transactions that day (one per block).",

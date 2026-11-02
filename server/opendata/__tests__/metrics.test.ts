@@ -20,8 +20,12 @@ const tx = (over: Partial<MetricTx>): MetricTx => ({
   version: 5,
   sprout_joinsplits: null,
   sprout_vpub_net_zat: null,
+  sapling_spends: null,
+  sapling_outputs: null,
   sapling_value_balance_zat: null,
+  orchard_actions: null,
   orchard_value_balance_zat: null,
+  ironwood_actions: null,
   ironwood_value_balance_zat: null,
   ...over,
 });
@@ -64,8 +68,13 @@ describe("stream metrics", () => {
 
   it("keeps pool flows gross, and turns Sprout's node sign into the domain sign", () => {
     const m = new DailyPoolFlows();
-    m.push(tx({ sapling_value_balance_zat: 500n, orchard_value_balance_zat: -200n }));
-    m.push(tx({ sapling_value_balance_zat: -300n }));
+    const sapling = (balance: bigint) => ({
+      sapling_spends: 1,
+      sapling_outputs: 1,
+      sapling_value_balance_zat: balance,
+    });
+    m.push(tx({ ...sapling(500n), orchard_actions: 2, orchard_value_balance_zat: -200n }));
+    m.push(tx(sapling(-300n)));
     m.push(tx({ sprout_joinsplits: 1, sprout_vpub_net_zat: 70n })); // 70 leaving Sprout
     // Every transaction carries a Sprout value; without JoinSplits it is 0 and never counts.
     m.push(tx({ sprout_joinsplits: 0, sprout_vpub_net_zat: 0n }));
@@ -74,6 +83,17 @@ describe("stream metrics", () => {
       { day: day(0), pool: "orchard", inflow_zat: 0n, outflow_zat: 200n, txs: 1 },
       { day: day(0), pool: "sapling", inflow_zat: 500n, outflow_zat: 300n, txs: 2 },
       { day: day(0), pool: "sprout", inflow_zat: 0n, outflow_zat: 70n, txs: 1 },
+    ]);
+  });
+
+  it("counts a pool only where the transaction used it, as chain_day_pool_tx does", () => {
+    const m = new DailyPoolFlows();
+    // A bundle with nothing in it is present but unused.
+    m.push(tx({ sapling_spends: 0, sapling_outputs: 0, sapling_value_balance_zat: 0n }));
+    m.push(tx({ orchard_actions: 0, orchard_value_balance_zat: 0n }));
+    m.push(tx({ sapling_spends: 0, sapling_outputs: 1, sapling_value_balance_zat: 0n }));
+    expect(m.rows(day(0))).toEqual([
+      { day: day(0), pool: "sapling", inflow_zat: 0n, outflow_zat: 0n, txs: 1 },
     ]);
   });
 
