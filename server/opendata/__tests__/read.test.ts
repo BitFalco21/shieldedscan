@@ -12,6 +12,7 @@ import { computeMiningDay } from "../../mining-daily";
 import { readLedgerRange } from "../ledger";
 import { releaseLedger } from "../ledger-release";
 import { CONFIRMATIONS, exportTypes, readRelease, type Release } from "../read";
+import { OPENDATA_ROLE_LOCK } from "./support/role-lock";
 
 /**
  * The export end to end against a real PostgreSQL, through the restricted `opendata_reader` role,
@@ -83,13 +84,19 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     for (const f of ["server/schema-chain.sql", "server/schema.sql", "server/schema-net.sql"]) {
       await db.query(readFileSync(join(ROOT, f), "utf8"));
     }
-    await db.query(`DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opendata_reader') THEN
-        CREATE ROLE opendata_reader LOGIN CONNECTION LIMIT 2 PASSWORD '${READER_PASSWORD}';
-      END IF; END $$`);
-    // A role is cluster-wide and may be left over from another run: set this run's password.
-    await db.query(`ALTER ROLE opendata_reader PASSWORD '${READER_PASSWORD}'`);
-    await db.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
+    // The role is cluster-wide and ledger-release.test.ts sets it up too: one suite at a time.
+    await admin.query("SELECT pg_advisory_lock($1)", [OPENDATA_ROLE_LOCK]);
+    try {
+      await db.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opendata_reader') THEN
+          CREATE ROLE opendata_reader LOGIN CONNECTION LIMIT 2 PASSWORD '${READER_PASSWORD}';
+        END IF; END $$`);
+      // A role may be left over from another run: set this run's password.
+      await db.query(`ALTER ROLE opendata_reader PASSWORD '${READER_PASSWORD}'`);
+      await db.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
+    } finally {
+      await admin.query("SELECT pg_advisory_unlock($1)", [OPENDATA_ROLE_LOCK]);
+    }
     const reader = new URL(url.toString());
     reader.username = "opendata_reader";
     reader.password = READER_PASSWORD;

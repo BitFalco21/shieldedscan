@@ -30,6 +30,7 @@ import { DailySupply } from "../metrics";
 import { readBackSample } from "../publish";
 import { exportTypes, writeFile, type OutputFile } from "../read";
 import { LEDGER_CACHE_VERSION, TRANSPARENT_IO_COLUMNS } from "../tables";
+import { OPENDATA_ROLE_LOCK } from "./support/role-lock";
 
 describe("which ranges a release carries, builds or lacks", () => {
   const all = (state: "cached" | "stale" | "absent") => (): "cached" | "stale" | "absent" => state;
@@ -269,7 +270,13 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
     for (const f of ["server/schema-chain.sql", "server/schema.sql", "server/schema-net.sql"]) {
       await reader.query(readFileSync(join(ROOT, f), "utf8"));
     }
-    await reader.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
+    // The role's settings are cluster-wide and read.test.ts sets them too: one suite at a time.
+    await admin.query("SELECT pg_advisory_lock($1)", [OPENDATA_ROLE_LOCK]);
+    try {
+      await reader.query(readFileSync(join(ROOT, "server/schema-opendata.sql"), "utf8"));
+    } finally {
+      await admin.query("SELECT pg_advisory_unlock($1)", [OPENDATA_ROLE_LOCK]);
+    }
 
     const heights: number[] = [];
     const claimed: string[] = [];
