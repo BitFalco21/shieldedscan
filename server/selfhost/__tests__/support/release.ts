@@ -33,7 +33,7 @@ export async function buildRelease(
     for (const f of ["server/schema-chain.sql", "server/schema.sql", "server/schema-net.sql"]) {
       await owner.query(readFileSync(join(ROOT, f), "utf8"));
     }
-    // The views only: this release is read as the owner, like ledger-release.test.ts, because
+    // The views only: this release is read as the database owner, like ledger-release.test.ts, as
     // `opendata_reader` allows two connections in the whole cluster and read.test.ts (which proves
     // the role's confinement) runs alongside. The role block runs under the shared lock.
     await admin.query("SELECT pg_advisory_lock($1)", [OPENDATA_ROLE_LOCK]);

@@ -29,8 +29,9 @@ import { HEIGHTS_PER_LEDGER_FILE } from "./opendata/tables";
  *    written as they fill, and the process stops itself above `MAX_RSS`;
  *  - every statement has a 60 s timeout, so no query outlives a problem;
  *  - the latency guard probes the routes the site serves, not /health;
- *  - it rests half the time, and stops when the follower falls behind, when host I/O pressure
- *    rises, when free disk falls under 100 GB, or before a range that would end past `--until`.
+ *  - it rests half the time and longer under host I/O pressure, and stops when the follower falls
+ *    behind, when the site slows (or pressure rises while a route is slower than usual), when
+ *    free disk falls under 100 GB, or before a range that would end past `--until`.
  *
  * Every range is one REPEATABLE READ snapshot; a stopped range is read again next time. Finished
  * files are never rebuilt: each range has a sidecar written last, by rename. It builds closed
@@ -74,6 +75,8 @@ const FROM = args.from
 const PROBES = ["/v1/status", "/v1/blocks?limit=5", "/v1/transactions?limit=5"];
 /** A probe's median of three above this, twice in a row, means the site is slowing. */
 const SLOW_PROBE_MS = 200;
+/** Under high I/O pressure, a route this slow already counts: the pressure is reaching the site. */
+const PRESSURED_PROBE_MS = 100;
 /** Host I/O pressure (some, avg10) that pauses the build, well above where the host idles. */
 const IO_PRESSURE_LIMIT = 40;
 /**
@@ -177,30 +180,48 @@ try {
   );
   await pacer.preflight();
 
-  // Strain is counted from three signals, read right after a chunk, before any rest: host I/O
-  // pressure (our own load included; read after the rest it would have decayed), a chunk that ran
-  // long, and the site's routes (probed at most every few seconds). Two strained units in a row
-  // stop the run; it resumes on the driver's next pass.
+  // Strain is read right after a chunk, before any rest: a chunk that ran long, a slow site route
+  // (probed at most every few seconds), or high host I/O pressure while a route is already slower
+  // than usual. Pressure alone is mostly this build's own reads, which the pacer answers by
+  // resting; stopping on it threw away half-built ranges while the site stayed fast. Two strained
+  // measurements in a row stop the run; it resumes on the driver's next pass. A unit that took no
+  // measurement (no probe round, an ordinary chunk) leaves the count alone: resetting it there
+  // would let fast chunks between probe rounds hide a slow site forever.
   let strained = 0;
   let lastProbe = 0;
+  /** The slowest route seen this run, printed when the run ends: how close the site came. */
+  let slowestOfRun = { path: "", ms: 0 };
   const afterChunk = async (workedMs: number) => {
     const rss = process.memoryUsage().rss;
     if (rss > MAX_RSS) throw new Guard(`memory guard: ${Math.round(rss / 1e6)} MB resident`);
     if (Date.now() >= stopAt) return "abort" as const;
     const reasons: string[] = [];
-    const pressure = await ioPressureAvg10((path) => readFile(path, "utf8"));
-    if (pressure !== null && pressure > IO_PRESSURE_LIMIT) reasons.push(`I/O pressure ${pressure}`);
-    if (workedMs > SLOW_CHUNK_MS) reasons.push(`a chunk took ${Math.round(workedMs / 1000)} s`);
-    if (Date.now() - lastProbe >= PROBE_EVERY_MS) {
+    const slowChunk = workedMs > SLOW_CHUNK_MS;
+    if (slowChunk) reasons.push(`a chunk took ${Math.round(workedMs / 1000)} s`);
+    const probed = Date.now() - lastProbe >= PROBE_EVERY_MS;
+    if (probed) {
       lastProbe = Date.now();
+      let slowest = { path: "", ms: 0 };
       for (const path of PROBES) {
         const samples: number[] = [];
         for (let i = 0; i < 3; i++) samples.push((await timedGet(path)).ms);
         const median = samples.sort((a, b) => a - b)[1]!;
+        if (median > slowest.ms) slowest = { path, ms: median };
         if (median > SLOW_PROBE_MS) reasons.push(`${path} took ${median} ms`);
       }
+      if (slowest.ms > slowestOfRun.ms) slowestOfRun = slowest;
+      const pressure = await ioPressureAvg10((path) => readFile(path, "utf8"));
+      if (pressure !== null && pressure > IO_PRESSURE_LIMIT) {
+        log(`pressure ${pressure}, slowest route ${slowest.path} at ${slowest.ms} ms`);
+        if (slowest.ms > PRESSURED_PROBE_MS) {
+          reasons.push(`I/O pressure ${pressure} with ${slowest.path} at ${slowest.ms} ms`);
+        }
+      }
     }
-    strained = reasons.length > 0 ? strained + 1 : 0;
+    if (probed || slowChunk) {
+      strained = reasons.length > 0 ? strained + 1 : 0;
+      if (strained === 1) log(`strained: ${reasons.join(", ")}`);
+    }
     if (strained >= 2) {
       log(`stopping: ${reasons.join(", ")}, twice in a row`);
       return "abort" as const;
@@ -256,7 +277,10 @@ try {
         `rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`,
     );
   }
-  log(`done for now: ${built} range(s) built`);
+  log(
+    `done for now: ${built} range(s) built; slowest route ` +
+      `${slowestOfRun.path || "(none probed)"} at ${slowestOfRun.ms} ms`,
+  );
 } catch (e) {
   if (e instanceof IngestionBehindError) {
     // Someone else's stall, not ours: stop cleanly and let the next run try again.
