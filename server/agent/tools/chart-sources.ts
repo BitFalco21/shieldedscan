@@ -1,4 +1,5 @@
 import {
+  periodStart,
   shieldedSplits,
   zeroFilled,
   type PlotPoint,
@@ -32,7 +33,8 @@ export type SourceRows = Record<string, PlotPoint[]>;
 
 export interface ChartSourceSpec {
   path: string;
-  read: (body: unknown) => SourceRows | null;
+  /** `today` is the current UTC day's start, for a reader that must tell the running period. */
+  read: (body: unknown, today: number) => SourceRows | null;
 }
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -137,10 +139,12 @@ const monthDays = (t: number) => {
 
 /**
  * The largest miners' share of each month's blocks, with the blocks it is a share of. A month the
- * mining index has not finished is unmeasured, except the last, which is the running month and is
- * flagged as such; the page draws earlier part-months with a note, this is stricter on purpose.
+ * mining index has not finished is unmeasured, unless it is the month running today, which the
+ * chart flags as such. Judged by the clock rather than by being the last row: an index that lags
+ * past a month boundary must not pass its last part-month off as whole. The page draws earlier
+ * part-months with a note; this is stricter on purpose.
  */
-function minerShareRows(body: unknown): SourceRows | null {
+function minerShareRows(body: unknown, today: number): SourceRows | null {
   if (!Array.isArray(body)) return null;
   const fields = {
     "top1-share": "top1Blocks",
@@ -156,9 +160,10 @@ function minerShareRows(body: unknown): SourceRows | null {
     rows.push(r);
   }
   rows.sort((a, b) => (a.timestamp as number) - (b.timestamp as number));
-  for (const [i, r] of rows.entries()) {
+  const running = periodStart("month", today);
+  for (const r of rows) {
     if (!isNum(r.timestamp) || !isNum(r.blocks) || !isNum(r.days)) return null;
-    const whole = r.days >= monthDays(r.timestamp) || i === rows.length - 1;
+    const whole = r.days >= monthDays(r.timestamp) || r.timestamp === running;
     for (const [name, key] of Object.entries(fields)) {
       const n = r[key];
       if (!isNum(n)) return null;

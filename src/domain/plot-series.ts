@@ -137,6 +137,9 @@ export type SpecProblemReason = "not-chartable" | "bad-parameter" | "names-nothi
 export type SpecParse =
   { ok: true; spec: PlotSeriesSpec } | { ok: false; reason: SpecProblemReason; message: string };
 
+/** A model-supplied string quoted back in a message, kept short: it is a pointer, not a payload. */
+const clip = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s);
+
 const fail = (reason: SpecProblemReason, message: string): SpecParse => ({
   ok: false,
   reason,
@@ -166,7 +169,7 @@ export function parseSeriesSpec(raw: unknown): SpecParse {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     return fail(
       "bad-parameter",
-      `each series is an object such as {"family":"pool","pool":"orchard","metric":"balance"}, not ${JSON.stringify(raw)}`,
+      `each series is an object such as {"family":"pool","pool":"orchard","metric":"balance"}, not ${clip(JSON.stringify(raw) ?? String(raw))}`,
     );
   }
   const r = raw as Record<string, unknown>;
@@ -177,7 +180,7 @@ export function parseSeriesSpec(raw: unknown): SpecParse {
   if (!isOneOf(PLOT_FAMILIES, family)) {
     return fail(
       "not-chartable",
-      `no series family "${family}" — families are ${PLOT_FAMILIES.join(", ")}`,
+      `no series family "${clip(family)}" — families are ${PLOT_FAMILIES.join(", ")}`,
     );
   }
   const allowed = FAMILY_PARAMS[family];
@@ -185,7 +188,7 @@ export function parseSeriesSpec(raw: unknown): SpecParse {
   if (extra.length > 0) {
     return fail(
       "bad-parameter",
-      `${family} takes ${allowed.length === 0 ? "no parameters" : allowed.join(", ")}, not ${extra.join(", ")}`,
+      `${family} takes ${allowed.length === 0 ? "no parameters" : allowed.join(", ")}, not ${clip(extra.join(", "))}`,
     );
   }
   const values = Object.fromEntries(allowed.map((k) => [k, param(r, k)]));
@@ -206,7 +209,7 @@ function pick<T extends string>(
   if (!isOneOf(list, value)) {
     return fail(
       "bad-parameter",
-      `${family}'s ${key} must be one of ${list.join(", ")}, not "${value}"`,
+      `${family}'s ${key} must be one of ${list.join(", ")}, not "${clip(value)}"`,
     );
   }
   return value;
@@ -311,7 +314,7 @@ function crosschainSpec(v: Record<string, string | undefined>): SpecParse {
   if (chain === null) {
     return fail(
       "names-nothing",
-      `${v.chain.toUpperCase()} is not among the chains this tool can chart (${PLOT_CHAIN_TICKERS.join(", ")})`,
+      `${clip(v.chain.toUpperCase())} is not among the chains this tool can chart (${PLOT_CHAIN_TICKERS.join(", ")})`,
     );
   }
   return ok({ family: "crosschain", direction, by, chain });

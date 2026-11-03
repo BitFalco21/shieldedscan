@@ -91,7 +91,17 @@ export function AgentChart({ chart }: AgentChartProps) {
         }))}
       />
       <figcaption className="mt-3 border-t border-edge-faint pt-2 text-xs text-ink-dim">
-        Plotted: {caption}.
+        Plotted: {/* A date wraps whole, never at its hyphens ("2026-10-" then "02" on a phone). */}
+        {caption.split(/(\d{4}-\d{2}-\d{2})/).map((part, i) =>
+          i % 2 === 1 ? (
+            <span key={i} className="whitespace-nowrap">
+              {part}
+            </span>
+          ) : (
+            part
+          ),
+        )}
+        .
         {chartCaveats(chart).map((caveat) => (
           <span key={caveat}> {caveat}</span>
         ))}

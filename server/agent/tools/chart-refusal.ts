@@ -77,9 +77,12 @@ const ADDRESS_LIKE = /\b(t1|t3|zs1|u1|tex1)[0-9a-z]{20,}/i;
  */
 export function closestForUnknown(args: Record<string, unknown>): ChartRefusal | null {
   const text = JSON.stringify(args).toLowerCase();
+  // An address itself, a parameter named for one, or a family named for one. Never a word inside a
+  // value: "active-addresses" with a typo is a series the tool draws, not a per-address request.
   if (
     ADDRESS_LIKE.test(text) ||
-    /"(address|wallet|holder|account)"|\baddress\b|holder|wallet/.test(text)
+    /"(addresses|address|wallets?|holders?|accounts?)"\s*:/.test(text) ||
+    /"family"\s*:\s*"(addresses|address|wallets?|holders?|accounts?)"/.test(text)
   ) {
     return {
       reason: "per-address",

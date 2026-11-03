@@ -45,7 +45,7 @@ describe("AgentChart", () => {
     render(<AgentChart chart={CHART} />);
     const caption = "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line";
     expect(screen.getByRole("img", { name: caption })).toBeTruthy();
-    expect(screen.getByText(`Plotted: ${caption}`, { exact: false })).toBeTruthy();
+    expect(document.querySelector("figcaption")?.textContent).toContain(`Plotted: ${caption}.`);
   });
 
   it("states every plotted value in a table, closed until asked for", () => {

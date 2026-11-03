@@ -242,7 +242,7 @@ test.describe("the AI agent page", () => {
 
     const caption = "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line";
     await expect(page.getByRole("img", { name: caption })).toHaveCount(1);
-    await expect(page.getByText(`Plotted: ${caption}`)).toBeVisible();
+    await expect(page.locator("figcaption")).toContainText(`Plotted: ${caption}.`);
     await expect(page.locator("figure")).toHaveCount(1);
     await expect(page.locator("figure").getByText("beta", { exact: true })).toBeVisible();
 

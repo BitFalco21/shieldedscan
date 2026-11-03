@@ -256,6 +256,31 @@ describe("arguments a model or a prompt injection can send", () => {
       ).toBe(true);
     }
   });
+
+  it("reads months for a short window older than the daily sources keep, never refusing it", async () => {
+    // Sixty days in 2025 of a series whose daily source keeps a year and whose monthly one keeps
+    // everything: drawn per month, not refused as out of reach.
+    for (const series of [
+      [{ family: "transactions", kind: "transparent" }],
+      [{ family: "shielding", direction: "in" }],
+      [{ family: "fees", stat: "total" }],
+    ]) {
+      const out = await outcome({ series, from: "2025-01-01", to: "2025-03-01" });
+      expect(out.kind, JSON.stringify(out)).toBe("chart");
+      if (out.kind === "chart") expect(out.chart.grain).toBe("month");
+    }
+  });
+
+  it("calls a typo in a known series a typo, never a per-address refusal", async () => {
+    for (const spec of [
+      { family: "network", metric: "active-address" },
+      { family: "supply", part: "holders" },
+    ]) {
+      const out = await outcome({ series: [spec] });
+      expect(out.kind).toBe("refusal");
+      if (out.kind === "refusal") expect(out.reason).toBe("bad-parameter");
+    }
+  });
 });
 
 describe("every allowed pair of series", () => {
@@ -450,9 +475,9 @@ describe("backend load", () => {
     );
   });
 
-  it("reads again only once the cache has expired, and never caches a failure", async () => {
+  it("reads again only once the cache has expired, and holds a failure briefly, never as data", async () => {
     let now = 0;
-    const cache = new ChartSourceCache({ ttlMs: 1_000, clock: () => now });
+    const cache = new ChartSourceCache({ ttlMs: 1_000, failMs: 100, clock: () => now });
     let fail = true;
     let reads = 0;
     const chain: ChainRequester = {
@@ -469,12 +494,39 @@ describe("backend load", () => {
     });
     expect((await t.dispatch("make_chart", ask)).chart).toBeUndefined();
     fail = false;
+    // Within the failure hold: refused again without a second read of a source answering badly.
+    expect((await t.dispatch("make_chart", ask)).chart).toBeUndefined();
+    expect(reads).toBe(1);
+    now = 101;
     expect((await t.dispatch("make_chart", ask)).chart).toBeDefined();
     expect((await t.dispatch("make_chart", ask)).chart).toBeDefined();
     expect(reads).toBe(2);
-    now = 1_001;
+    now = 1_102;
     await t.dispatch("make_chart", ask);
     expect(reads).toBe(3);
+  });
+
+  it("gives up on a read that never returns, so the source can recover", async () => {
+    let now = 0;
+    const cache = new ChartSourceCache({ timeoutMs: 20, abandonMs: 1_000, clock: () => now });
+    let hang = true;
+    let reads = 0;
+    const chain: ChainRequester = {
+      request: (path) => {
+        reads++;
+        return hang ? new Promise<Response>(() => {}) : makeChain().request(path);
+      },
+    };
+    const t = tools(chain, cache);
+    const ask = JSON.stringify({ series: [{ family: "mining", metric: "blocks" }], range: "30d" });
+    expect((await t.dispatch("make_chart", ask)).chart).toBeUndefined();
+    // Still inside the window: callers share the hung read rather than start more.
+    expect((await t.dispatch("make_chart", ask)).chart).toBeUndefined();
+    expect(reads).toBe(1);
+    hang = false;
+    now = 1_000;
+    expect((await t.dispatch("make_chart", ask)).chart).toBeDefined();
+    expect(reads).toBe(2);
   });
 
   it("reads the price history from one fixed start, whatever window is asked", async () => {

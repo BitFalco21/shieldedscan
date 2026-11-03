@@ -81,7 +81,14 @@ async function chartFor(args: Record<string, unknown>, chain?: ChainRequester) {
 
 /** A dispatch that must have drawn a chart. */
 async function drawn(args: Record<string, unknown>): Promise<PlottedChart> {
-  const result = await chartFor(args);
+  return drawnOn(args, makeChain());
+}
+
+async function drawnOn(
+  args: Record<string, unknown>,
+  chain: ChainRequester,
+): Promise<PlottedChart> {
+  const result = await chartFor(args, chain);
   expect(result.chart, result.content).toBeDefined();
   return result.chart!;
 }
@@ -525,6 +532,21 @@ describe("what make_chart reads, and that every plotted number is one it read", 
       (await chartFor({ series: [{ family: "mining", metric: "top1-share" }], range: "1y" }))
         .content,
     ).toContain('"ofBlocks"');
+  });
+
+  it("never passes a lagging mining index's last part-month off as a whole month", async () => {
+    // The index stopped two days into July; the clock says August. July is unmeasured, not a
+    // two-day share drawn as July's.
+    const lagging = MINER_SHARES.slice(0, -1).map((m, i, all) =>
+      i === all.length - 1 ? { ...m, days: 2, blocks: 2 * 1_152 } : m,
+    );
+    const chart = await drawnOn(
+      { series: [{ family: "mining", metric: "top1-share" }], range: "1y" },
+      makeChain({ [CHART_SOURCES.minerShares.path]: lagging }),
+    );
+    const july = chart.timestamps.indexOf(day("2026-07-01"));
+    expect(chart.series[0]!.values[july - 1]).not.toBeNull();
+    expect(chart.series[0]!.values[july]).toBeNull();
   });
 
   it("draws one chain's swaps per month, a month without its swaps a zero", async () => {
