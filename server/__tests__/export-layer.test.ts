@@ -13,6 +13,7 @@ import { exportableEndpoints, templateOf } from "../v1/export/describe";
 import { EXPORTS } from "../v1/export/registry";
 import { col, columnsOf, type ExportSpec } from "../v1/export/spec";
 import { exportLayer } from "../v1/export/layer";
+import { coreRouteErrors } from "../v1/http";
 import { listRows, tabulate } from "../v1/export/table";
 import { v1MinersRoutes } from "../v1/miners";
 import { v1Routes } from "../v1/routes";
@@ -182,6 +183,15 @@ describe("a series as a file", () => {
     );
   });
 
+  it("stamps the newest period, not the first row, when the rows are ranked", async () => {
+    const res = await app().v1.request(
+      "/v1/analytics/pools?interval=day&from=2026-08-01&to=2026-10-01&sort=closing.height&order=asc&top=1&format=csv",
+    );
+    expect(res.status).toBe(200);
+    expect((await res.text()).split("\r\n")[1]).toMatch(/^2026-08-30,/);
+    expect(res.headers.get("x-data-through")).toBe("2026-08-30");
+  });
+
   it("answers If-None-Match with a 304 on the file's own ETag", async () => {
     const { v1 } = app();
     const first = await v1.request("/v1/analytics/pools?format=csv");
@@ -210,7 +220,11 @@ describe("a list page as a file", () => {
     expect(row).not.toContain("HYPERLINK");
     const json = await (await app().v1.request("/v1/blocks?limit=1&format=json")).json();
     expect(json.unknowns["rows.0.block_reward_zat"]).toBe("shielded");
-    expect(json.unknowns["rows.0.miner_address"]).toBe("nonexistent");
+    // The wire's own null with no reason: miner_kind says the payee is encrypted, not absent.
+    expect(json.rows[0].miner_address).toBeNull();
+    expect(json.unknowns["rows.0.miner_address"]).toBeUndefined();
+    // A page's first row is not a height it was read at.
+    expect(res.headers.get("x-data-height")).toBeNull();
     expect(json.nextCursor).toBe("MzQ5OTk5OXxi");
   });
 });
@@ -274,6 +288,21 @@ describe("what never becomes a file", () => {
     expect((await v1.request("/v1/nothing?format=csv")).status).toBe(404);
     // Its own `format=json` reaches the route rather than the export layer's 400.
     expect((await v1.request("/v1/supply/circulating?format=json")).status).not.toBe(400);
+  });
+
+  it("answers a route whose answer does not fit its table with the JSON 500 envelope", async () => {
+    const broken: ExportSpec = {
+      dataset: "broken",
+      rows: (body) => listRows(body, "items"),
+      columns: [col("n", "int", "n", "")],
+    };
+    const a = new Hono();
+    a.use("/v1/*", exportLayer({ exports: { "/v1/broken": broken } }));
+    a.get("/v1/broken", (c) => c.json({ items: [{ n: "not a number" }] }));
+    a.onError(coreRouteErrors);
+    const res = await a.request("/v1/broken?format=csv");
+    expect(res.status).toBe(500);
+    expect((await res.json()).error.code).toBe("internal");
   });
 
   it("keeps errors JSON whatever format asked", async () => {

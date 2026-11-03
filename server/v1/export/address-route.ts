@@ -26,14 +26,15 @@ import { streamExport } from "./address-stream";
  * The only export that reads more than an answer already built, so it is bounded on every side:
  *  - a cap, checked against the address's exact lifetime count BEFORE any walk; past it, a 422
  *    naming the count and pointing to the open dataset with a ready query;
- *  - the cheap checks (tip, count, ETag) on the core `/v1` pool, the walk on two connections of its
+ *  - the cheap checks (tip, count, ETag) on the core `/v1` pool, the walk on connections of its
  *    own, so a crowd of refusals never queues behind a running export;
- *  - an admission gate: two exports run, four wait up to five seconds, the rest get a 503 before
- *    touching the database;
+ *  - an admission gate: one export runs, four wait up to five seconds, the rest get a 503 before
+ *    touching the database. One, because each walk is random reads on the disk ingestion writes
+ *    to; raise it only after watching the disk under real exports;
  *  - batches of index rows, each one statement, resting as long as it took between them, so an
  *    export uses at most half of its connection's time;
  *  - a total deadline, which also bounds a client too slow to read;
- *  - Caddy's `v1_address_export` zones per address and overall.
+ *  - Caddy's `v1_address_export` zones, per IP and overall.
  */
 
 export const V1_ADDRESS_EXPORT_PATH = "/v1/addresses/{address}/export";
@@ -49,6 +50,15 @@ export const V1_ADDRESS_EXPORT_REGEXP = "^/v1/addresses/[^/]+/export$";
  * the busiest addresses (millions of rows) are the open dataset's job.
  */
 export const ADDRESS_EXPORT_CAP = 10_000;
+
+/** Exports walking at once. See the header. */
+export const ADDRESS_EXPORTS_AT_ONCE = 1;
+
+/**
+ * The file's shape, in its ETag: a release that changes the columns must not answer a client's
+ * old file with a 304.
+ */
+const SCHEMA = ADDRESS_EXPORT_COLUMNS.map((c) => c.name).join(",");
 
 export interface AddressExportDeps {
   /** The core `/v1` pool: the tip and the count, never the walk. */
@@ -105,7 +115,7 @@ function transparentAddress(c: Context): string {
 export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
   const app = new Hono();
   const cap = deps.cap ?? ADDRESS_EXPORT_CAP;
-  const gate = deps.gate ?? new AdmissionGate(2, 4, 5_000);
+  const gate = deps.gate ?? new AdmissionGate(ADDRESS_EXPORTS_AT_ONCE, 4, 5_000);
   const now = deps.now ?? Date.now;
   const tipOf = deps.tip ?? indexTip;
   const countOf = deps.count ?? lifetimeTxCount;
@@ -120,9 +130,9 @@ export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
     if (tip === null) {
       return c.json(errorBody(c, "upstream_unavailable", "the chain index is empty"), 503);
     }
-    // The file is fixed by the address and the chain it was read from: a new block or a reorg
-    // changes the tip's hash, and with it the tag.
-    const etag = `W/"${createHash("sha1").update(`v1|${address}|${format}|${tip.hash}`).digest("hex")}"`;
+    // The file is fixed by its shape, the address and the chain it was read from: a new block or
+    // a reorg changes the tip's hash, and with it the tag.
+    const etag = `W/"${createHash("sha1").update(`${SCHEMA}|${address}|${format}|${tip.hash}`).digest("hex")}"`;
     const asOf = Math.floor(now() / 1000);
     const request = publicUrl(c.req.url);
     const headers: Record<string, string> = {
@@ -136,22 +146,22 @@ export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
         asOf,
       }),
     };
-    setCache(c, "listHead");
     const inm = c.req.header("If-None-Match");
     if (
       inm !== undefined &&
       inm.split(",").some((t) => t.trim().replace(/^W\//, "") === etag.slice(2))
     ) {
+      setCache(c, "listHead");
       return c.body(null, 304, { ETag: etag });
     }
-    // A HEAD's body is dropped unread, so nothing may start for it: the headers are the answer.
-    if (c.req.method === "HEAD") return c.body(null, 200, headers);
 
+    // Before HEAD too, so a HEAD answers what a GET would: three primary-key reads at most.
     const count = await countOf(deps.pool, address);
     if (count === null || count > cap) {
-      setCache(c, "rejection");
       const tooLarge = count !== null;
-      if (!tooLarge) c.header("Retry-After", "60");
+      // A refusal stands for a minute; an outage of ours is never cached.
+      if (tooLarge) setCache(c, "rejection");
+      else c.header("Retry-After", "60");
       return c.json(
         {
           ...errorBody(
@@ -169,15 +179,20 @@ export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
         tooLarge ? 422 : 503,
       );
     }
+    // A HEAD's body is dropped unread, so no slot and no walk may start for it.
+    if (c.req.method === "HEAD") {
+      setCache(c, "listHead");
+      return c.body(null, 200, headers);
+    }
     const admitted = await gate.acquire(c.req.raw.signal);
     if (admitted !== "admitted") {
-      setCache(c, "rejection");
       c.header("Retry-After", "10");
       return c.json(
         errorBody(c, "upstream_unavailable", "busy: address exports are running; retry shortly"),
         503,
       );
     }
+    setCache(c, "listHead");
     const stream = streamExport({
       format,
       columns: ADDRESS_EXPORT_COLUMNS,

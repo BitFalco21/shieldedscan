@@ -29,6 +29,8 @@ export function exportsDescriptor(mounted: readonly string[]) {
       provenance:
         "X-Source (the exact call), X-Data-Height and X-Data-Through where the answer states them, X-As-Of",
       lists: "one page per request, the next in the Link header",
+      completeness:
+        "X-Coverage repeats the answer's coverage status; X-Truncated: true marks a capped answer (daily prices past their row cap)",
       errors: "always the JSON envelope, whatever format asked",
     },
     ...(mounted.includes(`GET ${V1_ADDRESS_EXPORT_PATH}`)

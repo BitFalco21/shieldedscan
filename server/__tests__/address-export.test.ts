@@ -131,6 +131,7 @@ describe("the cap", () => {
     const res = await v1.request(url());
     expect(res.status).toBe(422);
     expect(res.headers.get("content-type")).toContain("application/json");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
     const body = await res.json();
     expect(body.error.code).toBe("export_too_large");
     expect(body.error.message).toContain("50,001");
@@ -159,6 +160,8 @@ describe("the cap", () => {
     const res = await v1.request(url());
     expect(res.status).toBe(503);
     expect(res.headers.get("retry-after")).toBe("60");
+    // An outage of ours is never cached, unlike a refusal.
+    expect(res.headers.get("cache-control")).toBeNull();
     expect((await res.json()).alternative.tables).toEqual(["transparent_io", "transactions"]);
     expect(readBatch).not.toHaveBeenCalled();
   });
@@ -202,14 +205,15 @@ describe("what starts nothing", () => {
     await json.text();
   });
 
-  it("answers HEAD with headers only: no count, no slot, no walk", async () => {
-    const { v1, count, readBatch, gate } = setup();
+  it("answers HEAD as GET would, with headers only: no slot, no walk", async () => {
+    const { v1, readBatch, gate } = setup();
     const res = await v1.request(url(), { method: "HEAD" });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/csv");
-    expect(count).not.toHaveBeenCalled();
     expect(readBatch).not.toHaveBeenCalled();
     expect(gate.inFlight).toBe(0);
+    const over = setup({ count: 20_000 });
+    expect((await over.v1.request(url(), { method: "HEAD" })).status).toBe(422);
   });
 
   it("refuses with a 503 when every slot is taken", async () => {
@@ -219,6 +223,7 @@ describe("what starts nothing", () => {
     const res = await v1.request(url());
     expect(res.status).toBe(503);
     expect(res.headers.get("retry-after")).toBe("10");
+    expect(res.headers.get("cache-control")).toBeNull();
     expect(readBatch).not.toHaveBeenCalled();
   });
 

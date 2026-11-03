@@ -4,7 +4,12 @@ import { errorBody, setCache } from "../http";
 import { at, tabulate } from "./table";
 import { columnsOf, type ExportSpec } from "./spec";
 import { EXPORTS, SELF_FORMATTED } from "./registry";
-import { CROSSCHAIN_EXPORT_REFUSAL, CROSSCHAIN_PREFIX, EXPORT_PARAM } from "./policy";
+import {
+  CROSSCHAIN_EXPORT_ENABLED,
+  CROSSCHAIN_EXPORT_REFUSAL,
+  CROSSCHAIN_PREFIX,
+  EXPORT_PARAM,
+} from "./policy";
 import {
   CONTENT_TYPE,
   EXPORT_FORMATS,
@@ -29,6 +34,7 @@ import {
  * answered it before the route runs: a file, or a 400 saying why not.
  */
 
+/** Defaults are the registry and the policy switch; tests inject their own. */
 export interface ExportLayerOptions {
   exports?: Readonly<Record<string, ExportSpec>>;
   crosschainEnabled?: boolean;
@@ -47,6 +53,7 @@ const refuse = (c: Context, code: "invalid_parameter" | "not_exportable", messag
 
 export function exportLayer(opts: ExportLayerOptions = {}) {
   const exports = opts.exports ?? EXPORTS;
+  const crosschainEnabled = opts.crosschainEnabled ?? CROSSCHAIN_EXPORT_ENABLED;
   return async (c: Context, next: Next) => {
     const asked = c.req.queries(EXPORT_PARAM);
     if (asked === undefined) return next();
@@ -57,7 +64,7 @@ export function exportLayer(opts: ExportLayerOptions = {}) {
     if (!(EXPORT_FORMATS as readonly (string | undefined)[]).includes(format)) {
       return refuse(c, "invalid_parameter", "format: csv | json, once");
     }
-    if (pattern.startsWith(CROSSCHAIN_PREFIX) && !opts.crosschainEnabled) {
+    if (pattern.startsWith(CROSSCHAIN_PREFIX) && !crosschainEnabled) {
       return refuse(c, "not_exportable", CROSSCHAIN_EXPORT_REFUSAL);
     }
     const spec = exports[pattern];

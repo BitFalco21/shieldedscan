@@ -10,13 +10,21 @@ import { PERIOD_START, col, shareColumns, type ExportSpec } from "../spec";
 
 const points = (body: unknown) => listRows(body, "data.points");
 
-/** The last point's field, for provenance: the newest period the answer covers. */
-const lastPoint = (body: unknown, path: string): unknown => {
+/**
+ * The newest closing block among the points, for provenance. The newest, not the last: `sort` and
+ * `top` reorder and trim the points before the file is written.
+ */
+function newestClose(body: unknown): { height: number | null; through: string | null } {
   const list = at(body, "data.points");
-  return Array.isArray(list) && list.length > 0 ? at(list.at(-1), path) : null;
-};
-const asHeight = (v: unknown) => (typeof v === "number" ? v : null);
-const asDay = (v: unknown) => (typeof v === "string" ? v : null);
+  let newest: { height: number; day: string } | null = null;
+  for (const p of Array.isArray(list) ? list : []) {
+    const height = at(p, "closing.height");
+    const day = at(p, "closing.day");
+    if (typeof height !== "number" || typeof day !== "string") continue;
+    if (newest === null || height > newest.height) newest = { height, day };
+  }
+  return { height: newest?.height ?? null, through: newest?.day ?? null };
+}
 
 export const POOLS_SPEC: ExportSpec = {
   dataset: "pool-balances",
@@ -40,10 +48,7 @@ export const POOLS_SPEC: ExportSpec = {
       "The four pools' sum. A level: never sum rows.",
     ),
   ],
-  provenance: (body) => ({
-    height: asHeight(lastPoint(body, "closing.height")),
-    through: asDay(lastPoint(body, "closing.day")),
-  }),
+  provenance: newestClose,
 };
 
 const count = (name: string, path: string, what: string) => col(name, "int", path, what);

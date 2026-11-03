@@ -151,9 +151,9 @@ api.shieldedscan.xyz, shieldedscan-api.duckdns.org {
 	}
 
 	# One transparent address's whole history as a file (`server/v1/export/address-route.ts`), up
-	# to its row cap. Also inside @v1. The app runs two at a time on two connections of their own,
-	# paced to half their time, and refuses the rest before touching the database; these keep one
-	# address from holding both and bound the refusals. The route carries the same pattern and a
+	# to its row cap. Also inside @v1. The app runs one at a time on connections of its own, paced
+	# to half their time, and refuses the rest before touching the database; these keep one IP
+	# from queueing behind itself and bound the refusals. The route carries the same pattern and a
 	# test holds the two together.
 	@v1_address_export path_regexp ^/v1/addresses/[^/]+/export$
 	rate_limit @v1_address_export {

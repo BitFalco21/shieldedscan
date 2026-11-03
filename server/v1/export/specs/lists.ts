@@ -12,11 +12,6 @@ import { col, type ExportSpec } from "../spec";
 
 const items = (body: unknown) => listRows(body, "items");
 
-const firstItem = (body: unknown, path: string): number | null => {
-  const v = at(body, `items.0.${path}`);
-  return typeof v === "number" ? v : null;
-};
-
 export const BLOCKS_SPEC: ExportSpec = {
   dataset: "blocks",
   rows: items,
@@ -30,13 +25,16 @@ export const BLOCKS_SPEC: ExportSpec = {
     col("tx_count", "int", "txCount", "Transactions, coinbase included."),
     col("difficulty", "decimal", "difficulty", "Difficulty."),
     col("miner_kind", "text", "minerKind", "transparent | shielded (ZIP 213 coinbase) | unknown."),
-    col(
-      "miner_address",
-      "text",
-      "minerAddress",
-      "The payout address; empty unless miner_kind is transparent.",
-      ["nonexistent"],
-    ),
+    {
+      // The wire's own null carries no reason: miner_kind already says which case it is.
+      ...col(
+        "miner_address",
+        "text",
+        "minerAddress",
+        "The payout address. Empty unless miner_kind is transparent: shielded means the payee is encrypted on-chain, unknown that no single address was paid.",
+      ),
+      emptyIsAnswer: true as const,
+    },
     col(
       "transparent_txs",
       "int",
@@ -72,7 +70,6 @@ export const BLOCKS_SPEC: ExportSpec = {
       ["shielded", "indeterminate"],
     ),
   ],
-  provenance: (body) => ({ height: firstItem(body, "height") }),
 };
 
 /**
@@ -127,7 +124,6 @@ const txList = (dataset: string): ExportSpec => ({
   rows: withPoolFlags,
   paged: true,
   columns: TX_COLUMNS,
-  provenance: (body) => ({ height: firstItem(body, "blockHeight") }),
 });
 
 export const TRANSACTIONS_SPEC = txList("transactions");

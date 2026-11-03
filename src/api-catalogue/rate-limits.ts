@@ -90,7 +90,7 @@ export const API_RATE_LIMITS: ApiRateLimitRow[] = [
     scope: "Address export, all callers",
     limit: "60 requests",
     window: "1 minute",
-    note: "Two exports run at a time; past that the answer is a 503 with a retry hint.",
+    note: "One export runs at a time; past that the answer is a 503 with a retry hint.",
   },
   {
     scope: "MCP, per IP, burst",
