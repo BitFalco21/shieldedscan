@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { FactCheckPage } from "@/features/fact-check/FactCheckPage";
 import { isTestnet } from "@/lib/network";
 import { pageShareMetadata } from "@/lib/share-card";
 import { nullIfTransient } from "@/lib/transient-upstream";
 
 /**
- * Prerendered with the site's standard 60-second window. Almost everything here is static
- * sourced prose; the live rows print the block or window they were read over, so a cached copy
- * is visibly dated rather than silently stale. No warm-cache slot is needed.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Almost everything here is static sourced
+ * prose; the live rows print the block or window they were read over, so a cached copy is visibly
+ * dated rather than silently stale.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const TITLE = "Zcash, fact-checked";
 const DESCRIPTION =
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
 export default async function Page() {
   if (isTestnet) notFound();
 
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   // Both reads are optional to the page: every answer is static and sourced, so a slow upstream
   // costs the live rows ("unavailable") and never the page or the build. A shape error still
   // throws — that is the version-skew tripwire, not a transient failure.

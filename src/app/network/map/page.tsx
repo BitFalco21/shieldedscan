@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DataUnavailable } from "@/components/DataUnavailable";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { NodeMapExplorer } from "@/features/network/map/NodeMapExplorer";
 import { isTestnet } from "@/lib/network";
 import { readNetworkShell } from "../shell-data";
@@ -10,15 +10,16 @@ import { nullIfTransient } from "@/lib/transient-upstream";
 import { networkShareMetadata } from "@/features/network/net-share";
 
 /**
- * Prerendered with a short revalidate, like the other `/network` tabs. Nothing here misdates
- * on a stale render: the crawl's own instant is printed in the sparkline caption, and every
- * figure is a floor over the reachable window. No warmer slot: no figure changes per block.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Nothing here misdates on a stale render:
+ * the crawl's own instant is printed in the sparkline caption, and every figure is a floor over the
+ * reachable window.
  *
- * It reads no query parameter, so `freshness-config.test.ts` cannot discover it by scanning;
- * the classification is pinned by its own test. The word that scan greps for must not appear
- * in this file.
+ * It reads no query parameter, so `freshness-config.test.ts` cannot discover it by scanning; the
+ * classification is pinned by its own test. The word that scan greps for must not appear in this
+ * file.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Node map",
@@ -31,7 +32,7 @@ export default async function Page() {
   // The crawler and the peers route run against the mainnet node only; the testnet API mounts
   // neither, so the page is absent there rather than empty.
   if (isTestnet) notFound();
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   const [shell, map] = await Promise.all([
     readNetworkShell(data),
     nullIfTransient(() => data.getNetworkMap()),

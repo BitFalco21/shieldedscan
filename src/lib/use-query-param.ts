@@ -15,7 +15,8 @@ function subscribe(onChange: () => void): () => void {
 /**
  * One query parameter as client state: read from the URL, written back with `replaceState`.
  *
- * For prerendered pages, where reading `searchParams` on the server would make the route dynamic.
+ * For pages shared through one cache entry, where reading `searchParams` on the server would split
+ * the entry per value.
  * The server renders the default (null) and the client reads the real value once hydrated, through
  * `useSyncExternalStore`, so there is no hydration mismatch and no effect setting state. Replacing
  * rather than pushing keeps a range toggle out of the Back button's history.

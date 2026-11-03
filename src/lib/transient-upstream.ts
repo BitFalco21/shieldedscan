@@ -2,8 +2,8 @@
  * Is this failure the upstream being slow or down, rather than the contract being wrong?
  *
  * The distinction matters: the shape validators (`isBlock`, `isTransaction`) are a version-skew
- * tripwire that must fail the build until the API serving a new field is live. Catching
- * everything would turn a skew into a permanent "temporarily unavailable" panel.
+ * tripwire that must throw until the API serving a new field is live. Catching everything would
+ * turn a skew into a permanent "temporarily unavailable" panel.
  *
  * Only an incomplete request (timeout, abort, connection failure, open circuit) or a 5xx is
  * transient. Everything else, such as a shape that does not parse, is rethrown.

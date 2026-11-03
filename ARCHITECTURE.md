@@ -86,7 +86,9 @@ brand/          Reproducible generators for the site's brand assets.
 15. **`/v1` is keyless and rate-limited by path in Caddy.** Nullable keys are always emitted;
     ambiguous nulls carry a reason in an `unknowns` map; unknown query parameters are a 400.
 16. **A 503 is an outage, a 404 is an answer.** Transient upstream failures render as
-    "unavailable"; shape errors fail the build, so version skew between API and frontend is loud.
+    "unavailable"; shape errors throw, so version skew between API and frontend is loud. No page
+    is rendered at build, so skew shows as a 500 on the deployed page, not a red build: check a
+    deploy preview against the live API before publishing a change to a domain type.
 17. **Deploy order: the API ships before a frontend that requires its new fields.** A change that
     only widens what the frontend accepts ships frontend-first.
 
@@ -95,7 +97,11 @@ brand/          Reproducible generators for the site's brand assets.
 - Tip-sensitive dynamic routes declare `fetchCache = "force-no-store"`. On a dynamic render Next's
   fetch Data Cache returns a stale entry and refreshes it behind the response, so the first
   visitor after an idle period would see an old chain tip; `unstable_cache` reads are unaffected.
-  Prerendered pages instead print the block they were read at.
+  Pages that keep a minute of Data Cache (`getCachedDataSource`) instead print the block they were
+  read at; their oldest figure is that minute plus the edge-cache age.
+- No page reads the API at build time: a slow API must delay one reader's first render, never a
+  deploy. Pages that read it are `force-dynamic` (or read the query, or have an unlisted dynamic
+  segment); the edge cache stands in for ISR. Pages that read nothing stay prerendered.
 - A shared CDN cache on a route whose answer depends on a query parameter names that parameter in
   its cache key and echoes it in the response.
 - Server-rendered pages share one render per URL through Netlify's CDN for a few seconds. The

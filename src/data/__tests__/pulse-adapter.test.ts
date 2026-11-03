@@ -79,8 +79,8 @@ describe("getPulseFrame", () => {
       `Bearer ${config.token}`,
     );
     // The source's tip window (15 s by default). The polling route forces it to zero with
-    // `force-no-store`; the prerendered page uses a 60-second source
-    // (`getPrerenderedDataSource`).
+    // `force-no-store`; the page uses a 60-second source
+    // (`getCachedDataSource`).
     expect((init as { next?: { revalidate?: number } }).next?.revalidate).toBe(15);
   });
 

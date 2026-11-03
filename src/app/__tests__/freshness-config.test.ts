@@ -1,15 +1,18 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PRERENDERED_REVALIDATE_SECONDS } from "@/data";
+import { EDGE_CACHE_POLICIES } from "@/lib/edge-cache";
 
 /**
  * The freshness contract.
  *
  * Next serves an expired cache entry as-is and refreshes behind the response, so on a
  * low-traffic site the first visitor after an idle period sees stale data. Routes whose job
- * is to be current declare `fetchCache = "force-no-store"`; prerendered pages that keep their
- * cache are refreshed by the warmer instead.
+ * is to be current declare `fetchCache = "force-no-store"`; pages that print the block they were
+ * read at keep a minute of Data Cache, are shared through the edge cache, and the busiest are
+ * refreshed by the warmer.
+ *
+ * No page that reads the API is rendered at build: a slow API must never fail a deploy.
  *
  * This proves the declarations exist and that every new query-driven route is classified.
  * It proves nothing about what the deployed site serves; only a first request against
@@ -40,6 +43,7 @@ function routePages(dir: string, route = ""): { route: string; source: string }[
 const pages = routePages(appDir);
 const queryRoutes = pages.filter((p) => p.source.includes("searchParams"));
 const FRESH = 'export const fetchCache = "force-no-store";';
+const DYNAMIC = 'export const dynamic = "force-dynamic";';
 
 /**
  * Routes that must never be served from a stale cache entry.
@@ -93,22 +97,22 @@ describe("freshness configuration", () => {
    * countdown moves by seconds per day, it prints the block height it was read at, and the
    * warmer keeps it current.
    */
-  it("keeps /halving prerendered, with a revalidate and a warmer slot", () => {
+  it("keeps /halving edge-cached, with a warmer slot", () => {
     const page = pages.find((p) => p.route === "/halving");
     expect(page, "no page.tsx for /halving").toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = \d+/);
+    expect(page?.source).toContain(DYNAMIC);
   });
 
   /**
    * `/stats` and `/stats/shielded` stay cached: they are built to be linked, print the block
    * and instant their figures were read at, and a live layer polls `/api/stats` on top.
    */
-  it.each(["/stats", "/stats/shielded"])("keeps %s prerendered, with a revalidate", (route) => {
+  it.each(["/stats", "/stats/shielded"])("keeps %s edge-cached", (route) => {
     const page = pages.find((p) => p.route === route);
     expect(page, `no page.tsx for ${route}`).toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = \d+/);
+    expect(page?.source).toContain(DYNAMIC);
   });
 
   /**
@@ -116,16 +120,13 @@ describe("freshness configuration", () => {
    * so neither page reads the query and both stay prerendered. The live layer polls
    * `/api/supply` on top of the default view.
    */
-  it.each(["/shielded", "/shielded/pools"])(
-    "keeps %s prerendered, with a revalidate and no scan word",
-    (route) => {
-      const page = pages.find((p) => p.route === route);
-      expect(page, `no page.tsx for ${route}`).toBeDefined();
-      expect(page?.source).not.toContain(FRESH);
-      expect(page?.source).toMatch(/export const revalidate = 60/);
-      expect(page?.source).not.toContain("searchParams");
-    },
-  );
+  it.each(["/shielded", "/shielded/pools"])("keeps %s edge-cached, with no scan word", (route) => {
+    const page = pages.find((p) => p.route === route);
+    expect(page, `no page.tsx for ${route}`).toBeDefined();
+    expect(page?.source).not.toContain(FRESH);
+    expect(page?.source).toContain(DYNAMIC);
+    expect(page?.source).not.toContain("searchParams");
+  });
 
   it("keeps the all-pools view's live endpoint out of every cache", () => {
     const route = readFileSync(join(appDir, "api", "supply", "route.ts"), "utf8");
@@ -137,11 +138,11 @@ describe("freshness configuration", () => {
    * stays cached: frame 0 is a real render for readers without JavaScript, every figure prints
    * its block, and a live layer polls `/api/pulse/live` on top.
    */
-  it("keeps /pulse prerendered, with a revalidate and no scan word", () => {
+  it("keeps /pulse edge-cached, with no scan word", () => {
     const page = pages.find((p) => p.route === "/pulse");
     expect(page, "no page.tsx for /pulse").toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = 60/);
+    expect(page?.source).toContain(DYNAMIC);
     // Not even in a comment: discovery is a text scan, so the word in prose would file this
     // page under the query-route contract.
     expect(page?.source).not.toContain("searchParams");
@@ -149,7 +150,8 @@ describe("freshness configuration", () => {
 
   /**
    * `/compare/all` takes no query parameter, so discovery cannot see it. Fresh, like
-   * `/compare`: a cached 200 of third-party figures is replayed without asking the API.
+   * `/compare`: a cached 200 of third-party figures is replayed without asking the API. Its edge
+   * copy is bounded instead (six minutes at most, well inside the API's 30-minute limit).
    */
   it("keeps /compare/all fresh, with no scan word", () => {
     const page = pages.find((p) => p.route === "/compare/all");
@@ -171,11 +173,11 @@ describe("freshness configuration", () => {
    * `/mining-cost` reads no query parameter (the tariff band is client state). Cached: the
    * height its terms were read at is printed, so a stale render is visibly dated.
    */
-  it("keeps /mining-cost prerendered, with a revalidate and no scan word", () => {
+  it("keeps /mining-cost edge-cached, with no scan word", () => {
     const page = pages.find((p) => p.route === "/mining-cost");
     expect(page, "no page.tsx for /mining-cost").toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = \d+/);
+    expect(page?.source).toContain(DYNAMIC);
     expect(page?.source).not.toContain("searchParams");
   });
 
@@ -184,12 +186,12 @@ describe("freshness configuration", () => {
    * client state). Cached: the crawl's instant is printed, so a stale render is visibly dated.
    */
   it.each(["/network", "/network/map", "/network/software", "/network/upgrade", "/network/health"])(
-    "keeps %s prerendered, with a revalidate and no scan word",
+    "keeps %s edge-cached, with no scan word",
     (route) => {
       const page = pages.find((p) => p.route === route);
       expect(page, `no page.tsx for ${route}`).toBeDefined();
       expect(page?.source).not.toContain(FRESH);
-      expect(page?.source).toMatch(/export const revalidate = 60/);
+      expect(page?.source).toContain(DYNAMIC);
       expect(page?.source).not.toContain("searchParams");
     },
   );
@@ -200,19 +202,19 @@ describe("freshness configuration", () => {
     expect(route).toContain(FRESH);
   });
 
-  it("keeps /fact-check prerendered — sourced prose, and every live row prints its own height", () => {
+  it("keeps /fact-check edge-cached — sourced prose, and every live row prints its own height", () => {
     const page = pages.find((p) => p.route === "/fact-check");
     expect(page, "no page.tsx for /fact-check").toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = 60/);
-    expect(page?.source).toContain("getPrerenderedDataSource()");
+    expect(page?.source).toContain(DYNAMIC);
+    expect(page?.source).toContain("getCachedDataSource()");
   });
 
-  it("keeps /zips prerendered with a revalidate — reference content, asOf printed on the page", () => {
+  it("keeps /zips edge-cached — reference content, asOf printed on the page", () => {
     const page = pages.find((p) => p.route === "/zips");
     expect(page, "no page.tsx for /zips").toBeDefined();
     expect(page?.source).not.toContain(FRESH);
-    expect(page?.source).toMatch(/export const revalidate = \d+/);
+    expect(page?.source).toContain(DYNAMIC);
   });
 
   it("keeps the stats's own live endpoint out of every cache", () => {
@@ -221,11 +223,12 @@ describe("freshness configuration", () => {
     expect(route).toContain(FRESH);
   });
 
-  it("leaves the prerendered homepage cached", () => {
-    // The opt-out would make `/` dynamic and lose the CDN caching that absorbs traffic spikes
-    // and API restarts; the warmer keeps it current. The build legend must show `/` as Static.
+  it("leaves the homepage on its minute of Data Cache, shared through the edge cache", () => {
+    // The opt-out would make every homepage render read the API afresh; the edge cache absorbs
+    // traffic spikes and the warmer keeps it current.
     const home = pages.find((p) => p.route === "/");
     expect(home?.source).not.toContain(FRESH);
+    expect(home?.source).toContain(DYNAMIC);
   });
 });
 
@@ -239,14 +242,14 @@ describe("cache warmer", () => {
     expect(warmer).toMatch(/schedule:\s*"(\*|[0-9,*/-]+)\s/);
   });
 
-  it("warms the prerendered homepage, which cannot opt out of its cache", () => {
+  it("warms the homepage, which keeps its cache", () => {
     const paths = /const PATHS = \[([^\]]*)\]/.exec(warmer)?.[1] ?? "";
     expect(paths).toContain('"/"');
   });
 
   it("warms /halving, which prints a per-block figure and keeps its cache", () => {
-    // A prerendered page with a tip-derived number needs something other than a reader to
-    // trigger its refresh.
+    // A cached page with a tip-derived number needs something other than a reader to trigger
+    // its refresh.
     const paths = /const PATHS = \[([^\]]*)\]/.exec(warmer)?.[1] ?? "";
     expect(paths).toContain('"/halving"');
   });
@@ -274,31 +277,50 @@ describe("cache warmer", () => {
   });
 });
 
-/**
- * A page's effective revalidate is the minimum across its fetches, and the default source's
- * tip reads use 15 s. `getPrerenderedDataSource()` returns a source whose reads match
- * `PRERENDERED_REVALIDATE_SECONDS`; every page declaring a revalidate must use it and declare
- * at least that window.
- */
-describe("prerendered pages read through the prerendered source", () => {
-  const prerendered = pages.filter((p) => /export const revalidate = \d+/.test(p.source));
+/** Where `/address/[addr]` maps to `/address/:addr`, the edge-cache pattern. */
+const edgePattern = (route: string): string => route.replace(/\[([^\]]+)\]/g, ":$1");
+const edgeCached = new Set(EDGE_CACHE_POLICIES.map((p) => p.source));
 
-  it("finds the prerendered pages", () => {
-    expect(prerendered.map((p) => p.route)).toEqual(
-      expect.arrayContaining(["/", "/shielded", "/analytics", "/charts", "/pulse", "/stats"]),
+/**
+ * A slow or absent API must delay at most one reader's first render, never a deploy. A page that
+ * reads the API must therefore be one Next cannot prerender: declared `force-dynamic`, reading
+ * the query, or a dynamic segment with no build-time list of params. `next build` with the API
+ * pointed at a closed port is the end-to-end check; this keeps a new page from slipping in.
+ */
+describe("no page reads the API at build time", () => {
+  const readsApi = pages.filter((p) =>
+    /DataSource\(|loadChartData\(|readNetworkShell\(/.test(p.source),
+  );
+
+  it("finds the pages that read the API", () => {
+    expect(readsApi.map((p) => p.route)).toEqual(
+      expect.arrayContaining(["/", "/txs", "/stats", "/charts/[slug]", "/network/map"]),
     );
   });
 
-  it.each(prerendered.map((p) => p.route))("%s uses getPrerenderedDataSource", (route) => {
+  it.each(readsApi.map((p) => p.route))("%s is rendered on request", (route) => {
     const page = pages.find((p) => p.route === route)!;
-    if (!page.source.includes("DataSource")) return;
-    expect(page.source).toContain("getPrerenderedDataSource()");
-    expect(page.source).not.toMatch(/\bgetDataSource\(/);
+    const onRequest =
+      page.source.includes(DYNAMIC) ||
+      page.source.includes("searchParams") ||
+      (route.includes("[") && !page.source.includes("generateStaticParams"));
+    expect(onRequest).toBe(true);
+    expect(page.source).not.toMatch(/export const revalidate = /);
   });
 
-  it.each(prerendered.map((p) => p.route))("%s declares at least the source window", (route) => {
+  it.each(pages.filter((p) => p.source.includes(DYNAMIC)).map((p) => p.route))(
+    "%s, rendered on request, is shared through the edge cache",
+    (route) => expect(edgeCached.has(edgePattern(route))).toBe(true),
+  );
+
+  it.each(
+    pages
+      .filter((p) => p.source.includes(DYNAMIC) && !p.source.includes(FRESH))
+      .map((p) => p.route),
+  )("%s reads through the cached source, whose figures it dates", (route) => {
     const page = pages.find((p) => p.route === route)!;
-    const declared = Number(/export const revalidate = (\d+)/.exec(page.source)![1]);
-    expect(declared).toBeGreaterThanOrEqual(PRERENDERED_REVALIDATE_SECONDS);
+    if (!page.source.includes("DataSource")) return;
+    expect(page.source).toContain("getCachedDataSource()");
+    expect(page.source).not.toMatch(/\bgetDataSource\(/);
   });
 });

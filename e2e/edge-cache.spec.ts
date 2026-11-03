@@ -14,6 +14,7 @@ import { TRANSPARENT_ADDR } from "./surface";
 const SAMPLE: Record<string, string> = {
   "/address/:addr": `/address/${TRANSPARENT_ADDR}`,
   "/name/:name": "/name/zenith",
+  "/charts/:slug": "/charts/median-fee",
 };
 const urlFor = (source: string): string => SAMPLE[source] ?? source;
 
@@ -56,7 +57,7 @@ test.describe("cached routes", () => {
 
 test.describe("routes outside the policy", () => {
   // Fresh by contract (search resolves existence; mempool is seconds old), the live feed keeps its
-  // own five-second policy, and a prerendered page is cached by the plugin, not by this table.
+  // own five-second policy, and a page that reads no data is prerendered and cached by the plugin.
   for (const url of [
     "/search?q=nothing",
     "/mempool",

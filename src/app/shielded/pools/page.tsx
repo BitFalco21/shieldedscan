@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { ShieldedPage } from "@/features/shielded/ShieldedPage";
 import { nullIfTransient } from "@/lib/transient-upstream";
 
 /**
- * Prerendered at 60 s and warmed every two minutes; pool balances move per block and the panel
- * prints the height it was read at. Declared explicitly because the build legend shows nothing
- * for a window inferred from fetches, and Next takes the minimum window across the route: the
- * page reads through `getPrerenderedDataSource`, whose tip window matches this.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Warmed every two minutes; pool balances
+ * move per block and the panel prints the height it was read at.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 /**
  * Served at `/shielded?view=shielded`: the proxy rewrites that URL here, so the view keeps its
- * own prerender and CDN entry while `/shielded` stays the all-pools view.
+ * own CDN entry while `/shielded` stays the all-pools view.
  */
 export const metadata: Metadata = {
   title: "Shielded Pools",
@@ -30,7 +29,7 @@ export const metadata: Metadata = {
  * ever existed. A skew error still propagates, so the build tripwire is intact.
  */
 export default async function Page() {
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   // One round trip. The series and the Ironwood panel degrade on their own through
   // `nullIfTransient`: the pool cards come from the node and are unaffected, and for Ironwood
   // `null` is also the legitimate value before activation, so both paths land on the same

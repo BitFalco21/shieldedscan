@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { SoftwarePage } from "@/features/network/software/SoftwarePage";
 import { isTestnet } from "@/lib/network";
 import { readNetworkShell } from "../shell-data";
 import { NetworkTabPage } from "../NetworkTabPage";
 import { networkShareMetadata } from "@/features/network/net-share";
 
-/** Prerendered with a short revalidate; see the map route for the reasoning. */
-export const revalidate = 60;
+/**
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. See the map route for why a cached copy is
+ * safe.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Node software",
@@ -19,7 +23,7 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   if (isTestnet) notFound();
-  const shell = await readNetworkShell(getPrerenderedDataSource());
+  const shell = await readNetworkShell(getCachedDataSource());
   return (
     <NetworkTabPage shell={shell} tab="software">
       {({ summary }) => <SoftwarePage summary={summary} />}

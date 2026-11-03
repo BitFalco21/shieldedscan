@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { nowSeconds } from "@/lib/clock";
 import { isTestnet } from "@/lib/network";
 import { HalvingPage } from "@/features/halving/HalvingPage";
@@ -9,12 +9,13 @@ import { nullIfTransient } from "@/lib/transient-upstream";
 import type { HalvingSchedule } from "@/domain";
 
 /**
- * Prerendered with a short window, not dynamic like `/blocks`. The countdown is anchored to an
- * estimated date that moves by seconds per day, and the one per-block figure (the height it was
- * read at) is printed, so staleness is visible. This page is the most likely to be linked from
- * elsewhere; `netlify/functions/warm-cache.mjs` keeps it warm so no reader pays for a refresh.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. The countdown is anchored to an estimated
+ * date that moves by seconds per day, and the one per-block figure (the height it was read at) is
+ * printed, so staleness is visible. This page is the most likely to be linked from elsewhere;
+ * `netlify/functions/warm-cache.mjs` keeps it warm.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Zcash Halving Countdown",
@@ -32,10 +33,9 @@ export const metadata: Metadata = {
 export default async function Page() {
   if (isTestnet) notFound();
 
-  const data = getPrerenderedDataSource();
-  // A transient upstream failure degrades this prerendered page instead of failing the build.
-  // Do not switch to `force-dynamic` to avoid it: that trades a rare build failure for a
-  // per-request read. Only transient failures are caught; a shape error still breaks the build.
+  const data = getCachedDataSource();
+  // A transient upstream failure degrades the page to "unavailable" rather than an error page.
+  // Only transient failures are caught; a shape error still throws.
   // The price map is optional: an empty map drops the price column.
   const [schedule, dailyUsd]: [HalvingSchedule | null, Record<string, number>] = await Promise.all([
     nullIfTransient(() => data.getHalvingSchedule()),

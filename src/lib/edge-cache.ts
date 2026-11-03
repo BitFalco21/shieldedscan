@@ -32,6 +32,7 @@ export interface EdgeCachePolicy {
 }
 
 const CURSOR = ["before", "after"] as const;
+const DAY = 86_400;
 
 export const EDGE_CACHE_POLICIES: readonly EdgeCachePolicy[] = [
   // The live feed polls `/api/live` on top of both lists, and every row carries its own block and
@@ -46,6 +47,38 @@ export const EDGE_CACHE_POLICIES: readonly EdgeCachePolicy[] = [
   // and a name page is a payment destination. Ten seconds absorbs a burst on one link.
   { source: "/address/:addr", freshSeconds: 10, staleSeconds: 0, query: ["name", ...CURSOR] },
   { source: "/name/:name", freshSeconds: 10, staleSeconds: 0, query: [] },
+  // Third-party prices: the API refuses figures older than 30 minutes, and a copy must not
+  // outlive that by much.
+  { source: "/compare/all", freshSeconds: 60, staleSeconds: 300, query: [] },
+  // The former ISR pages: each prints the block or instant it was read at, most with a live layer
+  // on top, and they render on request so a build never reads the API. A day of stale window is
+  // what ISR gave them (the plugin's is a year): a reader never waits on a render, and while the
+  // API is down each request retries behind the last good copy, provided Netlify does not store
+  // the failed render (undocumented: check `cache-status` on a deploy). Their figures can also be
+  // up to a minute older than the render (`getCachedDataSource`).
+  ...[
+    "/",
+    "/analytics",
+    "/fact-check",
+    "/halving",
+    "/learn",
+    "/mining-cost",
+    "/network",
+    "/network/health",
+    "/network/map",
+    "/network/software",
+    "/network/upgrade",
+    "/pulse",
+    // The proxy serves `/shielded?view=shielded` from `/shielded/pools`; the two must agree.
+    "/shielded",
+    "/shielded/pools",
+    "/stats",
+    "/stats/shielded",
+  ].map((source) => ({ source, freshSeconds: 60, staleSeconds: DAY, query: [] })),
+  // Day- and month-grain series, and reference content with its `asOf` printed.
+  { source: "/charts", freshSeconds: 300, staleSeconds: DAY, query: [] },
+  { source: "/charts/:slug", freshSeconds: 3600, staleSeconds: DAY, query: [] },
+  { source: "/zips", freshSeconds: 3600, staleSeconds: DAY, query: [] },
 ];
 
 /** The CDN directive for one policy. `durable` shares one render across every edge node. */
