@@ -5,6 +5,7 @@ import { chartCaption, chartCaveats, chartSeries, type PlottedChart } from "@/do
 import Link from "@/components/Link";
 import { ChartLegend } from "@/components/ChartLegend";
 import { MultiLineChart } from "@/components/MultiLineChart";
+import { formatCount } from "@/lib/format";
 import { formatPlotTick, formatPlotValue } from "@/lib/plot-format";
 import { useElementWidth } from "@/lib/use-element-width";
 import { AgentChartTable } from "./AgentChartTable";
@@ -48,8 +49,8 @@ export function AgentChart({ chart }: AgentChartProps) {
             omitNullFromReadout: series[i]!.omitLeadingZeros === true,
           }))}
           // A floor is not a quantity on the scale, so it rides in the readout beside its value.
-          contextRows={chart.series.flatMap((s, i) =>
-            s.floors.length === 0
+          contextRows={chart.series.flatMap((s, i) => [
+            ...(s.floors.length === 0
               ? []
               : [
                   {
@@ -59,13 +60,24 @@ export function AgentChart({ chart }: AgentChartProps) {
                       s.floors.includes(k) ? "a floor: some fees unread" : null,
                     ),
                   },
-                ],
-          )}
+                ]),
+            // A share names its denominator beside it (the month's blocks).
+            ...(s.of === undefined
+              ? []
+              : [
+                  {
+                    name: `${series[i]!.label}, of`,
+                    values: s.of.map((n) => (n === null ? null : `${formatCount(n)} blocks`)),
+                  },
+                ]),
+          ])}
           formatValue={(v) => formatPlotValue(unit, v)}
           formatTick={(v) => formatPlotTick(unit, v)}
           ariaLabel={caption}
           scale={chart.scale}
           fill={chart.type === "area"}
+          // A share is out of 100 whatever this window's high, as on /charts.
+          {...(series[0]!.yMax === undefined ? {} : { yMax: series[0]!.yMax })}
         />
       </div>
       <ChartLegend
@@ -77,7 +89,7 @@ export function AgentChart({ chart }: AgentChartProps) {
         }))}
       />
       <figcaption className="mt-3 border-t border-edge-faint pt-2 text-xs text-ink-dim">
-        Plotted: {caption}
+        Plotted: {caption}.
         {chartCaveats(chart).map((caveat) => (
           <span key={caveat}> {caveat}</span>
         ))}
@@ -112,8 +124,9 @@ export function AgentChart({ chart }: AgentChartProps) {
       <div id={tableId} hidden={!tableOpen}>
         {tableOpen && <AgentChartTable chart={chart} caption={caption} />}
       </div>
-      <p className="mt-2 text-xs text-ink-faint">
-        Zeno picked the series; every number is this site&apos;s data.
+      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-ink-faint">
+        <span className="border border-edge px-1 tracking-wider text-ink-dim uppercase">beta</span>
+        <span>Zeno picked the series; every number is this site&apos;s data.</span>
       </p>
     </figure>
   );

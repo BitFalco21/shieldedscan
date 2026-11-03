@@ -43,6 +43,7 @@ export * from "./time";
 export * from "./closed-set";
 export * from "./tx-action";
 export * from "./shielded-upgrades";
+export * from "./plot-series";
 export * from "./plottable";
 export * from "./plot-resample";
 export * from "./plot-chart";

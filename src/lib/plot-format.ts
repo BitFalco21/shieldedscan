@@ -3,6 +3,8 @@ import {
   compactCountTick,
   formatBytes,
   formatCount,
+  formatSharePct,
+  formatShareTick,
   formatUsd,
   formatUsdTick,
   formatUsdExact,
@@ -32,6 +34,8 @@ export function formatPlotValue(unit: PlotUnit, v: number): string {
       return wholeDifficulty(v);
     case "bytes":
       return formatBytes(Math.round(v));
+    case "pct":
+      return formatSharePct(v);
   }
 }
 
@@ -51,6 +55,8 @@ export function formatPlotTick(unit: PlotUnit, v: number): string {
       return formatUsdTick(v);
     case "bytes":
       return Number.isInteger(v) ? `${formatCount(v)} B` : "";
+    case "pct":
+      return formatShareTick(v);
   }
 }
 
@@ -67,5 +73,7 @@ export function formatPlotExact(unit: PlotUnit, v: number): string {
       return wholeDifficulty(v);
     case "bytes":
       return formatBytes(Math.round(v));
+    case "pct":
+      return formatSharePct(v, 2);
   }
 }

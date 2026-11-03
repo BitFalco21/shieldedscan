@@ -1,21 +1,34 @@
 import type {
   BlocksDayPoint,
+  ChainInflowPoint,
   ChainMonthPoint,
+  ChainOutflowPoint,
+  FeeKindMonthPoint,
   FeeTotalPoint,
   FeeTotalSeries,
+  MinerShareMonth,
   NetworkDayPoint,
+  NoteTreeDayPoint,
+  PoolMigrationDayPoint,
   PoolUsageDayPoint,
-  ShieldedSupplyPoint,
   ShieldingFlowPoint,
   SupplyDayPoint,
   TransparentDayPoint,
+  VenueMonthPoint,
 } from "@/domain";
 import { DAY_SECONDS } from "@/domain";
 import {
   BLOCKS_DAILY_PATH,
+  MINER_SHARES_PATH,
+  NOTE_TREES_PATH,
   SUPPLY_DAYS_PATH,
   TRANSPARENT_DAYS_PATH,
 } from "../../chart-series-routes";
+import {
+  INFLOW_BY_CHAIN_PATH,
+  OUTFLOW_BY_CHAIN_PATH,
+  VENUE_MONTHS_PATH,
+} from "../../crosschain-routes";
 
 /**
  * The series behind `make_chart`, as the private routes serve them, over the fixture clock
@@ -26,7 +39,7 @@ import {
  *  - Sapling's close is unread on one day, difficulty on another, active addresses on a third: a
  *    gap stays a gap.
  *  - The routes that serve today do so here too (`/days`, `/pool-usage`, `/network-daily`,
- *    `/supply`, the daily fee totals), so a tool that read a day still filling would be caught.
+ *    `/pool-migrations`, the daily fee totals), so a tool that read a day still filling would be caught.
  *  - One day's fee total rests on fewer blocks than were mined: a floor.
  *  - `/days` and the daily fee totals reach back 366 days only, as in production.
  */
@@ -95,15 +108,6 @@ export const SUPPLY_DAYS: SupplyDayPoint[] = ALL_COMPLETE_DAYS.map((t) => {
     orchardZat: c.orchard,
     ironwoodZat: c.ironwood,
     lockboxZat: 800_000 * ZEC,
-  };
-});
-
-export const SHIELDED_SUPPLY: ShieldedSupplyPoint[] = ALL_DAYS_WITH_TODAY.map((t) => {
-  const c = poolCloses(t);
-  return {
-    timestamp: t,
-    height: 2_400_000 + index(t) * 1_152,
-    totalZat: c.sprout + c.sapling + c.orchard + c.ironwood,
   };
 });
 
@@ -185,14 +189,97 @@ export const NETWORK_DAILY: NetworkDayPoint[] = ALL_DAYS_WITH_TODAY.map((t) => (
   avgBlockBytes: 4_000 + (index(t) % 9) * 100,
 }));
 
+/** ZEC migrated into each pool per day: into Ironwood from its activation, a trickle into Sapling. */
+export const POOL_MIGRATIONS: PoolMigrationDayPoint[] = ALL_DAYS_WITH_TODAY.map((t) => {
+  const k = sinceIronwood(t);
+  return {
+    timestamp: t,
+    toSproutZat: 0,
+    toSaplingZat: (index(t) % 4) * 10 * ZEC,
+    toOrchardZat: 50 * ZEC + (index(t) % 6) * ZEC,
+    toIronwoodZat: k < 0 ? 0 : 280_000 * ZEC + k * 1_000 * ZEC,
+  };
+});
+
+/** Each pool's note tree at the day's close; Ironwood null before it existed. */
+export const NOTE_TREES: NoteTreeDayPoint[] = ALL_COMPLETE_DAYS.map((t) => {
+  const k = sinceIronwood(t);
+  return {
+    timestamp: t,
+    saplingNotes: 70_000_000 + index(t) * 300,
+    orchardNotes: 40_000_000 + index(t) * 900,
+    ironwoodNotes: k < 0 ? null : 1_000 + k * 4_000,
+  };
+});
+
+/** The median fee per kind per day, the trailing year. */
+export const FEE_KIND_DAYS: FeeKindMonthPoint[] = TRAILING_DAYS_WITH_TODAY.map((t) => ({
+  timestamp: t,
+  transparentZat: 15_000 + (index(t) % 3) * 1_000,
+  mixedZat: 10_000 + (index(t) % 4) * 500,
+  shieldedZat: 5_000 + (index(t) % 2) * 100,
+}));
+
+/** The largest miners' blocks per month; the last month, still running, is part-computed. */
+export const MINER_SHARES: MinerShareMonth[] = MONTHS.map((t, m) => {
+  const last = m === MONTHS.length - 1;
+  const days = last ? 2 : new Date(Date.UTC(2024, m + 1, 0)).getUTCDate();
+  const blocks = days * 1_152;
+  return {
+    timestamp: t,
+    blocks,
+    days,
+    top1Blocks: Math.round(blocks * (0.3 + (m % 5) / 100)),
+    top3Blocks: Math.round(blocks * (0.6 + (m % 4) / 100)),
+    top10Blocks: Math.round(blocks * 0.9),
+    shieldedBlocks: Math.round(blocks * 0.02),
+  };
+});
+
 /**
- * Path → payload for every chart source the fixture world serves itself. `/shielding-flow-days`
- * and `/v1/prices/daily` are already served (the insight topic and the price route), from their
- * own fixtures.
+ * Cross-chain ZEC per month and counterpart chain, from March 2025. Months without a chain's row
+ * are its quiet months (the route lists only months with swaps); Solana has none before 2025-09.
+ */
+const CROSSCHAIN_MONTHS = monthsFrom(2025, 2, 2026, 7);
+export const INFLOW_BY_CHAIN: ChainInflowPoint[] = CROSSCHAIN_MONTHS.flatMap((t, m) => [
+  { timestamp: t, chain: "BTC", inZat: (2_000 + m * 150) * ZEC },
+  { timestamp: t, chain: "ETH", inZat: (3_000 + (m % 4) * 400) * ZEC },
+  ...(m >= 6 ? [{ timestamp: t, chain: "SOL", inZat: (800 + m * 40) * ZEC }] : []),
+]);
+export const OUTFLOW_BY_CHAIN: ChainOutflowPoint[] = CROSSCHAIN_MONTHS.flatMap((t, m) => [
+  { timestamp: t, chain: "BTC", outZat: (1_500 + m * 100) * ZEC },
+  ...(m % 3 === 0 ? [] : [{ timestamp: t, chain: "ETH", outZat: (2_500 + m * 50) * ZEC }]),
+]);
+export const VENUE_MONTHS: VenueMonthPoint[] = CROSSCHAIN_MONTHS.flatMap((t, m) => [
+  {
+    timestamp: t,
+    protocol: "near-intents",
+    inZat: (4_000 + m * 200) * ZEC,
+    outZat: (3_000 + m * 90) * ZEC,
+  },
+  {
+    timestamp: t,
+    protocol: "thorchain",
+    inZat: (900 + m * 10) * ZEC,
+    outZat: (700 + m * 20) * ZEC,
+  },
+  { timestamp: t, protocol: "maya", inZat: (300 + m * 5) * ZEC, outZat: (250 + m * 5) * ZEC },
+]);
+
+/**
+ * Path → payload for every chart source the fixture world serves itself. `/shielding-flow-days`,
+ * `/crosschain/volume-series` and `/v1/prices/daily` are already served (the insight topics and the
+ * price route), from their own fixtures.
  */
 export const CHART_SOURCE_PAYLOADS: Readonly<Record<string, unknown>> = {
+  "/chain/analytics/pool-migrations": POOL_MIGRATIONS,
+  [NOTE_TREES_PATH]: NOTE_TREES,
+  "/chain/analytics/fee-kinds-days": FEE_KIND_DAYS,
+  [MINER_SHARES_PATH]: MINER_SHARES,
+  [INFLOW_BY_CHAIN_PATH]: INFLOW_BY_CHAIN,
+  [OUTFLOW_BY_CHAIN_PATH]: OUTFLOW_BY_CHAIN,
+  [VENUE_MONTHS_PATH]: VENUE_MONTHS,
   [SUPPLY_DAYS_PATH]: SUPPLY_DAYS,
-  "/chain/analytics/supply": SHIELDED_SUPPLY,
   "/chain/analytics/months": MONTH_SERIES,
   "/chain/analytics/days": DAY_SERIES,
   "/chain/analytics/shielding-flow": FLOW_MONTHS,

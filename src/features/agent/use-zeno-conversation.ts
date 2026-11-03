@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MAX_CHARTS_PER_ANSWER } from "@/domain";
 import { agentAskUrl } from "@/lib/agent";
 import { apiBaseUrl } from "@/lib/site";
 import { askAgent, endOfStream, historyFor } from "./agent-client";
+import { withChart } from "./chart-view";
 import type { AgentPage } from "./agent-client";
 import { COMPUTING, THINKING_AGAIN, THINKING_FIRST, WORKING } from "./trail-steps";
 import { closeLastStep, newExchange, openStep, zenoTurnOf, type Exchange } from "./exchange";
@@ -202,10 +202,7 @@ export function useZenoConversation(page?: AgentPage) {
             patch({ sources: event.sources });
             break;
           case "chart":
-            // Capped here as on the server, so a misbehaving stream cannot fill the turn.
-            patchLive((e) => ({
-              charts: [...e.charts, event.chart].slice(0, MAX_CHARTS_PER_ANSWER),
-            }));
+            patchLive((e) => ({ charts: withChart(e.charts, event.chart) }));
             break;
           case "done":
             patch({

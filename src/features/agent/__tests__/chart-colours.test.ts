@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_PLOT_SERIES,
-  PLOTTABLE_SERIES,
+  allSeriesSpecs,
+  plottableSeries,
   sharedChartProblem,
   type PlottableSeries,
 } from "@/domain";
@@ -17,7 +18,7 @@ import {
 import { readStylesheet } from "@/__tests__/read-stylesheet";
 import { contrastRatio, oklchToSrgb, type Rgb255 } from "@/lib/oklch";
 import { THEMES, deriveTokens, type Theme } from "@/lib/theme";
-import { NEAR_INKS, seriesDotted, seriesInks } from "../chart-view";
+import { CHART_INKS, CLASH_INKS, NEAR_INKS, seriesDotted, seriesInks } from "../chart-inks";
 
 /**
  * Every pair of lines Zeno can draw together, measured. `sharedChartProblem` decides which series
@@ -58,19 +59,46 @@ function paint(ink: string, theme: Theme): Rgb255 {
   return colour;
 }
 
-/** Every set of 2..MAX_PLOT_SERIES catalogue series that `make_chart` lets share a chart. */
+const ALL = allSeriesSpecs().map(plottableSeries);
+
+/**
+ * Series that draw alike, for the sweep: the same axis, split, own ink and pool-ness give the same
+ * colours whichever chain or venue is named. Up to three of each are kept, so a chart of three
+ * chains sharing one flow colour is still among the sets tried.
+ */
+const REPRESENTATIVES = (() => {
+  const classes = new Map<string, PlottableSeries[]>();
+  for (const s of ALL) {
+    const own = s.ink === undefined ? "none" : seriesInks([s])[0];
+    const key = `${s.axis}|${s.split}|${own}|${s.ink !== undefined && "pool" in s.ink}`;
+    const members = classes.get(key) ?? [];
+    if (members.length < MAX_PLOT_SERIES) members.push(s);
+    classes.set(key, members);
+  }
+  return [...classes.values()].flat();
+})();
+
+/**
+ * Every set of 2..MAX_PLOT_SERIES series `make_chart` lets share a chart, in every order (the ink a
+ * series gets depends on what came before it), kept once per distinct drawing: two charts with the
+ * same inks and patterns read the same, whichever chains they name.
+ */
 function allowedCharts(): PlottableSeries[][] {
-  const out: PlottableSeries[][] = [];
-  const grow = (chosen: PlottableSeries[], from: number) => {
-    if (chosen.length >= 2) out.push(chosen);
+  const seen = new Map<string, PlottableSeries[]>();
+  const grow = (chosen: PlottableSeries[]) => {
+    if (chosen.length >= 2) {
+      const signature = `${seriesInks(chosen).join(",")}|${seriesDotted(chosen).join(",")}`;
+      if (!seen.has(signature)) seen.set(signature, chosen);
+    }
     if (chosen.length === MAX_PLOT_SERIES) return;
-    for (let i = from; i < PLOTTABLE_SERIES.length; i++) {
-      const next = [...chosen, PLOTTABLE_SERIES[i]!];
-      if (sharedChartProblem(next) === null) grow(next, i + 1);
+    for (const next of REPRESENTATIVES) {
+      if (chosen.includes(next)) continue;
+      const set = [...chosen, next];
+      if (sharedChartProblem(set) === null) grow(set);
     }
   };
-  grow([], 0);
-  return out;
+  for (const first of REPRESENTATIVES) grow([first]);
+  return [...seen.values()];
 }
 
 interface PairReading {
@@ -84,10 +112,13 @@ interface PairReading {
   patterned: boolean;
 }
 
+/** Computed once: the sweep over every ordered set is the slow part of this file. */
+const ALLOWED = allowedCharts();
+
 /** Each pair of lines on each allowed chart, under each theme. */
 function pairReadings(): PairReading[] {
   const out: PairReading[] = [];
-  for (const chart of allowedCharts()) {
+  for (const chart of ALLOWED) {
     const inks = seriesInks(chart);
     const dotted = seriesDotted(chart);
     for (let i = 0; i < chart.length; i++) {
@@ -95,8 +126,8 @@ function pairReadings(): PairReading[] {
         for (const theme of THEMES) {
           const [ca, cb] = [paint(inks[i]!, theme), paint(inks[j]!, theme)];
           out.push({
-            a: chart[i]!.id,
-            b: chart[j]!.id,
+            a: chart[i]!.key,
+            b: chart[j]!.key,
             inks: [inks[i]!, inks[j]!],
             theme: theme.id,
             normal: deltaE(ca, cb),
@@ -127,8 +158,8 @@ describe("Zeno's chart colours, over every combination make_chart allows", () =>
   const readings = pairReadings();
 
   it("refuses privacy kinds and pools on one chart, whose colours coincide", () => {
-    const kinds = PLOTTABLE_SERIES.filter((s: PlottableSeries) => s.split === "kind");
-    const pools = PLOTTABLE_SERIES.filter((s: PlottableSeries) => s.split === "pool");
+    const kinds = ALL.filter((s) => s.split === "kind");
+    const pools = ALL.filter((s) => s.split === "pool");
     expect(sharedChartProblem([kinds[0]!, pools[0]!])).toMatch(/split the same transactions/);
   });
 
@@ -153,12 +184,30 @@ describe("Zeno's chart colours, over every combination make_chart allows", () =>
         .filter((r) => r.cvd < CVD_TARGET || r.normal < NORMAL_FLOOR)
         .map((r) => inkPair(...r.inks)),
     );
-    expect(new Set(NEAR_INKS.map(([a, b]) => inkPair(a, b)))).toEqual(needed);
+    const listed = new Set(NEAR_INKS.map(([a, b]) => inkPair(a, b)));
+    expect(listed, [...needed].sort().join("\n")).toEqual(needed);
+  });
+
+  it("lists exactly the ink pairs too alike to share a chart at all", () => {
+    const clashing = new Set<string>();
+    for (const [i, a] of CHART_INKS.entries()) {
+      for (const b of CHART_INKS.slice(i + 1)) {
+        for (const theme of THEMES) {
+          const [ca, cb] = [paint(a, theme), paint(b, theme)];
+          const excused = NORMAL_EXCEPTIONS.has(`${inkPair(a, b)} on ${theme.id}`);
+          if ((deltaE(ca, cb) < NORMAL_FLOOR && !excused) || cvdDeltaE(ca, cb) < CVD_FLOOR) {
+            clashing.add(inkPair(a, b));
+          }
+        }
+      }
+    }
+    const listed = new Set(CLASH_INKS.map(([a, b]) => inkPair(a, b)));
+    expect(listed, [...clashing].sort().join("\n")).toEqual(clashing);
   });
 
   it("draws every ink at 3:1 or better against the chart surface", () => {
-    const inks = new Set(allowedCharts().flatMap((c) => seriesInks(c)));
-    for (const s of PLOTTABLE_SERIES) inks.add(seriesInks([s])[0]!);
+    const inks = new Set(ALLOWED.flatMap((c) => seriesInks(c)));
+    for (const s of ALL) inks.add(seriesInks([s])[0]!);
     for (const theme of THEMES) {
       // The chart surface: the panel as painted without oklch() (#0a120a), and each theme's own.
       const surfaces = [hexToRgb("#0a120a"), oklchToSrgb(deriveTokens(theme.hue).panel)];

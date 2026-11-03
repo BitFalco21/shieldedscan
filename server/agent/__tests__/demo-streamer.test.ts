@@ -27,15 +27,31 @@ const text = (events: AgentEvent[]) =>
 describe("the local chart demo", () => {
   it.each([
     "how did Orchard drain since July?",
-    "chart the ZEC price",
+    "chart the ZEC price this year",
     "fees vs last month",
+    "chart the median fee",
     "compare transactions over time",
     "plot sprout and sapling on a log scale",
     "chart difficulty",
+    "Bitcoin swaps over the year",
+    "miner concentration history",
+    "chart the notes in each pool",
+    "graph migrations into Ironwood",
+    "supply history",
   ])("draws a chart for %j and describes it from the tool's own summary", async (question) => {
     const events = await turn(question);
     expect(events.filter((e) => e.event === "chart")).toHaveLength(1);
     expect(text(events)).toMatch(/ went from .* to /);
+  });
+
+  it.each([
+    "chart the hashrate this year",
+    "chart this address over time",
+    "Bitcoin → Zcash last week",
+  ])("refuses %j in words", async (question) => {
+    const events = await turn(question);
+    expect(events.some((e) => e.event === "chart")).toBe(false);
+    expect(text(events)).toMatch(/No chart for that: /);
   });
 
   it("answers anything else in words", async () => {

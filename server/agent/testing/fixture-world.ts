@@ -1084,7 +1084,7 @@ export const FEE_DISTRIBUTION: FeeDistribution = {
 export const CROSSCHAIN_VOLUME: CrossChainVolumeSeries = {
   monthly: [
     {
-      timestamp: 1_781_913_600,
+      timestamp: 1_780_272_000,
       inZat: 410_000_000_000,
       outZat: 2_900_000_000_000,
       transfers: 812,
@@ -1096,7 +1096,7 @@ export const CROSSCHAIN_VOLUME: CrossChainVolumeSeries = {
       outUsdCoveredTransfers: 612,
     },
     {
-      timestamp: 1_784_592_000,
+      timestamp: 1_782_864_000,
       inZat: 990_000_000_000,
       outZat: 1_260_000_000_000,
       transfers: 431,

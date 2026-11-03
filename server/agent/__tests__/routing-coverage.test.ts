@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHART_RANGES, PLOT_SCALES, PLOT_SERIES_IDS, PLOT_TYPES } from "@/domain";
+import { MAKE_CHART_PARAMETERS } from "../tools/chart-definition";
 import { AgentTools, TOOL_NAMES, type ToolName } from "../tools";
 import { ALL_CASES } from "../evals/cases";
 import { makeChain, makeV1, FIXTURE_NOW_MS, TXID } from "../testing/fixture-world";
@@ -192,7 +192,16 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
   { tool: "zcash_reference", args: { topic: "privacy" } },
   { tool: "zcash_reference", args: { topic: "consensus" } },
   { tool: "site_guide", args: { section: "api" } },
-  { tool: "make_chart", args: { series: ["orchard-balance", "ironwood-balance"], range: "30d" } },
+  {
+    tool: "make_chart",
+    args: {
+      series: [
+        { family: "pool", pool: "orchard", metric: "balance" },
+        { family: "pool", pool: "ironwood", metric: "balance" },
+      ],
+      range: "30d",
+    },
+  },
 ];
 
 /**
@@ -444,10 +453,7 @@ describe("a tool description names the quantities its payload carries", () => {
       // make_chart: every series, window and drawing option returns the same summary keys (first,
       // last, extremes, change), none of them a quantity a description must name; the series
       // themselves are each drawn by the catalogue sweep in `chart-tool.test.ts`.
-      ...PLOT_SERIES_IDS.map((id) => `make_chart:${id}`),
-      ...CHART_RANGES.map((r) => `make_chart:${r.value}`),
-      ...PLOT_TYPES.map((t) => `make_chart:${t}`),
-      ...PLOT_SCALES.map((s) => `make_chart:${s}`),
+      ...enumValuesOf(MAKE_CHART_PARAMETERS).map((v) => `make_chart:${v}`),
     ]);
     const unexcused = missing.filter((m) => !shapeOnly.has(m));
     expect(

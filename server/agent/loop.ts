@@ -13,10 +13,11 @@ import {
 import type { ChatMessage, ChatStreamer, CompletionParams, StreamEvent } from "./chat-client";
 import type { AskPage } from "./ask-pages";
 import { pageContext } from "./page-context";
-import { SYSTEM_PROMPT, turnContext } from "./prompt";
+import { SYSTEM_PROMPT, SYSTEM_PROMPT_WITHOUT_CHARTS, turnContext } from "./prompt";
 import { resolveProvider } from "./provider";
 import { describeToolCall, sourceLinkFor, type AgentTools, type SourceLink } from "./tools";
-import { MAX_CHARTS_PER_ANSWER, type PlottedChart } from "@/domain";
+import { refusalResult } from "./tools/chart-refusal";
+import { chartKey, MAX_CHARTS_PER_ANSWER, type PlottedChart } from "@/domain";
 
 /**
  * The bounded tool loop: model → tools → model, with hard ceilings on everything that could
@@ -284,7 +285,8 @@ export async function* runAgentTurn(
 ): AsyncGenerator<AgentEvent> {
   const leading: ChatMessage[] = [
     // System prompt first: fixed content leads the array so prompt caching covers it.
-    { role: "system", content: SYSTEM_PROMPT },
+    // Without the chart tool, the prompt has no chart section to point at a tool that is not there.
+    { role: "system", content: deps.tools.charts ? SYSTEM_PROMPT : SYSTEM_PROMPT_WITHOUT_CHARTS },
     // The calendar, second and separate (see `turnContext`): it changes every day, so folding it into
     // `SYSTEM_PROMPT` would break the cached prefix and put a volatile value in a constant that must
     // hold none.
@@ -598,18 +600,19 @@ export async function* runAgentTurn(
         messages.push({
           role: "tool",
           tool_call_id: toolCall.id,
-          content: `this answer already shows ${MAX_CHARTS_PER_ANSWER} charts, the most one answer carries — answer with them`,
+          content: refusalResult({
+            reason: "chart-limit",
+            message: `this answer already shows ${MAX_CHARTS_PER_ANSWER} charts, the most one answer carries — answer with them`,
+          }).content,
         });
         continue;
       }
       const result = await deps.tools.dispatch(toolCall.name, toolCall.arguments);
       endpoints.push(...result.endpoints);
-      // The same chart asked twice is shown once.
-      if (
-        result.chart !== undefined &&
-        !charts.some((c) => JSON.stringify(c) === JSON.stringify(result.chart))
-      ) {
-        charts.push(result.chart);
+      // The same chart asked twice, however it was spelled, is shown once.
+      const drawn = result.chart;
+      if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
+        charts.push(drawn);
       }
       messages.push({ role: "tool", tool_call_id: toolCall.id, content: result.content });
     }

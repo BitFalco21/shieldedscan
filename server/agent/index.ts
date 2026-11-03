@@ -97,6 +97,8 @@ export interface AgentRouteDeps {
    */
   provider?: InferenceProvider;
   now?: () => number;
+  /** Whether `make_chart` is offered (`AGENT_CHARTS_ENABLED`); on when omitted. */
+  charts?: boolean;
 }
 
 /**
@@ -145,7 +147,8 @@ export function agentRoutes(deps: AgentRouteDeps): Hono {
   const streamer: ChatStreamer = deps.streamer ?? streamerFor(provider, deps.apiKey ?? "");
   // One clock for the whole turn, so the window a price lookup resolves and the date the prompt
   // states come from the same reading.
-  const tools = new AgentTools(deps.v1, deps.chain, now, deps.fx);
+  // One tools instance per process, so its chart cache is shared by every conversation.
+  const tools = new AgentTools(deps.v1, deps.chain, now, deps.fx, { charts: deps.charts ?? true });
   const gate = new AdmissionGate(MAX_IN_FLIGHT, MAX_WAITING, MAX_WAIT_MS);
 
   app.use("/agent/*", requestId());

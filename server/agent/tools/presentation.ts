@@ -1,10 +1,11 @@
 import { printableOnly } from "@/lib/printable";
-import { classifySearchQuery } from "@/domain";
+import { classifySearchQuery, parseSeriesSpec, plottableSeries } from "@/domain";
 import { entityHrefIsRoutable } from "@/lib/entity-page";
 import { V1_MINERS_PATH } from "../../v1/miners";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { ZIP_INDEX_PATH } from "../../zips-routes";
 import { referenceSource } from "../reference";
+import { CHART_PAGE_SOURCE } from "./chart-refusal";
 import { asRecord } from "./json";
 import type { ToolName } from "./names";
 import {
@@ -133,6 +134,12 @@ const MAX_SUBJECT_ITEMS = 3;
  */
 function subjectValue(raw: unknown): string | null {
   if (typeof raw === "number") return Number.isFinite(raw) ? String(raw) : null;
+  // A chart's series spec reads as its label from the series table, never as the model's own text;
+  // a spec that does not parse has no label and is left out.
+  if (typeof raw === "object" && raw !== null) {
+    const parsed = parseSeriesSpec(raw);
+    return parsed.ok ? plottableSeries(parsed.spec).label : null;
+  }
   if (typeof raw !== "string") return null;
   // Whitespace collapses before the control-character strip: `printableOnly` drops a newline rather
   // than replacing it, and would render `a\nb` as `ab`, joining two of the model's words into one.
@@ -238,6 +245,16 @@ export function sourceLinkFor(endpoint: string): SourceLink | null {
    * built for a human, with parameters and a runnable playground.
    */
   if (endpoint === SITE_PAGES_SOURCE) return { label: "the explorer", href: "/" };
+  /*
+   * A chart the tool would not draw cites the `/charts` page nearest to it. The slug comes from the
+   * series table, never from the model; the pattern is a second guard on what becomes an href.
+   */
+  if (endpoint.startsWith(CHART_PAGE_SOURCE)) {
+    const slug = endpoint.slice(CHART_PAGE_SOURCE.length);
+    return /^[a-z0-9-]{1,40}$/.test(slug)
+      ? { label: `/charts/${slug}`, href: `/charts/${slug}` }
+      : null;
+  }
   /*
    * The coverage register cites nothing. Its subject is a figure that does not exist, so no page
    * carries it, and linking the page with the nearest figure would hand the reader something that looks

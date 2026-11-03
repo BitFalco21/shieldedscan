@@ -2,21 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   absentBefore,
   alignMonths,
+  allSeriesSpecs,
   chartCaption,
   chartCaveats,
   firstNonZero,
   lastPeriodIsPartial,
+  MAX_PLOT_POINTS,
   nextPeriod,
   parsePlottedChart,
+  parseSeriesSpec,
   periodStart,
-  PLOT_SERIES_IDS,
-  PLOTTABLE_SERIES,
+  PLOT_CHAIN_TICKERS,
+  PLOT_CHAINS,
+  plottableSeries,
   plotWindow,
   resampleDays,
+  seriesKey,
+  zeroFilled,
   type PlotPoint,
+  type PlotSeriesSpec,
   type PlottedChart,
-  type PlottableSeries,
 } from "@/domain";
+import { chainName } from "@/lib/chains";
 
 const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 1000;
 const DAY = 86_400;
@@ -131,15 +138,34 @@ describe("resampling", () => {
   });
 });
 
+describe("sparse sources", () => {
+  it("are zero inside their extent, absent outside it, and refused when misaligned", () => {
+    const m = (iso: string) => day(iso);
+    const filled = zeroFilled(
+      {
+        BTC: [{ t: m("2026-01-01"), v: 5 }],
+        ETH: [{ t: m("2026-03-01"), v: 7 }],
+      },
+      "month",
+    )!;
+    expect(filled.BTC!.map((p) => p.v)).toEqual([5, 0, 0]);
+    expect(filled.ETH!.map((p) => p.v)).toEqual([0, 0, 7]);
+    expect(zeroFilled({ BTC: [{ t: m("2026-01-15"), v: 5 }] }, "month")).toBeNull();
+  });
+});
+
+const IRONWOOD: PlotSeriesSpec = { family: "pool", pool: "ironwood", metric: "balance" };
+const ORCHARD: PlotSeriesSpec = { family: "pool", pool: "orchard", metric: "balance" };
+
 const chart = (over: Partial<PlottedChart> = {}): PlottedChart => ({
-  v: 1,
+  v: 2,
   type: "line",
   scale: "linear",
   grain: "week",
   timestamps: [day("2026-07-06"), day("2026-07-13")],
   series: [
-    { id: "ironwood-balance", values: [null, 5], floors: [] },
-    { id: "orchard-balance", values: [9, 4], floors: [] },
+    { spec: IRONWOOD, values: [3, 5], floors: [] },
+    { spec: ORCHARD, values: [9, 4], floors: [] },
   ],
   partialLast: false,
   reachesPresent: true,
@@ -148,7 +174,7 @@ const chart = (over: Partial<PlottedChart> = {}): PlottedChart => ({
 });
 
 describe("the caption", () => {
-  it("says exactly what is plotted, from the ids and periods alone", () => {
+  it("says exactly what is plotted, from the specs and periods alone", () => {
     expect(chartCaption(chart())).toBe(
       "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line",
     );
@@ -160,7 +186,7 @@ describe("the caption", () => {
   it("names a running period and the floors", () => {
     const fees = chart({
       partialLast: true,
-      series: [{ id: "fees-paid", values: [1, 2], floors: [0, 1] }],
+      series: [{ spec: { family: "fees", stat: "total" }, values: [1, 2], floors: [0, 1] }],
     });
     expect(chartCaveats(fees)).toEqual([
       "The last week is still running.",
@@ -174,35 +200,117 @@ describe("the wire", () => {
     expect(parsePlottedChart(JSON.parse(JSON.stringify(chart())))).toEqual(chart());
   });
 
-  it("drops anything that is not exactly a chart of catalogue series", () => {
+  it("re-reads every spec canonically, so two spellings of one series are one", () => {
+    const raw = JSON.parse(JSON.stringify(chart())) as { series: { spec: unknown }[] };
+    raw.series[0]!.spec = { metric: "BALANCE", family: "pool", pool: "Ironwood" };
+    expect(parsePlottedChart({ ...chart(), series: raw.series })).toEqual(chart());
+  });
+
+  it("drops anything that is not exactly a chart of the families' series", () => {
+    const one = (s: Record<string, unknown>) => ({
+      ...chart(),
+      series: [{ spec: ORCHARD, values: [1, 2], floors: [], ...s }],
+    });
     const bad: unknown[] = [
       null,
-      { ...chart(), v: 2 },
+      [chart()],
+      "chart",
+      { ...chart(), v: 1 },
       { ...chart(), type: "pie" },
+      { ...chart(), type: "area", scale: "log" },
       { ...chart(), timestamps: [day("2026-07-13"), day("2026-07-06")] },
-      { ...chart(), series: [{ id: "made-up", values: [1, 2], floors: [] }] },
-      { ...chart(), series: [{ id: "orchard-balance", values: [1], floors: [] }] },
-      { ...chart(), series: [{ id: "orchard-balance", values: [1, "2"], floors: [] }] },
-      { ...chart(), series: [{ id: "orchard-balance", values: [1, Infinity], floors: [] }] },
-      { ...chart(), series: [{ id: "orchard-balance", values: [1, 2], floors: [9] }] },
+      { ...chart(), timestamps: [day("2026-07-13")] },
+      { ...chart(), series: [] },
+      one({ spec: { family: "made-up" } }),
+      one({ spec: { family: "pool", pool: "orchard", metric: "balance", note: "1,000 ZEC" } }),
+      one({ spec: { family: "pool", pool: "sprout", metric: "notes" } }),
+      one({ spec: "orchard-balance" }),
+      one({ values: [1] }),
+      one({ values: [1, "2"] }),
+      one({ values: [1, Infinity] }),
+      one({ values: [null, 2] }),
+      one({ floors: [9] }),
+      one({ of: [1] }),
+      one({ of: [1, "x"] }),
+      // The same series twice, spelled two ways.
+      {
+        ...chart(),
+        series: [
+          { spec: ORCHARD, values: [1, 2], floors: [] },
+          {
+            spec: { family: "pool", metric: "balance", pool: "ORCHARD" },
+            values: [1, 2],
+            floors: [],
+          },
+        ],
+      },
       // Two measures on one axis.
       {
         ...chart(),
         series: [
-          { id: "orchard-balance", values: [1, 2], floors: [] },
-          { id: "zec-price", values: [1, 2], floors: [] },
+          { spec: ORCHARD, values: [1, 2], floors: [] },
+          { spec: { family: "price" }, values: [1, 2], floors: [] },
         ],
       },
+      // Transactions split by pool beside transactions split by kind.
+      {
+        ...chart(),
+        series: [
+          {
+            spec: { family: "pool", pool: "orchard", metric: "transactions" },
+            values: [1, 2],
+            floors: [],
+          },
+          { spec: { family: "transactions", kind: "mixed" }, values: [1, 2], floors: [] },
+        ],
+      },
+      // More series than a chart carries.
+      {
+        ...chart(),
+        series: (["sprout", "sapling", "orchard", "ironwood"] as const).map((pool) => ({
+          spec: { family: "pool", pool, metric: "balance" },
+          values: [1, 2],
+          floors: [],
+        })),
+      },
     ];
-    for (const raw of bad) expect(parsePlottedChart(raw)).toBeNull();
+    for (const raw of bad) expect(parsePlottedChart(raw), JSON.stringify(raw)).toBeNull();
+  });
+
+  it("drops a chart longer than any window can be", () => {
+    const n = MAX_PLOT_POINTS + 1;
+    const huge = {
+      ...chart(),
+      timestamps: Array.from({ length: n }, (_, i) => i * DAY),
+      series: [{ spec: ORCHARD, values: Array.from({ length: n }, () => 1), floors: [] }],
+    };
+    expect(parsePlottedChart(huge)).toBeNull();
   });
 });
 
-describe("the catalogue", () => {
-  it("has unique ids, and a pool's leading zeros are absence", () => {
-    expect(new Set(PLOT_SERIES_IDS).size).toBe(PLOT_SERIES_IDS.length);
-    for (const s of PLOTTABLE_SERIES as readonly PlottableSeries[]) {
-      if (s.ink !== undefined && "pool" in s.ink) expect(s.omitLeadingZeros).toBe(true);
+describe("the series families", () => {
+  const specs = allSeriesSpecs();
+
+  it("name every series once, each re-read to itself", () => {
+    const keys = specs.map(seriesKey);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const spec of specs) {
+      const back = parseSeriesSpec(JSON.parse(JSON.stringify(spec)));
+      expect(back.ok && seriesKey(back.spec)).toBe(seriesKey(spec));
     }
+  });
+
+  it("give every series a label of its own, and make leading zeros absence where nothing existed", () => {
+    const labels = specs.map((s) => plottableSeries(s).label);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const spec of specs) {
+      const meta = plottableSeries(spec);
+      if (spec.family === "pool") expect(meta.omitLeadingZeros).toBe(true);
+      expect(meta.chartSlug === null || /^[a-z0-9-]+$/.test(meta.chartSlug)).toBe(true);
+    }
+  });
+
+  it("know every chain by the site's own display name", () => {
+    for (const ticker of PLOT_CHAIN_TICKERS) expect(PLOT_CHAINS[ticker]).toBe(chainName(ticker));
   });
 });

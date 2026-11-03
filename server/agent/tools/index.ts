@@ -16,7 +16,9 @@ import {
   renderPrivacy,
 } from "../site-guide";
 import { callsFor } from "./calls";
-import { parseChartArgs } from "./chart-args";
+import { isRefusal, parseChartArgs } from "./chart-args";
+import { ChartSourceCache } from "./chart-cache";
+import { refusalResult } from "./chart-refusal";
 import { buildChart } from "./chart-tool";
 import { toolDefinitions } from "./definitions";
 import { entityBlock, spotPriceUsdFrom } from "./entities";
@@ -70,6 +72,9 @@ export class AgentTools {
   readonly #chain: ChainRequester;
   readonly #now: () => number;
   readonly #fx: FxPort;
+  /** Whether `make_chart` is offered at all (`AGENT_CHARTS_ENABLED`). */
+  readonly charts: boolean;
+  readonly #chartCache: ChartSourceCache;
 
   /**
    * `chain` is required on purpose: an optional dependency would let a caller mount an agent that
@@ -80,16 +85,52 @@ export class AgentTools {
     chain: ChainRequester,
     now: () => number = Date.now,
     fx: FxPort = new MemoryFxRates([USD], {}, {}),
+    opts: { charts?: boolean; chartCache?: ChartSourceCache } = {},
   ) {
     this.#v1 = v1;
     this.#chain = chain;
     this.#now = now;
     this.#fx = fx;
+    this.charts = opts.charts ?? true;
+    this.#chartCache = opts.chartCache ?? new ChartSourceCache();
+  }
+
+  /** The tools this instance offers: every one, less `make_chart` when charts are off. */
+  #toolNames(): readonly string[] {
+    return this.charts ? TOOL_NAMES : TOOL_NAMES.filter((n) => n !== "make_chart");
   }
 
   /** OpenAI-format tool definitions, closed schemas throughout. */
   defs() {
-    return toolDefinitions();
+    const offered = this.#toolNames();
+    return toolDefinitions().filter((d) => offered.includes(d.function.name));
+  }
+
+  /**
+   * `make_chart`: validate, read through the shared cache, build. Never throws: whatever goes wrong
+   * past validation is a refusal in words, so a chart can fail without taking the answer with it.
+   */
+  async #chart(args: Record<string, unknown>): Promise<ToolResult> {
+    try {
+      const request = parseChartArgs(args, this.#now());
+      if (isRefusal(request)) return refusalResult(request);
+      const outcome = await buildChart(
+        request,
+        async (surface, path) => {
+          const res = await (surface === "v1" ? this.#v1 : this.#chain).request(path);
+          return { status: res.status, body: await res.text() };
+        },
+        this.#now(),
+        this.#chartCache,
+      );
+      if ("reason" in outcome) return refusalResult(outcome);
+      return { content: outcome.content, endpoints: [], chart: outcome.chart };
+    } catch {
+      return refusalResult({
+        reason: "unavailable",
+        message: "the chart could not be built just now — say so, and give no figure in its place",
+      });
+    }
   }
 
   /**
@@ -119,9 +160,10 @@ export class AgentTools {
    * transport-level failure of /v1 itself propagates.
    */
   async dispatch(name: string, rawArgs: string): Promise<ToolResult> {
-    if (!(TOOL_NAMES as readonly string[]).includes(name)) {
+    const offered = this.#toolNames();
+    if (!offered.includes(name)) {
       return {
-        content: `unknown tool: ${name} — available tools are ${TOOL_NAMES.join(", ")}`,
+        content: `unknown tool: ${name} — available tools are ${offered.join(", ")}`,
         endpoints: [],
       };
     }
@@ -194,22 +236,7 @@ export class AgentTools {
      *
      * No endpoints are cited: the chart links its own `/charts` page, the evidence a reader can open.
      */
-    if (name === "make_chart") {
-      const request = parseChartArgs(args, this.#now());
-      if (typeof request === "string") {
-        return { content: `invalid arguments for make_chart: ${request}`, endpoints: [] };
-      }
-      const outcome = await buildChart(
-        request,
-        async (surface, path) => {
-          const res = await (surface === "v1" ? this.#v1 : this.#chain).request(path);
-          return { status: res.status, body: await res.text() };
-        },
-        this.#now(),
-      );
-      if (typeof outcome === "string") return { content: outcome, endpoints: [] };
-      return { content: outcome.content, endpoints: [], chart: outcome.chart };
-    }
+    if (name === "make_chart") return this.#chart(args);
 
     /*
      * `site_guide`'s committed sections return here: they read constants in this repo (the docs
@@ -324,6 +351,7 @@ export class AgentTools {
 }
 
 export { TOOL_NAMES, type ToolName } from "./names";
+export { ChartSourceCache } from "./chart-cache";
 export { type ToolResult, type SourceLink, type V1Requester, type ChainRequester } from "./types";
 export { CHAIN_STATUS_FACETS, INSIGHT_TOPICS } from "./specs";
 export { CHAIN_WINDOW_NOTE } from "./notes";

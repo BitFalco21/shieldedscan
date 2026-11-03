@@ -201,29 +201,39 @@ test.describe("the AI agent page", () => {
     const zec = (n: number) => n * 100_000_000;
     const requests: string[] = [];
     page.on("request", (r) => requests.push(r.url()));
+    const chart = {
+      v: 2,
+      type: "line",
+      scale: "linear",
+      grain: "week",
+      timestamps: [day("2026-07-06"), day("2026-07-13"), day("2026-07-20"), day("2026-07-27")],
+      series: [
+        {
+          spec: { family: "pool", pool: "ironwood", metric: "balance" },
+          values: [null, null, zec(400_000), zec(836_130)],
+          floors: [],
+        },
+        {
+          spec: { family: "pool", pool: "orchard", metric: "balance" },
+          values: [zec(3_766_654), zec(3_769_149), zec(3_769_552), zec(2_922_536)],
+          floors: [],
+        },
+      ],
+      partialLast: false,
+      reachesPresent: true,
+      range: "90d",
+    };
     await stubAgent(page, [
-      sse("status", { state: "looking-up", tool: "make_chart", detail: "orchard-balance" }),
+      sse("status", { state: "looking-up", tool: "make_chart", detail: "Orchard balance" }),
       sse("delta", { text: "Orchard drained into Ironwood after its activation." }),
-      // A chart this console cannot understand is dropped, never half-drawn.
-      sse("chart", { v: 1, type: "line", series: [{ id: "made-up", values: [1] }] }),
-      sse("chart", {
-        v: 1,
-        type: "line",
-        scale: "linear",
-        grain: "week",
-        timestamps: [day("2026-07-06"), day("2026-07-13"), day("2026-07-20"), day("2026-07-27")],
-        series: [
-          { id: "ironwood-balance", values: [null, null, null, zec(836_130)], floors: [] },
-          {
-            id: "orchard-balance",
-            values: [zec(3_766_654), zec(3_769_149), zec(3_769_552), zec(2_922_536)],
-            floors: [],
-          },
-        ],
-        partialLast: false,
-        reachesPresent: true,
-        range: "90d",
-      }),
+      // Charts this console cannot understand are dropped, never half-drawn, and the answer goes on.
+      sse("chart", { v: 2, type: "line", series: [{ spec: { family: "made-up" }, values: [1] }] }),
+      sse("chart", { ...chart, v: 1 }),
+      "event: chart\ndata: null\n\n",
+      "event: chart\ndata: {not json\n\n",
+      sse("chart", chart),
+      // The same chart again is shown once.
+      sse("chart", chart),
       sse("sources", { sources: [] }),
       sse("done", { stopReason: "complete" }),
     ]);
@@ -234,6 +244,7 @@ test.describe("the AI agent page", () => {
     await expect(page.getByRole("img", { name: caption })).toHaveCount(1);
     await expect(page.getByText(`Plotted: ${caption}`)).toBeVisible();
     await expect(page.locator("figure")).toHaveCount(1);
+    await expect(page.locator("figure").getByText("beta", { exact: true })).toBeVisible();
 
     // The table view states the plotted values.
     const toggle = page.getByRole("button", { name: "show table" });

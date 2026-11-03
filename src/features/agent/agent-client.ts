@@ -258,7 +258,11 @@ function parseEvent(raw: string): AgentStreamEvent | null {
   if (name === "" || data === "") return null;
   let payload: Record<string, unknown>;
   try {
-    payload = JSON.parse(data) as Record<string, unknown>;
+    const parsed = JSON.parse(data) as unknown;
+    // `data: null` or an array is a payload we do not understand, dropped like any other; reading
+    // a field off it would throw inside the stream and cut the answer off.
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    payload = parsed as Record<string, unknown>;
   } catch {
     return null;
   }

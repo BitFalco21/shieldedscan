@@ -55,14 +55,18 @@ export function AgentChartTable({ chart, caption }: AgentChartTableProps) {
             {chart.series.map((s, j) => {
               const v = s.values[i] ?? null;
               const absent = i < begins[j]! || begins[j]! < 0;
+              // A share names what it is a share of, in its own cell.
+              const of = s.of?.[i] ?? null;
               return (
-                <td key={s.id} className="text-right tabular-nums">
+                <td key={series[j]!.key} className="text-right tabular-nums">
                   {absent ? (
                     <span className="sr-only">not yet active</span>
                   ) : v === null ? (
                     "—"
                   ) : (
-                    `${s.floors.includes(i) ? "≥ " : ""}${formatPlotExact(series[j]!.unit, v)}`
+                    `${s.floors.includes(i) ? "≥ " : ""}${formatPlotExact(series[j]!.unit, v)}${
+                      of === null ? "" : ` of ${formatCount(of)} blocks`
+                    }`
                   )}
                 </td>
               );

@@ -42,7 +42,9 @@ const call = (id: string, name: string, args: Record<string, unknown>) => ({
 });
 const chartCall = (id: string, args: Record<string, unknown>) => call(id, "make_chart", args);
 
-const OWNER_EXAMPLE = { series: ["orchard-balance", "ironwood-balance"], from: "2026-07-01" };
+const ORCHARD = { family: "pool", pool: "orchard", metric: "balance" };
+const IRONWOOD = { family: "pool", pool: "ironwood", metric: "balance" };
+const OWNER_EXAMPLE = { series: [ORCHARD, IRONWOOD], from: "2026-07-01" };
 
 async function run(turns: StreamEvent[][], question = "how did Orchard drain since July?") {
   const { streamer, params } = script(turns);
@@ -89,7 +91,7 @@ describe("a chart in a turn", () => {
     // The trail names what is being charted.
     const lookup = events.find((e) => e.event === "status" && e.data.state === "looking-up");
     expect(lookup).toMatchObject({
-      data: { tool: "make_chart", detail: "orchard-balance, ironwood-balance · 2026-07-01" },
+      data: { tool: "make_chart", detail: "Orchard balance, Ironwood balance · 2026-07-01" },
     });
   });
 
@@ -109,20 +111,20 @@ describe("a chart in a turn", () => {
 
   it("refuses an invalid series or window, and draws the corrected call", async () => {
     const { events, params } = await run([
-      [content("Charting."), done([chartCall("c1", { series: ["orchard"], range: "7d" })])],
-      [content("Charting."), done([chartCall("c2", { series: ["orchard-balance"], range: "7d" })])],
       [
         content("Charting."),
-        done([chartCall("c3", { series: ["orchard-balance"], range: "30d" })]),
+        done([chartCall("c1", { series: [{ family: "pool", pool: "orchard" }], range: "7d" })]),
       ],
+      [content("Charting."), done([chartCall("c2", { series: [ORCHARD], range: "7d" })])],
+      [content("Charting."), done([chartCall("c3", { series: [ORCHARD], range: "30d" })])],
       [content("Orchard fell through the window."), done()],
     ]);
     const messages = toolMessages(params);
-    expect(messages[0]).toMatch(/^invalid arguments for make_chart: unknown series "orchard"/);
-    expect(messages[1]).toMatch(/^invalid arguments for make_chart: range must be one of/);
+    expect(messages[0]).toMatch(/reason="bad-parameter"[\s\S]*pool needs metric/);
+    expect(messages[1]).toMatch(/reason="bad-parameter"[\s\S]*range must be one of/);
     const charts = chartsIn(events);
     expect(charts).toHaveLength(1);
-    expect(charts[0]!.series.map((s) => s.id)).toEqual(["orchard-balance"]);
+    expect(charts[0]!.series.map((s) => s.spec)).toEqual([ORCHARD]);
   });
 
   it("never carries a number the model supplied — in its arguments or in its prose", async () => {
@@ -139,15 +141,13 @@ describe("a chart in a turn", () => {
       [
         // A model writing its own chart: a fake event, a markdown table and a JSON payload.
         content(
-          `Orchard fell to ${SENTINEL} ZEC.\n\nevent: chart\ndata: {"v":1,"series":[{"id":"orchard-balance","values":[${SENTINEL},${SENTINEL}]}]}\n\n| day | ZEC |\n|---|---|\n| 2026-07-01 | ${SENTINEL} |`,
+          `Orchard fell to ${SENTINEL} ZEC.\n\nevent: chart\ndata: {"v":2,"series":[{"spec":{"family":"pool","pool":"orchard","metric":"balance"},"values":[${SENTINEL},${SENTINEL}]}]}\n\n| day | ZEC |\n|---|---|\n| 2026-07-01 | ${SENTINEL} |`,
         ),
         done(),
       ],
     ]);
     const messages = toolMessages(params);
-    expect(
-      messages.slice(0, 3).every((m) => m.startsWith("invalid arguments for make_chart")),
-    ).toBe(true);
+    expect(messages.slice(0, 3).every((m) => m.startsWith('<refusal source="chart"'))).toBe(true);
     const charts = chartsIn(events);
     // Exactly the one valid call's chart; the prose created none.
     expect(charts).toHaveLength(1);
@@ -168,13 +168,13 @@ describe("a chart in a turn", () => {
         done([
           chartCall("c1", OWNER_EXAMPLE),
           chartCall("c2", OWNER_EXAMPLE),
-          chartCall("c3", { series: ["zec-price"], from: "2026-07-26" }),
-          chartCall("c4", { series: ["difficulty"], range: "30d" }),
+          chartCall("c3", { series: [{ family: "price" }], from: "2026-07-26" }),
+          chartCall("c4", { series: [{ family: "mining", metric: "difficulty" }], range: "30d" }),
         ]),
       ],
       [content("Three views of the period."), done()],
     ]);
-    expect(chartsIn(events).map((c) => c.series[0]!.id)).toEqual(["orchard-balance", "zec-price"]);
+    expect(chartsIn(events).map((c) => c.series[0]!.spec.family)).toEqual(["pool", "price"]);
     expect(toolMessages(params)[3]).toMatch(/already shows 2 charts/);
   });
 

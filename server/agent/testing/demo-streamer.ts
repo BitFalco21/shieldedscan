@@ -2,33 +2,92 @@ import type { ChatStreamer, CompletionParams, StreamEvent } from "../chat-client
 
 /**
  * A scripted stand-in for the model, for trying the chart feature on a laptop: no key, no network,
- * nothing leaves the machine. It picks a `make_chart` call by keyword, then answers from the
- * summary the tool returned, so the demo's sentence and chart come from the same fixture data.
- * Never used in production; `demo-server.ts` is its only caller besides its test.
+ * nothing leaves the machine. It picks a `make_chart` call by keyword, then answers from what the
+ * tool returned — the summary of a chart, or the words of a refusal — so the demo's sentence and
+ * chart come from the same data. Never used in production; `demo-server.ts` is its only caller
+ * besides its test.
  */
 
-/** The fixture world's clock is 2026-08-03, so the windows below are set inside its data. */
+const pool = (p: string, metric = "balance") => ({ family: "pool", pool: p, metric });
+
+/** Windows are relative ("90d", "1y") or early enough for both the fixture and the real data. */
 const CHART_BY_KEYWORD: readonly { match: RegExp; args: Record<string, unknown> }[] = [
-  { match: /price/i, args: { series: ["zec-price"], from: "2026-07-26" } },
-  { match: /fee/i, args: { series: ["fees-paid"], from: "2026-07-01", type: "area" } },
-  { match: /difficulty/i, args: { series: ["difficulty"], range: "90d" } },
+  { match: /hash ?rate/i, args: { series: [{ family: "hashrate" }], range: "1y" } },
+  { match: /address|wallet/i, args: { series: [{ family: "address" }] } },
+  {
+    match: /bitcoin.*week|btc.*week/i,
+    args: { series: [{ family: "crosschain", direction: "in", chain: "BTC" }], range: "30d" },
+  },
+  {
+    match: /bitcoin|btc|swap|cross/i,
+    args: {
+      series: [
+        { family: "crosschain", direction: "in", chain: "BTC" },
+        { family: "crosschain", direction: "in", chain: "ETH" },
+      ],
+      range: "1y",
+    },
+  },
+  { match: /price/i, args: { series: [{ family: "price" }], range: "1y" } },
+  {
+    match: /median/i,
+    args: { series: [{ family: "fees", stat: "median", kind: "shielded" }], range: "90d" },
+  },
+  {
+    match: /fee/i,
+    args: { series: [{ family: "fees", stat: "total" }], range: "90d", type: "area" },
+  },
+  {
+    match: /miner|concentration/i,
+    args: {
+      series: [
+        { family: "mining", metric: "top1-share" },
+        { family: "mining", metric: "top3-share" },
+      ],
+      range: "all",
+    },
+  },
+  {
+    match: /difficulty/i,
+    args: { series: [{ family: "mining", metric: "difficulty" }], range: "90d" },
+  },
+  {
+    match: /notes|anonymity/i,
+    args: { series: [pool("sapling", "notes"), pool("orchard", "notes")], range: "all" },
+  },
+  { match: /migrat/i, args: { series: [pool("ironwood", "migrated-in")], from: "2026-07-01" } },
   {
     match: /transactions?\b/i,
     args: {
-      series: ["transparent-transactions", "mixed-transactions", "fully-shielded-transactions"],
+      series: [
+        { family: "transactions", kind: "transparent" },
+        { family: "transactions", kind: "mixed" },
+        { family: "transactions", kind: "shielded" },
+      ],
       range: "1y",
     },
   },
   {
     match: /sprout|log/i,
-    args: { series: ["sprout-balance", "sapling-balance"], from: "2026-03-01", scale: "log" },
+    args: { series: [pool("sprout"), pool("sapling")], range: "1y", scale: "log" },
+  },
+  {
+    match: /supply/i,
+    args: {
+      series: [
+        { family: "supply", part: "shielded" },
+        { family: "supply", part: "transparent" },
+      ],
+      range: "all",
+    },
   },
 ];
 
-const DEFAULT_CHART = { series: ["orchard-balance", "ironwood-balance"], from: "2026-07-01" };
+const DEFAULT_CHART = { series: [pool("orchard"), pool("ironwood")], from: "2026-07-01" };
 
 /** Whether a question is one the demo answers with a chart. */
-const CHART_WORTHY = /chart|graph|plot|drain|compare|trend|over time|since|vs\b|history/i;
+const CHART_WORTHY =
+  /chart|graph|plot|drain|compare|trend|over time|since|vs\b|history|week|month|year/i;
 
 const done = (toolCalls: { id: string; name: string; arguments: string }[] = []): StreamEvent => ({
   type: "done",
@@ -49,6 +108,8 @@ function turnOf(params: CompletionParams): { question: string; results: string[]
 
 /** One sentence per series, from the summary the tool returned: the demo never invents a figure. */
 function describe(result: string): string {
+  const refusal = result.match(/<refusal[^>]*>\n([^\n]*)/)?.[1];
+  if (refusal !== undefined) return `No chart for that: ${refusal}.`;
   const json = result.match(/<data[^>]*>[\s\S]*?(\[[\s\S]*\])\s*<\/data>/)?.[1];
   if (json === undefined) return `I could not draw that: ${result.replace(/\s+/g, " ").trim()}`;
   const rows = JSON.parse(json) as {
@@ -75,7 +136,7 @@ export const demoStreamer: ChatStreamer = async function* (params) {
   const text =
     results.length > 0
       ? describe(results[results.length - 1]!)
-      : "This is the local demo: it answers chart questions only. Try “how did Orchard drain since July?”, “chart the price”, “fees vs last month” or “compare transactions over time”.";
+      : "This is the local demo: it answers chart questions only. Try “how did Orchard drain since July?”, “chart the price this year”, “Bitcoin swaps over the year”, “miner concentration history” or “compare transactions over time”.";
   yield { type: "content", text };
   yield done();
 };

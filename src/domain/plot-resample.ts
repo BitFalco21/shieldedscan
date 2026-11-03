@@ -15,6 +15,8 @@ export interface PlotPoint {
   v: number | null;
   /** The reading is a floor: some of what it sums could not be read (a fee total's blocks). */
   floor?: boolean;
+  /** For a share, what it is a share of (the month's blocks). */
+  of?: number;
 }
 
 /** The plotted periods: `[start, end)` cut by grain, with data accepted only before `dataEnd`. */
@@ -73,6 +75,34 @@ export interface Resampled {
   values: (number | null)[];
   /** Indices of periods whose value is a floor. */
   floors: number[];
+  /** Each period's denominator, for a share read from a monthly source. */
+  of?: (number | null)[];
+}
+
+/**
+ * Keyed rows from a source that lists only the periods something happened in (a chain's month of
+ * swaps), made dense: inside the source's own extent, from its first row to its last across every
+ * key, a period with no row is a measured zero. Outside it nothing was measured, so nothing is
+ * added there. A row that does not start a period is a body we do not understand: null, never a
+ * spine of zeros beside it.
+ */
+export function zeroFilled(
+  byKey: Record<string, PlotPoint[]>,
+  grain: "day" | "month",
+): Record<string, PlotPoint[]> | null {
+  const all = Object.values(byKey).flat();
+  if (all.some((p) => periodStart(grain, p.t) !== p.t)) return null;
+  if (all.length === 0) return byKey;
+  const first = Math.min(...all.map((p) => p.t));
+  const last = Math.max(...all.map((p) => p.t));
+  const spine: number[] = [];
+  for (let t = periodStart(grain, first); t <= last; t = nextPeriod(grain, t)) spine.push(t);
+  return Object.fromEntries(
+    Object.entries(byKey).map(([key, points]) => {
+      const at = new Map(points.map((p) => [p.t, p]));
+      return [key, spine.map((t) => at.get(t) ?? { t, v: 0 })];
+    }),
+  );
 }
 
 /**
@@ -99,6 +129,9 @@ export function absentBefore(
   return {
     values: resampled.values.map((v, i) => (absent(i) ? null : v)),
     floors: resampled.floors.filter((i) => !absent(i)),
+    ...(resampled.of === undefined
+      ? {}
+      : { of: resampled.of.map((v, i) => (absent(i) ? null : v)) }),
   };
 }
 
@@ -151,5 +184,8 @@ export function alignMonths(points: readonly PlotPoint[], window: PlotWindow): R
     if (row?.floor === true) floors.push(index);
     return row?.v ?? null;
   });
-  return { values, floors };
+  const shares = points.some((p) => p.of !== undefined);
+  return shares
+    ? { values, floors, of: window.starts.map((start) => byMonth.get(start)?.of ?? null) }
+    : { values, floors };
 }
