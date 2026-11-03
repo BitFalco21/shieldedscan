@@ -13,6 +13,7 @@ import {
   rangeEnd,
 } from "./opendata/ledger-cache";
 import { CONFIRMATIONS, exportTypes } from "./opendata/read";
+import { RowRate } from "./opendata/row-rate";
 import { HEIGHTS_PER_LEDGER_FILE } from "./opendata/tables";
 
 /**
@@ -51,6 +52,7 @@ const { values: args } = parseArgs({
     until: { type: "string" },
     "max-files": { type: "string" },
     from: { type: "string" },
+    "max-rows-per-second": { type: "string" },
   },
 });
 const OUT = args.out;
@@ -90,6 +92,17 @@ const PROBE_EVERY_MS = 5_000;
 /** A chunk that took this long counts as a sign of strain, whatever the probes say. */
 const SLOW_CHUNK_MS = 20_000;
 const MIN_FREE_DISK = 100_000_000_000;
+/**
+ * The long-run ledger read rate. About 60% of the rate the first full night held while the site
+ * stayed fast; the guards above still stop the build on any sign of a slower site.
+ */
+const MAX_ROWS_PER_SECOND = Number(args["max-rows-per-second"] ?? 8_000);
+/** Seconds of rows the cap lets through at once: a chunk or two, never a catch-up sprint. */
+const ROW_BURST_SECONDS = 30;
+if (!(MAX_ROWS_PER_SECOND > 0)) {
+  console.error("--max-rows-per-second must be a positive number");
+  process.exit(1);
+}
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 
@@ -191,7 +204,9 @@ try {
   let lastProbe = 0;
   /** The slowest route seen this run, printed when the run ends: how close the site came. */
   let slowestOfRun = { path: "", ms: 0 };
-  const afterChunk = async (workedMs: number) => {
+  const rowRate = new RowRate(MAX_ROWS_PER_SECOND, ROW_BURST_SECONDS);
+  log(`ledger rows capped at ${MAX_ROWS_PER_SECOND}/s on average`);
+  const afterChunk = async (workedMs: number, rows: number) => {
     const rss = process.memoryUsage().rss;
     if (rss > MAX_RSS) throw new Guard(`memory guard: ${Math.round(rss / 1e6)} MB resident`);
     if (Date.now() >= stopAt) return "abort" as const;
@@ -226,7 +241,12 @@ try {
       log(`stopping: ${reasons.join(", ")}, twice in a row`);
       return "abort" as const;
     }
-    return pacer.afterUnit(workedMs);
+    const decision = await pacer.afterUnit(workedMs);
+    if (decision === "abort") return decision;
+    // After the pacer's rest, which refills the bucket: the cap only adds the rest it still owes.
+    const owed = rowRate.take(rows);
+    if (owed > 0) await new Promise((resolve) => setTimeout(resolve, owed));
+    return decision;
   };
 
   const height = (await sync()).tip - CONFIRMATIONS;
