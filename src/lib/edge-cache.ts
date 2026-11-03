@@ -36,9 +36,11 @@ const DAY = 86_400;
 
 export const EDGE_CACHE_POLICIES: readonly EdgeCachePolicy[] = [
   // The live feed polls `/api/live` on top of both lists, and every row carries its own block and
-  // time, so a 35-second-old first paint is a list missing its newest rows, not a wrong one.
-  { source: "/txs", freshSeconds: 5, staleSeconds: 30, query: ["kind", "pool", ...CURSOR] },
-  { source: "/blocks", freshSeconds: 5, staleSeconds: 30, query: CURSOR },
+  // time, so a 40-second-old first paint is a list missing its newest rows, not a wrong one. Ten
+  // seconds, not five: Netlify's shared durable layer bypassed the five-second copies, so each
+  // edge machine rendered its own.
+  { source: "/txs", freshSeconds: 10, staleSeconds: 30, query: ["kind", "pool", ...CURSOR] },
+  { source: "/blocks", freshSeconds: 10, staleSeconds: 30, query: CURSOR },
   // The page prints the height its balances were read at.
   { source: "/rich-list", freshSeconds: 10, staleSeconds: 60, query: CURSOR },
   // Rolling windows of a day or more: half a minute moves no figure that matters.
