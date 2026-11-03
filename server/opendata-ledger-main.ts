@@ -205,6 +205,8 @@ try {
   /** The slowest route seen this run, printed when the run ends: how close the site came. */
   let slowestOfRun = { path: "", ms: 0 };
   const rowRate = new RowRate(MAX_ROWS_PER_SECOND, ROW_BURST_SECONDS);
+  let rowsRead = 0;
+  let capRestedMs = 0;
   log(`ledger rows capped at ${MAX_ROWS_PER_SECOND}/s on average`);
   const afterChunk = async (workedMs: number, rows: number) => {
     const rss = process.memoryUsage().rss;
@@ -244,8 +246,14 @@ try {
     const decision = await pacer.afterUnit(workedMs);
     if (decision === "abort") return decision;
     // After the pacer's rest, which refills the bucket: the cap only adds the rest it still owes.
+    rowsRead += rows;
     const owed = rowRate.take(rows);
-    if (owed > 0) await new Promise((resolve) => setTimeout(resolve, owed));
+    // A rest that ends past the window would only read a range that is thrown away.
+    if (Date.now() + owed >= stopAt) return "abort" as const;
+    if (owed > 0) {
+      capRestedMs += owed;
+      await new Promise((resolve) => setTimeout(resolve, owed));
+    }
     return decision;
   };
 
@@ -298,7 +306,8 @@ try {
     );
   }
   log(
-    `done for now: ${built} range(s) built; slowest route ` +
+    `done for now: ${built} range(s) built, ${rowsRead} ledger rows read, ` +
+      `the cap rested ${Math.round(capRestedMs / 1000)} s; slowest route ` +
       `${slowestOfRun.path || "(none probed)"} at ${slowestOfRun.ms} ms`,
   );
 } catch (e) {

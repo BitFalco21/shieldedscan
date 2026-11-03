@@ -39,6 +39,16 @@ describe("RowRate", () => {
     expect(rate.take(1_000)).toBe(1_000);
   });
 
+  it("owes nothing extra when the clock steps backwards", () => {
+    const c = clock();
+    const rate = new RowRate(1_000, 1, c.now);
+    expect(rate.take(1_000)).toBe(0);
+    c.advance(-60_000);
+    expect(rate.take(0)).toBe(0);
+    c.advance(1_000);
+    expect(rate.take(1_000)).toBe(0);
+  });
+
   it("refuses limits that would never let a row through", () => {
     expect(() => new RowRate(0, 10)).toThrow();
     expect(() => new RowRate(100, 0)).toThrow();

@@ -28,7 +28,8 @@ export class RowRate {
     const now = this.#now();
     this.#tokens = Math.min(
       this.#capacity,
-      this.#tokens + ((now - this.#at) / 1000) * this.#perSecond,
+      // A clock stepped backwards credits nothing rather than owing a long sleep.
+      this.#tokens + (Math.max(0, now - this.#at) / 1000) * this.#perSecond,
     );
     this.#at = now;
     this.#tokens -= rows;
