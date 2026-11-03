@@ -1,4 +1,6 @@
 import type { PlotUnit } from "@/domain/plottable";
+import { ZATS_PER_ZEC } from "@/domain/transaction";
+import { coinTicker } from "./network";
 import {
   compactCountTick,
   formatBytes,
@@ -58,6 +60,18 @@ export function formatPlotTick(unit: PlotUnit, v: number): string {
     case "pct":
       return formatShareTick(v);
   }
+}
+
+/**
+ * A decade tick on a log axis. Every power of ten reads in one compact form, so the 1,000 tick is
+ * "1K ZEC" between "100 ZEC" and "10K ZEC" rather than the only one spelled out; a linear axis keeps
+ * `formatPlotTick`, where 1,000–9,999 is printed whole so 2,500 never reads as "2.5K".
+ */
+export function formatPlotLogTick(unit: PlotUnit, v: number): string {
+  if (unit === "zat" && v >= 1_000 * ZATS_PER_ZEC && v < 10_000 * ZATS_PER_ZEC) {
+    return `${formatCount(v / ZATS_PER_ZEC / 1_000)}K ${coinTicker}`;
+  }
+  return formatPlotTick(unit, v);
 }
 
 /** The exact figure, for the table view and the sentence the agent writes. */

@@ -6,7 +6,7 @@ import Link from "@/components/Link";
 import { ChartLegend } from "@/components/ChartLegend";
 import { MultiLineChart } from "@/components/MultiLineChart";
 import { formatCount } from "@/lib/format";
-import { formatPlotTick, formatPlotValue } from "@/lib/plot-format";
+import { formatPlotLogTick, formatPlotTick, formatPlotValue } from "@/lib/plot-format";
 import { useElementWidth } from "@/lib/use-element-width";
 import { AgentChartTable } from "./AgentChartTable";
 import { axisLabel, chartLinks, readoutLabel, seriesDotted, seriesInks } from "./chart-view";
@@ -72,7 +72,9 @@ export function AgentChart({ chart }: AgentChartProps) {
                 ]),
           ])}
           formatValue={(v) => formatPlotValue(unit, v)}
-          formatTick={(v) => formatPlotTick(unit, v)}
+          formatTick={(v) =>
+            chart.scale === "log" ? formatPlotLogTick(unit, v) : formatPlotTick(unit, v)
+          }
           ariaLabel={caption}
           scale={chart.scale}
           fill={chart.type === "area"}

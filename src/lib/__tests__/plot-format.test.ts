@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { niceAxis } from "../nice-ticks";
-import { formatPlotTick } from "../plot-format";
+import { formatPlotLogTick, formatPlotTick } from "../plot-format";
 
 /** A Zeno chart's y labels for data running 0..max in a unit, as the axis draws them. */
 const labels = (unit: Parameters<typeof formatPlotTick>[0], max: number) => {
@@ -40,5 +40,22 @@ describe("formatPlotTick on round axis steps", () => {
 
   it("prints prices without cents a whole step does not have", () => {
     expect(labels("usd", 46)).toEqual(["$0", "$10", "$20", "$30", "$40", "$50"]);
+  });
+});
+
+describe("a log axis's decade ticks", () => {
+  it("read in one compact form, 1K between 100 and 10K", () => {
+    const zec = [100, 1_000, 10_000, 1_000_000].map((z) => z * 100_000_000);
+    expect(zec.map((v) => formatPlotLogTick("zat", v))).toEqual([
+      "100 ZEC",
+      "1K ZEC",
+      "10K ZEC",
+      "1M ZEC",
+    ]);
+    expect(formatPlotLogTick("count", 1_000)).toBe(formatPlotTick("count", 1_000));
+  });
+
+  it("prints a share's ticks as percentages", () => {
+    expect(formatPlotTick("pct", 25)).toBe("25%");
   });
 });
