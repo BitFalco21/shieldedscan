@@ -176,11 +176,14 @@ export function XAxis({ frame, labels }: { frame: AxisFrame; labels: string[] })
   return (
     <>
       {labels.map((label, i) => {
-        if (i !== 0 && i !== n - 1 && i % every !== 0) return null;
-        // A mid label too close to the last would collide with it; the last one wins. Measured
-        // in drawn units, not indices: the last label is end-anchored, so it reaches a whole
-        // label width back from its point while a mid label reaches half a width either side.
+        // Stepped back from the last label, the newest period, so the step between the last two
+        // is a whole step and never a stub with the space it lost left as a gap mid-axis.
+        if (i !== 0 && i !== n - 1 && (n - 1 - i) % every !== 0) return null;
+        // A mid label too close to either end would collide with it; the end label wins.
+        // Measured in drawn units, not indices: the end labels are anchored at their outer edge,
+        // so each reaches a whole label width inward while a mid label reaches half a width.
         if (i !== 0 && i !== n - 1 && frame.x(n - 1) - frame.x(i) < labelW * 1.5) return null;
+        if (i !== 0 && i !== n - 1 && frame.x(i) - frame.x(0) < labelW * 1.5) return null;
         return (
           <text
             key={`${label}-${i}`}
