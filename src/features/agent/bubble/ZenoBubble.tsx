@@ -54,7 +54,13 @@ export function ZenoBubble({ head }: ZenoBubbleProps) {
     launcherRef.current?.focus();
   }, [open]);
 
-  function openPanel() {
+  function press() {
+    // While the panel's code is still on its way, the bubble stays and a second press gives up
+    // waiting: a stalled network must not leave the reader with no way back.
+    if (open) {
+      setOpen(false);
+      return;
+    }
     setOpen(true);
     if (loaded !== null) return;
     loadPanel().then(
@@ -71,16 +77,17 @@ export function ZenoBubble({ head }: ZenoBubbleProps) {
 
   return (
     <>
-      {/* Room below the footer, so the bubble never sits over its last lines. */}
+      {/* Room below the footer, so the bubble never sits over its last lines. The footer's own
+          near-opaque bed, continued: on the home page a fixed photograph sits behind both. */}
       <div aria-hidden className="h-24 flex-none bg-bg/90" />
       <button
         ref={launcherRef}
         type="button"
-        hidden={open}
+        hidden={open && loaded !== null}
         aria-label="Ask Zeno about this page"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={openPanel}
+        onClick={press}
         className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex size-[60px] cursor-pointer items-center justify-center rounded-full border border-edge-strong bg-bg shadow-lg hover:border-green sm:right-6 sm:bottom-6 sm:h-14 sm:w-auto sm:gap-2.5 sm:pr-5 sm:pl-2.5"
       >
         {head}

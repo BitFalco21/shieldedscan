@@ -275,6 +275,29 @@ test.describe("Zeno's bubble", () => {
     expect(violations).toEqual([]);
   });
 
+  test("after the first answer, `clear` and the question are both in sight", async ({ page }) => {
+    await stubAgent(page, "A long answer.\n\n".repeat(40));
+    await page.goto(TX_PAGE);
+    await bubble(page).click();
+    await box(page).fill("tell me everything");
+    await box(page).press("Enter");
+    await expect(panel(page).getByText("A long answer.").first()).toBeVisible();
+    await expect(panel(page).getByRole("button", { name: "clear" })).toBeInViewport();
+    await expect(panel(page).getByText("tell me everything")).toBeInViewport();
+  });
+
+  test("a second press while the panel loads gives up waiting", async ({ page }) => {
+    // Hold every script after the page has loaded, so the panel's chunk cannot arrive.
+    await page.goto(TX_PAGE);
+    await page.waitForLoadState("networkidle");
+    await page.route("**/*.js", () => {});
+    await bubble(page).click();
+    await expect(page.getByRole("status").filter({ hasText: "waking zeno" })).toBeVisible();
+    await bubble(page).click();
+    await expect(page.getByRole("status").filter({ hasText: "waking zeno" })).toHaveCount(0);
+    await expect(bubble(page)).toHaveAttribute("aria-expanded", "false");
+  });
+
   test.describe("on a phone", () => {
     test.use({ viewport: PHONE, hasTouch: true });
 
@@ -290,7 +313,7 @@ test.describe("Zeno's bubble", () => {
       expect(await overflow()).toBeLessThanOrEqual(0);
 
       await bubble(page).click();
-      await expect(box(page)).toBeFocused();
+      await expect(panel(page)).toBeFocused();
       expect(await overflow()).toBeLessThanOrEqual(0);
       const escaped = await panel(page).evaluate((root) => {
         const width = window.innerWidth;
@@ -307,6 +330,18 @@ test.describe("Zeno's bubble", () => {
       expect(sheet!.height).toBeGreaterThan(PHONE.height * 0.8);
     });
 
+    test("opening takes focus to the sheet, not the box, so no keyboard covers it", async ({
+      page,
+    }) => {
+      await page.goto(TX_PAGE);
+      await bubble(page).click();
+      await expect(panel(page)).toBeFocused();
+      await expect(box(page)).not.toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(panel(page)).toBeHidden();
+      await expect(bubble(page)).toBeFocused();
+    });
+
     test("the sheet is modal: the page behind it is inert until it closes", async ({ page }) => {
       await page.goto(TX_PAGE);
       await bubble(page).click();
@@ -317,19 +352,29 @@ test.describe("Zeno's bubble", () => {
       await expect(bubble(page)).toBeFocused();
     });
 
-    test("every control in the sheet is a 44px target", async ({ page }) => {
+    test("every control in the sheet is a 44px target, before and after an answer", async ({
+      page,
+    }) => {
+      const smallControls = () =>
+        // Every control but the box itself; links inside an answer's prose are inline text.
+        panel(page).evaluate((root) =>
+          Array.from(root.querySelectorAll("button, summary, header a"))
+            .filter((el) => el.getClientRects().length > 0)
+            .map((el) => ({ el, r: el.getBoundingClientRect() }))
+            .filter(({ r }) => r.height < 44 - 0.5)
+            .map(({ el }) => el.getAttribute("aria-label") ?? el.textContent),
+        );
+      await stubAgent(page, "Fully shielded.");
       await page.goto(TX_PAGE);
       await bubble(page).click();
-      await expect(box(page)).toBeFocused();
-      // Every control but the box itself; links inside an answer's prose are inline text.
-      const small = await panel(page).evaluate((root) =>
-        Array.from(root.querySelectorAll("button, summary, header a"))
-          .filter((el) => el.getClientRects().length > 0)
-          .map((el) => ({ el, r: el.getBoundingClientRect() }))
-          .filter(({ r }) => r.height < 44 - 0.5)
-          .map(({ el }) => el.getAttribute("aria-label") ?? el.textContent),
-      );
-      expect(small).toEqual([]);
+      await expect(panel(page)).toBeFocused();
+      expect(await smallControls()).toEqual([]);
+
+      await box(page).fill("is it shielded?");
+      await box(page).press("Enter");
+      await expect(panel(page).getByText("Fully shielded.")).toBeVisible();
+      await expect(panel(page).getByRole("button", { name: "clear" })).toBeVisible();
+      expect(await smallControls()).toEqual([]);
     });
   });
 });

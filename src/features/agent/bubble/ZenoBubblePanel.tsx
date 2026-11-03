@@ -65,10 +65,13 @@ export function ZenoBubblePanel({ open, onClose }: ZenoBubblePanelProps) {
   );
 
   // Into the panel on open. An effect, not the bubble's click handler: on the first press this
-  // component's code is still loading when the click runs.
+  // component's code is still loading when the click runs. On a phone the sheet itself takes
+  // focus rather than the box, whose keyboard would cover the suggestions the moment it opens.
   useEffect(() => {
-    if (open) focusComposer();
-  }, [open, focusComposer]);
+    if (!open) return;
+    if (modal) dialogRef.current?.focus();
+    else focusComposer();
+  }, [open, modal, focusComposer]);
 
   function pick(suggestion: BubbleSuggestion) {
     if (busy || heldForEdit !== null) return;
@@ -86,6 +89,11 @@ export function ZenoBubblePanel({ open, onClose }: ZenoBubblePanelProps) {
       event.preventDefault();
       return;
     }
+    // A new-tab click leaves this page, and this conversation, where they are; a handoff left in
+    // the slot would surface on the reader's next ordinary visit to the console.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
     // A turn lifted for an edit is still part of the conversation: it goes back in place.
     handOff(heldForEdit === null ? exchanges : [...exchanges, heldForEdit]);
   }
@@ -99,6 +107,7 @@ export function ZenoBubblePanel({ open, onClose }: ZenoBubblePanelProps) {
       <div aria-hidden onClick={onClose} className="scrim fixed inset-0 z-50 sm:hidden" />
       <div
         ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal={modal}
         aria-label="Ask Zeno"

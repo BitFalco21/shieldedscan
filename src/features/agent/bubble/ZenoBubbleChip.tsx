@@ -25,7 +25,7 @@ export function ZenoBubbleChip({ page, disabled, onAdd }: ZenoBubbleChipProps) {
           type="button"
           disabled={disabled}
           onClick={() => onAdd(subject)}
-          className="shrink-0 cursor-pointer text-green hover:text-ink-bright disabled:cursor-not-allowed disabled:opacity-60 max-sm:min-h-11"
+          className="shrink-0 cursor-pointer text-green hover:text-ink-bright disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span aria-hidden>+ </span>add to question
           <span className="sr-only">: {page.label}</span>

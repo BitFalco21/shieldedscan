@@ -50,6 +50,11 @@ export function ZenoTranscript({
       return;
     }
     const turns = pane.querySelectorAll("[data-turns] > article");
+    // One turn: the top of the pane, so a `clear` above the question stays in sight.
+    if (turns.length < 2) {
+      pane.scrollTop = 0;
+      return;
+    }
     const last = turns[turns.length - 1];
     if (last === undefined) return;
     const offset = last.getBoundingClientRect().top - pane.getBoundingClientRect().top;

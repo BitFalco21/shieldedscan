@@ -73,7 +73,8 @@ export function useZenoConversation(
     if (busy || exchanges.length === 0) return;
     const within = refocusWithin?.current;
     const active = document.activeElement;
-    // The disabled box blurred itself, so focus "nowhere" means it was still with us.
+    // The disabled box blurred itself, so focus "nowhere" means it was still with us. (Safari does
+    // not focus a clicked link, so a reader who clicked one in the page still loses focus to us.)
     const ours = !within || active === null || active === document.body || within.contains(active);
     if (ours) inputRef.current?.focus();
   }, [busy, exchanges.length, refocusWithin]);
