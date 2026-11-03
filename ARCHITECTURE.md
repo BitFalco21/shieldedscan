@@ -98,6 +98,14 @@ brand/          Reproducible generators for the site's brand assets.
   Prerendered pages instead print the block they were read at.
 - A shared CDN cache on a route whose answer depends on a query parameter names that parameter in
   its cache key and echoes it in the response.
+- Server-rendered pages share one render per URL through Netlify's CDN for a few seconds. The
+  policy lives in `src/lib/edge-cache.ts` and rides the function's response via `next.config.ts`
+  (the proxy runs in front of the CDN, so it cannot set it). The oldest copy a reader can get is
+  the fresh window plus the stale window; a page that prints no height gets no stale window.
+  `Netlify-Vary` names every query parameter the page reads: the plugin's default key names only
+  `_rsc` and `__nextDataReq`.
+- A cached route has no `loading.tsx`: a streamed shell commits 200 before the data arrives, so a
+  failed render would be stored and served as a page. Without it a failure answers 500.
 - An outage must be cheap: a shared circuit breaker fails fast after repeated upstream failures,
   and live pollers back off.
 
