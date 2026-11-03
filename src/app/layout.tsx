@@ -7,6 +7,9 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { CommandPalette } from "@/components/CommandPalette";
 import { DismissPopovers } from "@/components/DismissPopovers";
 import { TestnetBanner } from "@/components/TestnetBanner";
+import { Zeno } from "@/features/agent/Zeno";
+import { ZenoBubble } from "@/features/agent/bubble/ZenoBubble";
+import { isAgentEnabled } from "@/lib/agent";
 import { isTestnet } from "@/lib/network";
 import { isPublicStage, siteUrl } from "@/lib/site";
 import { siteShareImages, siteShareName, siteTwitterCard } from "@/lib/share-card";
@@ -112,6 +115,8 @@ export default function RootLayout({
           {children}
         </main>
         <SiteFooter />
+        {/* Before the palette, so the palette's scrim paints over an open Zeno panel. */}
+        {isAgentEnabled && <ZenoBubble head={<Zeno variant="head" className="w-11 sm:w-10" />} />}
         <CommandPalette />
         {/* Closes `<details data-popover>` menus on an outside click or Escape. Pure
             enhancement: with no JavaScript they still open and still choose. */}
