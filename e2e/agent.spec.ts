@@ -194,6 +194,77 @@ test.describe("the AI agent page", () => {
     await expect(link).toBeHidden();
   });
 
+  test("draws a streamed chart under its answer, accessibly, with no question in any link", async ({
+    page,
+  }) => {
+    const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 1000;
+    const zec = (n: number) => n * 100_000_000;
+    const requests: string[] = [];
+    page.on("request", (r) => requests.push(r.url()));
+    const chart = {
+      v: 2,
+      type: "line",
+      scale: "linear",
+      grain: "week",
+      timestamps: [day("2026-07-06"), day("2026-07-13"), day("2026-07-20"), day("2026-07-27")],
+      series: [
+        {
+          spec: { family: "pool", pool: "ironwood", metric: "balance" },
+          values: [null, null, zec(400_000), zec(836_130)],
+          floors: [],
+        },
+        {
+          spec: { family: "pool", pool: "orchard", metric: "balance" },
+          values: [zec(3_766_654), zec(3_769_149), zec(3_769_552), zec(2_922_536)],
+          floors: [],
+        },
+      ],
+      partialLast: false,
+      reachesPresent: true,
+      range: "90d",
+    };
+    await stubAgent(page, [
+      sse("status", { state: "looking-up", tool: "make_chart", detail: "Orchard balance" }),
+      sse("delta", { text: "Orchard drained into Ironwood after its activation." }),
+      // Charts this console cannot understand are dropped, never half-drawn, and the answer goes on.
+      sse("chart", { v: 2, type: "line", series: [{ spec: { family: "made-up" }, values: [1] }] }),
+      sse("chart", { ...chart, v: 1 }),
+      "event: chart\ndata: null\n\n",
+      "event: chart\ndata: {not json\n\n",
+      sse("chart", chart),
+      // The same chart again is shown once.
+      sse("chart", chart),
+      sse("sources", { sources: [] }),
+      sse("done", { stopReason: "complete" }),
+    ]);
+    const question = "compare-ironwood-orchard-balances-please";
+    await ask(page, question);
+
+    const caption = "Ironwood balance, Orchard balance · since 2026-07-06 · weekly · line";
+    await expect(page.getByRole("img", { name: caption })).toHaveCount(1);
+    await expect(page.locator("figcaption")).toContainText(`Plotted: ${caption}.`);
+    await expect(page.locator("figure")).toHaveCount(1);
+    await expect(page.locator("figure").getByText("beta", { exact: true })).toBeVisible();
+
+    // The table view states the plotted values.
+    const toggle = page.getByRole("button", { name: "show table" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "2,922,536.00 ZEC" })).toBeVisible();
+
+    // Each series' page, in a new tab, and the question in no URL the page holds or requests.
+    const link = page.getByRole("link", { name: "/charts/pool-balances" });
+    await expect(link).toHaveAttribute("href", "/charts/pool-balances?range=90d");
+    await expect(link).toHaveAttribute("target", "_blank");
+    const hrefs = await page
+      .locator("a[href]")
+      .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+    expect(hrefs.join(" ")).not.toContain(question);
+    expect(requests.join(" ")).not.toContain(question);
+    expect(page.url()).not.toContain(question);
+  });
+
   test("a markdown image in the answer never becomes an element or a request", async ({ page }) => {
     const requests: string[] = [];
     page.on("request", (r) => requests.push(r.url()));

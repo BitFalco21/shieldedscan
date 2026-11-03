@@ -35,6 +35,8 @@ export interface EvalCase {
      * our own measurements.
      */
     | "external-data"
+    /** When an answer carries a chart, and when it must stay words. */
+    | "charts"
     | "upstream-failure"
     | "over-refusal"
     | "injection-direct"
@@ -49,6 +51,10 @@ export interface EvalCase {
    * well, where requiring a specific one would make the case flap on the model's choice.
    */
   mustCallAny?: ToolName[];
+  /** The answer must carry at least one chart (counted from `chart` events, not tool calls). */
+  mustChart?: true;
+  /** The answer must carry no chart: a single figure, or a question words answer better. */
+  mustNotChart?: true;
   /** Every regex must match the final answer. */
   mustContain?: RegExp[];
   /** No regex may match the final answer. */

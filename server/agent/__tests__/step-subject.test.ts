@@ -195,6 +195,7 @@ describe("every tool can say what it was asked for", () => {
       zcash_reference: { topic: "ceremonies" },
       site_guide: { section: "api" },
       calculate: { expressions: ["(620 / 4620) * 100"] },
+      make_chart: { series: ["orchard-balance", "ironwood-balance"], from: "2026-07-01" },
     };
     for (const [tool, args] of Object.entries(calls)) {
       expect(describeToolCall(tool, JSON.stringify(args)), tool).not.toBeNull();

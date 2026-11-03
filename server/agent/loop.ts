@@ -13,9 +13,11 @@ import {
 import type { ChatMessage, ChatStreamer, CompletionParams, StreamEvent } from "./chat-client";
 import type { AskPage } from "./ask-pages";
 import { pageContext } from "./page-context";
-import { SYSTEM_PROMPT, turnContext } from "./prompt";
+import { SYSTEM_PROMPT, SYSTEM_PROMPT_WITHOUT_CHARTS, turnContext } from "./prompt";
 import { resolveProvider } from "./provider";
 import { describeToolCall, sourceLinkFor, type AgentTools, type SourceLink } from "./tools";
+import { refusalResult } from "./tools/chart-refusal";
+import { chartKey, MAX_CHARTS_PER_ANSWER, type PlottedChart } from "@/domain";
 
 /**
  * The bounded tool loop: model → tools → model, with hard ceilings on everything that could
@@ -96,6 +98,12 @@ export type AgentEvent =
    */
   | { event: "narration"; data: { text: string } }
   | { event: "sources"; data: { sources: SourceLink[] } }
+  /**
+   * A chart for the reader, emitted with the answer's end, before `sources`. Its only origin is a
+   * `make_chart` result (`ToolResult.chart`): what it plots was read by the tool from this
+   * explorer's data, never written by the model. An older console drops it as unknown.
+   */
+  | { event: "chart"; data: PlottedChart }
   | {
       event: "done";
       data: {
@@ -277,7 +285,8 @@ export async function* runAgentTurn(
 ): AsyncGenerator<AgentEvent> {
   const leading: ChatMessage[] = [
     // System prompt first: fixed content leads the array so prompt caching covers it.
-    { role: "system", content: SYSTEM_PROMPT },
+    // Without the chart tool, the prompt has no chart section to point at a tool that is not there.
+    { role: "system", content: deps.tools.charts ? SYSTEM_PROMPT : SYSTEM_PROMPT_WITHOUT_CHARTS },
     // The calendar, second and separate (see `turnContext`): it changes every day, so folding it into
     // `SYSTEM_PROMPT` would break the cached prefix and put a volatile value in a constant that must
     // hold none.
@@ -303,6 +312,12 @@ export async function* runAgentTurn(
 
   let sanitizer = new StreamSanitizer();
   const endpoints: string[] = [];
+  /*
+   * Charts the turn's `make_chart` calls produced, shown with the answer. Held to the end rather than
+   * emitted as they arrive, so a chart belongs to an answer and is never stranded beside a closing
+   * that is not one (`unansweredEnding` emits none).
+   */
+  const charts: PlottedChart[] = [];
   /*
    * Whether this turn is answering a question about the API, which changes what counts as our
    * plumbing leaking. Once `site_guide` has run, "the payload" is the ordinary word for the thing
@@ -459,7 +474,7 @@ export async function* runAgentTurn(
         // observer.
         deps.onRawText?.(split.answer);
         const body = sanitizer.push(split.answer) + sanitizer.flush();
-        yield* finishTurn(body, endpoints, answeredStopReason(final));
+        yield* finishTurn(body, endpoints, answeredStopReason(final), charts);
         return;
       }
       /*
@@ -516,7 +531,7 @@ export async function* runAgentTurn(
         yield* unansweredEnding(dedupeSources(endpoints));
         return;
       }
-      yield* finishTurn(sanitizer.flush(), endpoints, answeredStopReason(final));
+      yield* finishTurn(sanitizer.flush(), endpoints, answeredStopReason(final), charts);
       return;
     }
 
@@ -579,8 +594,26 @@ export async function* runAgentTurn(
         },
       };
       if (toolCall.name === "site_guide") apiAnswer = true;
+      // An answer carries at most two charts; a third is refused before anything is read, and said
+      // so, rather than drawn and silently dropped.
+      if (toolCall.name === "make_chart" && charts.length >= MAX_CHARTS_PER_ANSWER) {
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: refusalResult({
+            reason: "chart-limit",
+            message: `this answer already shows ${MAX_CHARTS_PER_ANSWER} charts, the most one answer carries — answer with them`,
+          }).content,
+        });
+        continue;
+      }
       const result = await deps.tools.dispatch(toolCall.name, toolCall.arguments);
       endpoints.push(...result.endpoints);
+      // The same chart asked twice, however it was spelled, is shown once.
+      const drawn = result.chart;
+      if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
+        charts.push(drawn);
+      }
       messages.push({ role: "tool", tool_call_id: toolCall.id, content: result.content });
     }
 
@@ -602,7 +635,7 @@ export async function* runAgentTurn(
   }
 
   // A model that keeps demanding tools it no longer has. Stop it rather than loop.
-  yield* finishTurn(sanitizer.flush(), endpoints, "tool-limit");
+  yield* finishTurn(sanitizer.flush(), endpoints, "tool-limit", charts);
 }
 
 type StopReason = Extract<AgentEvent, { event: "done" }>["data"]["stopReason"];
@@ -612,13 +645,15 @@ function answeredStopReason(final: Extract<StreamEvent, { type: "done" }> | null
   return final?.finishReason === "length" ? "length" : "complete";
 }
 
-/** The end of every answered turn: the answer's last text, its sources, then `done`. */
+/** The end of every answered turn: the answer's last text, its charts, its sources, then `done`. */
 function* finishTurn(
   tail: string,
   endpoints: readonly string[],
   stopReason: StopReason,
+  charts: readonly PlottedChart[],
 ): Generator<AgentEvent> {
   if (tail !== "") yield { event: "delta", data: { text: tail } };
+  for (const chart of charts) yield { event: "chart", data: chart };
   yield { event: "sources", data: { sources: dedupeSources(endpoints) } };
   yield { event: "done", data: { stopReason } };
 }

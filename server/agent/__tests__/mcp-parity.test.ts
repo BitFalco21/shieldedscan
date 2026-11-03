@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { API_GROUPS } from "@/api-catalogue";
+import { allSeriesSpecs } from "@/domain";
 import { AgentTools, TOOL_NAMES, type ChainRequester, type ToolName } from "../tools";
 import { makeChain, makeV1, FIXTURE_NOW_MS } from "../testing/fixture-world";
 
@@ -180,6 +181,74 @@ const PRIVATE_READS: Readonly<Record<string, PrivateRead>> = {
     unpublished:
       "each transaction's net movement in or out of the shielded pools, a different quantity from the per-pool boundary legs /v1/analytics/shielding-flow serves",
   },
+  // The series `make_chart` plots: the private routes `/charts` reads, so the console draws what
+  // the page draws. Each has a public twin over any window; what the twin lacks is the one-read form.
+  "/chain/analytics/supply-days": {
+    twin: "analytics-pools",
+    lacks: "every complete day's close for all of history in one unpaged read, as /charts reads it",
+  },
+  "/chain/analytics/months": {
+    twin: "monthly",
+    lacks: "nothing for the counts plotted; it is the exact series /charts draws, read in one call",
+  },
+  "/chain/analytics/days": {
+    twin: "activity",
+    lacks:
+      "the trailing year per day in one unparameterised read, as the /charts range toggle uses",
+  },
+  "/chain/analytics/shielding-flow": {
+    unpublished:
+      "each transaction's net movement in or out of the shielded pools per month, a different quantity from the per-pool boundary legs /v1/analytics/shielding-flow serves",
+  },
+  "/chain/analytics/fee-totals": {
+    twin: "activity",
+    lacks:
+      "both grains in one read with each period's block coverage, as the fee-totals chart draws",
+  },
+  "/chain/analytics/pool-usage": {
+    twin: "analytics-pool-usage",
+    lacks: "every day since launch for all four pools in one unpaged read, as /charts reads it",
+  },
+  "/chain/analytics/blocks-daily": {
+    twin: "analytics-network",
+    lacks: "the day's top height beside its block count, which the blocks-per-day target reads",
+  },
+  "/chain/analytics/transparent-days": {
+    twin: "analytics-transparent",
+    lacks: "every day's active-address count since launch in one unpaged read, as /charts reads it",
+  },
+  "/chain/analytics/network-daily": {
+    twin: "analytics-network",
+    lacks: "every day since launch in one unpaged read, without the block counts behind each",
+  },
+  "/chain/analytics/pool-migrations": {
+    twin: "migrations",
+    lacks: "the ZEC migrated into each pool every day since launch in one unpaged read",
+  },
+  "/chain/analytics/note-trees": {
+    twin: "analytics-pool-usage",
+    lacks: "each pool's note tree at every day's close since launch in one unpaged read",
+  },
+  "/chain/analytics/fee-kinds-days": {
+    twin: "analytics-fees",
+    lacks: "the trailing year's daily median per kind in one unparameterised read",
+  },
+  "/chain/analytics/miner-shares": {
+    twin: "analytics-miners",
+    lacks: "the largest miners' share of every month since launch in one read",
+  },
+  "/crosschain/inflow-by-chain": {
+    twin: "crosschain-aggregate",
+    lacks: "every month's ZEC from each source chain in one read, as /charts reads it",
+  },
+  "/crosschain/outflow-by-chain": {
+    twin: "crosschain-aggregate",
+    lacks: "every month's ZEC to each destination chain in one read, as /charts reads it",
+  },
+  "/crosschain/venue-months": {
+    twin: "crosschain-aggregate",
+    lacks: "every month's ZEC through each venue, both directions, in one read",
+  },
   "/chain/analytics/tx-counts": {
     unpublished:
       "all-time counts per transaction kind, coinbase included; /v1/analytics/activity counts a window and leaves coinbase out",
@@ -221,6 +290,14 @@ interface ToolSchema {
  * refuses is skipped, and the coverage test below catches a required value that never dispatched.
  */
 function argumentSets(tool: ToolName, schema: ToolSchema): Record<string, unknown>[] {
+  // A chart's series are objects, not an enum: every series the families name, over a year and
+  // over all of history, so every source a chart can read is read here.
+  if (tool === "make_chart") {
+    return allSeriesSpecs().flatMap((spec) => [
+      { series: [spec], range: "1y" },
+      { series: [spec], range: "all" },
+    ]);
+  }
   const props = Object.entries(schema.properties ?? {});
   const enumOf = (p: (typeof props)[number][1]) => p.enum ?? p.items?.enum;
   const as = (p: (typeof props)[number][1], v: string) => (p.type === "array" ? [v] : v);

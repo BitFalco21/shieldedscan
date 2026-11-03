@@ -38,6 +38,7 @@ import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
+import { CHART_SOURCE_PAYLOADS } from "./chart-fixtures";
 
 /**
  * A real /v1 sub-app over faked chain data, shared by the agent's tests and by the eval runner's
@@ -1083,7 +1084,7 @@ export const FEE_DISTRIBUTION: FeeDistribution = {
 export const CROSSCHAIN_VOLUME: CrossChainVolumeSeries = {
   monthly: [
     {
-      timestamp: 1_781_913_600,
+      timestamp: 1_780_272_000,
       inZat: 410_000_000_000,
       outZat: 2_900_000_000_000,
       transfers: 812,
@@ -1095,7 +1096,7 @@ export const CROSSCHAIN_VOLUME: CrossChainVolumeSeries = {
       outUsdCoveredTransfers: 612,
     },
     {
-      timestamp: 1_784_592_000,
+      timestamp: 1_782_864_000,
       inZat: 990_000_000_000,
       outZat: 1_260_000_000_000,
       transfers: 431,
@@ -1544,8 +1545,13 @@ export function chainApp(
     [TX_COUNTS_KEY]: TX_COUNTS_FIXTURE,
     [ADDRESS_EXTREMES_KEY]: ADDRESS_VALUE_EXTREMES_FIXTURE,
     [ADDRESS_ACTIVITY_KEY]: ADDRESS_ACTIVITY_FIXTURE,
+    ...CHART_SOURCE_PAYLOADS,
     ...overrides,
   };
+  // The series `make_chart` reads, keyed by their own paths so an override can replace one.
+  for (const path of Object.keys(CHART_SOURCE_PAYLOADS)) {
+    app.get(path, (c) => c.json(payloads[path] as never));
+  }
   // The per-address extrema drill-down `lookup_address` fetches behind its flag.
   app.get("/chain/addresses/:address/value-extremes", (c) =>
     c.json(payloads[ADDRESS_EXTREMES_KEY] as never),

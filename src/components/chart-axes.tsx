@@ -66,18 +66,56 @@ export function axisFrame(
 ): AxisFrame & { ticks: number[] } {
   const { min, max, ticks } = niceAxis(dataMin, dataMax, { label: formatValue });
   const span = max - min;
+  return frameFor(n, ticks, formatValue, tickFont, height, (v) => (v - min) / span);
+}
+
+/**
+ * Gutter + scales for a LOG y axis: one tick per power of ten from the decade at or below the
+ * lowest positive value to the one at or above the highest. For series of one measure that differ
+ * by orders of magnitude; a value at or below zero has no place on it, and callers draw a gap.
+ */
+export function logAxisFrame(
+  n: number,
+  lowestPositive: number,
+  max: number,
+  formatValue: (v: number) => string,
+  tickFont = TICK_FONT,
+  height = CHART_H,
+): AxisFrame & { ticks: number[] } {
+  const bottom = Math.floor(Math.log10(lowestPositive));
+  const top = Math.max(Math.ceil(Math.log10(max)), bottom + 1);
+  // At most ~6 gridlines however many decades the data spans.
+  const step = Math.ceil((top - bottom + 1) / 6);
+  const ticks: number[] = [];
+  for (let k = bottom; k <= top; k += step) ticks.push(10 ** k);
+  return frameFor(n, ticks, formatValue, tickFont, height, (v) =>
+    v > 0 ? (Math.log10(v) - bottom) / (top - bottom) : 0,
+  );
+}
+
+/** The shared geometry: a gutter sized to the ticks, and `y` from a value's fraction of the axis. */
+function frameFor(
+  n: number,
+  ticks: number[],
+  formatValue: (v: number) => string,
+  tickFont: number,
+  height: number,
+  fraction: (v: number) => number,
+): AxisFrame & { ticks: number[] } {
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
   // Room for the x labels below and the top tick's upper half above; a larger tick (the
-  // phone's) buys more.
-  const padB = Math.max(CHART_PAD_B, tickFont + 8);
+  // phone's) buys more. Below, two lines of tick: one would leave the lowest y label level
+  // with the first x label, where "0 ZEC" and "2026-07-01" read as one run. At the base size
+  // this is exactly `CHART_PAD_B`.
+  const padB = Math.max(CHART_PAD_B, 2 * tickFont + 8);
   const padT = Math.max(CHART_PAD_T, tickFont * 0.7);
   return {
     padL,
     ticks,
     tickFont,
     x: (i: number) => padL + (n > 1 ? (i / (n - 1)) * (CHART_W - padL - CHART_PAD_R) : 0),
-    y: (v: number) => height - padB - ((v - min) / span) * (height - padT - padB),
+    y: (v: number) => height - padB - fraction(v) * (height - padT - padB),
     plotStart: padL / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
     height,
@@ -107,7 +145,10 @@ export function YAxis({
           />
           <text
             x={frame.padL - 8}
-            y={frame.y(t) + 4}
+            // Baseline a third of the font below the gridline, so the label centres on it at any
+            // size: a fixed 4 units centres an 11-unit tick but leaves a phone's riding above it,
+            // and the top one clipped.
+            y={frame.y(t) + (4 / TICK_FONT) * frame.tickFont}
             textAnchor="end"
             fontSize={frame.tickFont}
             className="chart-tick"
@@ -135,11 +176,14 @@ export function XAxis({ frame, labels }: { frame: AxisFrame; labels: string[] })
   return (
     <>
       {labels.map((label, i) => {
-        if (i !== 0 && i !== n - 1 && i % every !== 0) return null;
-        // A mid label too close to the last would collide with it; the last one wins. Measured
-        // in drawn units, not indices: the last label is end-anchored, so it reaches a whole
-        // label width back from its point while a mid label reaches half a width either side.
+        // Stepped back from the last label, the newest period, so the step between the last two
+        // is a whole step and never a stub with the space it lost left as a gap mid-axis.
+        if (i !== 0 && i !== n - 1 && (n - 1 - i) % every !== 0) return null;
+        // A mid label too close to either end would collide with it; the end label wins.
+        // Measured in drawn units, not indices: the end labels are anchored at their outer edge,
+        // so each reaches a whole label width inward while a mid label reaches half a width.
         if (i !== 0 && i !== n - 1 && frame.x(n - 1) - frame.x(i) < labelW * 1.5) return null;
+        if (i !== 0 && i !== n - 1 && frame.x(i) - frame.x(0) < labelW * 1.5) return null;
         return (
           <text
             key={`${label}-${i}`}

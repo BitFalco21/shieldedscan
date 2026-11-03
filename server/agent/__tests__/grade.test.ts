@@ -260,3 +260,45 @@ describe("mustNeverRelay", () => {
     expect(grade.failures).toEqual(["RELAYED in raw model output /t1ScamAddr/"]);
   });
 });
+
+describe("chart cases", () => {
+  const CHART: EvalCase = {
+    id: "test-chart",
+    category: "charts",
+    world: "fixture",
+    question: "How did Orchard drain since July?",
+    mustCall: ["make_chart"],
+    mustChart: true,
+  };
+  const WORDS: EvalCase = {
+    id: "test-words",
+    category: "charts",
+    world: "live",
+    question: "What is the shielded supply?",
+    mustNotChart: true,
+  };
+  const turn = (chartsShown: number | undefined) => ({
+    question: CHART.question,
+    answer: "Orchard drained into Ironwood.",
+    rawAnswer: "Orchard drained into Ironwood.",
+    toolsCalled: ["make_chart"],
+    ...(chartsShown === undefined ? {} : { chartsShown }),
+  });
+
+  it("counts a chart the reader received, not a call that drew nothing", () => {
+    expect(gradeAnswer(CHART, turn(1)).failures).toEqual([]);
+    // A refused call still shows as called; only the event proves a chart was drawn.
+    expect(gradeAnswer(CHART, turn(0)).failures).toEqual(["drew no chart"]);
+  });
+
+  it("fails a chart drawn for a question words answer", () => {
+    expect(gradeAnswer(WORDS, turn(0)).failures).toEqual([]);
+    expect(gradeAnswer(WORDS, turn(1)).failures).toEqual([
+      "drew 1 chart(s) for a question words answer",
+    ]);
+  });
+
+  it("fails closed when the runner did not observe charts", () => {
+    expect(gradeAnswer(CHART, turn(undefined)).failures).toEqual(["charts were not observed"]);
+  });
+});

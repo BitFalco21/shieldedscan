@@ -1,5 +1,6 @@
 import { POOL_MIGRATION_DESTINATIONS, POOL_MIGRATION_SOURCES, POOL_NAMES } from "@/domain";
 import { REFERENCE_TOPIC_NAMES } from "../reference";
+import { MAKE_CHART_DESCRIPTION, MAKE_CHART_PARAMETERS } from "./chart-definition";
 import { MAX_ZIP_PICKS, ZIP_SECTION_IDS } from "../zip-index";
 import type { ToolName } from "./names";
 import {
@@ -433,6 +434,7 @@ export function toolDefinitions() {
       },
       ["section"],
     ),
+    def("make_chart", MAKE_CHART_DESCRIPTION, MAKE_CHART_PARAMETERS, ["series"]),
     def(
       "calculate",
       // The description repeats the preference order (payload figures first) because the definition is

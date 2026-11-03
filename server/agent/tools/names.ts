@@ -17,6 +17,7 @@ export const TOOL_NAMES = [
   "site_guide",
   "calculate",
   "zip_index",
+  "make_chart",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];

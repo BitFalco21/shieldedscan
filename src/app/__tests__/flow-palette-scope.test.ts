@@ -19,6 +19,8 @@ const ALLOWED = new Set([
   "lib/flow-palette.ts",
   "lib/pulse-palette.ts",
   "lib/pool-palette.ts",
+  // Zeno's chart lines: chains in their flow colour, and the spares two alike lines give way to.
+  "features/agent/chart-inks.ts",
   "features/mining/MiningPage.tsx",
   "features/network/topology/sky-palette.ts",
   "features/ecosystem/StageCard.tsx",

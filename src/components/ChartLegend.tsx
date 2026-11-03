@@ -1,5 +1,5 @@
 /** How a series is drawn, so its swatch can be drawn the same way. */
-export type LegendMark = "line" | "dashed" | "area" | "bar";
+export type LegendMark = "line" | "dashed" | "dotted" | "area" | "bar";
 
 export interface LegendItem {
   label: string;
@@ -20,6 +20,7 @@ const WEIGHT = { dim: "opacity-55", faint: "opacity-35" } as const;
 const SWATCH: Record<LegendMark, string> = {
   line: "h-0.5 w-3 bg-current",
   dashed: "w-3 border-t-2 border-dashed border-current",
+  dotted: "w-3 border-t-2 border-dotted border-current",
   area: "chart-band h-2.5 w-3 bg-current",
   bar: "h-2.5 w-2 bg-current",
 };

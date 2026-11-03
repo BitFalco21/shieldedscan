@@ -53,6 +53,11 @@ export const IS_PRIMARY = ROLE.role === "primary";
  */
 export const PUBLIC_API_ENABLED = process.env.PUBLIC_API_ENABLED === "1";
 export const AGENT_ENABLED = process.env.AGENT_ENABLED === "1";
+/**
+ * The agent's chart tool. On unless `AGENT_CHARTS_ENABLED=0`, which removes `make_chart` from the
+ * tool list and its section from the prompt: the switch to turn charts off without a deploy.
+ */
+export const AGENT_CHARTS_ENABLED = process.env.AGENT_CHARTS_ENABLED !== "0";
 
 /**
  * The off-chain sources this API polls on the internet: prices and FX rates, market caps, the

@@ -34,6 +34,13 @@ export interface DataTableProps {
    * `py-*`, so two tables on one page cannot disagree.
    */
   density?: "regular" | "compact";
+  /**
+   * Scroll inside a box of bounded height, with the header stuck to its top, rather than with the
+   * page. For a table with no pagination that sits in a flow it would otherwise push away, such as
+   * Zeno's chart table in the conversation; never for a list page (see below). The box is a
+   * focusable region named by `caption`, so a keyboard can scroll it.
+   */
+  bounded?: boolean;
   children: ReactNode;
 }
 
@@ -56,12 +63,26 @@ export interface DataTableProps {
  *   the column labels stay in view with a single page scrollbar. A table must therefore fit
  *   its panel from `lg` — `e2e/layout.spec.ts` measures it.
  *
- * Bounding this wrapper's height and scrolling internally is rejected: it nests a scroll
- * region inside the page, with two scrollbars and the pagination stranded outside it.
+ * Bounding this wrapper's height and scrolling internally is rejected for list pages: it nests a
+ * scroll region inside the page, with two scrollbars and the pagination stranded outside it.
+ * `bounded` is the exception for a table with no pagination, where the wrapper scrolls both ways
+ * and so the header sticks at every width. It is also `relative`, so an `sr-only` cell text is
+ * clipped by it: absolutely placed against the page instead, it widened a phone's page by 78px.
  */
-export function DataTable({ caption, columns, density = "regular", children }: DataTableProps) {
+export function DataTable({
+  caption,
+  columns,
+  density = "regular",
+  bounded = false,
+  children,
+}: DataTableProps) {
   return (
-    <div className="overflow-x-auto lg:overflow-x-visible">
+    <div
+      className={
+        bounded ? "relative max-h-80 overflow-auto" : "overflow-x-auto lg:overflow-x-visible"
+      }
+      {...(bounded ? { role: "region", "aria-label": caption, tabIndex: 0 } : {})}
+    >
       <table
         // An array join, never a template literal with a conditional fragment: prettier's
         // Tailwind plugin trims the leading space inside the fragment and fuses two classes.
