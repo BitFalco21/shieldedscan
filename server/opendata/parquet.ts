@@ -211,9 +211,13 @@ export function arrowTable(columns: readonly ColumnSpec[], values: readonly Colu
   return new Table(schema, batches);
 }
 
-/** Every writer property set explicitly, so a library default changing cannot change a file. */
-function writerProperties() {
-  return new WriterPropertiesBuilder()
+/**
+ * Every writer property set explicitly, so a library default changing cannot change a file.
+ * Dictionary encoding is off except for the columns named: turning it on for a table already
+ * published would change its bytes, so only new tables (the ledger) name any.
+ */
+function writerProperties(dictionaryColumns: readonly string[]) {
+  let builder = new WriterPropertiesBuilder()
     .setCreatedBy(CREATED_BY)
     .setWriterVersion(WriterVersion.V1)
     .setCompression(Compression.ZSTD)
@@ -221,11 +225,18 @@ function writerProperties() {
     .setStatisticsEnabled(EnabledStatistics.Chunk)
     .setMaxRowGroupSize(ROWS_PER_GROUP)
     .setDataPageSizeLimit(1024 * 1024)
-    .setWriteBatchSize(1024)
-    .build();
+    .setDictionaryPageSizeLimit(1024 * 1024)
+    .setWriteBatchSize(1024);
+  for (const column of dictionaryColumns) {
+    builder = builder.setColumnDictionaryEnabled(column, true);
+  }
+  return builder.build();
 }
 
 /** Parquet bytes for an Arrow table. */
-export function toParquet(table: Table): Uint8Array {
-  return writeParquet(WasmTable.fromIPCStream(tableToIPC(table, "stream")), writerProperties());
+export function toParquet(table: Table, dictionaryColumns: readonly string[] = []): Uint8Array {
+  return writeParquet(
+    WasmTable.fromIPCStream(tableToIPC(table, "stream")),
+    writerProperties(dictionaryColumns),
+  );
 }

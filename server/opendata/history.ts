@@ -26,20 +26,45 @@ export interface HistoryResult {
   fills: Fill[];
 }
 
+/**
+ * Snapshots: files replaced whole by each release, so the rule above cannot apply to their rows.
+ * They are still never dropped, and the manifest records the height each one stands at.
+ */
+export const REPLACED: ReadonlySet<string> = new Set(["addresses.parquet"]);
+
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
   if (path.startsWith("blocks/")) return ["height"];
+  if (path.startsWith("blocks_coinbase/")) return ["height"];
   if (path.startsWith("transactions/")) return ["txid"];
+  if (path.startsWith("transparent_io/")) return ["txid", "io", "ordinal"];
+  if (path.startsWith("transactions_extra/")) return ["txid"];
   const keys: Record<string, readonly string[]> = {
     "pool_usage_daily.parquet": ["day", "pool"],
     "shielding_daily.parquet": ["day"],
     "transparent_daily.parquet": ["day"],
     "transparent_monthly.parquet": ["month"],
     "node_releases_daily.parquet": ["day", "client", "version", "protocol_version"],
+    "nu7_capable_releases.parquet": ["client"],
     "reorgs.parquet": ["height", "orphaned_hash"],
     "blocks_daily.parquet": ["day"],
     "fees_daily.parquet": ["day", "kind"],
     "mining_daily.parquet": ["day", "miner"],
+    "mining_concentration_daily.parquet": ["day"],
+    "hashrate_daily.parquet": ["day"],
+    "supply_daily.parquet": ["day"],
+    "nsm_daily.parquet": ["day"],
+    "tx_versions_daily.parquet": ["day", "version"],
+    "pool_flows_daily.parquet": ["day", "pool"],
+    "coinbase_shielded_daily.parquet": ["day"],
+    "tx_kinds_daily.parquet": ["day"],
+    "pools_daily.parquet": ["day"],
+    "pool_boundary_daily.parquet": ["day", "pool"],
+    "shielding_flow_daily.parquet": ["day"],
+    "pool_migration_daily.parquet": ["day", "destination", "source"],
+    "fees_monthly.parquet": ["month", "kind"],
+    "shielding_records_daily.parquet": ["day"],
+    "mining_payouts_daily.parquet": ["day", "kind", "address"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);
@@ -82,6 +107,7 @@ export function compareHistory(
       failures.push(`${prev.path}: columns changed`);
       continue;
     }
+    if (REPLACED.has(prev.path)) continue;
     const key = rowKey(prev.path);
     const keyOf = (t: Table, i: number) => JSON.stringify(key.map((k) => cell(t, k, i)));
     const index = new Map<string, number>();

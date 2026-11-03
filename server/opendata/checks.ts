@@ -68,6 +68,10 @@ export class Findings {
 const utcDay = (unixSeconds: bigint) =>
   new Date(Number(unixSeconds) * 1000).toISOString().slice(0, 10);
 
+/** A `YYYY-MM-DD` day `n` days later (or earlier), in UTC. */
+const addDays = (day: string, n: number) =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 /**
  * Checks blocks one at a time, in height order from 0, so a full release never needs all three
  * and a half million rows in memory at once.
@@ -211,6 +215,111 @@ export function checkShieldingDaily(
   return { failures: f.list(), alerts: [] };
 }
 
+/** What the supply audit knows at the release height (`DailySupply`). */
+export interface SupplyAtRelease {
+  unclaimedZat: bigint | null;
+  /** The first post-NU7 height whose fee total is unknown, which leaves the NSM unknown. */
+  unknownFeeFrom: number | null;
+  /** Whether every reporting pool had a value at the release height. */
+  poolsKnown: boolean;
+}
+
+/**
+ * The ledger's underclaim against the supply audit at the release height: what coinbases left
+ * unclaimed, read from their outputs and the fees, must equal the schedule less every pool's
+ * balance. The subsidy appears on both sides and cancels, so this holds the ledger's values to
+ * the node's pools, not the schedule. A block whose underclaim the ledger could not derive is
+ * outside its sum (`skippedBlocks`) and inside the audit's, so the two can then differ.
+ *
+ * From NU7 a block's unknown fee leaves its NSM share unknown, and with it the supply: nothing
+ * to compare, and nothing wrong in the data, so that one case is an alert. The published supply
+ * stays NULL from that block on; any other unknown supply still stops the release.
+ */
+export function checkUnderclaim(
+  ledgerZat: bigint,
+  supply: SupplyAtRelease,
+  skippedBlocks = 0,
+): Report {
+  if (supply.unclaimedZat === null) {
+    if (supply.poolsKnown && supply.unknownFeeFrom !== null) {
+      return {
+        failures: [],
+        alerts: [
+          "ledger underclaim not cross-checked: the supply is unknown from " +
+            `${supply.unknownFeeFrom}, a post-NU7 block whose fee is unknown`,
+        ],
+      };
+    }
+    return {
+      failures: ["ledger underclaim: the supply at the release height is unknown"],
+      alerts: [],
+    };
+  }
+  if (ledgerZat === supply.unclaimedZat) return { failures: [], alerts: [] };
+  const skipped =
+    skippedBlocks > 0
+      ? `; ${skippedBlocks} blocks whose underclaim could not be derived are outside the ledger's sum`
+      : "";
+  return {
+    failures: [
+      `ledger underclaim ${ledgerZat} zat differs from the supply audit's ` +
+        `${supply.unclaimedZat} zat${skipped}`,
+    ],
+    alerts: [],
+  };
+}
+
+/**
+ * `nsm_daily` against `supply_daily`, day by day: two accumulators over the same blocks, so they
+ * must agree exactly, NULLs included. A supply day with no NSM row is before NU7 and must hold
+ * zero. The running totals at the release height must agree too.
+ */
+export function checkNsm(
+  nsmRows: readonly Record<string, unknown>[],
+  supplyRows: readonly Record<string, unknown>[],
+  totals: { nsm: bigint | null; supply: bigint | null },
+): Report {
+  const f = new Findings();
+  const supply = new Map(supplyRows.map((r) => [String(r.day), r]));
+  const nsmDays = new Set<string>();
+  for (const r of nsmRows) {
+    const day = String(r.day);
+    nsmDays.add(day);
+    const s = supply.get(day);
+    if (s === undefined) f.add("nsm_daily day missing from supply_daily", day);
+    else if (r.nsm_inflow_zat !== s.nsm_zat || r.nsm_total_zat !== s.nsm_total_zat) {
+      f.add("nsm_daily differs from supply_daily", day);
+    }
+  }
+  for (const [day, s] of supply) {
+    if (!nsmDays.has(day) && (s.nsm_zat !== 0n || s.nsm_total_zat !== 0n)) {
+      f.add("NSM in supply_daily on a day without an nsm_daily row", day);
+    }
+  }
+  if (totals.nsm !== totals.supply) {
+    f.add(
+      "NSM total at the release differs from the supply audit's",
+      `${totals.nsm ?? "NULL"} vs ${totals.supply ?? "NULL"}`,
+    );
+  }
+  return { failures: f.list(), alerts: [] };
+}
+
+/** The NU7 release mapping: published clients, plain versions, https release notes. */
+export function checkCapableReleases(
+  rows: readonly { client: string; min_version: string; source_url: string }[],
+): Report {
+  const f = new Findings();
+  for (const r of rows) {
+    if (!PUBLISHED_CLIENTS.has(r.client)) f.add("NU7 release of an unpublished client", r.client);
+    if (!PUBLISHED_VERSION.test(r.min_version)) f.add("NU7 release version malformed", r.client);
+    if (!/^https:\/\/[a-z0-9.-]+\/\S*$/.test(r.source_url)) {
+      f.add("NU7 release source is not an https link", r.client);
+    }
+  }
+  return { failures: f.list(), alerts: [] };
+}
+
 /** What a published node row may say about the client: a known name and a well-formed version. */
 export function publishedRelease(client: string, version: string | null) {
   const known = PUBLISHED_CLIENTS.has(client);
@@ -226,6 +335,30 @@ const URLISH = /[a-z][a-z0-9+.-]*:\/\/|www\.|\.onion\b|@/i;
 const ZCASH_ADDRESS = /\b(?:t1|t3|zs1|u1|tex1|zc)[0-9a-z]{20,}/i;
 
 /**
+ * Only hex digits. None of the patterns below can match such a string (each needs a dot, a colon,
+ * an `@`, a `w`, or a `t`/`u`/`z` prefix), so skipping it is exact, and it makes the ledger's
+ * hundreds of millions of txids cheap to scan.
+ */
+const HEX_ONLY = /^[0-9a-f]*$/i;
+
+/**
+ * Columns the scan does not apply to, each held by its own check instead. Listed by name so no
+ * other column can slip past it.
+ * - `blocks_coinbase.coinbase_tag`: miner-written text, published as such (the card says so).
+ *   Pool tags carry URLs and handles; it is sanitised at parse and held to that form
+ *   (`CoinbaseChecker`).
+ * - `blocks_coinbase.miner_address`: a payout address is the column's content; each one must be
+ *   a mainnet t-address (`CoinbaseChecker`).
+ * - `nu7_capable_releases.source_url`: our own constant, never read from the database
+ *   (`checkCapableReleases`).
+ */
+const SCAN_EXEMPT: ReadonlySet<string> = new Set([
+  "blocks_coinbase.coinbase_tag",
+  "blocks_coinbase.miner_address",
+  "nu7_capable_releases.source_url",
+]);
+
+/**
  * The second lock behind the per-column formats: no published string may look like an address of
  * any kind. Version strings are allowed their dots (`1.7.0` is not an IPv4 address).
  */
@@ -234,9 +367,10 @@ export function scanStrings(
   column: string,
   values: Iterable<string | null>,
 ): string[] {
+  if (SCAN_EXEMPT.has(`${table}.${column}`)) return [];
   const out: string[] = [];
   for (const v of values) {
-    if (v === null) continue;
+    if (v === null || HEX_ONLY.test(v)) continue;
     const ipv4 = column !== "version" && IPV4.test(v);
     if (ipv4 || IPV6.test(v) || URLISH.test(v) || ZCASH_ADDRESS.test(v)) {
       out.push(`${table}.${column}: a value looks like an address`);
@@ -246,4 +380,10 @@ export function scanStrings(
   return out;
 }
 
-export { utcDay };
+/**
+ * Plain code-point order. Never `localeCompare`: its order depends on the machine's locale, and
+ * the same rows must give the same bytes everywhere.
+ */
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+export { addDays, byCodePoint, utcDay };

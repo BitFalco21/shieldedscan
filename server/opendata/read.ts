@@ -4,19 +4,54 @@ import { dirname, join } from "node:path";
 import { Client, types as pgTypes, type ClientConfig } from "pg";
 import { classifyReleaseGroups } from "../netmap/releases";
 import {
+  addDays,
   BlockChecker,
+  byCodePoint,
+  checkCapableReleases,
+  checkNsm,
   checkPoolUsage,
+  Findings,
+  checkUnderclaim,
   checkShieldingDaily,
   publishedRelease,
   scanStrings,
+  utcDay,
   type BlockRow,
 } from "./checks";
 import { arrowTable, toParquet, type ColumnSpec, type ColumnValues } from "./parquet";
-import { BlockExpectations, DailyBlocks, DailyMining, TxChecker, type TxRow } from "./derived";
+import type { BoundaryTx } from "./site-boundary";
+import { siteSeries } from "./site-series";
+import { SiteStream } from "./site-stream";
+import { readSiteViews } from "./site-views";
+import { compareRows } from "./site-checks";
 import {
+  BlockExpectations,
+  CoinbaseChecker,
+  DailyBlocks,
+  DailyMining,
+  MiningConcentration,
+  TxChecker,
+  type MinerRow,
+  type TxRow,
+} from "./derived";
+import type { LedgerContext, LedgerOutcome } from "./ledger-release";
+import type { AddressesContext, AddressesOutcome } from "./addresses";
+import {
+  DailyHashrate,
+  DailyNsm,
+  DailyPoolFlows,
+  DailyShieldedCoinbase,
+  DailySupply,
+  DailyTxVersions,
+  type MetricTx,
+} from "./metrics";
+import {
+  BLOCK_COINBASE_COLUMNS,
   BLOCK_COLUMNS,
   BLOCKS_PER_FILE,
+  blocksCoinbaseFile,
   blocksFile,
+  NU7_CAPABLE_RELEASES,
   HEIGHTS_PER_TX_FILE,
   TRANSACTION_COLUMNS,
   transactionsFile,
@@ -53,7 +88,7 @@ const SETTLING_DAYS = 3;
  * (`server/pg-types.ts`, process-wide); here every BIGINT is a BigInt and every DATE its string,
  * whatever any other module registered, so no amount loses precision and no timezone moves a day.
  */
-const exportTypes: NonNullable<ClientConfig["types"]> = {
+export const exportTypes: NonNullable<ClientConfig["types"]> = {
   getTypeParser: ((oid: number, format?: "text" | "binary") => {
     if (oid === 20) return (v: string) => BigInt(v);
     if (oid === 1082) return (v: string) => v;
@@ -86,6 +121,10 @@ export interface Release {
   failures: string[];
   alerts: string[];
   underClaimed: number;
+  /** The transparent ledger, when the release was asked for it. */
+  ledger: LedgerOutcome | null;
+  /** The `addresses` snapshot, when the release was asked for it. */
+  addresses: AddressesOutcome | null;
 }
 
 export interface ReadOptions {
@@ -95,6 +134,13 @@ export interface ReadOptions {
   /** Seconds since the epoch, for "yesterday" in the node table. */
   now?: () => number;
   log?: (line: string) => void;
+  /**
+   * The transparent ledger (`ledger-release.ts`), read last, on the snapshot connection, each
+   * range in its own snapshot below N like the transactions.
+   */
+  ledger?: (ctx: LedgerContext) => Promise<LedgerOutcome>;
+  /** The `addresses` snapshot (`addresses.ts`), read in its own snapshot after the series. */
+  addresses?: (ctx: AddressesContext) => Promise<AddressesOutcome>;
 }
 
 const sha256 = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
@@ -117,13 +163,18 @@ function contentDigest(columns: readonly ColumnSpec[], values: readonly ColumnVa
   return h.digest("hex");
 }
 
-function writeFile(
+/**
+ * Writes one file under `outDir` and returns what the manifest records about it. Shared with the
+ * ledger builder, so a cached ledger file is described exactly as a freshly exported one.
+ */
+export function writeFile(
   outDir: string,
   path: string,
   columns: readonly ColumnSpec[],
   values: ColumnValues[],
+  dictionaryColumns: readonly string[] = [],
 ): OutputFile {
-  const bytes = toParquet(arrowTable(columns, values));
+  const bytes = toParquet(arrowTable(columns, values), dictionaryColumns);
   mkdirSync(dirname(join(outDir, path)), { recursive: true });
   writeFileSync(join(outDir, path), bytes);
   return {
@@ -139,15 +190,6 @@ function writeFile(
 function toColumns(columns: readonly ColumnSpec[], rows: readonly Record<string, unknown>[]) {
   return columns.map((c) => rows.map((r) => (r[c.name] ?? null) as ColumnValues[number]));
 }
-
-/**
- * Plain code-point order. Never `localeCompare`: its order depends on the machine's locale, and
- * the same rows must give the same bytes everywhere.
- */
-const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-
-const addDays = (day: string, n: number) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export async function readRelease(opts: ReadOptions): Promise<Release> {
   const log = opts.log ?? (() => {});
@@ -185,37 +227,76 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const expected = new BlockExpectations(height);
     const dailyBlocks = new DailyBlocks();
     const dailyMining = new DailyMining();
+    const dailyHashrate = new DailyHashrate();
+    const dailySupply = new DailySupply();
+    const dailyNsm = new DailyNsm();
+    const coinbaseChecker = new CoinbaseChecker();
+    const coinbaseFailures: string[] = [];
+    const concentration = new MiningConcentration();
+    const site = new SiteStream();
     const cols = BLOCK_COLUMNS.map((c) => c.name).join(", ");
     for (let start = 0; start <= height; start += BLOCKS_PER_FILE) {
       const end = Math.min(height, start + BLOCKS_PER_FILE - 1);
       const values: ColumnValues[] = BLOCK_COLUMNS.map(() => []);
+      const coinbase: ColumnValues[] = BLOCK_COINBASE_COLUMNS.map(() => []);
       for (let a = start; a <= end; a += CHUNK) {
         const b = Math.min(end, a + CHUNK - 1);
         const { rows } = await snap.query<Record<string, unknown>>(
           `SELECT ${cols} FROM opendata.blocks WHERE height BETWEEN $1 AND $2 ORDER BY height`,
           [a, b],
         );
-        for (const r of rows) {
+        // The same rows of `block`, in the same snapshot and order: paired by position, and the
+        // checker requires each pair to share its height.
+        const miners = await snap.query<MinerRow>(
+          `SELECT height, timestamp, miner_address, coinbase_tag FROM opendata.block_miners
+            WHERE height BETWEEN $1 AND $2 ORDER BY height`,
+          [a, b],
+        );
+        if (miners.rows.length !== rows.length) {
+          coinbaseFailures.push(
+            `blocks_coinbase: ${miners.rows.length} rows for ${rows.length} blocks`,
+          );
+        }
+        rows.forEach((r, i) => {
           const row = r as unknown as BlockRow;
           checker.push(row);
           expected.record(row);
           dailyBlocks.push(row);
-          BLOCK_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
-        }
-        // The coinbase text is read only to match the fixed list of self-named operators.
-        const miners = await snap.query<{ timestamp: bigint; coinbase_tag: string | null }>(
-          "SELECT timestamp, coinbase_tag FROM opendata.block_miners WHERE height BETWEEN $1 AND $2",
-          [a, b],
-        );
-        for (const m of miners.rows) dailyMining.push(m.timestamp, m.coinbase_tag);
+          dailyHashrate.push(row);
+          dailySupply.push(row);
+          dailyNsm.push(row);
+          site.pushBlock(row);
+          BLOCK_COLUMNS.forEach((c, j) => (values[j] as unknown[]).push(r[c.name] ?? null));
+          const m = miners.rows[i];
+          coinbaseChecker.push(row, m);
+          if (m === undefined) return;
+          dailyMining.push(m.timestamp, m.coinbase_tag);
+          concentration.push(utcDay(row.timestamp), row.miner_kind, m.miner_address);
+          (coinbase[0] as unknown[]).push(m.height);
+          (coinbase[1] as unknown[]).push(m.miner_address);
+          (coinbase[2] as unknown[]).push(m.coinbase_tag);
+        });
         await watchFollower();
       }
       files.push(file(blocksFile(start), BLOCK_COLUMNS, values));
       log(`${blocksFile(start)}: ${values[0]!.length} rows`);
+      // Both text columns are exempt from the scan by name (`scanStrings`), and held instead to
+      // a t-address and to the sanitised form by `coinbaseChecker`.
+      BLOCK_COINBASE_COLUMNS.forEach((c, j) => {
+        if (c.type !== "utf8") return;
+        coinbaseFailures.push(
+          ...scanStrings("blocks_coinbase", c.name, coinbase[j] as (string | null)[]),
+        );
+      });
+      files.push(file(blocksCoinbaseFile(start), BLOCK_COINBASE_COLUMNS, coinbase));
     }
 
     const last = checker.last;
-    const failures = checker.failures.list();
+    const failures = [
+      ...checker.failures.list(),
+      ...coinbaseChecker.failures.list(),
+      ...coinbaseFailures,
+    ];
     if (last === null || last.height !== height) {
       failures.push(`blocks end at ${last?.height ?? "nothing"}, expected ${height}`);
     }
@@ -334,6 +415,44 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     const sd = checkShieldingDaily(shielding.rows as never, checker.mixedPerDay);
     failures.push(...pu.failures, ...sd.failures);
 
+    const writeTables = (
+      list: [SmallTable, readonly ColumnSpec[], readonly Record<string, unknown>[]][],
+    ) => {
+      for (const [name, columns, rows] of list) {
+        const values = toColumns(columns, rows);
+        columns.forEach((c, i) => {
+          if (c.type === "utf8" && !/hash$/.test(c.name)) {
+            failures.push(...scanStrings(name, c.name, values[i] as (string | null)[]));
+          }
+        });
+        if (name === "reorgs") {
+          for (const col of ["orphaned_hash", "replaced_by"]) {
+            const i = columns.findIndex((c) => c.name === col);
+            if ((values[i] as string[]).some((v) => !/^[0-9a-f]{64}$/.test(v))) {
+              failures.push(`reorgs.${col}: a value is not a block hash`);
+            }
+          }
+        }
+        files.push(file(`${name}.parquet`, columns, values));
+      }
+    };
+
+    // Supply can never exceed what the schedule allowed: a negative difference is a wrong pool.
+    const supplyRows = dailySupply.rows(finalDay);
+    for (const r of supplyRows) {
+      const unclaimed = r.unclaimed_zat as bigint | null;
+      if (unclaimed !== null && unclaimed < 0n) {
+        failures.push(`supply above the protocol schedule on ${String(r.day)}`);
+      }
+    }
+    // Empty before NU7, which is not a failure: the card says so.
+    const nsmRows = dailyNsm.rows(finalDay);
+    const nsm = checkNsm(nsmRows, supplyRows, {
+      nsm: dailyNsm.total,
+      supply: dailySupply.nsmTotalAtRelease,
+    });
+    failures.push(...nsm.failures, ...checkCapableReleases(NU7_CAPABLE_RELEASES).failures);
+
     const tables: [SmallTable, readonly ColumnSpec[], readonly Record<string, unknown>[]][] = [
       ["pool_usage_daily", poolUsage.columns, poolUsage.rows],
       ["shielding_daily", shielding.columns, shielding.rows],
@@ -344,28 +463,19 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["blocks_daily", SMALL_TABLES.blocks_daily, dailyBlocks.rows(finalDay)],
       ["fees_daily", fees.columns, fees.rows],
       ["mining_daily", SMALL_TABLES.mining_daily, dailyMining.rows(finalDay)],
+      ["hashrate_daily", SMALL_TABLES.hashrate_daily, dailyHashrate.rows(finalDay)],
+      ["supply_daily", SMALL_TABLES.supply_daily, supplyRows],
+      ["nsm_daily", SMALL_TABLES.nsm_daily, nsmRows],
+      ["nu7_capable_releases", SMALL_TABLES.nu7_capable_releases, NU7_CAPABLE_RELEASES],
     ];
-    for (const [name, columns, rows] of tables) {
-      const values = toColumns(columns, rows);
-      columns.forEach((c, i) => {
-        if (c.type === "utf8" && !/hash$/.test(c.name)) {
-          failures.push(...scanStrings(name, c.name, values[i] as (string | null)[]));
-        }
-      });
-      if (name === "reorgs") {
-        for (const col of ["orphaned_hash", "replaced_by"]) {
-          const i = columns.findIndex((c) => c.name === col);
-          if ((values[i] as string[]).some((v) => !/^[0-9a-f]{64}$/.test(v))) {
-            failures.push(`reorgs.${col}: a value is not a block hash`);
-          }
-        }
-      }
-      files.push(file(`${name}.parquet`, columns, values));
-    }
+    writeTables(tables);
 
     // Transactions in their own snapshot at the same height, so neither transaction runs long.
     // Every published height is final, so both snapshots see the same rows below N.
     const txChecker = new TxChecker(expected);
+    const dailyVersions = new DailyTxVersions();
+    const dailyPoolFlows = new DailyPoolFlows();
+    const dailyCoinbase = new DailyShieldedCoinbase();
     const txCols = TRANSACTION_COLUMNS.map((c) => c.name).join(", ");
     await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     for (let start = 0; start <= height; start += HEIGHTS_PER_TX_FILE) {
@@ -379,6 +489,10 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         );
         for (const r of rows) {
           txChecker.push(r as unknown as TxRow);
+          dailyVersions.push(r as unknown as MetricTx);
+          dailyPoolFlows.push(r as unknown as MetricTx);
+          dailyCoinbase.push(r as unknown as MetricTx);
+          site.pushTx(r as unknown as BoundaryTx);
           TRANSACTION_COLUMNS.forEach((c, i) => (values[i] as unknown[]).push(r[c.name] ?? null));
         }
       }
@@ -390,6 +504,93 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     await snap.query("COMMIT");
     txChecker.finish();
     failures.push(...txChecker.failures.list());
+    writeTables([
+      ["tx_versions_daily", SMALL_TABLES.tx_versions_daily, dailyVersions.rows(finalDay)],
+      ["pool_flows_daily", SMALL_TABLES.pool_flows_daily, dailyPoolFlows.rows(finalDay)],
+      [
+        "coinbase_shielded_daily",
+        SMALL_TABLES.coinbase_shielded_daily,
+        dailyCoinbase.rows(finalDay),
+      ],
+    ]);
+
+    // The site's precomputed series: views read in their own short snapshot, and every table
+    // held to the stream above; a disagreement or a stale view fails the release.
+    await snap.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const siteViews = await readSiteViews(snap);
+    await snap.query("COMMIT");
+    const series = siteSeries(siteViews.views, {
+      finalDay,
+      stream: site,
+      blocksDaily: dailyBlocks.rows(finalDay),
+      poolFlows: dailyPoolFlows.rows(finalDay),
+      supply: supplyRows,
+    });
+    failures.push(...siteViews.failures, ...series.failures);
+    for (const [name, rows] of series.tables) {
+      const columns = SMALL_TABLES[name];
+      files.push(file(`${name}.parquet`, columns, toColumns(columns, rows)));
+    }
+
+    // Concentration from the stream, held to the same windows built from the site's payout rows:
+    // the payouts are checked per day in total, this checks them per address as well.
+    const concentrationRows = concentration.rows(finalDay);
+    const fromPayouts = new MiningConcentration();
+    for (const p of series.tables.find(([name]) => name === "mining_payouts_daily")?.[1] ?? []) {
+      fromPayouts.push(
+        String(p.day),
+        String(p.kind),
+        (p.address as string | null) ?? null,
+        p.blocks as number,
+      );
+    }
+    const concentrationFindings = new Findings();
+    compareRows(
+      concentrationFindings,
+      {
+        name: "mining_concentration_daily",
+        against: "mining_payouts_daily",
+        key: ["day"],
+        columns: SMALL_TABLES.mining_concentration_daily.map((c) => c.name).slice(1),
+        floats: ["top1_share", "top3_share", "top5_share"],
+      },
+      concentrationRows,
+      fromPayouts.rows(finalDay),
+    );
+    failures.push(...concentrationFindings.list());
+    writeTables([
+      ["mining_concentration_daily", SMALL_TABLES.mining_concentration_daily, concentrationRows],
+    ]);
+
+    const alerts = checker.alerts.list();
+    let addresses: AddressesOutcome | null = null;
+    if (opts.addresses) {
+      addresses = await opts.addresses({ client: snap, height, hash, afterChunk: watchFollower });
+      failures.push(...addresses.failures);
+      if (addresses.file) files.push(addresses.file);
+    }
+
+    let ledger: LedgerOutcome | null = null;
+    if (opts.ledger) {
+      ledger = await opts.ledger({
+        client: snap,
+        height,
+        afterChunk: async () => {
+          await watchFollower();
+          return "continue";
+        },
+      });
+      if (ledger.status === "published") {
+        files.push(...ledger.files);
+        const cross = checkUnderclaim(
+          ledger.underclaimZat,
+          dailySupply.atRelease,
+          ledger.skippedBlocks,
+        );
+        failures.push(...ledger.failures, ...cross.failures);
+        alerts.push(...cross.alerts);
+      }
+    }
 
     return {
       height,
@@ -397,8 +598,10 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       finalDay,
       files,
       failures,
-      alerts: checker.alerts.list(),
+      alerts,
       underClaimed: checker.underClaimed,
+      ledger,
+      addresses,
     };
   } catch (e) {
     await snap.query("ROLLBACK").catch(() => {});

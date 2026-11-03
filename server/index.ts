@@ -30,6 +30,7 @@ import { mountAgent } from "./app/agent";
 import {
   AGENT_ENABLED,
   DATABASE_URL,
+  EXTERNAL_SOURCES,
   INTENTS_JWT,
   IS_PRIMARY,
   IS_TESTNET,
@@ -129,6 +130,7 @@ const live = NODE_RPC_URL
       chainIndex,
       publicChainIndex,
       remoteLiveState,
+      externalSources: EXTERNAL_SOURCES,
       coingeckoApiKey: process.env.COINGECKO_API_KEY,
       log,
     })
@@ -179,15 +181,17 @@ if (USE_POSTGRES) {
  * figures come from a third party and cannot be checked against the chain, which is why the
  * provenance is in the path and the payload.
  */
-app.route("/", defillamaRoutes());
-log("defillama wrapped-ZEC pool route mounted (third-party figures, 30-minute cache)");
+if (EXTERNAL_SOURCES) {
+  app.route("/", defillamaRoutes());
+  log("defillama wrapped-ZEC pool route mounted (third-party figures, 30-minute cache)");
+}
 
 /**
  * Market capitalisations for `/compare`. Mainnet only: TAZ has no market, so a testnet deployment
  * must not hold mainnet money data (the page is absent from the testnet frontend too). Independent
  * of `NODE_RPC_URL`, so a node outage does not take the page down.
  */
-if (IS_PRIMARY && !IS_TESTNET) {
+if (IS_PRIMARY && !IS_TESTNET && EXTERNAL_SOURCES) {
   const marketCaps = new MarketCapTracker(
     log,
     // Its own tiny pool: a slow third-party write must not hold connections the request path needs.
@@ -205,7 +209,7 @@ if (IS_PRIMARY && !IS_TESTNET) {
 
 // The ZIP index is protocol documentation, so both networks' APIs serve it (unlike the market
 // tracker above).
-if (IS_PRIMARY) {
+if (IS_PRIMARY && EXTERNAL_SOURCES) {
   const zipIndex = new ZipIndexTracker({
     githubApiBase: (process.env.ZIPS_GITHUB_API_URL ?? "https://api.github.com").replace(/\/$/, ""),
     rawBase: (process.env.ZIPS_RAW_URL ?? "https://raw.githubusercontent.com").replace(/\/$/, ""),
@@ -229,7 +233,7 @@ if (IS_PRIMARY) {
  * missing variable must never mean "trust whatever the server says". Primary only: the tracker
  * polls the registry.
  */
-if (IS_PRIMARY && !IS_TESTNET && chainIndex) {
+if (IS_PRIMARY && !IS_TESTNET && EXTERNAL_SOURCES && chainIndex) {
   const zns = new ZnsTracker({
     url: (process.env.ZNS_URL ?? ZNS_MAINNET_URL).replace(/\/$/, ""),
     pinnedViewingKey: process.env.ZNS_VIEWING_KEY ?? ZNS_MAINNET_VIEWING_KEY,
@@ -242,6 +246,10 @@ if (IS_PRIMARY && !IS_TESTNET && chainIndex) {
   zns.start();
   app.route("/", znsRoutes(zns));
   log("zns name routes mounted");
+}
+
+if (!EXTERNAL_SOURCES) {
+  log("EXTERNAL_SOURCES=0 — no prices, market caps, venues, ZIP index or names are polled");
 }
 
 // Chain reads from the node. Without NODE_RPC_URL these routes are not mounted at all.
@@ -339,8 +347,9 @@ serve({ fetch: app.fetch, port: PORT }, (info) => {
 void (async () => {
   // Poll first so the head is live immediately; the historical walk fills in behind it. Primary
   // only: a venue key's rate limit is per key, so a second poller holding it would fail most calls.
-  const stop = IS_PRIMARY ? startPolling(ingestDeps) : () => undefined;
-  if (IS_PRIMARY) void backfillUntilComplete(ingestDeps);
+  const polls = IS_PRIMARY && EXTERNAL_SOURCES;
+  const stop = polls ? startPolling(ingestDeps) : () => undefined;
+  if (polls) void backfillUntilComplete(ingestDeps);
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     process.on(signal, () => {
       log(`${signal} received, shutting down`);

@@ -28,7 +28,7 @@ import { printableOnly } from "@/lib/printable";
  */
 
 /** Long enough for every real tag seen; short enough that no one can push a wall of text. */
-const MAX_TAG_LENGTH = 120;
+export const MAX_TAG_LENGTH = 120;
 
 /**
  * Drops the leading block-height push.

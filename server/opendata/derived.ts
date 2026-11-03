@@ -1,5 +1,8 @@
+import { MAX_TAG_LENGTH } from "@/data/chain/coinbase-tag";
 import { selfDeclaredMiner } from "@/domain/mining";
-import { Findings, utcDay, type BlockRow } from "./checks";
+import { printableOnly } from "@/lib/printable";
+import { addDays, byCodePoint, Findings, utcDay, type BlockRow } from "./checks";
+import { isMainnetTransparentAddress } from "./site-checks";
 
 /**
  * What the export derives or cross-checks beyond a single table: each block's transactions held to
@@ -64,6 +67,8 @@ export interface TxRow {
   kind: string;
   direction: string | null;
   fee_zat: bigint | null;
+  sprout_joinsplits: number | null;
+  sprout_vpub_net_zat: bigint | null;
   sapling_value_balance_zat: bigint | null;
   orchard_value_balance_zat: bigint | null;
 }
@@ -108,6 +113,10 @@ export class TxChecker {
         : tx.direction !== null
     ) {
       this.failures.add("direction does not match kind", tx.txid);
+    }
+    // JoinSplits whose public value was never derived: the pool flows would silently skip them.
+    if ((tx.sprout_joinsplits ?? 0) > 0 && tx.sprout_vpub_net_zat === null) {
+      this.failures.add("Sprout JoinSplits without their public value", tx.txid);
     }
     this.count++;
     this.sapling += tx.sapling_value_balance_zat ?? 0n;
@@ -261,5 +270,141 @@ export class DailyMining {
       .sort((a, b) =>
         a.day < b.day ? -1 : a.day > b.day ? 1 : a.miner < b.miner ? -1 : a.miner > b.miner ? 1 : 0,
       );
+  }
+}
+
+/** A block's row in `opendata.block_miners`, read alongside `opendata.blocks`. */
+export interface MinerRow {
+  height: number;
+  timestamp: bigint;
+  miner_address: string | null;
+  coinbase_tag: string | null;
+}
+
+/**
+ * The form `decodeCoinbaseTag` leaves a tag in: printable characters, whitespace collapsed to
+ * single spaces with none leading, non-empty, and capped. Checked as properties rather than by
+ * decoding again, because the cap can cut after a space the trim had kept.
+ */
+export function isSanitisedCoinbaseTag(tag: string): boolean {
+  return (
+    tag.length > 0 &&
+    tag.length <= MAX_TAG_LENGTH &&
+    printableOnly(tag) === tag &&
+    !/[^\S ]| {2}|^ /.test(tag)
+  );
+}
+
+/**
+ * `blocks_coinbase` row by row against the block it belongs to: the same height, a payout
+ * address exactly when the block's miner is transparent, each address a mainnet t-address, and
+ * the miner's text in its sanitised form. A failure names the height, never the value: a value
+ * that failed could be anything.
+ */
+export class CoinbaseChecker {
+  readonly failures = new Findings();
+  /** Addresses already validated: a few thousand payout addresses cover millions of blocks. */
+  private readonly valid = new Set<string>();
+
+  push(block: BlockRow, miner: MinerRow | undefined): void {
+    const h = String(block.height);
+    if (miner === undefined || miner.height !== block.height) {
+      this.failures.add("blocks_coinbase out of step with blocks", h);
+      return;
+    }
+    const address = miner.miner_address;
+    if ((block.miner_kind === "transparent") !== (address !== null)) {
+      this.failures.add("miner_address does not match miner_kind", h);
+    }
+    if (address !== null && !this.valid.has(address)) {
+      if (isMainnetTransparentAddress(address)) this.valid.add(address);
+      else this.failures.add("miner_address is not a mainnet t-address", h);
+    }
+    if (miner.coinbase_tag !== null && !isSanitisedCoinbaseTag(miner.coinbase_tag)) {
+      this.failures.add("coinbase_tag is not in its sanitised form", h);
+    }
+  }
+}
+
+/** The days a trailing window covers, ending on (and including) its day. */
+export const CONCENTRATION_WINDOW_DAYS = 30;
+
+interface DayMiners {
+  blocks: number;
+  transparent: number;
+  shielded: number;
+  noAddress: number;
+  /** Blocks whose miner the indexer has not recorded: any window holding one has no shares. */
+  unrecorded: number;
+  byAddress: Map<string, number>;
+}
+
+/**
+ * Block production by payout address over the 30 UTC days ending each day with blocks. Shares are
+ * the top one, three and five addresses' blocks over every block in the window, so shielded
+ * coinbases and coinbases naming no address are counted and never attributed to anyone. A window
+ * holding a block whose miner is not recorded has no distinct count and no shares (NULL), never
+ * a figure computed without it. Fed per block by the stream, or per row by the site's payouts,
+ * so the two can be held to each other.
+ */
+export class MiningConcentration {
+  private readonly days = new Map<string, DayMiners>();
+
+  push(day: string, kind: string | null, address: string | null, blocks = 1): void {
+    const d = this.days.get(day) ?? {
+      blocks: 0,
+      transparent: 0,
+      shielded: 0,
+      noAddress: 0,
+      unrecorded: 0,
+      byAddress: new Map<string, number>(),
+    };
+    d.blocks += blocks;
+    if (kind === "transparent" && address !== null) {
+      d.transparent += blocks;
+      d.byAddress.set(address, (d.byAddress.get(address) ?? 0) + blocks);
+    } else if (kind === "shielded") d.shielded += blocks;
+    else if (kind === "unknown") d.noAddress += blocks;
+    else d.unrecorded += blocks;
+    this.days.set(day, d);
+  }
+
+  rows(finalDay: string): Record<string, unknown>[] {
+    const days = [...this.days.keys()].filter((day) => day <= finalDay).sort(byCodePoint);
+    const window = new Map<string, number>();
+    const sum = { blocks: 0, transparent: 0, shielded: 0, noAddress: 0, unrecorded: 0 };
+    const move = (d: DayMiners, sign: 1 | -1) => {
+      sum.blocks += sign * d.blocks;
+      sum.transparent += sign * d.transparent;
+      sum.shielded += sign * d.shielded;
+      sum.noAddress += sign * d.noAddress;
+      sum.unrecorded += sign * d.unrecorded;
+      for (const [address, n] of d.byAddress) {
+        const left = (window.get(address) ?? 0) + sign * n;
+        if (left === 0) window.delete(address);
+        else window.set(address, left);
+      }
+    };
+    let oldest = 0;
+    return days.map((day) => {
+      move(this.days.get(day)!, 1);
+      const start = addDays(day, 1 - CONCENTRATION_WINDOW_DAYS);
+      while (days[oldest]! < start) move(this.days.get(days[oldest++]!)!, -1);
+      const known = sum.unrecorded === 0;
+      const top = known ? [...window.values()].sort((a, b) => b - a) : [];
+      const share = (n: number) =>
+        known ? top.slice(0, n).reduce((s, x) => s + x, 0) / sum.blocks : null;
+      return {
+        day,
+        blocks: sum.blocks,
+        transparent_blocks: sum.transparent,
+        shielded_blocks: sum.shielded,
+        no_address_blocks: sum.noAddress,
+        distinct_addresses: known ? window.size : null,
+        top1_share: share(1),
+        top3_share: share(3),
+        top5_share: share(5),
+      };
+    });
   }
 }

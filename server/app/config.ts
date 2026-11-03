@@ -55,8 +55,18 @@ export const PUBLIC_API_ENABLED = process.env.PUBLIC_API_ENABLED === "1";
 export const AGENT_ENABLED = process.env.AGENT_ENABLED === "1";
 
 /**
- * Cross-chain is a mainnet-only dataset: no venue bridges testnet ZEC. Empty on testnet means the
- * pollers never start, the routes never mount, and `/health` reports no venues.
+ * The off-chain sources this API polls on the internet: prices and FX rates, market caps, the
+ * swap venues (Maya, THORChain, NEAR Intents), the ZIP index and the name registry. On unless
+ * `EXTERNAL_SOURCES=0`, which a self-hosted copy sets by default: its pages for those sources
+ * then say "unavailable", as the site does whenever a source is down.
  */
-export const MIDGARD_VENUES = IS_TESTNET ? {} : midgardVenuesFromEnv();
-export const INTENTS_JWT = IS_TESTNET ? undefined : process.env.NEAR_INTENTS_API_KEY;
+export const EXTERNAL_SOURCES = process.env.EXTERNAL_SOURCES !== "0";
+
+/**
+ * Cross-chain is a mainnet-only dataset: no venue bridges testnet ZEC. Empty on testnet (or with
+ * the external sources off) means the pollers never start, the routes never mount, and `/health`
+ * reports no venues.
+ */
+export const MIDGARD_VENUES = IS_TESTNET || !EXTERNAL_SOURCES ? {} : midgardVenuesFromEnv();
+export const INTENTS_JWT =
+  IS_TESTNET || !EXTERNAL_SOURCES ? undefined : process.env.NEAR_INTENTS_API_KEY;
