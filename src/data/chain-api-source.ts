@@ -1084,8 +1084,8 @@ export function createChainApiSource(config: ChainApiConfig) {
     },
 
     /**
-     * The rich list, keyset-paginated. Five minutes: the balances are recomputed hourly and the
-     * page prints the height they were computed at.
+     * The rich list, keyset-paginated. Five minutes where a caller uses the Data Cache: the page
+     * prints the height its balances were computed at.
      */
     async listRichList(query: CursorQuery): Promise<CursorPage<RichListEntry>> {
       const res = await request(

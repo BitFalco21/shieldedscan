@@ -10,9 +10,9 @@ import type { V1Labels } from "../v1/dto";
 /**
  * The labelled-address balances behind the agent's label guide, against a real database.
  *
- * The three states are the point: a balance row (a balance and a rank), a row the hourly pass has
- * not ranked yet (rank 0 in the column, which must read as no rank rather than first place), and no
- * row at all (the index keeps rows only while positive, so that is a measured zero, not a gap).
+ * The states are the point: a balance row (a balance and a rank counted among every holder,
+ * labelled or not), and no row at all (the index keeps rows only while positive, so that is a
+ * measured zero, not a gap). The table has no `rank` column here: nothing may read one.
  *
  * Skips without TEST_DATABASE_URL:
  *
@@ -46,7 +46,7 @@ async function createTestDatabase(url: string): Promise<string> {
 describeDb("labelled-address balances", () => {
   let v1: Hono;
   let pool: Pool;
-  const [ranked, unranked, absent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
+  const [ranked, behind, absent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
   /** Unlike any plausible tip, so a route that substituted the chain height would fail. */
   const RANK_HEIGHT = 3_400_001;
 
@@ -59,15 +59,15 @@ describeDb("labelled-address balances", () => {
         received_zat BIGINT NOT NULL,
         first_height INTEGER NOT NULL,
         last_height  INTEGER NOT NULL,
-        rank         BIGINT NOT NULL DEFAULT 0,
         tx_count     BIGINT)`);
     await pool.query(
       `INSERT INTO chain_address_balance
-         (address, balance_zat, received_zat, first_height, last_height, rank)
-       VALUES ($1, 43892090013445, 43892090013445, 1, 1, 1),
-              ($2, 2869648329284, 2869648329284, 1, 1, 0),
-              ('t1notlabelled', 999, 999, 1, 1, 2)`,
-      [ranked, unranked],
+         (address, balance_zat, received_zat, first_height, last_height)
+       VALUES ($1, 43892090013445, 43892090013445, 1, 1),
+              ('t1notlabelled', 9999999999999, 9999999999999, 1, 1),
+              ($2, 2869648329284, 2869648329284, 1, 1),
+              ('t1smaller', 999, 999, 1, 1)`,
+      [ranked, behind],
     );
     await pool.query(`CREATE TABLE chain_rich_list_meta (
         computed_height  INTEGER NOT NULL,
@@ -80,14 +80,15 @@ describeDb("labelled-address balances", () => {
     await pool.end();
   });
 
-  it("reads each address in the order asked, in all three states", async () => {
-    const body = await loadLabelledBalances(pool, [absent, ranked, unranked]);
+  it("reads each address in the order asked, ranked among every holder", async () => {
+    const body = await loadLabelledBalances(pool, [absent, ranked, behind]);
     expect(body).toEqual({
       rankAsOfHeight: RANK_HEIGHT,
       items: [
         { address: absent, balanceZat: 0, rank: null },
         { address: ranked, balanceZat: 43_892_090_013_445, rank: 1 },
-        { address: unranked, balanceZat: 2_869_648_329_284, rank: null },
+        // Third: an unlabelled holder sits between the two labelled ones.
+        { address: behind, balanceZat: 2_869_648_329_284, rank: 3 },
       ],
     });
   });
@@ -99,7 +100,8 @@ describeDb("labelled-address balances", () => {
     expect(body.labels.map((label) => label.address)).toEqual(Object.keys(ADDRESS_LABELS));
     const byAddress = new Map(body.labels.map((label) => [label.address, label]));
     expect(byAddress.get(ranked)).toMatchObject({ balanceZat: 43_892_090_013_445, rank: 1 });
-    expect(byAddress.get(unranked)).toMatchObject({ rank: null, unknowns: { rank: "unmeasured" } });
+    expect(byAddress.get(behind)).toMatchObject({ rank: 3 });
+    expect(byAddress.get(behind)!.unknowns).toBeUndefined();
     expect(byAddress.get(absent)).toMatchObject({
       balanceZat: 0,
       unknowns: { rank: "nonexistent" },

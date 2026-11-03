@@ -448,8 +448,7 @@ export type V1Address =
        *
        * Always present, and null is two different facts told apart by `unknowns.rank`:
        * `nonexistent` means the address holds nothing, so it is on no rich list; `unmeasured` means
-       * ranking has not run or the index is unreachable. A rank of 0 is never published (the column
-       * defaults to 0 before the first ranking pass).
+       * the index is unreachable.
        *
        * An ordinal without a denominator: a rank reads correctly alone, and the holder count is
        * served by `/v1/rich-list/distribution`.
@@ -464,8 +463,9 @@ export type V1Address =
        */
       txCount: number | null;
       /**
-       * The height `rank` was computed at: the rich list's own height, not the tip. The refresh
-       * runs hourly, so the two differ. Null when the rich list has never been built.
+       * The height of the balances `rank` was counted among: the rich list's own height, not the
+       * tip, which runs ahead of it whenever ingestion trails. Null when the rich list has never
+       * been built.
        *
        * `balanceZat` and `txCount` are not as of this height: both come from the chain index and
        * are current.
@@ -541,8 +541,8 @@ export interface V1RichListEntry {
 /**
  * A page of the rich list.
  *
- * `height` is the height the balances cover, captured when the view was refreshed, not the
- * chain tip (the hourly refresh lags it). It is on the page because a caller paging the list
+ * `height` is the height the balances cover, not the chain tip (the balances trail it whenever
+ * ingestion does). It is on the page because a caller paging the list
  * has no other way to learn it.
  */
 export interface V1RichListPage extends V1Page<V1RichListEntry> {
@@ -575,7 +575,7 @@ export interface V1Labels {
   notice: string;
   count: number;
   labels: V1Label[];
-  /** The height the ranks were computed at (the hourly rich list), never the tip. */
+  /** The height of the balances the ranks were counted among, never the tip. */
   rankHeight: number;
   asOf: number;
 }

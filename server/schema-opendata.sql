@@ -174,8 +174,8 @@ SELECT day, kind, NULLIF(address, '') AS address, blocks, reward_zat, fee_zat, f
 FROM mining_day_payout;
 
 -- The transparent balances behind the site's rich list, published as `addresses`: a snapshot
--- replaced by each release. No `rank`: it is rewritten hourly in batches, so one snapshot can hold
--- two numberings. `tx_count` is NULL on rows the backfill has not counted yet.
+-- replaced by each release. No `rank`: it is derived (a position in this very table), not stored.
+-- `tx_count` is NULL on rows the backfill has not counted yet.
 CREATE OR REPLACE VIEW opendata.addresses AS
 SELECT address, balance_zat, tx_count
 FROM chain_address_balance;

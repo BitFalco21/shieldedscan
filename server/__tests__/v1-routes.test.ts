@@ -481,7 +481,7 @@ describe("/v1/addresses/:addr rich-list standing", () => {
 
   it("carries rank, txCount and the height they were computed at", async () => {
     const body = await ask(
-      poolWith({ matched: ADDR, rank: "4127", tx_count: "812", computed_height: 3_447_900 }),
+      poolWith({ matched: ADDR, ahead: 4126, tx_count: "812", computed_height: 3_447_900 }),
     );
     expect(body.rank).toBe(4127);
     expect(body.txCount).toBe(812);
@@ -498,7 +498,7 @@ describe("/v1/addresses/:addr rich-list standing", () => {
    */
   it("says nonexistent for an address that holds nothing, and unmeasured for an outage", async () => {
     const spentOut = await ask(
-      poolWith({ matched: null, rank: null, tx_count: null, computed_height: 3_447_900 }),
+      poolWith({ matched: null, ahead: null, tx_count: null, computed_height: 3_447_900 }),
     );
     expect(spentOut.rank).toBeNull();
     expect(spentOut.unknowns?.rank).toBe("nonexistent");
@@ -519,7 +519,7 @@ describe("/v1/addresses/:addr rich-list standing", () => {
   it("counts an emptied address's transactions, through the newest block", async () => {
     const body = await ask(
       poolWith(
-        { matched: null, rank: null, tx_count: null, computed_height: 3_447_900 },
+        { matched: null, ahead: null, tx_count: null, computed_height: 3_447_900 },
         {
           state: {
             applied: 3_447_800,
@@ -538,16 +538,13 @@ describe("/v1/addresses/:addr rich-list standing", () => {
     expect(body.unknowns?.rank).toBe("nonexistent");
   });
 
-  /**
-   * `rank` defaults to 0 until the hourly ranking pass numbers the row; publishing it would
-   * report an unranked address as the largest holder.
-   */
-  it("never publishes a rank of 0, which means not yet ranked", async () => {
+  /** The first holder has nobody ahead of it: rank 1, never 0. */
+  it("ranks the largest holder first", async () => {
     const body = await ask(
-      poolWith({ matched: ADDR, rank: "0", tx_count: null, computed_height: 3_447_900 }),
+      poolWith({ matched: ADDR, ahead: 0, tx_count: null, computed_height: 3_447_900 }),
     );
-    expect(body.rank).toBeNull();
-    expect(body.unknowns?.rank).toBe("unmeasured");
+    expect(body.rank).toBe(1);
+    expect(body.unknowns?.rank).toBeUndefined();
     expect(body.unknowns?.txCount).toBe("unmeasured");
   });
 
@@ -556,7 +553,7 @@ describe("/v1/addresses/:addr rich-list standing", () => {
       chain: transparent,
       store: new MemoryStorePort(),
       enabledProtocols: {},
-      pool: poolWith({ matched: ADDR, rank: "1", tx_count: "9", computed_height: 3_447_900 }),
+      pool: poolWith({ matched: ADDR, ahead: 0, tx_count: "9", computed_height: 3_447_900 }),
     });
     const res = await app.request(
       "/v1/addresses/zs1exampleshieldedsaplingaddressfixture0000000000000001",
@@ -2196,20 +2193,22 @@ describe("malformed input is a 400, never a 500", () => {
 });
 
 describe("/v1/labels", () => {
-  const [held, unranked, spent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
+  const [held, behind, spent] = Object.keys(ADDRESS_LABELS) as [string, string, string];
   const theft = Object.keys(ADDRESS_LABELS).find((a) => ADDRESS_LABELS[a]!.flag)!;
   const pool = {
-    query: async (sql: string) => {
-      if (sql.includes("computed_height")) return { rows: [{ computed_height: 3_400_001 }] };
-      // One ranked balance, one the hourly pass has not ranked (rank 0), and no row for the rest,
-      // which hold nothing.
-      return {
-        rows: [
-          { address: held, balance_zat: 43_892_090_013_445, rank: 1 },
-          { address: unranked, balance_zat: 2_869_648_329_284, rank: 0 },
-        ],
-      };
-    },
+    // One statement: the height, and the holders among the labels with their counted ranks (an
+    // unlabelled holder sits between the two). No row for the rest, which hold nothing.
+    query: async () => ({
+      rows: [
+        {
+          computed_height: 3_400_001,
+          items: [
+            { address: held, balanceZat: 43_892_090_013_445, rank: 1 },
+            { address: behind, balanceZat: 2_869_648_329_284, rank: 3 },
+          ],
+        },
+      ],
+    }),
   } as unknown as Pool;
   const app = () => v1Routes({ store: new MemoryStorePort(), pool, enabledProtocols: {} });
   const labels = async () => (await (await app().request("/v1/labels")).json()) as V1Labels;
@@ -2243,15 +2242,13 @@ describe("/v1/labels", () => {
     expect(body.labels.find((l) => l.address === held)!.flag).toBeNull();
   });
 
-  it("states why a rank is missing: holds nothing, or not ranked yet", async () => {
+  it("states why a rank is missing: the address holds nothing", async () => {
     const body = await labels();
     const byAddress = new Map(body.labels.map((l) => [l.address, l]));
     expect(byAddress.get(held)).toMatchObject({ balanceZat: 43_892_090_013_445, rank: 1 });
     expect(byAddress.get(held)).not.toHaveProperty("unknowns");
-    expect(byAddress.get(unranked)).toMatchObject({
-      rank: null,
-      unknowns: { rank: "unmeasured" },
-    });
+    expect(byAddress.get(behind)).toMatchObject({ rank: 3 });
+    expect(byAddress.get(behind)).not.toHaveProperty("unknowns");
     expect(byAddress.get(spent)).toMatchObject({
       balanceZat: 0,
       rank: null,

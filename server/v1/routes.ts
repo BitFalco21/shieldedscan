@@ -714,7 +714,8 @@ export function v1Routes(deps: V1Deps): Hono {
       unknowns.rank = "unmeasured";
     } else if (standing.rank === null) {
       // No row means a zero balance, and a zero-balance address is deleted from the list by
-      // construction — so it is genuinely on no rich list. That is an answer.
+      // construction — so it is genuinely on no rich list. That is an answer. A row always has a
+      // rank (it is counted), so `onList` with none would be our gap, never a fact.
       unknowns.rank = standing.onList ? "unmeasured" : "nonexistent";
     }
     if (txCount === null) unknowns.txCount = "unmeasured";
@@ -785,8 +786,9 @@ export function v1Routes(deps: V1Deps): Hono {
       }),
       richListComputedHeight(deps.pool),
     ]);
-    // `aggregate` rather than a list class: this view is rebuilt hourly, so it is neither
-    // tip-coupled nor immutable, and claiming either would be a lie about freshness.
+    // `aggregate` rather than a list class: the payload names the height its balances cover, so
+    // an hour-old copy is dated rather than wrong, and claiming tip-coupled or immutable would be
+    // a lie about freshness.
     setCache(c, "aggregate");
     return c.json({
       items: page.items.map(toRichListEntry),
@@ -814,8 +816,8 @@ export function v1Routes(deps: V1Deps): Hono {
     rejectUnknownParams(c, []);
     if (!deps.pool) return upstreamDown(c, "the labelled-address balances");
     const balances = await loadLabelledBalances(deps.pool, Object.keys(ADDRESS_LABELS));
-    // `aggregate`: the balances move with the chain and the ranks hourly, so neither tip-coupled
-    // nor immutable.
+    // `aggregate`: the balances and ranks move with the chain, but slowly at the top where the
+    // labelled holders sit, and the payload names the height they are as of.
     setCache(c, "aggregate");
     return c.json(
       toLabels(balances, ADDRESS_LABELS, Math.floor(Date.now() / 1000)) satisfies V1Labels,

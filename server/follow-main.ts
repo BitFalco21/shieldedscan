@@ -101,27 +101,6 @@ const DAILY_VIEWS: { name: string; refresh: () => Promise<void> }[] = [
 const DAILY_REFRESH_MS = Number(process.env.DAILY_REFRESH_MS ?? 3_600_000);
 
 /**
- * The rich list's rank column, on its own timer.
- *
- * Balances are maintained per block by `#applyBalanceDelta`; rank is the one column a per-block
- * delta cannot maintain, because crediting one address renumbers every address below it. The
- * recompute reads only `chain_address_balance`, never `tx_transparent_io`.
- *
- * Kept as its own group because its cadence answers a different question (how stale a printed
- * rank may be) and so it has its own switch.
- */
-const RICH_LIST_VIEWS: { name: string; refresh: () => Promise<void | number> }[] = [
-  { name: "rich list ranks", refresh: () => store.refreshRichListRanks() },
-];
-
-/**
- * `0` (or any non-positive value) disables the group outright: no timer and no startup pass.
- * Balances stay current without it; only `rank` goes stale.
- */
-const RICH_LIST_REFRESH_MS = Number(process.env.RICH_LIST_REFRESH_MS ?? 3_600_000);
-const RICH_LIST_ENABLED = RICH_LIST_REFRESH_MS > 0;
-
-/**
  * The per-pool day matviews, on their own timer.
  *
  * Not folded into `DAILY_VIEWS`: these scan `tx` where that group scans smaller matviews, and
@@ -177,8 +156,8 @@ function runRefreshes(views: { name: string; refresh: () => Promise<void | numbe
     const startedAt = Date.now();
     void view
       .refresh()
-      // A refresh that reports how many rows it changed logs it (`refreshRichListRanks` does),
-      // which is the input to deciding whether an hourly full pass is the right shape.
+      // A refresh that reports how many rows it touched logs it, which is the input to deciding
+      // whether an hourly full pass is the right shape.
       .then((rows) =>
         log(
           `${view.name} refreshed in ${Date.now() - startedAt}ms` +
@@ -196,22 +175,8 @@ const refreshTimer = setInterval(() => runRefreshes(VIEWS), REFRESH_MS);
 refreshTimer.unref();
 const dailyRefreshTimer = setInterval(() => runRefreshes(DAILY_VIEWS), DAILY_REFRESH_MS);
 dailyRefreshTimer.unref();
-// Run once at start as well as on the timer, so a follower that has been down does not serve
-// ranks from before the gap for another hour. Safe at boot because the job reads only the
-// balance table.
-if (RICH_LIST_ENABLED) {
-  runRefreshes(RICH_LIST_VIEWS);
-  const richListRefreshTimer = setInterval(
-    () => runRefreshes(RICH_LIST_VIEWS),
-    RICH_LIST_REFRESH_MS,
-  );
-  richListRefreshTimer.unref();
-} else {
-  log("rich list rank refresh DISABLED (RICH_LIST_REFRESH_MS <= 0) — balances still update");
-}
-
 /*
- * Not run at boot, unlike the rich list above. This one scans `tx`, and a crash-looping container
+ * Not run at boot. This one scans `tx`, and a crash-looping container
  * would start a full-chain scan on every restart. An hour of staleness on a per-pool figure is
  * cheaper, and a cold start gets its data from `npm run fill:pool-analytics`.
  */

@@ -90,13 +90,12 @@ describeDb("rich list keyset, over a tie at the page boundary", () => {
         received_zat BIGINT NOT NULL,
         first_height INTEGER NOT NULL,
         last_height  INTEGER NOT NULL,
-        rank         BIGINT NOT NULL DEFAULT 0,
         tx_count     BIGINT)`);
     for (const [address, balance] of ROWS) {
       await pool.query(
         `INSERT INTO chain_address_balance
-           (address, balance_zat, received_zat, first_height, last_height, rank)
-         VALUES ($1, $2, $2, 1, 1, 0)`,
+           (address, balance_zat, received_zat, first_height, last_height)
+         VALUES ($1, $2, $2, 1, 1)`,
         [address, balance],
       );
     }
@@ -108,11 +107,6 @@ describeDb("rich list keyset, over a tie at the page boundary", () => {
     await pool.query("INSERT INTO chain_rich_list_meta VALUES ($1, 79800000000)", [
       RICH_LIST_HEIGHT,
     ]);
-    // Ranks in the keyset's own order, as `refreshRichListRanks` writes them.
-    await pool.query(`UPDATE chain_address_balance b SET rank = r.rn
-                        FROM (SELECT address, row_number() OVER (ORDER BY balance_zat DESC, address) AS rn
-                                FROM chain_address_balance) r
-                       WHERE b.address = r.address`);
     // The halving source is untouched by these routes; only the rich-list ones are exercised.
     app = networkRoutes({} as never, url);
   });
@@ -122,57 +116,74 @@ describeDb("rich list keyset, over a tie at the page boundary", () => {
   });
 
   /**
-   * A rank seek must return the row holding that rank.
-   *
-   * Ranks are written by an hourly pass in balance order, but balances are live: an address that
-   * grew since the last pass keeps its old rank. A seek of `WHERE rank >= N` ordered by balance
-   * would then hoist that address to the front and report it as the Nth. In a freshly ranked
-   * fixture rank order equals balance order, so `t1eee` is given a large balance after the ranks
-   * are computed, the state production is in between passes.
+   * Ranks are counted against the balances the same response shows, so a holder that grows is
+   * ranked where it now stands. The table has no `rank` column here: nothing may read one.
    */
-  describe("seeking by rank", () => {
-    beforeAll(async () => {
-      // Ranked last (5) and now the richest. Its stored rank is stale, exactly as a real
-      // address's is between hourly passes.
+  describe("counting ranks", () => {
+    it("starts a rank seek at the rank asked for", async () => {
+      const body = await page("?fromRank=3&limit=3");
+      expect(body.items.map((i) => i.rank)).toEqual([3, 4, 5]);
+      expect(body.items.map((i) => i.address)).toEqual(["t1ccc", "t1ddd", "t1eee"]);
+      expect(body.nextCursor).toBeNull();
+    });
+
+    it("answers a rank past the end with an empty page", async () => {
+      expect((await page("?fromRank=6&limit=3")).items).toEqual([]);
+    });
+
+    it("numbers a page forward and back from where it stands", async () => {
+      const first = await page("?limit=2");
+      const second = await page(`?limit=2&before=${encodeURIComponent(first.nextCursor!)}`);
+      expect(second.items.map((i) => i.rank)).toEqual([3, 4]);
+      const third = await page(`?limit=2&before=${encodeURIComponent(second.nextCursor!)}`);
+      expect(third.items.map((i) => i.rank)).toEqual([5]);
+      // Backward from the last page: a page short of the top, whose head is not the first row
+      // counted.
+      const back = await page(`?limit=2&after=${encodeURIComponent(third.prevCursor!)}`);
+      expect(back.items.map((i) => [i.address, i.rank])).toEqual([
+        ["t1ccc", 3],
+        ["t1ddd", 4],
+      ]);
+    });
+
+    it("ranks a holder that grew where it now stands", async () => {
       await pool.query("UPDATE chain_address_balance SET balance_zat = 9999 WHERE address = $1", [
         "t1eee",
       ]);
-    });
-
-    afterAll(async () => {
-      await pool.query("UPDATE chain_address_balance SET balance_zat = 100 WHERE address = $1", [
-        "t1eee",
-      ]);
-    });
-
-    it("starts at the rank asked for, not at the largest balance at or below it", async () => {
-      const body = await page("?fromRank=3&limit=3");
-      expect(body.items.map((i) => i.rank)).toEqual([3, 4, 5]);
-      // The proof it is not balance-ordered: `t1eee` holds the most in this window and is LAST,
-      // because rank 5 is where it sits. Ordering by balance would put it first.
-      expect(body.items.map((i) => i.address)).toEqual(["t1ccc", "t1ddd", "t1eee"]);
-    });
-
-    it("returns the row that holds the rank, even when a later rank now holds more", async () => {
-      const body = await page("?fromRank=4&limit=1");
-      expect(body.items[0]!.rank).toBe(4);
-      expect(body.items[0]!.address).toBe("t1ddd");
-    });
-
-    it("still refuses an unranked row, whatever its balance", async () => {
-      // `rank > 0` guards the window between a row being inserted and the first ranking pass
-      // numbering it. An unranked row swept in would present an address of unknown standing as
-      // though it held a place in the list.
-      await pool.query(
-        `INSERT INTO chain_address_balance
-           (address, balance_zat, received_zat, first_height, last_height, rank)
-         VALUES ('t1zzz', 500000, 500000, 1, 1, 0)`,
-      );
       try {
-        const body = await page("?fromRank=1&limit=10");
-        expect(body.items.map((i) => i.address)).not.toContain("t1zzz");
+        const body = await page("?limit=5");
+        expect(body.items.map((i) => i.address)).toEqual([
+          "t1eee",
+          "t1aaa",
+          "t1bbb",
+          "t1ccc",
+          "t1ddd",
+        ]);
+        expect(body.items.map((i) => i.rank)).toEqual([1, 2, 3, 4, 5]);
+        expect((await page("?fromRank=1&limit=1")).items[0]!.address).toBe("t1eee");
       } finally {
-        await pool.query("DELETE FROM chain_address_balance WHERE address = 't1zzz'");
+        await pool.query("UPDATE chain_address_balance SET balance_zat = 100 WHERE address = $1", [
+          "t1eee",
+        ]);
+      }
+    });
+
+    it("counts from the cursor's position after the row there has gone", async () => {
+      const first = await page("?limit=3");
+      // The first page ends on `t1ccc`, which spends out before the reader pages on.
+      await pool.query("DELETE FROM chain_address_balance WHERE address = 't1ccc'");
+      try {
+        const second = await page(`?limit=3&before=${encodeURIComponent(first.nextCursor!)}`);
+        expect(second.items.map((i) => [i.address, i.rank])).toEqual([
+          ["t1ddd", 3],
+          ["t1eee", 4],
+        ]);
+      } finally {
+        await pool.query(
+          `INSERT INTO chain_address_balance
+             (address, balance_zat, received_zat, first_height, last_height)
+           VALUES ('t1ccc', 200, 200, 1, 1)`,
+        );
       }
     });
   });
@@ -237,8 +248,8 @@ describeDb("rich list keyset, over a tie at the page boundary", () => {
   it("dates the public page by the height the balances cover, not the tip", async () => {
     const v1 = v1Routes({ store: new MemoryStorePort(), pool, enabledProtocols: {} });
     const body = (await (await v1.request("/v1/rich-list?limit=1")).json()) as { height: number };
-    // Seeded as the refresh writes it. The tip is far above this, and stamping the tip on
-    // hour-old balances would date them to a height they were never computed at.
+    // Seeded as the follower writes it. The tip can be above this whenever ingestion trails, and
+    // stamping the tip would date the balances to a height they were never computed at.
     expect(body.height).toBe(RICH_LIST_HEIGHT);
   });
 });

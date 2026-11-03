@@ -374,7 +374,7 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
   const balanceLine =
     balances === null
       ? `BALANCES UNAVAILABLE: the read of these addresses' balances failed this turn. Say so, give no balance from anywhere else, and look an address up for its figures.`
-      : `Balances are current transparent balances from this explorer's index, read at ${retrievedAt}. Ranks are as of block ${balances.rankAsOfHeight}, when the hourly rich list was last built: quote that height beside a rank, never the tip.`;
+      : `Balances are current transparent balances from this explorer's index, read at ${retrievedAt}. Ranks are as of block ${balances.rankAsOfHeight}, the height the rich list's balances cover: quote that height beside a rank, never the tip.`;
   return (
     `<site-guide section="labels">\n${GUIDE_NOTICE}\n${LABEL_RULES}\n${balanceLine}\n\n` +
     `Addresses flagged in public investigations of thefts and exploits:\n${flagged.map(row).join("\n")}\n\n` +
