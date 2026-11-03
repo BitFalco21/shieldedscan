@@ -26,6 +26,11 @@ function searchParamKeys(source: string): string[] {
 }
 
 describe("edge cache policies", () => {
+  it("keeps every page at least ten seconds, where Netlify's shared durable layer stores it", () => {
+    for (const policy of EDGE_CACHE_POLICIES)
+      expect(policy.freshSeconds).toBeGreaterThanOrEqual(10);
+  });
+
   it("builds the CDN directive, with stale-while-revalidate only where allowed", () => {
     expect(edgeCacheControl({ source: "/x", freshSeconds: 5, staleSeconds: 30, query: [] })).toBe(
       "public, s-maxage=5, stale-while-revalidate=30, durable",
