@@ -510,7 +510,6 @@ export class PostgresChainStore implements ChainStorePort {
       client.removeListener("error", onClientError);
       client.release(clientError);
     }
-    await this.refreshRichListRanks();
   }
 
   /**
@@ -892,53 +891,6 @@ export class PostgresChainStore implements ChainStorePort {
     }
     log(`rich list caught up to ${to}`);
     return applied;
-  }
-
-  /**
-   * Rewrite `rank` from the balances alone.
-   *
-   * The one column a per-block delta cannot maintain: crediting one address renumbers every address
-   * below it. Recomputed on its own timer, reading only `chain_address_balance`.
-   *
-   * `ORDER BY balance_zat DESC, address` is the keyset's own order, so the stored rank and the
-   * page's pagination agree on which row is which.
-   */
-  async refreshRichListRanks(options: { batch?: number } = {}): Promise<number> {
-    const batch = options.batch ?? 5_000;
-
-    // Read the whole ordering first, then apply it in batches. As one
-    // `UPDATE … FROM (SELECT row_number() …)` the planner builds a hash join over every row
-    // (spilling at the default `work_mem`) and holds row locks on nearly every row for the whole
-    // statement: the locks `#applyBalanceDeltaAt` needs, so every pass would stall ingestion.
-    //
-    // Split, neither half needs a hash: `chain_address_balance_keyset_idx` is
-    // `(balance_zat DESC, address)`, exactly this window's ORDER BY, so the read is an index-only
-    // scan with no sort, and each apply is a nested loop over the primary key.
-    const { rows: ordering } = await this.#pool.query<{ address: string; rn: string }>(
-      `SELECT address, row_number() OVER (ORDER BY balance_zat DESC, address)::bigint::text AS rn
-         FROM chain_address_balance`,
-    );
-
-    let written = 0;
-    // Applied in rank order. Address-order batching would publish a mixture of two numberings
-    // anywhere in the list; rank order makes it a prefix/suffix split, so the top of the list stays
-    // coherent while the seam moves downward.
-    for (let i = 0; i < ordering.length; i += batch) {
-      const slice = ordering.slice(i, i + batch);
-      const result = await this.#pool.query(
-        // `IS DISTINCT FROM` per batch so only changed rows are written. `rank` is in no index, so
-        // those writes are HOT-eligible.
-        `UPDATE chain_address_balance b
-            SET rank = v.rn
-           FROM unnest($1::text[], $2::bigint[]) AS v(address, rn)
-          WHERE b.address = v.address AND b.rank IS DISTINCT FROM v.rn`,
-        [slice.map((r) => r.address), slice.map((r) => r.rn)],
-      );
-      written += result.rowCount ?? 0;
-    }
-    // Returned so the steady-state write volume is observable: it decides how this job is
-    // scheduled.
-    return written;
   }
 
   /** Total fees per day — the network's fee bill, as opposed to one transaction's cost. */

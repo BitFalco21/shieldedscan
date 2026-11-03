@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { StatsPage } from "@/features/stats/StatsPage";
 import { isTestnet } from "@/lib/network";
 
 /**
- * Prerendered deliberately, unlike the dynamic list routes. This is the page most likely to
- * be linked from elsewhere, so the CDN copy is the point, and nothing here misdates on a stale
- * render: the figures carry the block and the instant they were read at, so staleness is
- * visible rather than hidden. A live layer polls on top.
- *
- * It reads no query parameter, so `freshness-config.test.ts` pins its classification
- * explicitly rather than discovering it. See the sibling route for the full reasoning.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. The figures carry the block and the
+ * instant they were read at, and a live layer polls on top. It reads no query parameter, so
+ * `freshness-config.test.ts` pins its classification explicitly rather than discovering it. See the
+ * sibling route for the full reasoning.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Shielded supply",
@@ -25,7 +23,7 @@ export default async function Page() {
   // stats there either; both guards exist so neither alone is load-bearing.
   if (isTestnet) notFound();
   // No price series read: this face draws the shielded history instead.
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   const [stats, supply] = await Promise.all([data.getStats(), data.getSupplySeries()]);
   return <StatsPage face="shielded" stats={stats} series={{}} supply={supply} />;
 }

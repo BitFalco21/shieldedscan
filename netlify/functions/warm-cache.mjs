@@ -1,22 +1,24 @@
 /**
- * Keeps the prerendered pages warm, so a visitor is never the request that receives a stale
- * copy.
+ * Keeps the busiest edge-cached pages warm, so a visitor rarely receives a copy older than one
+ * tick.
  *
- * Next's caches are stale-while-revalidate: an expired entry is served as-is and refreshed
- * behind the response, so on a low-traffic site the first visitor after an idle period sees
- * old data. The revalidate window does not bound that; it only decides when a background
- * refresh fires. Dynamic routes avoid it with `fetchCache = "force-no-store"`; these pages
- * stay prerendered and CDN-cached (which absorbs spikes and keeps the site up while the API
- * restarts), so this function triggers the refresh instead.
+ * The edge cache (`src/lib/edge-cache.ts`) and Next's Data Cache are both stale-while-revalidate:
+ * an expired entry is served as-is and refreshed behind the response, so on a low-traffic site
+ * the first visitor after an idle period sees old data. Routes that must be current avoid it with
+ * `fetchCache = "force-no-store"` and no stale window; these pages keep their caches (which absorb
+ * spikes and keep the site up while the API restarts), so this function triggers the refresh.
  *
  * A plain GET, like a browser's, so the warmed entry is the one readers get. It never
  * throws: a failed warm only means the next reader triggers the refresh. Scheduled functions
- * run only on the published production deploy. `x-nextjs-date` in the log is when the page
- * was last rendered and should stay within one interval.
+ * run only on the published production deploy. `age` in the log is how old the copy served was.
+ *
+ * No page is rendered at build any more, so a frontend that cannot parse the API (version skew)
+ * deploys green and answers 500. A 5xx here is logged as an error so that shows up in the
+ * function log within one tick.
  */
 
 /**
- * Prerendered pages with per-block figures. Each path costs a render per tick, so a page
+ * Edge-cached pages with per-block figures. Each path costs a render per tick, so a page
  * belongs here only if it shows something that changes every block. `/analytics` is
  * day-grain and expensive to render, so it is excluded.
  */
@@ -49,9 +51,9 @@ const warmCache = async () => {
         // Drain the body: the render is not what we are measuring, but leaving the stream
         // unread can cut the connection before the origin finishes storing the entry.
         await res.arrayBuffer();
-        console.log(
+        (res.status >= 500 ? console.error : console.log)(
           `warm-cache ${path} ${res.status}`,
-          `rendered=${res.headers.get("x-nextjs-date") ?? "?"}`,
+          `age=${res.headers.get("age") ?? "?"}`,
           `cache=${res.headers.get("cache-status") ?? "?"}`,
         );
       } catch (err) {

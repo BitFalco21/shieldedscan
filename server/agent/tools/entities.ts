@@ -65,7 +65,7 @@ If this address is SHIELDED there is no history to list — that is the protocol
 
 EVERY FIGURE HERE COVERS TRANSPARENT ADDRESSES ONLY. \`rank\` is this address's place on the transparent rich list, so it is never a rank among Zcash holders and never evidence that anyone is among the largest — most of the chain's value can be shielded, and shielded holdings are not enumerable by design. Say "the Nth largest TRANSPARENT address" or do not say largest at all.
 
-TWO CLOCKS, AND ONLY ONE OF THEM IS STAMPED. \`balanceZat\`, \`totalReceivedZat\`, \`totalSentZat\` and \`txCount\` come from the chain index and are current. \`rank\` comes from the rich list, which is rebuilt hourly, and is as of \`rankAsOfHeight\` — quote that height beside it, and never the chain tip, which is a different number.
+TWO CLOCKS, AND ONLY ONE OF THEM IS STAMPED. \`balanceZat\`, \`totalReceivedZat\`, \`totalSentZat\` and \`txCount\` come from the chain index and are current. \`rank\` is counted on the rich list's balances, which are as of \`rankAsOfHeight\` — quote that height beside it, and never the chain tip, which can be a different number.
 
 A NULL RANK IS TWO DIFFERENT ANSWERS and \`unknowns.rank\` says which. \`nonexistent\` means the address holds nothing, so it is on no rich list — a measurement, and the right words are "it holds no ZEC", never "unranked" and never "we do not know". \`unmeasured\` means we could not read the list; that is our gap, never a fact about the address. A null \`txCount\` is always \`unmeasured\` — our gap, never a fact about the address. It counts EVERY address, including one that has spent everything, so a zero is a measurement: the address has appeared in no transaction.
 

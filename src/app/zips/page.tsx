@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { ZipsPage } from "@/features/zips/ZipsPage";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { nullIfTransient } from "@/lib/transient-upstream";
 import type { ZipIndex } from "@/domain";
 
 /**
- * Prerendered with an hourly revalidate: nothing here misdates on a stale render, the one
- * time-sensitive fact (asOf) is printed on the page,
- * and a reference page is exactly the kind that gets linked from elsewhere. No warmer
- * slot: the content is day-grain at its fastest.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Nothing here misdates on a stale render:
+ * the one time-sensitive fact (asOf) is printed on the page.
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Zcash Improvement Proposals",
@@ -21,9 +20,7 @@ export const metadata: Metadata = {
 
 /** `/zips` — both networks: protocol documentation is network-independent. */
 export default async function Page() {
-  const index: ZipIndex | null = await nullIfTransient(() =>
-    getPrerenderedDataSource().getZipIndex(),
-  );
+  const index: ZipIndex | null = await nullIfTransient(() => getCachedDataSource().getZipIndex());
 
   if (index === null) {
     return <DataUnavailable what="The ZIP index" refreshesWithin="an hour" />;

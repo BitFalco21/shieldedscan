@@ -120,12 +120,9 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
     ).toEqual({ n: 2 });
     // Derived tables, from their production functions.
     expect(
-      await one(
-        "SELECT address, rank, computed_height FROM chain_address_balance, chain_rich_list_meta",
-      ),
+      await one("SELECT address, computed_height FROM chain_address_balance, chain_rich_list_meta"),
     ).toEqual({
       address: MINER,
-      rank: 1,
       computed_height: manifest.height,
     });
     expect(await one("SELECT count(*)::int AS n FROM pg_matviews WHERE NOT ispopulated")).toEqual({

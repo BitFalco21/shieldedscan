@@ -166,7 +166,7 @@ export function callsFor(
       const spec = INSIGHT_TOPICS[topic as InsightTopicName];
       /*
        * The ranked page is the one `alsoRead` whose path the caller can move, so "how much does the 500th
-       * largest address hold" is answerable: every holder has a stored rank.
+       * largest address hold" is answerable: every holder has a rank.
        *
        * `fromRank` is refused on every other topic rather than ignored: silently dropping an argument the
        * model deliberately sent answers the question for a slice nobody asked about.

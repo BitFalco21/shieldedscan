@@ -85,7 +85,7 @@ chain_address_balance (address) <─────────────┘  sum
 | `block`                                    | block: hash, time, size, tx counts by kind, fee total, Sapling/Orchard flows, the six value pools, difficulty, miner                      |
 | `tx`                                       | transaction: `kind` (transparent, mixed, shielded, coinbase), `direction` for mixed, fee, each shielded bundle's counts and value balance |
 | `tx_transparent_io`                        | transparent input (`io = 'in'`, with `prev_txid`/`prev_vout`) or output (`'out'`); `address` NULL when none or several                    |
-| `chain_address_balance`                    | address with a positive balance: balance, received, first and last height, rank, transaction count                                        |
+| `chain_address_balance`                    | address with a positive balance: balance, received, first and last height, transaction count                                              |
 | `chain_rich_list_meta`                     | (one row) the height the balances stand at, and value held by no single address                                                           |
 | `chain_sync_state`                         | (one row) the last block in the database                                                                                                  |
 | `pool_usage_daily`, `boundary_daily`       | day (and pool): transactions using each shielded pool, its anonymity set; shielding and unshielding counts and records                    |

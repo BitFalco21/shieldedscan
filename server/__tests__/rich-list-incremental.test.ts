@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { parseBlock } from "@/data/chain/parse";
 import type { RpcBlock } from "@/data/chain/rpc-types";
 import { PostgresChainStore } from "../postgres-chain-store";
+import { loadRichListPage, richListStanding } from "../network-routes";
 import { applyTxCounts, dropStaging, stageTxCounts } from "../tx-count-backfill";
 import realBlock from "@/data/chain/__fixtures__/block-3426950.json";
 
@@ -406,17 +407,20 @@ describeDb("rich list, maintained incrementally", () => {
     expect(await balances()).toEqual(incremental);
   });
 
-  it("ranks in the keyset's own order, so a printed rank matches the page's pagination", async () => {
+  it("ranks every holder by its place in the keyset, counted when read", async () => {
     await ingestChain();
-    await store.refreshRichListRanks();
-
-    const { rows } = await pool.query<{ address: string; rank: string }>(
-      "SELECT address, rank::text FROM chain_address_balance ORDER BY balance_zat DESC, address",
+    const { rows } = await pool.query<{ address: string; rn: number }>(
+      `SELECT address, row_number() OVER (ORDER BY balance_zat DESC, address)::int AS rn
+         FROM chain_address_balance ORDER BY balance_zat DESC, address`,
     );
     expect(rows.length).toBeGreaterThan(1);
-    // `ORDER BY balance_zat DESC, address` is the cursor's order too; a stored rank that
-    // disagreed would number rows inconsistently across pages.
-    expect(rows.map((r) => r.rank)).toEqual(rows.map((_, i) => String(i + 1)));
+    // `ORDER BY balance_zat DESC, address` is the cursor's order too, so a page and a single
+    // address's standing number every holder the same way.
+    const page = await loadRichListPage(pool, { limit: rows.length });
+    expect(page.items.map((i) => [i.address, i.rank])).toEqual(rows.map((r) => [r.address, r.rn]));
+    for (const row of rows) {
+      expect((await richListStanding(pool, row.address)).rank, row.address).toBe(row.rn);
+    }
   });
 
   it("catches up blocks that were ingested while the balances were not being maintained", async () => {
@@ -616,31 +620,6 @@ describeDb("rich list, maintained incrementally", () => {
         WHERE i.block_height IS DISTINCT FROM t.block_height`,
     );
     expect(rows[0]?.n).toBe("0");
-  });
-
-  it("numbers ranks the same however the apply is batched", async () => {
-    // The rank refresh is a read plus batched writes, so it holds no long row locks. Batching must
-    // not change the answer, hence a batch size below, at and above the row count.
-    await ingestChain();
-    const truth = await pool.query<{ address: string; rn: string }>(
-      `SELECT address, row_number() OVER (ORDER BY balance_zat DESC, address)::bigint::text AS rn
-         FROM chain_address_balance ORDER BY address`,
-    );
-    expect(truth.rows.length).toBeGreaterThan(1);
-
-    for (const batch of [1, 2, 10_000]) {
-      await pool.query("UPDATE chain_address_balance SET rank = 0");
-      const written = await store.refreshRichListRanks({ batch });
-      const got = await pool.query<{ address: string; rn: string }>(
-        "SELECT address, rank::text AS rn FROM chain_address_balance ORDER BY address",
-      );
-      expect(got.rows, `batch ${batch}`).toEqual(truth.rows);
-      expect(written, `batch ${batch}`).toBe(truth.rows.length);
-    }
-
-    // A second pass over unchanged balances writes nothing: `IS DISTINCT FROM` keeps the steady
-    // state proportional to what moved.
-    expect(await store.refreshRichListRanks()).toBe(0);
   });
 
   /**

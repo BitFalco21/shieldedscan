@@ -163,10 +163,9 @@ export interface ChainApiConfig extends ApiRequestConfig {
   /**
    * The Data Cache window for tip reads (`/chain/info`, pools, stats, pulse, peers).
    *
-   * Absent means `REVALIDATE_TIP_SECONDS`. A prerendered page passes its own declared window,
-   * because Next uses the minimum revalidate across every fetch in a route: a page declaring
-   * 60 s with a 15 s tip read regenerates every 15 s. Dynamic routes are unaffected — their
-   * `force-no-store` drives every window to zero.
+   * Absent means `REVALIDATE_TIP_SECONDS`. `getCachedDataSource` passes a longer window for the
+   * pages that print the block they were read at. Routes declaring `force-no-store` are
+   * unaffected: it drives every window to zero.
    */
   tipRevalidateSeconds?: number;
 }
@@ -314,8 +313,8 @@ export function createChainApiSource(config: ChainApiConfig) {
 
     /**
      * The daily siblings of the three monthly series, trailing 366 days, for the chart range
-     * toggles. A missing field must fail the build (version-skew tripwire), never render as a
-     * blank band.
+     * toggles. A missing field must throw (version-skew tripwire), never render as a blank
+     * band.
      */
     async getDailySeries(): Promise<ChainMonthPoint[]> {
       const body = await json<unknown>(
@@ -1084,8 +1083,8 @@ export function createChainApiSource(config: ChainApiConfig) {
     },
 
     /**
-     * The rich list, keyset-paginated. Five minutes: the balances are recomputed hourly and the
-     * page prints the height they were computed at.
+     * The rich list, keyset-paginated. Five minutes where a caller uses the Data Cache: the page
+     * prints the height its balances were computed at.
      */
     async listRichList(query: CursorQuery): Promise<CursorPage<RichListEntry>> {
       const res = await request(
@@ -1150,7 +1149,7 @@ export function createChainApiSource(config: ChainApiConfig) {
      * The live frame: the tip, the closes the boxes read, and the confirmed movements.
      *
      * A tip read on the source's tip window: the polling route forces it to zero with
-     * `force-no-store`, and the prerendered page reads through `getPrerenderedDataSource`.
+     * `force-no-store`, and the page reads through `getCachedDataSource`.
      *
      * A 503 rejects rather than resolving to null: there is no frame to draw, and an empty one
      * would claim the pools hold no ZEC.

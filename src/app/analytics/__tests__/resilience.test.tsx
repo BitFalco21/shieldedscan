@@ -22,7 +22,7 @@ const getChainInfo = vi.fn(async () => ({
   fullyShieldedPct24h: null,
 }));
 vi.mock("@/data", () => ({
-  getPrerenderedDataSource: () => ({
+  getCachedDataSource: () => ({
     getMonthlySeries,
     getActivitySeries,
     getChainInfo,

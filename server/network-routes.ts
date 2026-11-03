@@ -125,13 +125,27 @@ interface RichListRow {
   received_zat: number;
   first_height: number;
   last_height: number;
-  rank: number;
   /** NULL on any row the transaction-count backfill has not reached yet. Never coerced. */
   tx_count: string | null;
 }
 
-const toEntry = (r: RichListRow): RichListEntry => ({
-  rank: r.rank,
+/**
+ * Rows strictly ahead of a position in the list's order (balance descending, address ascending),
+ * or at-or-ahead with `inclusive`. Two index-only range counts over `chain_address_balance_keyset_idx`;
+ * the tiebreak compares under the column's collation, the one the index is sorted by. `$b` and `$a`
+ * name the position's parameters.
+ *
+ * A rank is this count plus one. Counted in the statement that reads the rows, so a rank is always
+ * the row's place among the balances the same response shows. Measured on 857,000 rows: under a
+ * millisecond near the top, 25–40 ms at the very bottom.
+ */
+const countAhead = (b: string, a: string, inclusive: boolean): string =>
+  `(SELECT count(*) FROM chain_address_balance WHERE balance_zat > ${b}::bigint)
+   + (SELECT count(*) FROM chain_address_balance
+       WHERE balance_zat = ${b}::bigint AND address ${inclusive ? "<=" : "<"} ${a})`;
+
+const toEntry = (r: RichListRow, rank: number): RichListEntry => ({
+  rank,
   address: r.address,
   balanceZat: r.balance_zat,
   receivedZat: r.received_zat,
@@ -152,11 +166,8 @@ export interface RichListQuery {
   before?: string;
   after?: string;
   /**
-   * Start the page at this absolute rank, 1-based.
-   *
-   * Not an OFFSET: `rank` is a stored column numbered in this list's order, so `rank >= 500` names
-   * one holder rather than counting into a list that may have shifted. It is the only way to answer
-   * "who is the 500th largest holder" without paging by cursor.
+   * Start the page at this absolute rank, 1-based: the only way to answer "who is the 500th
+   * largest holder" without paging by cursor.
    *
    * Mutually exclusive with the cursors: two ways to name a position with a silent winner would
    * page somewhere the caller did not ask for.
@@ -165,7 +176,7 @@ export interface RichListQuery {
 }
 
 /**
- * One page of the rich list, keyset over `(balance_zat, address)`.
+ * One page of the rich list, keyset over `(balance_zat, address)`, each row with its rank.
  *
  * Exported because both rich-list surfaces call it (the private `/chain/rich-list` and the public
  * `/v1/rich-list`), so the tie-aware predicate below has one implementation.
@@ -173,6 +184,10 @@ export interface RichListQuery {
  * A composite cursor because `balance_zat` is not unique (round balances repeat), so a
  * single-column seek would return an arbitrary slice past the first page. The address is the
  * tiebreak and both columns are in the cursor.
+ *
+ * Ranks are counted, not stored: a stored rank must be rewritten for nearly every row whenever one
+ * address moves up, and between rewrites it disagrees with the live balances beside it. A rank is
+ * a dense `row_number` in the list's own order, so ties are broken by address.
  */
 export async function loadRichListPage(
   pool: Pool,
@@ -190,45 +205,46 @@ export async function loadRichListPage(
     seek || query.fromRank === undefined ? null : Math.max(1, Math.floor(query.fromRank));
 
   const params: unknown[] = [limit + 1];
+  let boundary = "";
   let where = "";
+  // How many rows sit ahead of the position the page is read from, in the page's own snapshot.
+  let ahead = "0";
   if (fromRank !== null) {
-    // `rank > 0` is required: the column defaults to 0 until the first ranking pass, and an
-    // unranked row in a rank window would present an address of unknown standing as holding a
-    // place.
-    where = "WHERE rank >= $2::bigint AND rank > 0";
+    // The holder at that rank, found by stepping the keyset index (index-only), then an ordinary
+    // seek from it. A position, not a page: rule 10 is about cursors. Read through scalar
+    // subqueries so the seek is an index condition; joined, the planner filtered every row.
+    boundary = `WITH boundary AS MATERIALIZED (
+                  SELECT balance_zat AS b, address AS a FROM chain_address_balance
+                   ORDER BY balance_zat DESC, address ASC OFFSET $2::bigint - 1 LIMIT 1)`;
+    where = `WHERE balance_zat <= (SELECT b FROM boundary)
+               AND (balance_zat < (SELECT b FROM boundary) OR address >= (SELECT a FROM boundary))`;
+    ahead = "$2::bigint - 1";
     params.push(fromRank);
   } else if (seek) {
     // Written out rather than as `(balance_zat, address) < ($2, $3)`. A row-value comparison
     // descends both columns, while this list descends the balance and ascends the address (the
-    // tiebreak the keyset index stores and `rank` is numbered by). On a tie the row form would
-    // re-serve addresses above the boundary and skip the ones below it, so some holders would
-    // appear on no page.
+    // tiebreak the keyset index stores). On a tie the row form would re-serve addresses above the
+    // boundary and skip the ones below it, so some holders would appear on no page.
     //
     // The leading bound on `balance_zat` alone keeps this one indexed seek: the index starts from
     // that range and the tiebreak applies inside it.
     where = after
       ? "WHERE balance_zat >= $2::bigint AND (balance_zat > $2::bigint OR address < $3)"
       : "WHERE balance_zat <= $2::bigint AND (balance_zat < $2::bigint OR address > $3)";
+    // Counted from the cursor, never from a row of the page: a backward page's head is unknown
+    // until the probe row is sliced off. Forward, the page starts after the cursor's position,
+    // which a row may still hold; backward, it ends just ahead of it.
+    ahead = countAhead("$2", "$3", !after);
     params.push(seek.sortKey, seek.id);
   }
 
-  /*
-   * A rank seek orders by rank. `rank` is written by an hourly pass while balances are current, so
-   * an address that grew since the last pass keeps its old rank, and ordering a rank window by
-   * balance would hoist it to the front. `rich-list-keyset.test.ts` stales a rank to cover this.
-   *
-   * `rank` is a dense unique `row_number`, so ASC on it alone is total and needs no tiebreak.
-   */
-  const orderBy =
-    fromRank !== null
-      ? "rank ASC"
-      : `balance_zat ${order}, address ${order === "ASC" ? "DESC" : "ASC"}`;
-
-  const { rows } = await pool.query<RichListRow>(
-    `SELECT address, balance_zat, received_zat, first_height, last_height, rank, tx_count
+  const { rows } = await pool.query<RichListRow & { ahead: number }>(
+    `${boundary}
+     SELECT address, balance_zat, received_zat, first_height, last_height, tx_count,
+            ${ahead} AS ahead
        FROM chain_address_balance
        ${where}
-      ORDER BY ${orderBy}
+      ORDER BY balance_zat ${order}, address ${order === "ASC" ? "DESC" : "ASC"}
       LIMIT $1`,
     params,
   );
@@ -238,15 +254,17 @@ export async function loadRichListPage(
   if (after) page.reverse();
   const first = page[0];
   const last = page[page.length - 1];
+  const aheadCount = Number(rows[0]?.ahead ?? 0);
+  // Forward, and from a rank, every row counted is ahead of the page. Backward, the count includes
+  // the page itself, which ends at the last row counted.
+  const headRank = after ? aheadCount - page.length + 1 : aheadCount + 1;
 
   /*
-   * A rank window carries no cursor. The cursors encode `(balance_zat, address)` and resume the
-   * balance keyset, so returning one from a rank-ordered page would switch the ordering mid-list,
-   * silently and exactly where the two disagree. A caller continuing a rank window asks for the
-   * next rank.
+   * A rank window carries no cursor: its callers (the agent, `/v1` with `fromRank`) continue it by
+   * asking for the next rank, and two ways to name a position would page somewhere unasked.
    */
   return {
-    items: page.map(toEntry),
+    items: page.map((row, i) => toEntry(row, headRank + i)),
     nextCursor:
       fromRank === null && last && (after || hasMore)
         ? encodeCursor(last.balance_zat, last.address)
@@ -257,9 +275,8 @@ export async function loadRichListPage(
 }
 
 /**
- * The height the balances cover, captured at refresh time, never the live tip. Separate so the
- * list surface can state what height its figures are as of; the refresh runs hourly, so the tip is
- * a different number.
+ * The height the balances cover, never the live tip: the two diverge whenever ingestion stalls.
+ * Separate so the list surface can state what height its figures are as of.
  */
 export async function richListComputedHeight(pool: Pool): Promise<number> {
   const { rows } = await pool.query<{ computed_height: number }>(
@@ -269,33 +286,47 @@ export async function richListComputedHeight(pool: Pool): Promise<number> {
 }
 
 /**
- * The current balance and rank of each given address, in the order given: one indexed read.
+ * The current balance and rank of each given address, in the order given, with the height both
+ * are as of: one statement, so the height, the balances and the ranks share a snapshot.
  *
  * An address with no row holds nothing, and says so as zero with no rank. The index keeps a row
  * only while the balance is positive, so the absence is a measurement, as in `RichListStanding`.
- * A rank of 0 is the column's default before the first ranking pass, and reads as no rank.
+ *
+ * The ranks are one `row_number()` walk of the keyset index, stopped at the smallest balance asked
+ * about: every row ahead of a labelled address has at least its balance. Labelled addresses are
+ * large holders, so the walk is short; scattered over the whole list it measured 305 ms.
  */
 export async function loadLabelledBalances(
   pool: Pool,
   addresses: readonly string[],
 ): Promise<LabelledBalances> {
-  const [balances, rankAsOfHeight] = await Promise.all([
-    pool.query<{ address: string; balance_zat: number; rank: number }>(
-      "SELECT address, balance_zat, rank FROM chain_address_balance WHERE address = ANY($1::text[])",
-      [addresses],
-    ),
-    richListComputedHeight(pool),
-  ]);
-  const byAddress = new Map(balances.rows.map((row) => [row.address, row]));
+  const { rows } = await pool.query<{
+    computed_height: number;
+    items: { address: string; balanceZat: number; rank: number }[];
+  }>(
+    // One row whatever was asked, so the height arrives even when no labelled address holds
+    // anything.
+    `WITH asked AS (
+       SELECT address, balance_zat FROM chain_address_balance WHERE address = ANY($1::text[])
+     ),
+     ranked AS (
+       SELECT address, row_number() OVER (ORDER BY balance_zat DESC, address ASC) AS rank
+         FROM chain_address_balance
+        WHERE balance_zat >= (SELECT min(balance_zat) FROM asked)
+     )
+     SELECT COALESCE((SELECT computed_height FROM chain_rich_list_meta), 0) AS computed_height,
+            COALESCE((SELECT json_agg(json_build_object('address', asked.address,
+                                                        'balanceZat', asked.balance_zat,
+                                                        'rank', ranked.rank))
+                        FROM asked JOIN ranked USING (address)), '[]'::json) AS items`,
+    [addresses],
+  );
+  const byAddress = new Map((rows[0]?.items ?? []).map((item) => [item.address, item]));
   return {
-    rankAsOfHeight,
+    rankAsOfHeight: rows[0]?.computed_height ?? 0,
     items: addresses.map((address) => {
-      const row = byAddress.get(address);
-      return {
-        address,
-        balanceZat: row?.balance_zat ?? 0,
-        rank: row && row.rank > 0 ? row.rank : null,
-      };
+      const item = byAddress.get(address);
+      return { address, balanceZat: item?.balanceZat ?? 0, rank: item?.rank ?? null };
     }),
   };
 }
@@ -306,24 +337,23 @@ export interface RichListStanding {
    * Whether the address has a rich-list row at all, i.e. holds a positive balance.
    *
    * Carried separately from a null rank because the two nulls mean opposite things: no row is a
-   * measurement ("it holds nothing, so it is on no rich list"), while a row with no rank yet is our
-   * own gap (`nonexistent` versus `unmeasured`).
+   * measurement ("it holds nothing, so it is on no rich list"), while no answer is our own gap
+   * (`nonexistent` versus `unmeasured`).
    */
   onList: boolean;
-  /** Rank by balance. Null when `onList` is false, or when ranking has not run yet. */
+  /** Rank by balance. Null when `onList` is false. */
   rank: number | null;
   /** Transactions the address appears in. Null means not yet computed, never none. */
   txCount: number | null;
-  /** The height the rich list covers, never the tip. 0 when it has never been refreshed. */
+  /** The height the balances, and so the rank, cover; never the tip. 0 when never built. */
   computedHeight: number;
 }
 
 /**
  * One address's standing on the rich list: its rank and transaction count.
  *
- * A LEFT JOIN from the meta row, so a missing balance row still returns the height. The two facts
- * must be read together: `computed_height` qualifies the rank, and a second query could let an
- * hourly refresh land between them.
+ * A LEFT JOIN from the meta row, so a missing balance row still returns the height, and one
+ * statement, so the height and the rank counted against those balances share a snapshot.
  *
  * A null rank with no row is a fact, not a gap: `chain_address_balance` holds only positive
  * balances (a spent-out address is deleted by `#applyBalanceDeltaAt`), so an absent row means the
@@ -335,15 +365,21 @@ export interface RichListStanding {
 export async function richListStanding(pool: Pool, address: string): Promise<RichListStanding> {
   const { rows } = await pool.query<{
     matched: string | null;
-    rank: string | null;
+    ahead: number | null;
     tx_count: string | null;
     computed_height: number;
   }>(
-    // `b.address` rather than `b.rank` as the join witness: rank defaults to 0 for a row that
-    // exists, so testing it would conflate "no row" with "not ranked yet".
-    `SELECT b.address AS matched, b.rank, b.tx_count, m.computed_height
+    // The counts take the address's balance through a scalar subquery, evaluated once, so they
+    // are index conditions planned on their own; correlated to a joined row, the whole statement
+    // was costed per meta row and compiled by JIT, which took longer than the count itself.
+    `WITH target AS MATERIALIZED (
+       SELECT address, balance_zat, tx_count FROM chain_address_balance WHERE address = $1
+     )
+     SELECT t.address AS matched, t.tx_count, m.computed_height,
+            CASE WHEN t.address IS NULL THEN NULL
+                 ELSE ${countAhead("(SELECT balance_zat FROM target)", "$1", false)} END AS ahead
        FROM chain_rich_list_meta m
-       LEFT JOIN chain_address_balance b ON b.address = $1`,
+       LEFT JOIN target t ON TRUE`,
     [address],
   );
   const row = rows[0];
@@ -352,9 +388,7 @@ export async function richListStanding(pool: Pool, address: string): Promise<Ric
   if (!row) return { onList: false, rank: null, txCount: null, computedHeight: 0 };
   return {
     onList: row.matched !== null,
-    // BIGINT arrives from pg as a string. `rank` is 0 until the first ranking pass ("not ranked
-    // yet", never "ranked first"), so a 0 becomes null with the `unmeasured` reason.
-    rank: row.rank === null || Number(row.rank) <= 0 ? null : Number(row.rank),
+    rank: row.ahead === null ? null : Number(row.ahead) + 1,
     txCount: row.tx_count === null ? null : Number(row.tx_count),
     computedHeight: row.computed_height,
   };
@@ -380,13 +414,15 @@ export async function loadRichListSummary(pool: Pool): Promise<RichListSummary> 
          FROM chain_address_balance GROUP BY 1 ORDER BY 1`,
       [bounds],
     ),
+    // The first n rows of the list's own order: an index-only read of 1,000 rows at most.
     pool.query<{ count: number; total_zat: number }>(
-      `SELECT n AS count, (SELECT COALESCE(sum(balance_zat), 0)::bigint
-                             FROM chain_address_balance WHERE rank <= n) AS total_zat
+      `SELECT n AS count,
+              (SELECT COALESCE(sum(balance_zat), 0)::bigint
+                 FROM (SELECT balance_zat FROM chain_address_balance
+                        ORDER BY balance_zat DESC, address ASC LIMIT n) top) AS total_zat
          FROM unnest(ARRAY[10, 100, 1000]) AS n`,
     ),
-    // The height the balances cover, not the live tip: the refresh runs hourly, so the current tip
-    // would misstate when they were computed.
+    // The height the balances cover, not the live tip: the two diverge whenever ingestion stalls.
     pool.query<{ unattributed_zat: number; computed_height: number }>(
       "SELECT unattributed_zat, computed_height FROM chain_rich_list_meta",
     ),

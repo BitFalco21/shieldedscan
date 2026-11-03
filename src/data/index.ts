@@ -161,20 +161,20 @@ export function getDataSource(): ExplorerDataSource {
 }
 
 /**
- * The tip window a prerendered page runs on, and the floor for its `export const
- * revalidate`.
+ * The Data Cache window for the tip reads of edge-cached pages (the former ISR pages).
  *
- * Next uses the minimum revalidate across every fetch in a route. The default source's tip
- * reads carry 15 s (right for detail pages, where confirmations are measured against the
- * tip), so a prerendered page reading through it would regenerate every 15 s whatever it
- * declared. Every such page has a live layer or prints the block it was read at, so 60 s
- * costs a reader nothing. `freshness-config.test.ts` pins that these pages use this source.
+ * The default source's tip reads carry 15 s, right for detail pages where confirmations are
+ * measured against the tip. These pages have a live layer or print the block they were read at,
+ * so a minute-old read costs a reader nothing and spares the API one read per render. Under
+ * `force-dynamic` an explicit fetch window still uses the Data Cache, which serves a stale entry
+ * while it refreshes: the oldest figure such a page can show is this window plus its edge-cache
+ * age. `freshness-config.test.ts` pins that these pages use this source.
  */
-export const PRERENDERED_REVALIDATE_SECONDS = 60;
+export const CACHED_DATA_SECONDS = 60;
 
-const prerenderedDataSource: ExplorerDataSource = build(PRERENDERED_REVALIDATE_SECONDS);
+const cachedDataSource: ExplorerDataSource = build(CACHED_DATA_SECONDS);
 
-/** The data source for a page that is prerendered with `revalidate = PRERENDERED_REVALIDATE_SECONDS`. */
-export function getPrerenderedDataSource(): ExplorerDataSource {
-  return prerenderedDataSource;
+/** The data source for an edge-cached page whose figures are dated on the page. */
+export function getCachedDataSource(): ExplorerDataSource {
+  return cachedDataSource;
 }

@@ -909,13 +909,10 @@ CREATE TABLE IF NOT EXISTS chain_value_extremes (
 -- and `recomputeAddresses` re-derives `received_zat` and `first_height` if the address is credited
 -- again.
 --
--- `rank` is stored, because a keyset has no offset to count an absolute rank from. A per-block
--- delta cannot maintain it (crediting one address renumbers everyone below it), so
--- `refreshRichListRanks` rewrites it hourly from this table alone. It reads the ordering in one
--- pass and applies it in rank-order batches: a single `UPDATE … FROM (SELECT row_number() …)` would
--- hold row locks the per-block delta needs for its whole duration. The keyset index below is that
--- window's ORDER BY, so the read is an index-only scan with no sort, and rank-order batches leave a
--- partly applied pass as a prefix/suffix split.
+-- A rank is not stored: crediting one address renumbers everyone below it, so a stored rank meant
+-- rewriting most of the table to keep it true. Readers count it from the keyset index instead
+-- (`countAhead` in `network-routes.ts`). The `rank` column is no longer read or written; it stays
+-- until a separate migration drops it, so an API image older than that change keeps working.
 --
 -- Do not size a plan over `tx_transparent_io` from EXPLAIN: the planner badly underestimates
 -- n_distinct(address), as it does for `txid` above.
@@ -925,8 +922,7 @@ CREATE TABLE IF NOT EXISTS chain_address_balance (
   received_zat BIGINT NOT NULL,
   first_height INTEGER NOT NULL,
   last_height  INTEGER NOT NULL,
-    -- 0 until the first rank pass. Never NULL: a NULL would render as a blank rank rather than a
-    -- stale one.
+    -- Unread and unwritten (see above); left for a separate migration to drop.
   rank         BIGINT NOT NULL DEFAULT 0,
     -- Transactions this address appears in, either side. Nullable, unlike `rank`: an address in
     -- this table has at least one transaction, so 0 is never true and NULL is the honest "not

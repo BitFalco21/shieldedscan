@@ -12,6 +12,9 @@ import { pageShareMetadata } from "@/lib/share-card";
 // `freshness-config.test.ts` classifies routes by scanning source text, comments included,
 // for the query-parameter prop name, so that word must not appear in this file even in prose.
 export const fetchCache = "force-no-store";
+// Rendered on request, never at build: with no dynamic read Next prerendered it, so an open
+// circuit breaker failed the deploy.
+export const dynamic = "force-dynamic";
 
 const description =
   "What one ZEC would be worth at the market capitalisation of every asset larger than Zcash.";

@@ -375,7 +375,7 @@ export const CHAIN_GROUP: ApiGroup = {
       path: "/v1/addresses/{address}",
       title: "One address",
       description:
-        "A transparent address answers with exact balances, its `rank` on the transparent rich list and the number of transactions it appears in, and the first and last block it appears in. `balanceZat` and `txCount` (every address, emptied ones too) are current; `rank` is as of `rankAsOfHeight`, the hourly refresh. A shielded or unified address answers 200 with an explanation and NO balance keys: its history is encrypted by the protocol, not hidden by this API. A unified address also lists its `receivers` (Orchard, Sapling, transparent), which are public because they are the address itself; which one a payment used is not.",
+        "A transparent address answers with exact balances, its `rank` on the transparent rich list and the number of transactions it appears in, and the first and last block it appears in. `balanceZat` and `txCount` (every address, emptied ones too) are current; `rank` is as of `rankAsOfHeight`, the height the rich list's balances cover. A shielded or unified address answers 200 with an explanation and NO balance keys: its history is encrypted by the protocol, not hidden by this API. A unified address also lists its `receivers` (Orchard, Sapling, transparent), which are public because they are the address itself; which one a payment used is not.",
       params: [
         {
           name: "address",

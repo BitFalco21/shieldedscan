@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { PageHeader } from "@/components/PageHeader";
 import { CHART_CATEGORIES, VISIBLE_CHARTS } from "@/features/charts/catalog";
 import { ChartLibrary } from "@/features/charts/ChartLibrary";
@@ -8,11 +8,10 @@ import { nowSeconds } from "@/lib/clock";
 import { loadChartData } from "@/app/_shared/load-chart-data";
 
 /**
- * Prerendered at 300 s. Every series here is day- or month-grain and its own fetch carries a
- * 300–900 s window. Declared explicitly because the build legend shows nothing for a window
- * inferred from fetches, and Next takes the minimum window across the route.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Every series here is day- or month-grain.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Charts",
@@ -30,7 +29,7 @@ export const metadata: Metadata = {
  */
 export default async function Page() {
   const data = await loadChartData(
-    getPrerenderedDataSource(),
+    getCachedDataSource(),
     VISIBLE_CHARTS.map((c) => c.slug),
   );
   const nowSec = nowSeconds();

@@ -273,18 +273,19 @@ function agentPool(
       if (sql.includes("address = ANY")) {
         if (labelled === null) throw new Error("labelled balances unavailable");
         return {
-          rows: labelled.items
-            .filter((item) => item.balanceZat > 0)
-            .map((item) => ({
-              address: item.address,
-              balance_zat: item.balanceZat,
-              rank: item.rank ?? 0,
-            })),
+          rows: [
+            {
+              computed_height: labelled.rankAsOfHeight,
+              items: labelled.items
+                .filter((item) => item.balanceZat > 0)
+                .map((item) => ({
+                  address: item.address,
+                  balanceZat: item.balanceZat,
+                  rank: item.rank,
+                })),
+            },
+          ],
         };
-      }
-      // Exactly the bare height read: the one-address standing below also names this table.
-      if (sql.includes("SELECT computed_height FROM chain_rich_list_meta")) {
-        return { rows: labelled === null ? [] : [{ computed_height: labelled.rankAsOfHeight }] };
       }
       /*
        * The series bounds. This branch must precede the page query below, since both name
@@ -351,8 +352,8 @@ function agentPool(
       }
       /*
        * One address's standing on the rich list, for `/v1/addresses/:addr`. `computed_height` is
-       * deliberately below the fixture tip of 3,429,000, because the hourly refresh always ranks as
-       * of a height behind the chain; a fixture using the tip would let the "quote rankAsOfHeight,
+       * deliberately below the fixture tip of 3,429,000, because the rich list covers a height behind
+       * the chain whenever ingestion trails the tip; a fixture using the tip would let the "quote rankAsOfHeight,
        * never the tip" rule pass against a payload where the two agree.
        *
        * A non-matching address returns the meta row with a null `matched` — the real shape of a
@@ -365,7 +366,7 @@ function agentPool(
           rows: [
             {
               matched: onList ? address : null,
-              rank: onList ? "4127" : null,
+              ahead: onList ? 4126 : null,
               tx_count: onList ? "812" : null,
               computed_height: 3_428_900,
             },
@@ -1617,8 +1618,8 @@ export function makeChain(
 
 /**
  * The rich-list summary, shaped as `/chain/rich-list/summary` serves it. `height` is below the
- * fixture tip because the hourly refresh always computes balances at a height behind the chain;
- * hiding that would leave the agent's note about it untested.
+ * fixture tip because the balances can trail the chain; hiding that would leave the agent's note
+ * about it untested.
  */
 /**
  * A page starting at rank 500, what `fromRank` seeks to. Different addresses, far smaller balances

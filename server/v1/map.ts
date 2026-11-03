@@ -718,7 +718,8 @@ export const LABELS_NOTICE =
  * The labelled addresses, domain → wire, in the label table's order.
  *
  * A null rank says why. With no balance the address is on no rich list (`nonexistent`, a
- * measurement); with a balance but no rank, the hourly pass has not ranked it yet (`unmeasured`).
+ * measurement); a balance without a rank would be our gap (`unmeasured`), which counting at read
+ * time no longer produces.
  */
 export function toLabels(
   balances: LabelledBalances,

@@ -74,10 +74,10 @@ function clientId(request: NextRequest): string | null {
 /**
  * The internal route a view query is served from, or null to serve the path as asked.
  *
- * `/shielded?view=shielded` is its own prerendered page at `/shielded/pools`. Reading `?view=`
- * on `/shielded` would make the page dynamic, and Netlify's CDN key ignores the query string, so
- * only a rewrite here, before the CDN, gives each view its own cache entry. Any other value is
- * the default (all-pools) view, as an unknown filter is everywhere on this site.
+ * `/shielded?view=shielded` is its own page at `/shielded/pools`. Netlify's CDN key ignores a
+ * query parameter nobody names in `Netlify-Vary`, so a rewrite here, before the CDN, gives each
+ * view its own cache entry without one. Any other value is the default (all-pools) view, as an
+ * unknown filter is everywhere on this site.
  */
 export function viewRewritePath(pathname: string, search: URLSearchParams): string | null {
   return pathname === "/shielded" && search.get("view") === "shielded" ? "/shielded/pools" : null;

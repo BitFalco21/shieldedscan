@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { nullIfTransient } from "@/lib/transient-upstream";
 
 /**
- * Prerendered at 60 s. Declared explicitly because Next takes the minimum revalidate window
- * across a route's fetches; the page reads through `getPrerenderedDataSource`, whose tip
- * window matches this.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Day- and month-grain series, each dated on
+ * the page.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Analytics",
@@ -18,17 +18,17 @@ export const metadata: Metadata = {
 
 /**
  * The series is a monthly aggregation over every block, the most expensive query on the
- * site. A slow upstream must not fail the whole build, so a transient failure renders
- * `DataUnavailable` and ISR replaces it on the next successful revalidation. Never fall back
- * to an empty series: a chart with no points claims Zcash has no history. Only transient
- * failures are caught; a version-skew shape error still breaks the build.
+ * site. A slow upstream must not fail the whole page, so a transient failure renders
+ * `DataUnavailable` and the next successful render replaces it. Never fall back to an empty
+ * series: a chart with no points claims Zcash has no history. Only transient failures are
+ * caught; a version-skew shape error still throws.
  */
 export default async function Page() {
   // Only the fetches are guarded: React renders JSX later, so a try around it catches nothing.
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   // Each optional read degrades on its own via `nullIfTransient`. The chain facts are cheap,
-  // node-backed and required, so they stay unguarded. One round trip, because a prerendered
-  // page's regeneration time is billed by the wall clock.
+  // node-backed and required, so they stay unguarded. One round trip, because a render's
+  // time is billed by the wall clock.
   const [series, chain, activity, fees24h, flow, feeDistribution, days, flowDays, feesDaily] =
     await Promise.all([
       nullIfTransient(() => data.getMonthlySeries()),

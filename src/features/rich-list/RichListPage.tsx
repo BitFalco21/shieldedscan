@@ -315,7 +315,7 @@ export function RichListPage({
 
       <p className="mt-3 text-xs leading-relaxed text-ink-faint">
         Every share is of the transparent total above. Balances are every output to an address minus
-        every input from it, computed hourly from this site&apos;s own chain index.{" "}
+        every input from it, from this site&apos;s own chain index.{" "}
         {formatZecBalance(summary.unattributedZat)} sits in outputs naming no single address and is
         excluded.
       </p>

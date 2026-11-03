@@ -107,7 +107,7 @@ export const RICH_LIST_GROUP: ApiGroup = {
       notes: [
         'A name is someone\'s claim about a real company or person, not a chain fact. `source` says whose, and `basis: "external"` that this explorer repeats it without verifying it. The `notice` on every response says the same, so the names never travel without it.',
         "A label covers exactly its address. Never extend it to an address that sent to or received from a labelled one, and never total a label's addresses as one owner's holdings without saying they are the labelled addresses only.",
-        "`balanceZat` is current and transparent only; `rank` is as of `rankHeight`, the hourly rich list, never the tip. A null rank carries its reason: `nonexistent` means the address holds nothing, `unmeasured` that it has not been ranked yet.",
+        "`balanceZat` is current and transparent only; `rank` is as of `rankHeight`, the height the rich list's balances cover, never the tip. A null rank carries its reason: `nonexistent` means the address holds nothing, `unmeasured` that the list could not be read.",
       ],
       toolNotes: ["Third-party names, not verified here; one label, one address."],
     },

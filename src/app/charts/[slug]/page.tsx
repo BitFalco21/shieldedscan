@@ -1,21 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { CopyButton } from "@/components/CopyButton";
 import Link from "@/components/Link";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { ChartCard } from "@/features/charts/ChartCard";
 import { ChartFigure } from "@/features/charts/ChartFigure";
-import { VISIBLE_CHARTS, chartBySlug, relatedCharts } from "@/features/charts/catalog";
+import { chartBySlug, relatedCharts } from "@/features/charts/catalog";
 import { chartPreview } from "@/features/charts/chart-preview";
 import { nowSeconds } from "@/lib/clock";
 import { chartDataFor, loadChartData } from "@/app/_shared/load-chart-data";
 import { apiBaseUrl } from "@/lib/site";
-
-export function generateStaticParams() {
-  return VISIBLE_CHARTS.map((c) => ({ slug: c.slug }));
-}
 
 export async function generateMetadata({
   params,
@@ -29,19 +25,18 @@ export async function generateMetadata({
 }
 
 /**
- * Prerendered at 3600 s. Without a route-level window, `/charts/price` would never
- * revalidate: its price map is a bare fetch carrying none. Other slugs keep their fetches'
- * shorter windows, since Next takes the minimum across the route; this is a ceiling. Declared
- * explicitly because the build legend shows nothing for a window inferred from fetches.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Every slug is rendered on first request;
+ * an unknown one 404s.
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 /**
  * One chart, full width, with its frame: what is measured, from where, and the way a reader
  * is most likely to misread it. Then where to fetch the same data, and what to read next.
  *
- * The range is read from `?range=` on the client (`ChartFigure detail`), so the page stays
- * prerendered while a shared link still opens on the range its sender chose.
+ * The range is read from `?range=` on the client (`ChartFigure detail`), so one cached render
+ * serves every range while a shared link still opens on the range its sender chose.
  *
  * No loading.tsx may sit above this route: it calls notFound(), and a Suspense boundary
  * would commit a 200 before the check runs.
@@ -51,7 +46,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const chart = chartBySlug(slug);
   if (!chart) notFound();
   const related = relatedCharts(chart.slug);
-  const data = await loadChartData(getPrerenderedDataSource(), [
+  const data = await loadChartData(getCachedDataSource(), [
     chart.slug,
     ...related.map((c) => c.slug),
   ]);

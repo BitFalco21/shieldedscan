@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DataUnavailable } from "@/components/DataUnavailable";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { UpgradePage } from "@/features/network/upgrade/UpgradePage";
 import { isTestnet } from "@/lib/network";
 import { readNetworkShell } from "../shell-data";
@@ -9,8 +9,12 @@ import { NetworkTabPage } from "../NetworkTabPage";
 import { nullIfTransient } from "@/lib/transient-upstream";
 import { networkShareMetadata } from "@/features/network/net-share";
 
-/** Prerendered with a short revalidate; see the map route for the reasoning. */
-export const revalidate = 60;
+/**
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. See the map route for why a cached copy is
+ * safe.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "NU7 readiness",
@@ -21,7 +25,7 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   if (isTestnet) notFound();
-  const data = getPrerenderedDataSource();
+  const data = getCachedDataSource();
   const [shell, releases] = await Promise.all([
     readNetworkShell(data),
     nullIfTransient(() => data.getNetworkReleases()),

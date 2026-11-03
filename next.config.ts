@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { EDGE_CACHE_POLICIES, edgeCacheHeaders } from "./src/lib/edge-cache";
 import { securityHeaders } from "./src/lib/security-headers";
 
 /**
@@ -26,6 +27,11 @@ const nextConfig: NextConfig = {
             process.env.NEXT_PUBLIC_NETWORK !== "testnet",
         ),
       },
+      // After the security headers, which they add to rather than replace.
+      ...EDGE_CACHE_POLICIES.map((policy) => ({
+        source: policy.source,
+        headers: edgeCacheHeaders(policy),
+      })),
     ];
   },
 };

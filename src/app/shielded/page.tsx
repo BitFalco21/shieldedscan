@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { getPrerenderedDataSource } from "@/data";
+import { getCachedDataSource } from "@/data";
 import { AllPoolsPage } from "@/features/shielded/AllPoolsPage";
 
 /**
- * Prerendered at 60 s and warmed every two minutes, like the shielded-pools view; the page
- * prints the block it was read at and a live layer polls `/api/supply` on top. Declared
- * explicitly because Next takes the minimum window across the route, and the page reads through
- * `getPrerenderedDataSource`, whose tip window matches this.
+ * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
+ * (`lib/edge-cache.ts`) shares one render among readers. Warmed every two minutes, like the
+ * shielded-pools view; the page prints the block it was read at and a live layer polls
+ * `/api/supply` on top.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "All Pools",
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
  * No fallback for an outage: without it there is no figure to show, and the error boundary says so.
  */
 export default async function Page() {
-  return <AllPoolsPage supply={await getPrerenderedDataSource().getSupplyBreakdown()} />;
+  return <AllPoolsPage supply={await getCachedDataSource().getSupplyBreakdown()} />;
 }

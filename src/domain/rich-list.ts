@@ -16,7 +16,7 @@
  */
 
 export interface RichListEntry {
-  /** Rank by balance, computed once when the view is built so it cannot disagree with it. */
+  /** Rank by balance, counted in the read that returns the balance, so the two cannot disagree. */
   rank: number;
   address: string;
   balanceZat: number;
@@ -44,8 +44,7 @@ export interface DistributionBand {
 
 export interface RichListSummary {
   /**
-   * The height the balances cover, captured when the view was refreshed, never the live tip.
-   * The refresh is hourly, so the two differ.
+   * The height the balances cover, never the live tip: the two differ whenever ingestion trails.
    */
   height: number;
   /** Addresses holding more than nothing. */
@@ -91,13 +90,13 @@ export interface LabelledBalance {
    * measurement: the index keeps a row only while the balance is positive.
    */
   balanceZat: number;
-  /** Place on the transparent rich list as of `rankAsOfHeight`. Null when the address holds nothing or ranking has not run. */
+  /** Place on the transparent rich list as of `rankAsOfHeight`. Null when the address holds nothing. */
   rank: number | null;
 }
 
 /** Every labelled address, in `ADDRESS_LABELS` order, with the height the ranks are as of. */
 export interface LabelledBalances {
-  /** The height the hourly rich-list pass ranked at, never the tip. 0 when it has never run. */
+  /** The height of the balances the ranks were counted among, never the tip. 0 when never built. */
   rankAsOfHeight: number;
   items: LabelledBalance[];
 }

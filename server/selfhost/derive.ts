@@ -41,8 +41,8 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
   const store = new PostgresChainStore(pool, { maintainRichList: false, trackSyncState: false });
 
   await once(pool, "rich-list", log, async () => {
-    // Balances, received totals, first/last heights and transaction counts in one aggregate, then
-    // the ranks; `repair-tx-count` exists for rows made before `tx_count` did, and has none here.
+    // Balances, received totals, first/last heights and transaction counts in one aggregate;
+    // `repair-tx-count` exists for rows made before `tx_count` did, and has none here.
     await store.bootstrapRichList();
     const { rows } = await pool.query<{ computed_height: number; io_top: number | null }>(
       `SELECT m.computed_height,

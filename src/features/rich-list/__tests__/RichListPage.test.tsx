@@ -39,7 +39,7 @@ describe("the figures", () => {
   });
 
   it("prints the height the balances were computed at", () => {
-    // The view refreshes hourly. Naming the height makes that staleness visible.
+    // The balances can trail the tip. Naming the height makes that visible.
     renderAt();
     expect(screen.getByText(/at block 3,445,548/)).toBeDefined();
   });
