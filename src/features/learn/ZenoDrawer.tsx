@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import type { Ref } from "react";
 import { AgentComposer } from "@/features/agent/AgentComposer";
-import { AgentExchange } from "@/features/agent/AgentExchange";
 import type { useZenoConversation } from "@/features/agent/use-zeno-conversation";
 import { ZenoDisclosures } from "@/features/agent/ZenoDisclosures";
 import { ZenoLive } from "@/features/agent/ZenoLive";
-
-/** Room left above a settled turn's question, so it does not sit flush against the header. */
-const LAST_TURN_MARGIN_PX = 12;
+import { ZenoTranscript } from "@/features/agent/ZenoTranscript";
 
 export interface ZenoDrawerProps {
   /** Focused when a page button asks a question, so a keyboard reader lands where the answer is. */
@@ -38,32 +34,10 @@ export function ZenoDrawer({ ref, open, onClose, conversation }: ZenoDrawerProps
     zenoTurn,
     send,
     stop,
-    askAgain,
     beginEdit,
     cancelEdit,
     clearConversation,
   } = conversation;
-  const paneRef = useRef<HTMLDivElement>(null);
-  const lastIndex = exchanges.length - 1;
-
-  // While a turn runs, follow its steps down the pane, as the console does. Once it settles, start
-  // the reader at the turn's question: the answer is drawn whole at the end, and in a pane this
-  // narrow it is nearly always taller than the pane — following it to its foot would open the
-  // answer on its sources, with the beginning scrolled out of sight above.
-  useEffect(() => {
-    const pane = paneRef.current;
-    if (pane === null || exchanges.length === 0) return;
-    if (busy) {
-      pane.scrollTop = pane.scrollHeight;
-      return;
-    }
-    const turns = pane.querySelectorAll(":scope > div > article");
-    const last = turns[turns.length - 1];
-    if (last === undefined) return;
-    const offset = last.getBoundingClientRect().top - pane.getBoundingClientRect().top;
-    pane.scrollTop += offset - LAST_TURN_MARGIN_PX;
-  }, [exchanges, busy]);
-
   return (
     <aside
       ref={ref}
@@ -104,30 +78,16 @@ export function ZenoDrawer({ ref, open, onClose, conversation }: ZenoDrawerProps
         </button>
       </header>
 
-      <div ref={paneRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        {exchanges.length === 0 ? (
+      <ZenoTranscript
+        conversation={conversation}
+        className="px-4 py-4"
+        empty={
           <p className="text-sm leading-relaxed text-ink-dim">
             Ask about anything on this page: what shielding does, why exchanges want a t1 address,
             what a viewing key can see.
           </p>
-        ) : (
-          <div aria-live="polite" className="space-y-6">
-            {exchanges.map((exchange, i) => (
-              <AgentExchange
-                key={exchange.id}
-                exchange={exchange}
-                live={busy && i === lastIndex}
-                editable={i === lastIndex && heldForEdit === null}
-                busy={busy}
-                retryable={!busy && i === lastIndex && heldForEdit === null && exchange.retryable}
-                separated={i > 0}
-                onEdit={beginEdit}
-                onAskAgain={askAgain}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+        }
+      />
 
       <div className="flex-none border-t border-edge-faint pt-3 lg:px-4 lg:pb-3">
         <AgentComposer
