@@ -9,6 +9,7 @@ import { PostgresFxRates } from "../fx-rates";
 import type { createNetmapReader } from "../netmap/snapshot";
 import { createPool } from "../pg-pool";
 import { V1_ADDRESS_WINDOW_PATHS, v1AddressWindowRoutes } from "../v1/address-windows";
+import { V1_ADDRESS_EXPORT_PATH, v1AddressExportRoutes } from "../v1/export/address-route";
 import { V1_SERIES_PATHS, v1SeriesRoutes } from "../v1/analytics-series";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../v1/miners";
 import { V1_MINING_PATH, v1MiningRoutes } from "../v1/mining";
@@ -136,6 +137,21 @@ function v1Extensions(
         }),
       }),
       endpoints: V1_ADDRESS_WINDOW_PATHS,
+    });
+  }
+  // An address's whole history as a file: the tip and count on the core pool, the walk on two
+  // connections of its own with 10 s per batch, a caller waiting at most 5 s for one.
+  if (PUBLIC_API_ENABLED && USE_POSTGRES && !IS_TESTNET && v1Pool) {
+    out.push({
+      routes: v1AddressExportRoutes({
+        pool: v1Pool,
+        walkPool: createPool(DATABASE_URL, {
+          max: 2,
+          statement_timeout: 10_000,
+          connectionTimeoutMillis: 5_000,
+        }),
+      }),
+      endpoints: [V1_ADDRESS_EXPORT_PATH],
     });
   }
   // Who mined a window, from the per-day table the primary's tracker keeps: a sum over day rows,

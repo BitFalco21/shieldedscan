@@ -75,6 +75,24 @@ export const API_RATE_LIMITS: ApiRateLimitRow[] = [
     note: "Shared by everyone for those two endpoints; when it is busy the answer is a 503 with a retry hint.",
   },
   {
+    scope: "Address export, per IP, burst",
+    limit: "1 request",
+    window: "1 second",
+    note: "For /v1/addresses/{address}/export, which walks an address's whole history.",
+  },
+  {
+    scope: "Address export, per IP, sustained",
+    limit: "5 requests",
+    window: "1 minute",
+    note: "A file is complete when it arrives; there is no reason to ask twice.",
+  },
+  {
+    scope: "Address export, all callers",
+    limit: "60 requests",
+    window: "1 minute",
+    note: "Two exports run at a time; past that the answer is a 503 with a retry hint.",
+  },
+  {
     scope: "MCP, per IP, burst",
     limit: "20 requests",
     window: "1 second",
@@ -108,6 +126,6 @@ export const API_RATE_LIMITS: ApiRateLimitRow[] = [
     scope: "Per day",
     limit: "none — deliberately",
     window: "—",
-    note: "A daily per-IP counter means remembering your IP for 24 hours. Counters live in memory with 60-second windows; the arithmetic bound is ~432,000/day per IP. If you need the whole dataset, ask for a dump instead of polling.",
+    note: "A daily per-IP counter means remembering your IP for 24 hours. Counters live in memory with 60-second windows; the arithmetic bound is ~432,000/day per IP. If you need the whole dataset, use the open dataset instead of polling.",
   },
 ];

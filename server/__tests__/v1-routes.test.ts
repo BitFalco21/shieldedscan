@@ -12,6 +12,7 @@ import type { BlockRowsReader } from "../block-list";
 import type { ChainIndexStore } from "../chain-index-store";
 import { MemoryStorePort } from "../crosschain-store";
 import { V1_ADDRESS_WINDOW_REGEXP } from "../v1/address-windows";
+import { V1_ADDRESS_EXPORT_REGEXP } from "../v1/export/address-route";
 import { type V1ChainPort, v1Routes } from "../v1/routes";
 import { ByteBudget } from "../v1/byte-budget";
 import { LABELS_NOTICE } from "../v1/map";
@@ -1638,6 +1639,20 @@ describe("the descriptor's rate limits match the Caddyfile", () => {
     expect(zone("v1_blocks_global").window).toBe("1m");
     const blockMatcher = caddyfile.match(/@v1_block_list path ([^\n]+)/);
     expect(blockMatcher?.[1]?.trim().split(/\s+/).sort()).toEqual([...bl.appliesTo].sort());
+    // The address export: its own zones, and the route's own copy of the matcher.
+    const ae = rl.addressExport;
+    expect(ae.perIpBurst.events).toBe(zone("v1_address_export_burst").events);
+    expect(zone("v1_address_export_burst").window).toBe("1s");
+    expect(ae.perIpSustained.events).toBe(zone("v1_address_export_ip").events);
+    expect(zone("v1_address_export_ip").window).toBe("1m");
+    expect(ae.globalCeiling.events).toBe(zone("v1_address_export_global").events);
+    expect(zone("v1_address_export_global").window).toBe("1m");
+    const exportRe = caddyfile.match(/@v1_address_export path_regexp (\S+)/)?.[1];
+    expect(exportRe).toBe(V1_ADDRESS_EXPORT_REGEXP);
+    const ex = new RegExp(exportRe!);
+    expect(ex.test(ae.appliesTo[0].replace("{address}", "t1abc"))).toBe(true);
+    expect(ex.test("/v1/addresses/t1abc/transactions")).toBe(false);
+    expect(rx.test("/v1/addresses/t1abc/export")).toBe(false);
     expect(rl.perDay).toBeNull();
   });
 
@@ -1711,6 +1726,20 @@ describe("the descriptor's rate limits match the Caddyfile", () => {
     ] as const) {
       expect(events(scope), `${scope} events`).toBe(bl[key]!.events);
       expect(seconds(scope), `${scope} window`).toBe(bl[key]!.windowSeconds);
+    }
+    const ae = (
+      body.rateLimit as unknown as Record<
+        string,
+        Record<string, { events: number; windowSeconds: number }>
+      >
+    ).addressExport!;
+    for (const [scope, key] of [
+      ["address export, per ip, burst", "perIpBurst"],
+      ["address export, per ip, sustained", "perIpSustained"],
+      ["address export, all callers", "globalCeiling"],
+    ] as const) {
+      expect(events(scope), `${scope} events`).toBe(ae[key]!.events);
+      expect(seconds(scope), `${scope} window`).toBe(ae[key]!.windowSeconds);
     }
     // `perDay: null` is a privacy decision (no per-caller accounting), so the docs table must keep
     // saying "none".

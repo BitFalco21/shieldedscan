@@ -44,7 +44,13 @@ curl ${API_BASE_URL}/v1/supply/circulating
 curl ${API_BASE_URL}/v1/network/fees
 
 # Recent cross-chain transfers, keyset-paginated
-curl "${API_BASE_URL}/v1/crosschain/transfers?limit=5"`,
+curl "${API_BASE_URL}/v1/crosschain/transfers?limit=5"
+
+# Monthly shielded pool balances as a CSV file
+curl -fo pools.csv "${API_BASE_URL}/v1/analytics/pools?format=csv"
+
+# One address's whole history as a CSV file
+curl -fo history.csv "${API_BASE_URL}/v1/addresses/t1a7HnBdsBSvkGZQXD5vPYqoWRvnpG555Jy/export"`,
   },
   {
     language: "MCP",

@@ -28,6 +28,8 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   "transaction-detail": { tool: "lookup_transaction" },
   address: { tool: "lookup_address" },
   "address-transactions": { tool: "lookup_address" },
+  // The same history as a file; Zeno pages it through lookup_address until it can hand out files.
+  "address-export": { tool: "lookup_address" },
   "address-activity": { tool: "lookup_address" },
   "address-extremes": { tool: "lookup_address" },
   // The search classifier routes an identifier to its lookup; there is nothing else to search.

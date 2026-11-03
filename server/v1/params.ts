@@ -1,6 +1,7 @@
 import { POOL_NAMES, isOneOf, parseUtcDayStart, type PoolName } from "@/domain";
 import { DAY_SECONDS } from "@/domain/time";
 import type { CacheClass } from "./http";
+import { EXPORT_PARAM } from "./export/policy";
 
 /**
  * Query parsing shared across `/v1`. Every parameter is strict: a value this API cannot read is a
@@ -37,9 +38,17 @@ export function acceptedParams(allowed: readonly string[]): string {
   return allowed.length === 0 ? "none" : allowed.join(", ");
 }
 
+/**
+ * Whether a supplied parameter is outside `allowed`. `format` is never: the export layer in front
+ * of every `/v1` route has already answered it (a file, or a 400 saying why not).
+ */
+export function isUnknownParam(key: string, allowed: readonly string[]): boolean {
+  return key !== EXPORT_PARAM && !allowed.includes(key);
+}
+
 /** A 400 for any query parameter outside `allowed`, so a typo can never widen an answer. */
 export function rejectUnknown(query: Record<string, string>, allowed: readonly string[]): void {
-  const unknown = Object.keys(query).filter((k) => !allowed.includes(k));
+  const unknown = Object.keys(query).filter((k) => isUnknownParam(k, allowed));
   if (unknown.length > 0) {
     throw new ParamError(
       "unknown_parameter",
