@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
+import { CHART_CASES, chartFor } from "./agent-chart-cases";
 import { SHIELDED_TXID, TIP_HEIGHT, TRANSPARENT_ADDR } from "./surface";
 
 /**
@@ -223,6 +224,64 @@ test.describe("Zeno's bubble", () => {
     await expect(panel(page)).toHaveCount(0);
     await expect(page.getByText("what happened in the latest block?")).toBeVisible();
     await expect(page.getByText("Two transactions.")).toBeVisible();
+  });
+
+  /** One stubbed answer carrying a chart, the way the agent streams it. */
+  async function stubChart(page: Page): Promise<void> {
+    const chart = await chartFor(CHART_CASES[0]!);
+    await page.route("**/agent/ask", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: [
+          sse("delta", { text: "Charted from the explorer's own series." }),
+          sse("chart", chart),
+          sse("done", { stopReason: "complete" }),
+        ].join(""),
+      }),
+    );
+  }
+
+  /** Elements of the panel that reach past its own edges: a chart too wide for the narrow panel. */
+  const escapedPanel = (page: Page) =>
+    panel(page).evaluate((root) => {
+      const box = root.getBoundingClientRect();
+      return Array.from(root.querySelectorAll("*"))
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && (r.right > box.right + 0.5 || r.left < box.left - 0.5);
+        })
+        .map((el) => `${el.tagName.toLowerCase()} "${(el.textContent ?? "").slice(0, 30)}"`);
+    });
+
+  test("draws a chart inside the panel, and ↗ carries it to the console", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await stubChart(page);
+    await page.goto("/blocks");
+    await bubble(page).click();
+    await box(page).fill("chart it");
+    await box(page).press("Enter");
+    await expect(panel(page).locator("figure svg[role=img]")).toBeVisible();
+    expect(await escapedPanel(page)).toEqual([]);
+
+    await panel(page).getByRole("link", { name: "Continue in the full Zeno page" }).click();
+    await expect(page).toHaveURL(/\/ai-agent$/);
+    await expect(page.locator("figure svg[role=img]")).toBeVisible();
+  });
+
+  test("draws a chart inside the phone sheet without widening the page", async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await stubChart(page);
+    await page.goto("/blocks");
+    await bubble(page).click();
+    await box(page).fill("chart it");
+    await box(page).press("Enter");
+    await expect(panel(page).locator("figure svg[role=img]")).toBeVisible();
+    expect(await escapedPanel(page)).toEqual([]);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test("does not take focus back from the page when an answer lands", async ({ page }) => {
