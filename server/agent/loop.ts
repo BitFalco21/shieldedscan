@@ -13,11 +13,19 @@ import {
 import type { ChatMessage, ChatStreamer, CompletionParams, StreamEvent } from "./chat-client";
 import type { AskPage } from "./ask-pages";
 import { pageContext } from "./page-context";
-import { SYSTEM_PROMPT, SYSTEM_PROMPT_WITHOUT_CHARTS, turnContext } from "./prompt";
+import { systemPromptFor, turnContext } from "./prompt";
 import { resolveProvider } from "./provider";
 import { describeToolCall, sourceLinkFor, type AgentTools, type SourceLink } from "./tools";
 import { refusalResult } from "./tools/chart-refusal";
-import { chartKey, MAX_CHARTS_PER_ANSWER, type PlottedChart } from "@/domain";
+import { exportRefusalResult } from "./tools/export-refusal";
+import {
+  chartKey,
+  exportKey,
+  MAX_CHARTS_PER_ANSWER,
+  MAX_EXPORTS_PER_ANSWER,
+  type DataExportCard,
+  type PlottedChart,
+} from "@/domain";
 
 /**
  * The bounded tool loop: model → tools → model, with hard ceilings on everything that could
@@ -104,6 +112,12 @@ export type AgentEvent =
    * explorer's data, never written by the model. An older console drops it as unknown.
    */
   | { event: "chart"; data: PlottedChart }
+  /**
+   * A data file for the reader, emitted after the charts, before `sources`. Its only origin is an
+   * `export_data` result (`ToolResult.export`): a `/v1` path from the export registry and what the
+   * API answered for it in-process, never anything the model wrote. An older console drops it.
+   */
+  | { event: "export"; data: DataExportCard }
   | {
       event: "done";
       data: {
@@ -285,8 +299,11 @@ export async function* runAgentTurn(
 ): AsyncGenerator<AgentEvent> {
   const leading: ChatMessage[] = [
     // System prompt first: fixed content leads the array so prompt caching covers it.
-    // Without the chart tool, the prompt has no chart section to point at a tool that is not there.
-    { role: "system", content: deps.tools.charts ? SYSTEM_PROMPT : SYSTEM_PROMPT_WITHOUT_CHARTS },
+    // Without a tool, the prompt has no section pointing at a tool that is not there.
+    {
+      role: "system",
+      content: systemPromptFor({ charts: deps.tools.charts, exports: deps.tools.exports }),
+    },
     // The calendar, second and separate (see `turnContext`): it changes every day, so folding it into
     // `SYSTEM_PROMPT` would break the cached prefix and put a volatile value in a constant that must
     // hold none.
@@ -318,6 +335,13 @@ export async function* runAgentTurn(
    * that is not one (`unansweredEnding` emits none).
    */
   const charts: PlottedChart[] = [];
+  /** Files the turn's `export_data` calls offered, held to the end like charts. */
+  const exports: DataExportCard[] = [];
+  /*
+   * What the reader typed, for the one tool that must tell an argument the reader gave from one the
+   * model found in data. The raw turns, before `prepareHistory` adds anything of ours.
+   */
+  const userText = history.flatMap((m) => (m.role === "user" ? [m.content] : [])).join("\n");
   /*
    * Whether this turn is answering a question about the API, which changes what counts as our
    * plumbing leaking. Once `site_guide` has run, "the payload" is the ordinary word for the thing
@@ -474,7 +498,7 @@ export async function* runAgentTurn(
         // observer.
         deps.onRawText?.(split.answer);
         const body = sanitizer.push(split.answer) + sanitizer.flush();
-        yield* finishTurn(body, endpoints, answeredStopReason(final), charts);
+        yield* finishTurn(body, endpoints, answeredStopReason(final), charts, exports);
         return;
       }
       /*
@@ -531,7 +555,7 @@ export async function* runAgentTurn(
         yield* unansweredEnding(dedupeSources(endpoints));
         return;
       }
-      yield* finishTurn(sanitizer.flush(), endpoints, answeredStopReason(final), charts);
+      yield* finishTurn(sanitizer.flush(), endpoints, answeredStopReason(final), charts, exports);
       return;
     }
 
@@ -607,12 +631,29 @@ export async function* runAgentTurn(
         });
         continue;
       }
-      const result = await deps.tools.dispatch(toolCall.name, toolCall.arguments);
+      // The same for files: two per answer, the third refused before anything is read.
+      if (toolCall.name === "export_data" && exports.length >= MAX_EXPORTS_PER_ANSWER) {
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: exportRefusalResult({
+            reason: "export-limit",
+            message: `this answer already offers ${MAX_EXPORTS_PER_ANSWER} files, the most one answer carries — answer with them`,
+          }).content,
+        });
+        continue;
+      }
+      const result = await deps.tools.dispatch(toolCall.name, toolCall.arguments, userText);
       endpoints.push(...result.endpoints);
       // The same chart asked twice, however it was spelled, is shown once.
       const drawn = result.chart;
       if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
         charts.push(drawn);
+      }
+      // And the same file: one card per call it names.
+      const offered = result.export;
+      if (offered !== undefined && !exports.some((e) => exportKey(e) === exportKey(offered))) {
+        exports.push(offered);
       }
       messages.push({ role: "tool", tool_call_id: toolCall.id, content: result.content });
     }
@@ -635,7 +676,7 @@ export async function* runAgentTurn(
   }
 
   // A model that keeps demanding tools it no longer has. Stop it rather than loop.
-  yield* finishTurn(sanitizer.flush(), endpoints, "tool-limit", charts);
+  yield* finishTurn(sanitizer.flush(), endpoints, "tool-limit", charts, exports);
 }
 
 type StopReason = Extract<AgentEvent, { event: "done" }>["data"]["stopReason"];
@@ -645,15 +686,20 @@ function answeredStopReason(final: Extract<StreamEvent, { type: "done" }> | null
   return final?.finishReason === "length" ? "length" : "complete";
 }
 
-/** The end of every answered turn: the answer's last text, its charts, its sources, then `done`. */
+/**
+ * The end of every answered turn: the answer's last text, its charts, its files, its sources, then
+ * `done`.
+ */
 function* finishTurn(
   tail: string,
   endpoints: readonly string[],
   stopReason: StopReason,
   charts: readonly PlottedChart[],
+  exports: readonly DataExportCard[],
 ): Generator<AgentEvent> {
   if (tail !== "") yield { event: "delta", data: { text: tail } };
   for (const chart of charts) yield { event: "chart", data: chart };
+  for (const file of exports) yield { event: "export", data: file };
   yield { event: "sources", data: { sources: dedupeSources(endpoints) } };
   yield { event: "done", data: { stopReason } };
 }

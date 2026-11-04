@@ -6,6 +6,8 @@ import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { ZIP_INDEX_PATH } from "../../zips-routes";
 import { referenceSource } from "../reference";
 import { CHART_PAGE_SOURCE } from "./chart-refusal";
+import { OPEN_DATASET_SOURCE } from "./export-refusal";
+import { OPEN_DATASET_URL } from "../../v1/export/open-dataset";
 import { asRecord } from "./json";
 import type { ToolName } from "./names";
 import {
@@ -108,6 +110,17 @@ export const SUBJECT_PARTS: Record<ToolName, readonly SubjectPart[]> = {
     { key: "from" },
     { key: "to", prefix: "to" },
     { key: "scale" },
+  ],
+  // What is about to be offered as a file: the family, its first parameter and the window.
+  export_data: [
+    { key: "family" },
+    { key: "pool" },
+    { key: "metric" },
+    { key: "address" },
+    { key: "block", prefix: "block" },
+    { key: "range" },
+    { key: "from" },
+    { key: "to", prefix: "to" },
   ],
 };
 
@@ -262,6 +275,11 @@ export function sourceLinkFor(endpoint: string): SourceLink | null {
    * neighbour, that neighbour is fetched and brings its own citation.
    */
   if (endpoint === COVERAGE_SOURCE) return null;
+  /*
+   * A file too large for one request cites the open dataset, where every row is: the reader gets
+   * the link beneath the answer, so the model never writes one.
+   */
+  if (endpoint === OPEN_DATASET_SOURCE) return { label: "open dataset", href: OPEN_DATASET_URL };
   if (endpoint === API_DOCS_SOURCE) return { label: "API reference", href: "/api-docs" };
   /*
    * 'privacy' cites the page: the answer summarises a legal document that is one click away, and every

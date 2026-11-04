@@ -361,6 +361,11 @@ function agentPool(
        * A non-matching address returns the meta row with a null `matched` — the real shape of a
        * LEFT JOIN miss, and the input that produces `unknowns.rank = "nonexistent"`.
        */
+      /*
+       * The exact per-address count's progress. No row: the table has not caught up, the shape that
+       * sends `lifetimeTxCount` to the rich list's count below, as during a backfill.
+       */
+      if (sql.includes("address_tx_count_state")) return { rows: [] };
       if (sql.includes("chain_address_balance")) {
         const [address] = params as [string];
         const onList = address === ADDRESS_INFO.address;

@@ -18,6 +18,7 @@ import { ADDRESS_WINDOW } from "./address-window";
 import { ROADMAP } from "./roadmap";
 import { PUBLISHED_SERIES } from "./published-series";
 import { CHARTS } from "./charts";
+import { EXPORTS_CASES } from "./exports";
 
 /**
  * The eval corpus. Nothing is logged, so there are no user transcripts to learn from: the corpus is
@@ -53,6 +54,7 @@ export const ALL_CASES: readonly EvalCase[] = [
   ...ROADMAP,
   ...PUBLISHED_SERIES,
   ...CHARTS,
+  ...EXPORTS_CASES,
 ];
 
 export type { EvalCase } from "./types";

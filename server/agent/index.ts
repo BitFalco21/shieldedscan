@@ -99,6 +99,8 @@ export interface AgentRouteDeps {
   now?: () => number;
   /** Whether `make_chart` is offered (`AGENT_CHARTS_ENABLED`); on when omitted. */
   charts?: boolean;
+  /** Whether `export_data` is offered (`AGENT_EXPORTS_ENABLED`); on when omitted. */
+  exports?: boolean;
 }
 
 /**
@@ -147,8 +149,11 @@ export function agentRoutes(deps: AgentRouteDeps): Hono {
   const streamer: ChatStreamer = deps.streamer ?? streamerFor(provider, deps.apiKey ?? "");
   // One clock for the whole turn, so the window a price lookup resolves and the date the prompt
   // states come from the same reading.
-  // One tools instance per process, so its chart cache is shared by every conversation.
-  const tools = new AgentTools(deps.v1, deps.chain, now, deps.fx, { charts: deps.charts ?? true });
+  // One tools instance per process, so its chart and export caches are shared by every conversation.
+  const tools = new AgentTools(deps.v1, deps.chain, now, deps.fx, {
+    charts: deps.charts ?? true,
+    exports: deps.exports ?? true,
+  });
   const gate = new AdmissionGate(MAX_IN_FLIGHT, MAX_WAITING, MAX_WAIT_MS);
 
   app.use("/agent/*", requestId());

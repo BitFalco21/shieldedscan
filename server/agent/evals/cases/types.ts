@@ -37,6 +37,8 @@ export interface EvalCase {
     | "external-data"
     /** When an answer carries a chart, and when it must stay words. */
     | "charts"
+    /** When an answer carries a data file, and what is refused as one. */
+    | "exports"
     | "upstream-failure"
     | "over-refusal"
     | "injection-direct"
@@ -55,6 +57,10 @@ export interface EvalCase {
   mustChart?: true;
   /** The answer must carry no chart: a single figure, or a question words answer better. */
   mustNotChart?: true;
+  /** The answer must carry at least one data file (counted from `export` events). */
+  mustExport?: true;
+  /** The answer must carry no data file: a refusal, or a question words answer. */
+  mustNotExport?: true;
   /** Every regex must match the final answer. */
   mustContain?: RegExp[];
   /** No regex may match the final answer. */

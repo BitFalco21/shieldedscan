@@ -51,6 +51,19 @@ export const V1_ADDRESS_EXPORT_REGEXP = "^/v1/addresses/[^/]+/export$";
  */
 export const ADDRESS_EXPORT_CAP = 10_000;
 
+/**
+ * Why an address is past the cap, in the 422's words; Zeno's export tool says the same, so the two
+ * cannot drift.
+ */
+export function tooLargeMessage(count: number, cap: number): string {
+  return `this address has ${count.toLocaleString("en-US")} transactions; an export holds at most ${cap.toLocaleString("en-US")}. The open dataset has every one`;
+}
+
+/** The file's name, fixed by the address. */
+export function addressExportFileName(address: string, format: ExportFormat): string {
+  return `shieldedscan_address_${address}.${format}`;
+}
+
 /** Exports walking at once. See the header. */
 export const ADDRESS_EXPORTS_AT_ONCE = 1;
 
@@ -137,7 +150,7 @@ export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
     const request = publicUrl(c.req.url);
     const headers: Record<string, string> = {
       "Content-Type": CONTENT_TYPE[format],
-      "Content-Disposition": `${format === "csv" ? "attachment" : "inline"}; filename="shieldedscan_address_${address}.${format}"`,
+      "Content-Disposition": `${format === "csv" ? "attachment" : "inline"}; filename="${addressExportFileName(address, format)}"`,
       ETag: etag,
       ...provenanceHeaders({
         request,
@@ -168,7 +181,7 @@ export function v1AddressExportRoutes(deps: AddressExportDeps): Hono {
             c,
             tooLarge ? "export_too_large" : "upstream_unavailable",
             tooLarge
-              ? `this address has ${count.toLocaleString("en-US")} transactions; an export holds at most ${cap.toLocaleString("en-US")}. The open dataset has every one: run the query in alternative.duckdb`
+              ? `${tooLargeMessage(count, cap)}: run the query in alternative.duckdb`
               : "this address's transaction count cannot be read right now, so the export cannot be bounded; retry later, or use the open dataset",
             asOf,
           ),

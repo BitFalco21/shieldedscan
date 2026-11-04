@@ -1,4 +1,4 @@
-import type { PlottedChart } from "@/domain";
+import type { DataExportCard, PlottedChart } from "@/domain";
 import type { ToolName } from "./names";
 
 /**
@@ -23,6 +23,11 @@ export interface ToolResult {
    * so the loop's `chart` events cannot carry anything the model wrote.
    */
   chart?: PlottedChart;
+  /**
+   * A file for the reader, offered by `export_data` from what the API answered in-process. Only
+   * `dispatch` sets it, so the loop's `export` events carry nothing the model wrote.
+   */
+  export?: DataExportCard;
 }
 
 export interface SourceLink {
@@ -167,11 +172,14 @@ export interface ToolCall {
 
 /**
  * Every tool that actually dispatches: all but `zcash_reference` (answers from a committed constant),
- * `calculate` (evaluates its own arguments) and `make_chart` (reads its own fixed sources), which all
- * return before this is reached.
+ * `calculate` (evaluates its own arguments), `make_chart` and `export_data` (read their own fixed
+ * routes), which all return before this is reached.
  *
  * Narrowed as a type rather than handled as a dead `case`, so the compiler enforces the exclusion at
  * both ends: this function cannot silently grow a path for them, and `dispatch` cannot stop
  * short-circuiting them without failing to typecheck.
  */
-export type DispatchedToolName = Exclude<ToolName, "zcash_reference" | "calculate" | "make_chart">;
+export type DispatchedToolName = Exclude<
+  ToolName,
+  "zcash_reference" | "calculate" | "make_chart" | "export_data"
+>;

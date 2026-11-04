@@ -20,6 +20,10 @@ import { isRefusal, parseChartArgs } from "./chart-args";
 import { ChartSourceCache } from "./chart-cache";
 import { refusalResult } from "./chart-refusal";
 import { buildChart } from "./chart-tool";
+import { parseExportArgs } from "./export-args";
+import { ExportPreviewCache } from "./export-cache";
+import { exportRefusalResult, isExportRefusal } from "./export-refusal";
+import { buildExport, type ExportCaches } from "./export-tool";
 import { toolDefinitions } from "./definitions";
 import { entityBlock, spotPriceUsdFrom } from "./entities";
 import { asRecord, parseJson } from "./json";
@@ -75,6 +79,9 @@ export class AgentTools {
   /** Whether `make_chart` is offered at all (`AGENT_CHARTS_ENABLED`). */
   readonly charts: boolean;
   readonly #chartCache: ChartSourceCache;
+  /** Whether `export_data` is offered at all (`AGENT_EXPORTS_ENABLED`). */
+  readonly exports: boolean;
+  readonly #exportCaches: ExportCaches;
 
   /**
    * `chain` is required on purpose: an optional dependency would let a caller mount an agent that
@@ -85,7 +92,12 @@ export class AgentTools {
     chain: ChainRequester,
     now: () => number = Date.now,
     fx: FxPort = new MemoryFxRates([USD], {}, {}),
-    opts: { charts?: boolean; chartCache?: ChartSourceCache } = {},
+    opts: {
+      charts?: boolean;
+      chartCache?: ChartSourceCache;
+      exports?: boolean;
+      exportCaches?: ExportCaches;
+    } = {},
   ) {
     this.#v1 = v1;
     this.#chain = chain;
@@ -93,11 +105,18 @@ export class AgentTools {
     this.#fx = fx;
     this.charts = opts.charts ?? true;
     this.#chartCache = opts.chartCache ?? new ChartSourceCache();
+    this.exports = opts.exports ?? true;
+    this.#exportCaches = opts.exportCaches ?? {
+      previews: new ExportPreviewCache(),
+      addresses: new ExportPreviewCache(),
+    };
   }
 
-  /** The tools this instance offers: every one, less `make_chart` when charts are off. */
+  /** The tools this instance offers: every one, less the chart and export tools when off. */
   #toolNames(): readonly string[] {
-    return this.charts ? TOOL_NAMES : TOOL_NAMES.filter((n) => n !== "make_chart");
+    return TOOL_NAMES.filter(
+      (n) => (this.charts || n !== "make_chart") && (this.exports || n !== "export_data"),
+    );
   }
 
   /** OpenAI-format tool definitions, closed schemas throughout. */
@@ -134,6 +153,35 @@ export class AgentTools {
   }
 
   /**
+   * `export_data`: validate, read the route in-process through the shared cache, card. Never throws:
+   * whatever goes wrong past validation is a refusal in words and no file.
+   */
+  async #export(args: Record<string, unknown>, userText: string): Promise<ToolResult> {
+    try {
+      const request = parseExportArgs(args, this.#now());
+      if (isExportRefusal(request)) return exportRefusalResult(request);
+      const outcome = await buildExport(
+        request,
+        async (path) => {
+          const res = await this.#v1.request(path);
+          return { status: res.status, body: await res.text() };
+        },
+        this.#exportCaches,
+        userText,
+        this.#now(),
+      );
+      if (isExportRefusal(outcome)) return exportRefusalResult(outcome);
+      return { content: outcome.content, endpoints: [], export: outcome.card };
+    } catch {
+      return exportRefusalResult({
+        reason: "unavailable",
+        message:
+          "the file could not be prepared just now — say so, and give no figure in its place",
+      });
+    }
+  }
+
+  /**
    * The label table with every labelled address's balance beside it, so a question about an
    * entity costs one read rather than one per address.
    *
@@ -158,8 +206,11 @@ export class AgentTools {
    * Run one tool call. `rawArgs` is the JSON string exactly as the model produced it. Never throws for
    * bad input — a malformed call is an error message for the model, so it can correct itself; only a
    * transport-level failure of /v1 itself propagates.
+   *
+   * `userText` is what the reader typed in this conversation, for the one tool that must know an
+   * argument came from the reader rather than from data (an address's history as a file).
    */
-  async dispatch(name: string, rawArgs: string): Promise<ToolResult> {
+  async dispatch(name: string, rawArgs: string, userText = ""): Promise<ToolResult> {
     const offered = this.#toolNames();
     if (!offered.includes(name)) {
       return {
@@ -237,6 +288,11 @@ export class AgentTools {
      * No endpoints are cited: the chart links its own `/charts` page, the evidence a reader can open.
      */
     if (name === "make_chart") return this.#chart(args);
+    /*
+     * `export_data` also returns here: its paths come from the export registry, never from the
+     * arguments, and its result carries a card beside the text. The card is its own citation.
+     */
+    if (name === "export_data") return this.#export(args, userText);
 
     /*
      * `site_guide`'s committed sections return here: they read constants in this repo (the docs
@@ -352,6 +408,7 @@ export class AgentTools {
 
 export { TOOL_NAMES, type ToolName } from "./names";
 export { ChartSourceCache } from "./chart-cache";
+export { ExportPreviewCache } from "./export-cache";
 export { type ToolResult, type SourceLink, type V1Requester, type ChainRequester } from "./types";
 export { CHAIN_STATUS_FACETS, INSIGHT_TOPICS } from "./specs";
 export { CHAIN_WINDOW_NOTE } from "./notes";

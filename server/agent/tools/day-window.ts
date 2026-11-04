@@ -37,7 +37,7 @@ const refuse = (
   closest?: Record<string, unknown>[],
 ): WindowRefusal => (closest === undefined ? { reason, message } : { reason, message, closest });
 
-const isWindowRefusal = (v: unknown): v is WindowRefusal =>
+export const isWindowRefusal = (v: DayWindow | WindowRefusal | number): v is WindowRefusal =>
   typeof v === "object" && v !== null && "reason" in v;
 
 export function parseDayWindow(
