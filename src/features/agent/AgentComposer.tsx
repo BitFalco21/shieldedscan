@@ -28,8 +28,8 @@ export interface AgentComposerProps {
   /** A conversation exists, so the placeholder offers a follow-up rather than a first question. */
   conversing: boolean;
   /**
-   * Replaces both default placeholders, for a page with its own subject (the learning page's
-   * drawer). Keep it short enough for one row on a phone: the field is one row tall until the
+   * Replaces both default placeholders, for a narrower home (the learning page's drawer, the
+   * bubble). Keep it short enough for one row on a phone: the field is one row tall until the
    * reader types, so a longer placeholder is cut off mid-word.
    */
   placeholder?: string;

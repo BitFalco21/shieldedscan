@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { agentAskUrl } from "@/lib/agent";
 import { apiBaseUrl } from "@/lib/site";
 import { askAgent, endOfStream, historyFor } from "./agent-client";
@@ -9,19 +9,32 @@ import type { AgentPage } from "./agent-client";
 import { COMPUTING, THINKING_AGAIN, THINKING_FIRST, WORKING } from "./trail-steps";
 import { closeLastStep, newExchange, openStep, zenoTurnOf, type Exchange } from "./exchange";
 
+export interface ZenoConversationOptions {
+  /** Turns to start from: a conversation the bubble carried into the console (`bubble/handoff.ts`). */
+  seed?: readonly Exchange[];
+  /**
+   * Where focus may be taken back from when an answer lands. A panel that sits beside the page is
+   * not modal, and a reader who went back to the page while Zeno answered must stay there.
+   */
+  refocusWithin?: RefObject<HTMLElement | null>;
+}
+
 /**
  * One conversation with Zeno: the transcript, the turn in flight, and every way a turn can end.
  *
- * Shared by `/ai-agent` and the learning page's drawer so both run the same loop — the four
- * endings decided in one place (`endOfStream`), the edit hold, stop and ask again — rather than
- * two copies of the one surface that talks to a model. The component around it owns only layout.
+ * Shared by `/ai-agent`, the learning page's drawer and the bubble so all run the same loop — the
+ * four endings decided in one place (`endOfStream`), the edit hold, stop and ask again — rather
+ * than copies of the one surface that talks to a model. The component around it owns only layout.
  *
  * `page` names the page the conversation lives on, sent with every question so Zeno answers as a
- * guide to it; the console names none.
+ * guide to it; the console and the bubble name none.
  */
-export function useZenoConversation(page?: AgentPage) {
+export function useZenoConversation(
+  page?: AgentPage,
+  { seed, refocusWithin }: ZenoConversationOptions = {},
+) {
   const [draft, setDraft] = useState("");
-  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [exchanges, setExchanges] = useState<Exchange[]>(() => [...(seed ?? [])]);
   const [busy, setBusy] = useState(false);
   /**
    * The turn `edit` lifted out of the transcript, held until the edit is sent or abandoned.
@@ -42,7 +55,7 @@ export function useZenoConversation(page?: AgentPage) {
   const stoppedByUser = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   /** The next exchange's id; ids only need to be unique within this conversation. */
-  const nextId = useRef(0);
+  const nextId = useRef((seed ?? []).reduce((next, e) => Math.max(next, e.id + 1), 0));
 
   // A stream outliving the component would keep burning the day's budget for nobody.
   useEffect(() => () => inFlight.current?.abort(), []);
@@ -57,8 +70,14 @@ export function useZenoConversation(page?: AgentPage) {
    * first paint would scroll a visitor past the notice they are supposed to read before typing.
    */
   useEffect(() => {
-    if (!busy && exchanges.length > 0) inputRef.current?.focus();
-  }, [busy, exchanges.length]);
+    if (busy || exchanges.length === 0) return;
+    const within = refocusWithin?.current;
+    const active = document.activeElement;
+    // The disabled box blurred itself, so focus "nowhere" means it was still with us. (Safari does
+    // not focus a clicked link, so a reader who clicked one in the page still loses focus to us.)
+    const ours = !within || active === null || active === document.body || within.contains(active);
+    if (ours) inputRef.current?.focus();
+  }, [busy, exchanges.length, refocusWithin]);
 
   /**
    * Ask a question. With `replaceLast` the new turn takes the place of the last one — that is

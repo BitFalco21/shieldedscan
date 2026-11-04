@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AgentComposer } from "./AgentComposer";
+import { clearHandoff, peekHandoff } from "./bubble/handoff";
 import { AgentEmptyState } from "./AgentEmptyState";
 import { AgentExchange } from "./AgentExchange";
 import { useZenoConversation } from "./use-zeno-conversation";
@@ -28,6 +29,9 @@ export interface AgentConsoleProps {
 }
 
 export function AgentConsole({ about }: AgentConsoleProps) {
+  // A conversation the bubble's ↗ carried here, read once and then let go of.
+  const [seed] = useState(peekHandoff);
+  useEffect(() => clearHandoff(), []);
   const {
     draft,
     setDraft,
@@ -42,7 +46,7 @@ export function AgentConsole({ about }: AgentConsoleProps) {
     beginEdit,
     cancelEdit,
     clearConversation,
-  } = useZenoConversation();
+  } = useZenoConversation(undefined, { seed: seed ?? undefined });
   const paneRef = useRef<HTMLDivElement>(null);
 
   // Follow the stream, or a long answer writes itself out of sight. `auto` rather than `smooth`:
