@@ -10,7 +10,12 @@
  * `fetch` + `ReadableStream` rather than `EventSource`, because EventSource cannot POST.
  */
 
-import { parsePlottedChart, type PlottedChart } from "@/domain";
+import {
+  parseDataExportCard,
+  parsePlottedChart,
+  type DataExportCard,
+  type PlottedChart,
+} from "@/domain";
 import { capitalise } from "@/lib/format";
 
 export interface AgentTurn {
@@ -98,6 +103,12 @@ export type AgentStreamEvent =
    * never half-drawn. An older API sends none.
    */
   | { event: "chart"; chart: PlottedChart }
+  /**
+   * A data file for the answer: a `/v1` path and what the API said about it. Parsed strictly
+   * (`parseDataExportCard`): anything not exactly what the tool builds is dropped whole. An older
+   * API sends none.
+   */
+  | { event: "export"; card: DataExportCard }
   /**
    * `unanswered` is set only when the text before `done` is the server's own closing ("I could
    * not put that answer into words…") rather than an answer. It is optional: an API that
@@ -298,6 +309,10 @@ function parseEvent(raw: string): AgentStreamEvent | null {
     case "chart": {
       const chart = parsePlottedChart(payload);
       return chart === null ? null : { event: "chart", chart };
+    }
+    case "export": {
+      const card = parseDataExportCard(payload);
+      return card === null ? null : { event: "export", card };
     }
     case "done":
       return {

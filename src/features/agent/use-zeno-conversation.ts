@@ -5,6 +5,7 @@ import { agentAskUrl } from "@/lib/agent";
 import { apiBaseUrl } from "@/lib/site";
 import { askAgent, endOfStream, historyFor } from "./agent-client";
 import { withChart } from "./chart-view";
+import { withExport } from "./export-view";
 import type { AgentPage } from "./agent-client";
 import { COMPUTING, THINKING_AGAIN, THINKING_FIRST, WORKING } from "./trail-steps";
 import { closeLastStep, newExchange, openStep, zenoTurnOf, type Exchange } from "./exchange";
@@ -223,6 +224,9 @@ export function useZenoConversation(
           case "chart":
             patchLive((e) => ({ charts: withChart(e.charts, event.chart) }));
             break;
+          case "export":
+            patchLive((e) => ({ exports: withExport(e.exports, event.card) }));
+            break;
           case "done":
             patch({
               status: event.stopReason === "complete" ? "complete" : "truncated",
@@ -406,6 +410,8 @@ function describeTool(tool: string | undefined): string {
       return "this explorer's own pages and API";
     case "make_chart":
       return "the series to chart";
+    case "export_data":
+      return "the data for a file";
     case "calculate":
       // Defensive: `send` labels a calculation `COMPUTING` before asking here. The phrase still
       // has to survive a "looking up" prefix without claiming a read that never happened.
