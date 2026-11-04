@@ -212,13 +212,18 @@ describeDb("the chart library's newer series", () => {
   it("sums inbound ZEC per source chain and month, settlement legs excluded", async () => {
     await pool.query(`CREATE TABLE crosschain_transfer (
       id TEXT PRIMARY KEY, protocol TEXT, direction TEXT, counterpart_chain TEXT,
-      counterpart_asset TEXT, zcash_address_kind TEXT, zec_amount_zat BIGINT, timestamp BIGINT)`);
+      counterpart_asset TEXT, zcash_address_kind TEXT, zec_amount_zat BIGINT, timestamp BIGINT,
+      status TEXT NOT NULL DEFAULT 'completed')`);
     await pool.query(`INSERT INTO crosschain_transfer VALUES
       ('a', 'near-intents', 'in',  'BTC',  'BTC',   'unified',     500, ${SEP + 10}),
       ('b', 'near-intents', 'in',  'BTC',  'BTC',   'transparent', 250, ${SEP + DAY}),
       ('c', 'maya',         'out', 'BTC',  'BTC',   'transparent', 999, ${SEP + 20}),
       ('d', 'maya',         'in',  'MAYA', 'CACAO', 'sapling',     777, ${SEP + 30}),
       ('e', 'maya',         'in',  'ETH',  'ETH',   NULL,          100, ${OCT + 5})`);
+    // A pending transfer has not happened and a refunded one was undone: neither is in a total.
+    await pool.query(`INSERT INTO crosschain_transfer VALUES
+      ('p', 'near-intents', 'in',  'BTC',  'BTC',   'unified',     5000, ${SEP + 40}, 'pending'),
+      ('r', 'maya',         'out', 'BTC',  'BTC',   'transparent', 3000, ${SEP + 50}, 'refunded')`);
     const store = new PostgresStorePort(url);
     try {
       expect(await store.inflowByChain()).toEqual([
