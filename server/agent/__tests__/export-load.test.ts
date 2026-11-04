@@ -154,6 +154,15 @@ describe("the cache", () => {
     expect(await cache.get("k", 60_000, slow)).toEqual({ n: 1 });
   });
 
+  it("spares the callers behind a hung read the same wait", async () => {
+    const cache = new ExportPreviewCache<{ n: number }>({ timeoutMs: 20, failMs: 10_000 });
+    const hung = () => new Promise<{ n: number }>(() => {});
+    expect(await cache.get("k", 60_000, hung)).toBeNull();
+    const started = Date.now();
+    expect(await cache.get("k", 60_000, hung)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(15);
+  });
+
   it("holds at most its bound, oldest out first", async () => {
     const cache = new ExportPreviewCache<{ k: string }>({ maxEntries: 3 });
     let loads = 0;

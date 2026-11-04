@@ -140,6 +140,15 @@ describe("windows no file holds", () => {
     expect(content).toContain('"range":"1y","interval":"day"');
   });
 
+  it("offers the newest 1,000 days of prices when no window was asked, and says so", async () => {
+    const result = await ask({ family: "price" });
+    expect(result.export?.query).toEqual([
+      ["from", "2023-11-08"],
+      ["to", "2026-08-03"],
+    ]);
+    expect(result.content).toMatch(/No window was asked, so the file holds the newest 1,000 days/);
+  });
+
   it("refuses the whole price history, offering the newest 1,000 days", async () => {
     const content = await refused({ family: "price", range: "all" }, "window");
     expect(content).toContain('closest: export_data {"family":"price","from":"2023-11-08"}');

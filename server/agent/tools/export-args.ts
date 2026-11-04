@@ -71,7 +71,14 @@ const LIST_PARAMS: Readonly<Record<ExportListFamily, readonly string[]>> = {
 };
 
 export type ExportRequest =
-  | { kind: "series"; spec: PlotSeriesSpec; window: DayWindow; interval: ExportInterval }
+  | {
+      kind: "series";
+      spec: PlotSeriesSpec;
+      window: DayWindow;
+      interval: ExportInterval;
+      /** Said to the model when the tool chose the window: what the file covers, and why. */
+      scope?: string;
+    }
   | {
       kind: "list";
       family: Exclude<ExportListFamily, "address-history">;
@@ -166,6 +173,21 @@ function seriesRequest(
   if (spec.family === "price") {
     if (args.interval !== undefined && args.interval !== "day") {
       return refuse("bad-parameter", "the price file is daily closes; it takes no interval");
+    }
+    // "The price history" with no window asks for a file, not for its whole length: the newest
+    // days one file holds. A window asked for longer than that is refused below, by name.
+    if (WINDOW_KEYS.every((k) => args[k] === undefined)) {
+      return {
+        kind: "series",
+        spec,
+        window: {
+          fromDay: today - (MAX_PRICE_EXPORT_DAYS - 1) * DAY_SECONDS,
+          toDay: today + DAY_SECONDS,
+          range: null,
+        },
+        interval: "day",
+        scope: `No window was asked, so the file holds the newest ${MAX_PRICE_EXPORT_DAYS.toLocaleString("en-US")} days, the most one price file holds; say so.`,
+      };
     }
     if (days > MAX_PRICE_EXPORT_DAYS) {
       return refuse(

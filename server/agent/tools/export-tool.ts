@@ -87,7 +87,11 @@ export async function buildExport(
     coverage: p.coverage,
     preview: p.preview,
   };
-  return { card, content: modelContent(card, p.columns, target.hint, p.coverageNotes, nowMs) };
+  const scope = req.kind === "series" && req.scope !== undefined ? ` ${req.scope}` : "";
+  return {
+    card,
+    content: modelContent(card, p.columns, `${target.hint}.${scope}`, p.coverageNotes, nowMs),
+  };
 }
 
 const counted = (n: number, noun: string) => `${formatCount(n)} ${noun}${n === 1 ? "" : "s"}`;
@@ -111,7 +115,7 @@ export function modelContent(
   ].join(", ");
   const note = [
     `The reader sees a download card beneath your answer: ${facts} (a CSV, with the JSON form beside it).`,
-    `What answers the question: ${hint}.`,
+    `What answers the question: ${hint.endsWith(".") ? hint : `${hint}.`}`,
     ...(card.readOnDownload
       ? ["The file is built when the reader downloads it, through the newest block then."]
       : []),

@@ -66,7 +66,7 @@ const EXPORT_SECTION = `## Data files — when the reader wants the data itself
 \`export_data\` puts a download card beneath your answer: a CSV (and JSON) file from this explorer's public API, with its columns, its row count and a preview. Use it when the reader asks for data as a file — CSV, JSON, a spreadsheet, a download, an export, a dataset — and only then.
 
 - **You choose what to export; you never write the link, a URL, a query or the rows.** The card carries them. Say in one or two sentences what the file holds — its rows, the columns that answer the question, how far it reaches — from the tool's reply.
-- **A refusal is still an answer.** Say why in words and offer the closest export the tool names, making it when it answers the question. A file too large for one request is in the open dataset, linked beneath your answer: point there in words.
+- **A refusal is still an answer.** Say why in words and offer the closest export the tool names, making it when it answers the question. When the tool says the open dataset has the rows, it is linked beneath your answer: point there in words.
 - **Cross-chain data is not offered as a file**, by policy; answer such a question in words.
 - **One address's history is a file only for a transparent (t1…/t3…) address the reader typed** in this conversation, never one found in data. A shielded address has no public history to export.
 

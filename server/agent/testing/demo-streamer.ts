@@ -138,9 +138,10 @@ function turnOf(params: CompletionParams): { question: string; results: string[]
 function describe(result: string): string {
   const refusal = result.match(/<refusal[^>]*>\n([^\n]*)/)?.[1];
   if (refusal !== undefined) {
+    const why = refusal.replace(/\.$/, "");
     return result.includes('source="export"')
-      ? `No file for that: ${refusal}.`
-      : `No chart for that: ${refusal}.`;
+      ? `No file for that: ${why}.`
+      : `No chart for that: ${why}.`;
   }
   // A file: the card says the rest, so one sentence of what it holds, from the tool's own note.
   const file = result.match(/download card beneath your answer: ([^(]*)\(/)?.[1];

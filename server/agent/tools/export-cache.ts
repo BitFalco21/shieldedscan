@@ -7,8 +7,9 @@
  *  - Single-flight: concurrent misses on one key share one read.
  *  - Holds the summary the tool keeps (columns, a count, a few rows), never a whole body, and at
  *    most `maxEntries` of them, oldest out first.
- *  - A caller waits at most `timeoutMs`, then is told the read is unavailable; the read is left to
- *    finish and fill the entry. One still running after `abandonMs` is given up on.
+ *  - A caller waits at most `timeoutMs`, then is told the read is unavailable, as are the callers
+ *    after it for `failMs`; the read is left to finish and fill the entry. One still running after
+ *    `abandonMs` is given up on.
  *  - A failed read (null, or a throw) is never served as data, and is remembered for `failMs` only,
  *    so an API answering badly is not asked again by every call in the meantime.
  */
@@ -70,7 +71,11 @@ export class ExportPreviewCache<T extends object> {
       timer = setTimeout(() => resolve(null), this.#timeoutMs);
     });
     try {
-      return await Promise.race([running.read, timeout]);
+      const value = await Promise.race([running.read, timeout]);
+      // Timed out: the callers behind this one get the fast refusal, not the same wait. The read
+      // still lands in the entry if it finishes, which clears this mark.
+      if (value === null && this.#inflight.get(key) === running) this.#fail(key);
+      return value;
     } finally {
       clearTimeout(timer);
     }
