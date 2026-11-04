@@ -109,14 +109,15 @@ describeDb("netmap routes publish no full address", () => {
     );
     // The tip a declared height is held against: our follower's blocks, stamped on arrival.
     // A is level with us at its last answer, B is 110 blocks behind, C declared no height.
+    // Heights in the 75-second era, where "behind" is 10 blocks; the line is a time, not a count.
     await pool.query(`CREATE TABLE block (height INTEGER PRIMARY KEY, received_at BIGINT)`);
     await pool.query(
       `INSERT INTO block (height, received_at)
-       SELECT h, $1::bigint - (1010 - h) * 75 FROM generate_series(1000, 1010) AS h`,
+       SELECT h, $1::bigint - (3001010 - h) * 75 FROM generate_series(3001000, 3001010) AS h`,
       [now - 30],
     );
-    await pool.query(`UPDATE net_node SET best_height = 1010 WHERE host = $1`, [HUB_A]);
-    await pool.query(`UPDATE net_node SET best_height = 900 WHERE host = $1`, [HUB_B]);
+    await pool.query(`UPDATE net_node SET best_height = 3001010 WHERE host = $1`, [HUB_A]);
+    await pool.query(`UPDATE net_node SET best_height = 3000900 WHERE host = $1`, [HUB_B]);
     // Two recorded days, the raw user agent kept and '' / -1 standing for "none declared".
     await pool.query(
       `INSERT INTO net_release_day
