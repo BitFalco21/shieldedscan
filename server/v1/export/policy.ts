@@ -8,8 +8,11 @@
  */
 export const CROSSCHAIN_EXPORT_ENABLED = false;
 
-export const CROSSCHAIN_EXPORT_REFUSAL =
-  "cross-chain swap data is not offered as a file yet: bulk redistribution awaits the swap protocols' permission. The JSON answer is unchanged without format.";
+/** Why there is no cross-chain file, in words that suit both an API client and a chat reader. */
+export const CROSSCHAIN_EXPORT_REASON =
+  "cross-chain swap data is not offered as a file yet: bulk redistribution awaits the swap protocols' permission.";
+
+export const CROSSCHAIN_EXPORT_REFUSAL = `${CROSSCHAIN_EXPORT_REASON} The JSON answer is unchanged without format.`;
 
 export const CROSSCHAIN_PREFIX = "/v1/crosschain";
 

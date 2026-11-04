@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CROSSCHAIN_EXPORT_REFUSAL } from "../../v1/export/policy";
+import { CROSSCHAIN_EXPORT_REASON } from "../../v1/export/policy";
 import { AgentTools, type V1Requester } from "../tools";
 import { ADDRESS_INFO, FIXTURE_NOW_MS, makeChain, makeV1 } from "../testing/fixture-world";
 
@@ -72,7 +72,8 @@ describe("families and parameters that name nothing", () => {
       { family: "crosschain", by: "asset", chain: "<script>" },
     ]) {
       const content = await refused(args, "policy");
-      expect(content).toContain(CROSSCHAIN_EXPORT_REFUSAL);
+      expect(content).toContain(CROSSCHAIN_EXPORT_REASON);
+      expect(content).not.toContain("without format");
     }
   });
 

@@ -11,7 +11,7 @@ import {
   type PlotTxKind,
   type PoolName,
 } from "@/domain";
-import { CROSSCHAIN_EXPORT_ENABLED, CROSSCHAIN_EXPORT_REFUSAL } from "../../v1/export/policy";
+import { CROSSCHAIN_EXPORT_ENABLED, CROSSCHAIN_EXPORT_REASON } from "../../v1/export/policy";
 import { closestForUnknown } from "./chart-refusal";
 import { isWindowRefusal, parseDayWindow, type DayWindow } from "./day-window";
 import type { ExportRefusal } from "./export-refusal";
@@ -133,7 +133,7 @@ export function parseExportArgs(
       "policy",
       CROSSCHAIN_EXPORT_ENABLED
         ? "cross-chain series have no file on the public API yet; answer from the crosschain tool in words"
-        : CROSSCHAIN_EXPORT_REFUSAL,
+        : CROSSCHAIN_EXPORT_REASON,
     );
   }
   return isOneOf(PLOT_FAMILIES, family)
