@@ -1,11 +1,12 @@
-import { network } from "@/lib/network";
-import type { Block, BlockMiner, Transaction, TransparentOutput } from "@/domain";
+import { isTestnet, network } from "@/lib/network";
+import type { Block, BlockMiner, BlockSummary, Transaction, TransparentOutput } from "@/domain";
 import {
   blockFeesZat,
   blockSummaryOf,
   publicValueZat,
   feeDestinationSentence,
   targetSpacingSeconds,
+  NU7_HEIGHT,
 } from "@/domain";
 import { AmountZec } from "@/components/AmountZec";
 import { DataTable, type TableColumn } from "@/components/DataTable";
@@ -19,12 +20,19 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatBytes, formatCount, formatUtc, formatZec } from "@/lib/format";
 import Link from "@/components/Link";
 import { ShieldedMiner } from "./ShieldedMiner";
+import { Nu7ActivatedBanner } from "./nu7/Nu7ActivatedBanner";
+import { Nu7FirstBlocks } from "./nu7/Nu7FirstBlocks";
 
 export interface BlockDetailPageProps {
   block: Block;
   txs: Transaction[];
   tipHeight: number;
   oldestHeight: number;
+  /**
+   * On the NU7 activation block's page only: that block and the ones after it, for the first
+   * NU7 blocks panel. Null elsewhere, or when they could not be read.
+   */
+  nu7Blocks?: readonly BlockSummary[] | null;
 }
 
 const TX_COLUMNS: TableColumn[] = [
@@ -164,7 +172,13 @@ function TxValue({ tx }: { tx: Transaction }) {
   return <AmountZec zat={publicValueZat(tx)} />;
 }
 
-export function BlockDetailPage({ block, txs, tipHeight, oldestHeight }: BlockDetailPageProps) {
+export function BlockDetailPage({
+  block,
+  txs,
+  tipHeight,
+  oldestHeight,
+  nu7Blocks = null,
+}: BlockDetailPageProps) {
   // Derived rather than carried: `confirmations` is tip-relative, and a block cached for an
   // hour would serve a stale count if the number travelled with it.
   const confirmations = tipHeight - block.height + 1;
@@ -218,6 +232,8 @@ export function BlockDetailPage({ block, txs, tipHeight, oldestHeight }: BlockDe
           </>
         }
       />
+
+      {block.height === NU7_HEIGHT && !isTestnet ? <Nu7ActivatedBanner className="mb-3" /> : null}
 
       <FactGrid
         className="grid gap-3 sm:grid-cols-2"
@@ -276,6 +292,8 @@ export function BlockDetailPage({ block, txs, tipHeight, oldestHeight }: BlockDe
           },
         ]}
       />
+
+      {nu7Blocks ? <Nu7FirstBlocks blocks={nu7Blocks} /> : null}
 
       <HeaderDetails block={block} />
 

@@ -99,7 +99,7 @@ test.describe("transaction detail", () => {
 
   test("a confirmed transaction links to the block that contains it", async ({ page }) => {
     await page.goto(`/tx/${SHIELDED_TXID}`);
-    const blockLinks = await page.locator("a[href^='/block/']").count();
+    const blockLinks = await page.locator("main a[href^='/block/']").count();
     expect(blockLinks, "a confirmed transaction does not link to its block").toBeGreaterThan(0);
   });
 
@@ -108,7 +108,7 @@ test.describe("transaction detail", () => {
     // one, and a confirmation count would be inventing that too.
     await page.goto(`/tx/${MEMPOOL_TXID}`);
     await expect(page.getByText("Unconfirmed — in the mempool")).toBeVisible();
-    await expect(page.locator("a[href^='/block/']")).toHaveCount(0);
+    await expect(page.locator("main a[href^='/block/']")).toHaveCount(0);
   });
 
   test("the pools named in the summary are the pools shown as badges", async ({ page }) => {

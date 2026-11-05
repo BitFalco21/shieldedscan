@@ -7,6 +7,7 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { CommandPalette } from "@/components/CommandPalette";
 import { DismissPopovers } from "@/components/DismissPopovers";
 import { TestnetBanner } from "@/components/TestnetBanner";
+import { Nu7SiteBar } from "@/features/blocks/nu7/Nu7SiteBar";
 import { Zeno } from "@/features/agent/Zeno";
 import { ZenoBubble } from "@/features/agent/bubble/ZenoBubble";
 import { isAgentEnabled } from "@/lib/agent";
@@ -110,6 +111,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <TestnetBanner />
+        <Nu7SiteBar />
         <SiteNav />
         <main id="main" className="mx-auto min-h-[60vh] w-full max-w-6xl flex-1 px-6 pb-16">
           {children}

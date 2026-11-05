@@ -31,6 +31,8 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* A delayed animation filled `both` would otherwise sit on its first frame for the delay. */
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

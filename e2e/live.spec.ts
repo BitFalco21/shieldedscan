@@ -70,7 +70,9 @@ test.describe("the live layer is an enhancement, never a dependency", () => {
 
       // The server-rendered rows must be there. Any row is a link to a detail page, which is
       // the thing a reader came for and the thing the live layer must never be load-bearing to.
-      const links = page.locator('a[href^="/block/"], a[href^="/tx/"], a[href^="/cross-chain/"]');
+      const links = page.locator(
+        'main a[href^="/block/"], main a[href^="/tx/"], main a[href^="/cross-chain/"]',
+      );
       expect(await links.count()).toBeGreaterThan(0);
     });
   }
@@ -80,10 +82,12 @@ test.describe("with the live layer mounted", () => {
   test("the poll carries the reader's active filter", async ({ page }) => {
     // A filtered list quietly widened by unfiltered arrivals is unfalsifiable from the rendered
     // page — an unfiltered list is a well-formed list — so the request is the evidence. The
-    // listener is armed before navigating.
-    const pollPromise = page.waitForRequest((r) => r.url().includes("/api/live"), {
-      timeout: 30_000,
-    });
+    // listener is armed before navigating. The NU7 site bar polls `kind=all` on every page, so
+    // its request is skipped; a list poll that dropped the filter then times out here.
+    const pollPromise = page.waitForRequest(
+      (r) => r.url().includes("/api/live") && !r.url().includes("kind=all"),
+      { timeout: 30_000 },
+    );
     await page.goto("/txs?kind=shielded");
     const poll = await pollPromise;
 

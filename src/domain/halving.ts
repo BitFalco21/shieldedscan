@@ -208,6 +208,20 @@ export function scheduledSubsidyZat(height: number): number {
 }
 
 /**
+ * The miner's part of the scheduled subsidy between NU6 (2,726,400) and the next halving, where
+ * consensus sends 8% to the FPF stream and 12% to the lockbox, each floored, and the remainder to
+ * the miner (ZIP 1015 as amended). Pinned in tests to `getblocksubsidy` either side of NU7:
+ * 125,000,000 at 3,543,404 and 41,666,668 at 3,543,405. Throws outside that era, whose split differs.
+ */
+export function nu6MinerSubsidyZat(height: number): number {
+  if (height < PAST_HALVING_HEIGHTS[1]! || height >= NEXT_HALVING_HEIGHT) {
+    throw new RangeError(`height ${height} is outside the NU6 funding era`);
+  }
+  const total = scheduledSubsidyZat(height);
+  return total - Math.floor((total * 8) / 100) - Math.floor((total * 12) / 100);
+}
+
+/**
  * The protocol's block subsidy at `height`, in zatoshi, slow start included (§7.8):
  * `SlowStartRate × height` below half the interval and `SlowStartRate × (height + 1)` above it,
  * with `SlowStartRate = MaxBlockSubsidy / SlowStartInterval`, so the 20,000 slow-start blocks
