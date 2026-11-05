@@ -13,7 +13,8 @@ import { bindSelect, nextName } from "./targets";
  *
  * A view is only as fresh as its last refresh, so its newest periods may differ because it is
  * behind. Such a period passes only if it ends within `BEHIND_SECONDS` of the newest period the
- * view holds AND the table's rows for it equal its definition recomputed in the same snapshot. Any
+ * view holds (the open period and, for a month table, the one before it) AND the table's rows
+ * for it equal its definition recomputed in the same snapshot. Any
  * older difference fails: a recompute agreeing with the table proves only that the table matches
  * its own definition, not the view's. The all-time tables have no periods: without `live`, a
  * difference there is unverified, never a pass. With `live`, each view's own definition
