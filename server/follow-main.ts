@@ -2,6 +2,7 @@ import { startFollowing } from "./follow";
 import { HttpNodeRpc } from "./node-rpc";
 import { PostgresChainStore } from "./postgres-chain-store";
 import { log, requirePostgres } from "./entrypoint";
+import { createRefreshQueue, type RefreshJob } from "./refresh-queue";
 
 /**
  * The chain follower, as its own process.
@@ -66,10 +67,10 @@ const stop = startFollowing({
 const REFRESH_MS = Number(process.env.MONTHLY_REFRESH_MS ?? 600_000);
 
 /**
- * Each view is refreshed and reported independently, never as one `Promise.all`: they read
- * different tables at different costs, and one failing is no reason for the others to go stale.
+ * Each view is refreshed and reported independently, never as one `Promise.all`: one failing is
+ * no reason for the others to go stale.
  */
-const VIEWS: { name: string; refresh: () => Promise<void> }[] = [
+const VIEWS: RefreshJob[] = [
   { name: "monthly rollup", refresh: () => store.refreshMonthlyRollup() },
   { name: "shielding flow", refresh: () => store.refreshShieldingFlow() },
   { name: "fee kinds", refresh: () => store.refreshFeeKinds() },
@@ -83,7 +84,7 @@ const VIEWS: { name: string; refresh: () => Promise<void> }[] = [
  * much as the whole monthly cycle (they re-scan `block` and `tx`). Hourly keeps the current day's
  * point at most an hour stale for a fraction of the I/O.
  */
-const DAILY_VIEWS: { name: string; refresh: () => Promise<void> }[] = [
+const DAILY_VIEWS: RefreshJob[] = [
   { name: "daily rollup", refresh: () => store.refreshDayRollup() },
   { name: "daily shielding flow", refresh: () => store.refreshDayShieldingFlow() },
   { name: "daily fee kinds", refresh: () => store.refreshDayFeeKinds() },
@@ -103,12 +104,13 @@ const DAILY_REFRESH_MS = Number(process.env.DAILY_REFRESH_MS ?? 3_600_000);
 /**
  * The per-pool day matviews, on their own timer.
  *
- * Not folded into `DAILY_VIEWS`: these scan `tx` where that group scans smaller matviews, and
- * grouping them would make a cheap chart's freshness depend on an expensive one.
+ * Not folded into `DAILY_VIEWS`: these scan `tx` where that group scans smaller matviews, so they
+ * keep their own interval. They share the one refresh queue, so a cheap view can wait behind this
+ * pass, at most once per interval.
  *
- * A full pass must stay well under its interval (the fill script enforces a 120 s gate): a pass
- * that outlives its interval overlaps the next, each overlap competes for the same disk, and it
- * does not converge. `runRefreshes` skips an overlapping pass as a backstop.
+ * A full pass must stay well under its interval (the fill script enforces a 120 s gate). The
+ * queue never runs two passes at once and skips a view still queued or running, so an overrun
+ * skips the next pass instead of piling onto it.
  *
  * This timer cannot perform a first fill. A never-populated view forbids `CONCURRENTLY`, so
  * filling it takes an exclusive lock for an unmeasured scan in front of ingestion.
@@ -116,7 +118,7 @@ const DAILY_REFRESH_MS = Number(process.env.DAILY_REFRESH_MS ?? 3_600_000);
  * are logged; the first fill of a new view is `npm run fill:pool-analytics`, run by an operator
  * through the pacer's preflight. Until then the view stays empty and its routes answer 503.
  */
-const POOL_ANALYTICS_VIEWS: { name: string; refresh: () => Promise<void | number> }[] = [
+const POOL_ANALYTICS_VIEWS: RefreshJob[] = [
   {
     name: "per-pool analytics",
     refresh: async () => {
@@ -135,41 +137,13 @@ const POOL_ANALYTICS_REFRESH_MS = Number(process.env.POOL_ANALYTICS_REFRESH_MS ?
 const POOL_ANALYTICS_ENABLED = POOL_ANALYTICS_REFRESH_MS > 0;
 
 /**
- * Views currently being refreshed, so a timer never starts a second pass over one still running.
- *
- * `setInterval` fires on wall-clock time regardless of the previous pass, so once a refresh takes
- * longer than its interval the passes overlap, each overlap competes for the same disk, and every
- * pass gets slower: it does not converge and can starve the whole host.
- *
- * Skipping rather than queueing: these are full recomputations, so a skipped pass costs nothing.
- * It is logged, because a view that silently stops refreshing looks exactly like a fresh one.
+ * Every refresh, from all three timers, goes through one queue that runs them one at a time
+ * (`refresh-queue.ts`): passes started side by side compete for the same disk and stall the API's
+ * reads behind them. A view still queued or running is skipped, not queued twice, so a pass that
+ * outlives its interval cannot pile up behind itself.
  */
-const refreshing = new Set<string>();
-
-function runRefreshes(views: { name: string; refresh: () => Promise<void | number> }[]) {
-  for (const view of views) {
-    if (refreshing.has(view.name)) {
-      log(`${view.name} refresh SKIPPED — the previous pass is still running`);
-      continue;
-    }
-    refreshing.add(view.name);
-    const startedAt = Date.now();
-    void view
-      .refresh()
-      // A refresh that reports how many rows it touched logs it, which is the input to deciding
-      // whether an hourly full pass is the right shape.
-      .then((rows) =>
-        log(
-          `${view.name} refreshed in ${Date.now() - startedAt}ms` +
-            (typeof rows === "number" ? ` (${rows} rows changed)` : ""),
-        ),
-      )
-      .catch((error: unknown) =>
-        log(`${view.name} refresh FAILED (view keeps its previous contents): ${String(error)}`),
-      )
-      .finally(() => refreshing.delete(view.name));
-  }
-}
+const refreshes = createRefreshQueue(log);
+const runRefreshes = (views: RefreshJob[]) => refreshes.enqueue(views);
 
 const refreshTimer = setInterval(() => runRefreshes(VIEWS), REFRESH_MS);
 refreshTimer.unref();
