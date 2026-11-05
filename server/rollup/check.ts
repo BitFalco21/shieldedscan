@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { ROLLUP_TABLES, type RollupTable } from "./definitions";
-import { diffRows, identical, type RowDiff } from "./compare";
+import { diffRows, identical, periodStartSql, type RowDiff } from "./compare";
 import { DELETE_WINDOW, monthEnd } from "./pass";
 import { bindSelect, nextName } from "./targets";
 
@@ -11,11 +11,14 @@ import { bindSelect, nextName } from "./targets";
  * with the retired view `<name>_old`. Each table is read in its own REPEATABLE READ, READ ONLY
  * transaction, under UTC like the pass.
  *
- * A view is only as fresh as its last refresh, so a period may differ because the view is behind.
- * Such a period passes only if the table's rows for it equal its definition recomputed in the same
- * snapshot. The all-time tables have no periods: without `live`, a difference there is reported
- * as unverified, never as a pass. With `live`, each view's own definition (`pg_get_viewdef`) is
- * evaluated in the table's snapshot, which proves equality outright at the cost of a full scan.
+ * A view is only as fresh as its last refresh, so its newest periods may differ because it is
+ * behind. Such a period passes only if it ends within `BEHIND_SECONDS` of the newest period the
+ * view holds AND the table's rows for it equal its definition recomputed in the same snapshot. Any
+ * older difference fails: a recompute agreeing with the table proves only that the table matches
+ * its own definition, not the view's. The all-time tables have no periods: without `live`, a
+ * difference there is unverified, never a pass. With `live`, each view's own definition
+ * (`pg_get_viewdef`) is evaluated in the table's snapshot, which proves equality outright at the
+ * cost of a full scan.
  */
 
 export type Verdict = "PASS" | "FAIL" | "UNVERIFIED";
@@ -28,8 +31,8 @@ export interface CheckResult {
   ms: number;
 }
 
-/** Differing periods beyond this are not a view being behind; they fail without a recompute. */
-const MAX_BEHIND_PERIODS = 60;
+/** How far behind its own newest period a view's rows may be explained by its refresh lag. */
+const BEHIND_SECONDS = 2 * 86_400;
 
 interface Pair {
   table: string;
@@ -117,15 +120,26 @@ export async function checkTable(
         detail: `differs from the view (${describe(d)}); no period to recompute — run with --live`,
       };
     }
-    if (d.periods.length > MAX_BEHIND_PERIODS) {
-      return { verdict: "FAIL", detail: `${d.periods.length} periods differ (${describe(d)})` };
+    const { rows: newest } = await client.query<{ start: string | null }>(
+      `SELECT max(${periodStartSql(table)}) AS start FROM ${pair.view}`,
+    );
+    const horizon = newest[0]?.start == null ? null : Number(newest[0].start) - BEHIND_SECONDS;
+    const periodEnd = (start: number) =>
+      table.grain === "month" ? monthEnd(start) : start + 86_400;
+    const older = d.periods.filter((p) => horizon === null || periodEnd(p) <= horizon);
+    if (older.length > 0) {
+      return {
+        verdict: "FAIL",
+        detail:
+          `${older.length} period(s) older than the view's last refresh differ, e.g. ` +
+          `${older.slice(0, 5).map(day).join(" ")} (${describe(d)})`,
+      };
     }
     const select = bindSelect(table.select, targets);
     const held = `(SELECT * FROM ${pair.table} WHERE ${DELETE_WINDOW[table.key]})`;
     const wrong: string[] = [];
     for (const start of d.periods) {
-      const end = table.grain === "month" ? monthEnd(start) : start + 86_400;
-      const now = await diffRows(client, table, held, `(${select})`, [start, end]);
+      const now = await diffRows(client, table, held, `(${select})`, [start, periodEnd(start)]);
       if (!identical(now)) wrong.push(day(start));
     }
     const label = d.periods.map(day).join(" ");

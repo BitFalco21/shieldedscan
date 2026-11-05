@@ -135,8 +135,8 @@ per table, shared by the follower's periodic pass and the full rebuild.
   rollback and the repairs do. A new writer that does not mark leaves its periods stale with no
   error; a change made by hand is followed by a mark or by `fill-rollups --restart`.
 - The pass consumes the marks under REPEATABLE READ and a session lock taken before its snapshot,
-  so it and the paced fill never overwrite newer rows with older. Periods are UTC: every writer
-  and reader of these tables pins `TimeZone = 'UTC'`.
+  so it and the paced fill never overwrite newer rows with older. Periods are UTC: everything
+  that computes or compares these rows pins `TimeZone = 'UTC'`.
 - `server/__tests__/rollup-equality.test.ts` holds every table equal to the frozen view
   definitions it replaced, after ingest, reorg, backfill, repair and mempool steps.
 

@@ -206,6 +206,8 @@ export async function applyMarks(
       [islands.map((i) => i[0]), islands.map((i) => i[1])],
     );
   }
+  // From the helpers as they now stand: during a backlog the all-time figures lag it too, and
+  // the re-inserted marks still cover what they lag.
   if (done > 0) await recomputeTotals(client, targets, work);
   return { days, months: done, deferredMonths: deferred.length, work };
 }

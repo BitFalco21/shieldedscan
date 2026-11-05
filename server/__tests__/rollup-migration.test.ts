@@ -190,6 +190,30 @@ run("migrating from the views to the rollup tables", () => {
     expect(healed.every((r) => r.verdict === "PASS")).toBe(true);
   });
 
+  it("refuses to swap while a reader could not read the tables, or a backlog waits", async () => {
+    await pool.query("DROP ROLE IF EXISTS rollup_test_reader");
+    await pool.query("CREATE ROLE rollup_test_reader");
+    try {
+      await pool.query("GRANT SELECT ON chain_day_rollup TO rollup_test_reader");
+      await expect(swapRollups(pool)).rejects.toThrow(
+        /rollup_test_reader can read chain_day_rollup but not its successor/,
+      );
+      await pool.query("GRANT SELECT ON chain_day_rollup_next TO rollup_test_reader");
+      // A repair-sized backlog is the follower's passes to drain, not the swap's.
+      await pool.query(
+        `INSERT INTO chain_rollup_dirty (ts_lo, ts_hi) VALUES ($1::bigint, $1::bigint + 20 * 86400)`,
+        [at("2026-03-01T00:00:00")],
+      );
+      await expect(swapRollups(pool)).rejects.toThrow(/marked days wait/);
+      await store.refreshRollups();
+    } finally {
+      await pool.query(
+        "REVOKE ALL ON chain_day_rollup, chain_day_rollup_next FROM rollup_test_reader",
+      );
+      await pool.query("DROP ROLE rollup_test_reader");
+    }
+  });
+
   it("swaps the tables into the views' names and rebinds what read them", async () => {
     const before = await pool.query("SELECT * FROM od.flow ORDER BY ts");
     await ingestDays("2026-04-05T00:00:00", 3, 5_000);

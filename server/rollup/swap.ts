@@ -15,8 +15,8 @@ import { nextName, resolveTargets } from "./targets";
  *  - It takes the view-refresh lock exclusively, so it waits for an in-flight `REFRESH` instead of
  *    queueing behind it with every reader of that view queued behind the rename, and no new refresh
  *    starts; then the rollup lock, so no pass or fill chunk runs during it.
- *  - `lock_timeout` bounds each rename's wait for in-flight reads; on a timeout the transaction
- *    rolls back and is retried.
+ *  - `lock_timeout` bounds each rename's wait for in-flight reads (readers queue behind a waiting
+ *    rename); on a timeout the transaction rolls back and is retried.
  *  - A view reading these relations (the open-data views) is bound to a relation, not a name, so
  *    each is recreated from its own printed definition after the renames and reads the new one.
  *  - Nothing here touches `tx` or `block`.
@@ -64,7 +64,17 @@ function plan(revert: boolean) {
   );
 }
 
-/** Refuse before taking any lock: wrong state, a relation this role does not own, an odd reader. */
+/**
+ * Marked days the swap may catch up inside its own transaction. More is a backlog (a repair that
+ * rewrote history) for the follower's budgeted passes to drain first: caught up here, it would
+ * hold both locks for as long as it took.
+ */
+const MAX_CATCH_UP_DAYS = 7;
+
+/**
+ * Refuse before taking any lock: wrong state, a relation this role does not own, a reader the
+ * rename would leave without access, an odd dependent view, a backlog too large to catch up.
+ */
 async function preflight(pool: Pool, revert: boolean): Promise<void> {
   const steps = plan(revert);
   const names = steps.flatMap((s) => [s.name, s.aside, s.free]);
@@ -93,13 +103,39 @@ async function preflight(pool: Pool, revert: boolean): Promise<void> {
     else if (d.options !== null) problems.push(`${d.view} has options a rebind would drop`);
     else if (!d.owned) problems.push(`${d.view} is not owned by this role`);
   }
+  // Grants stay with a relation through a rename, so every role that can read a name now must
+  // already be able to read what takes the name, or its reads fail the moment this commits.
+  const { rows: grants } = await pool.query<{ rel: string; grantee: string }>(
+    `SELECT s.rel, g.grantee::regrole::text AS grantee
+       FROM unnest($1::text[], $2::text[]) AS s(rel, successor),
+            aclexplode((SELECT relacl FROM pg_class WHERE oid = to_regclass(s.rel))) AS g
+      WHERE g.privilege_type = 'SELECT'
+        AND NOT EXISTS (
+          SELECT 1
+            FROM aclexplode((SELECT relacl FROM pg_class WHERE oid = to_regclass(s.successor))) h
+           WHERE h.privilege_type = 'SELECT' AND h.grantee = g.grantee)`,
+    [steps.map((st) => st.name), steps.map((st) => st.aside)],
+  );
+  for (const g of grants) problems.push(`${g.grantee} can read ${g.rel} but not its successor`);
+  if (!revert) {
+    const { rows: backlog } = await pool.query<{ days: string }>(
+      `SELECT count(DISTINCT d) AS days
+         FROM chain_rollup_dirty,
+              generate_series(ts_lo / 86400, ts_hi / 86400) AS d`,
+    );
+    const days = Number(backlog[0]?.days ?? 0);
+    if (days > MAX_CATCH_UP_DAYS) {
+      problems.push(`${days} marked days wait; let the follower's passes drain them first`);
+    }
+  }
   if (problems.length > 0) throw new Error(`refusing to swap:\n  ${problems.join("\n  ")}`);
 }
 
 async function swapOnce(client: PoolClient, revert: boolean, log: Log): Promise<void> {
   await beginRollupTransaction(client);
   try {
-    await client.query("SET LOCAL lock_timeout = '5s'");
+    // Short: while a rename waits for its lock, new readers of that view queue behind it.
+    await client.query("SET LOCAL lock_timeout = '1s'");
     if (!revert) {
       // Bring the tables up to the moment of the swap, so readers lose no freshness.
       const resolution = await resolveTargets(client);
@@ -142,7 +178,7 @@ export async function swapRollups(
 ): Promise<void> {
   const revert = options.revert ?? false;
   const log = options.log ?? (() => {});
-  const attempts = options.attempts ?? 6;
+  const attempts = options.attempts ?? 10;
   await preflight(pool, revert);
   log("waiting for any view refresh to finish, then for the rollup lock");
   await withSessionLock(pool, MATVIEW_REFRESH_LOCK, { wait: true }, () =>
@@ -156,7 +192,7 @@ export async function swapRollups(
           const code = (error as { code?: unknown }).code;
           if (code !== "55P03" || attempt >= attempts) throw error;
           log(`attempt ${attempt}: a lock was busy; retrying`);
-          await new Promise((resolve) => setTimeout(resolve, options.retryMs ?? 5_000));
+          await new Promise((resolve) => setTimeout(resolve, options.retryMs ?? 3_000));
         }
       }
     }),

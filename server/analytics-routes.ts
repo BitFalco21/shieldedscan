@@ -984,7 +984,8 @@ export function analyticsRoutes(
 
   // The two per-pool chart series. A view never populated (before the rollup swap) raises rather
   // than returning zero rows, so the route answers 500, the adapter treats it as transient, and
-  // the chart renders DataUnavailable instead of an empty plot.
+  // the chart renders DataUnavailable instead of an empty plot. A rollup table is empty only on a
+  // new database before the follower's first pass, as the other day series always were.
   app.get("/chain/analytics/pool-usage", async (c) =>
     c.json(
       await poolUsage.get(async () => {
