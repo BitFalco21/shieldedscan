@@ -44,7 +44,16 @@ export function Nu7FirstBlocks({ blocks }: Nu7FirstBlocksProps) {
                 height="10"
                 className="fill-green-dim"
               />
-              <rect x={TARGET - 0.5} y="-3" width="1" height="16" className="fill-warn" />
+              {/* A non-scaling stroke, so the target stays a hairline however wide the bar. */}
+              <line
+                x1={TARGET}
+                x2={TARGET}
+                y1="-3"
+                y2="13"
+                strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
+                className="stroke-warn"
+              />
             </svg>
             <span className="text-right text-ink-dim tabular-nums">{row.seconds} s</span>
           </li>

@@ -181,18 +181,22 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
         </span>
       </p>
 
-      {active ? (
-        <p role="status" className="mt-4 min-h-[1.4em] text-[13px] text-ink-dim">
-          <span
-            className={phase === "activating" ? `nu7-type ${ACTIVE_LINE_TIMING}` : "inline-block"}
-          >
-            <span className="text-warn">&gt;</span> {ACTIVE_LINE}
-          </span>
-          {phase === "awaiting" ? (
-            <span className="ml-3 text-ink-faint">loading the block…</span>
-          ) : null}
-        </p>
-      ) : null}
+      {/* Always mounted: a live region announces what changes inside it, not what it is born
+          with, and the reserved line keeps the activation from shifting the page. */}
+      <p role="status" className="mt-4 min-h-[1.4em] text-[13px] text-ink-dim">
+        {active ? (
+          <>
+            <span
+              className={phase === "activating" ? `nu7-type ${ACTIVE_LINE_TIMING}` : "inline-block"}
+            >
+              <span className="text-warn">&gt;</span> {ACTIVE_LINE}
+            </span>
+            {phase === "awaiting" ? (
+              <span className="ml-3 text-ink-faint">loading the block…</span>
+            ) : null}
+          </>
+        ) : null}
+      </p>
     </>
   );
 }
