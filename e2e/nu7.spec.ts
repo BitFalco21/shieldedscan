@@ -54,7 +54,7 @@ for (const viewport of WIDTHS) {
       expect(res?.status()).toBe(200);
       await expect(page).toHaveTitle(/NU7 countdown/);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-        "NU7 activates at this block",
+        "NU7 activates at block #3,543,405",
       );
       await expect(page.locator(".nu7-count")).toHaveText("412");
       await expect(page.getByText("what changes at block 3,543,405")).toBeVisible();
@@ -87,6 +87,8 @@ test("the activation is shown when the tip reaches the height, then the page ref
   await stubFeed(page, () => tip);
   await page.goto(COUNTDOWN);
   await expect(page.locator(".nu7-count")).toHaveText("1");
+  const trace = page.getByText("heartbeat", { exact: true });
+  const before = (await trace.boundingBox())!;
 
   const refreshed = page.waitForRequest(
     (r) => r.url().includes(COUNTDOWN) && r.headers()["rsc"] === "1",
@@ -95,10 +97,14 @@ test("the activation is shown when the tip reaches the height, then the page ref
   tip = H;
   // Coming back to the tab polls at once.
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-  await expect(page.getByText(/NU7 is active/)).toBeVisible();
+  await expect(page.getByText(/mined · NU7 is active/)).toBeVisible();
   await expect(page.locator(".nu7-flash")).toHaveCount(1);
   await expect(page.getByText("target 25 s · was 75 s")).toBeVisible();
   await expect(page.getByText("was 1.25")).toBeVisible();
+  // Nothing above the trace moves at the moment readers are watching: the clock holds at zero.
+  await expect(page.getByRole("timer", { name: "Activation reached" })).toBeVisible();
+  const after = (await trace.boundingBox())!;
+  expect(Math.abs(after.y - before.y)).toBeLessThan(1);
   await refreshed;
 });
 
@@ -112,7 +118,7 @@ test.describe("under reduced motion", () => {
     await expect(page.locator(".nu7-count")).toHaveText("1");
     tip = H;
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await expect(page.getByText(/NU7 is active/)).toBeVisible();
+    await expect(page.getByText(/mined · NU7 is active/)).toBeVisible();
     await expect(page.locator(".nu7-flash, .nu7-type")).toHaveCount(0);
   });
 });

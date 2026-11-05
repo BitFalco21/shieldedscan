@@ -16,3 +16,12 @@ describe("Nu7Clock", () => {
     expect(screen.getByText("any moment")).toBeTruthy();
   });
 });
+
+describe("Nu7Clock once the activation block is in", () => {
+  it("holds at zero in place and says NU7 is active", () => {
+    render(<Nu7Clock seconds={-5} spacingSeconds={25} blocksToGo={0} arrived />);
+    const timer = screen.getByRole("timer", { name: "Activation reached" });
+    expect(timer.textContent).toContain("00hrs:00min:00sec");
+    expect(screen.getByText("NU7 is active · 25 s per block")).toBeTruthy();
+  });
+});
