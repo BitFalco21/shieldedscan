@@ -22,7 +22,7 @@ export function Nu7CountdownPage({ tipHeight, tipTimestamp, recent }: Nu7Countdo
           { label: "BLOCKS", href: "/blocks" },
           { label: `#${formatCount(NU7_HEIGHT)}` },
         ]}
-        title="NU7 activates at this block"
+        title={`NU7 activates at block #${formatCount(NU7_HEIGHT)}`}
       />
       <Nu7Countdown tipHeight={tipHeight} tipTimestamp={tipTimestamp} recent={recent} />
     </>

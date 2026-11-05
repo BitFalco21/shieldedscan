@@ -54,7 +54,7 @@ for (const viewport of WIDTHS) {
       expect(res?.status()).toBe(200);
       await expect(page).toHaveTitle(/NU7 countdown/);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-        "NU7 activates at this block",
+        "NU7 activates at block #3,543,405",
       );
       await expect(page.locator(".nu7-count")).toHaveText("412");
       await expect(page.getByText("what changes at block 3,543,405")).toBeVisible();
