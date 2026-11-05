@@ -28,6 +28,10 @@ COPY server ./server
 #   REPAIR_PHASE=verify node repair-miner.mjs          miner-field repair
 #   node repair-reorg-addresses.mjs                    reorg-address repair (dry run unless
 #                                                      REPAIR_COMMIT=1)
+#   node explain-rollups.mjs                           rollup pass cost (read-only)
+#   node fill-rollups.mjs [--restart]                  rollup fill / full rebuild (paced)
+#   node check-rollups.mjs [--live]                    rollup tables vs their views (read-only)
+#   node swap-rollups.mjs [--revert]                   rollup tables into the views' names
 RUN npx esbuild \
       follower=server/follow-main.ts \
       backfill=server/backfill-main.ts \
@@ -39,6 +43,10 @@ RUN npx esbuild \
       repair-value-extremes=server/repair-value-extremes-main.ts \
       repair-miner=server/repair-miner-main.ts \
       repair-reorg-addresses=server/repair-reorg-addresses-main.ts \
+      explain-rollups=server/explain-rollups-main.ts \
+      fill-rollups=server/fill-rollups-main.ts \
+      check-rollups=server/check-rollups-main.ts \
+      swap-rollups=server/swap-rollups-main.ts \
       --bundle --platform=node --target=node22 --format=esm \
       --outdir=dist --out-extension:.js=.mjs \
       --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"

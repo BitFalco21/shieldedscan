@@ -31,8 +31,10 @@
     "build:judge": "node scripts/bundle.mjs server/agent/evals/judge-validate.ts dist/eval-judge-validate.mjs && node scripts/bundle.mjs server/agent/evals/judge-review.ts dist/eval-judge-review.mjs",
     "build:fx-validate": "node scripts/bundle.mjs server/fx-validate-main.ts dist/fx-validate.mjs",
     "fx:validate": "npm run build:fx-validate && node --env-file-if-exists=.env.local dist/fx-validate.mjs",
-    "build:fill-pool": "node scripts/bundle.mjs server/fill-pool-analytics-main.ts dist/fill-pool-analytics.mjs",
-    "fill:pool-analytics": "npm run build:fill-pool && node --env-file-if-exists=.env.local dist/fill-pool-analytics.mjs"
+    "rollups:explain": "node scripts/bundle.mjs server/explain-rollups-main.ts dist/explain-rollups.mjs && node --env-file-if-exists=.env.local dist/explain-rollups.mjs",
+    "rollups:fill": "node scripts/bundle.mjs server/fill-rollups-main.ts dist/fill-rollups.mjs && node --env-file-if-exists=.env.local dist/fill-rollups.mjs",
+    "rollups:check": "node scripts/bundle.mjs server/check-rollups-main.ts dist/check-rollups.mjs && node --env-file-if-exists=.env.local dist/check-rollups.mjs",
+    "rollups:swap": "node scripts/bundle.mjs server/swap-rollups-main.ts dist/swap-rollups.mjs && node --env-file-if-exists=.env.local dist/swap-rollups.mjs"
   },
   "engines": {
     "node": ">=20.19.0"

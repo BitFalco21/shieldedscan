@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -120,7 +121,7 @@ describeDb("pool_usage_daily", () => {
         ],
       );
     }
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_pool_tx");
+    await rebuildRollups(pool);
   });
 
   afterAll(async () => {

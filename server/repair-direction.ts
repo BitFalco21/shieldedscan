@@ -3,6 +3,7 @@ import type { Transaction, TxDirection } from "@/domain";
 import { txDirection } from "@/domain";
 import type { StoredTxDirection } from "./tx-direction-column";
 import { txDirectionColumn } from "./tx-direction-column";
+import { markingUpdate } from "./rollup/marks";
 
 /**
  * Fill `tx.direction` for mixed transactions written before the column existed. The writer fills
@@ -34,8 +35,6 @@ export interface RepairDirectionDeps {
    * database be bounded to something checkable by hand.
    */
   limit?: number;
-  /** Refresh the counts matview when finished. On by default. */
-  refresh?: boolean;
 }
 
 export interface RepairDirectionResult {
@@ -181,24 +180,22 @@ export async function repairDirection(deps: RepairDirectionDeps): Promise<Repair
     }
 
     // `AND t.direction IS NULL` so a concurrent follower write always wins: this job only fills
-    // holes.
-    const { rowCount } = await pool.query(
-      `UPDATE tx AS t
+    // holes. The same statement marks the days it changed for the follower's rollup pass (the
+    // direction counts and the boundary rows read this column).
+    const { rows: changed } = await pool.query<{ changed: number }>(
+      markingUpdate(`UPDATE tx AS t
           SET direction = v.d
          FROM (SELECT unnest($1::text[]) AS txid, unnest($2::text[]) AS d) AS v
-        WHERE t.txid = v.txid AND t.direction IS NULL`,
+        WHERE t.txid = v.txid AND t.direction IS NULL
+        RETURNING t.timestamp`),
       [txids, values],
     );
-    result.written += rowCount ?? 0;
+    result.written += changed[0]?.changed ?? 0;
     log(
       `direction: ${result.written} written (${result.shielding} shielding, ` +
         `${result.unshielding} unshielding, ${result.indeterminate} indeterminate)`,
     );
   }
 
-  if (deps.refresh ?? true) {
-    log("refreshing chain_tx_mixed_direction_count");
-    await pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_tx_mixed_direction_count");
-  }
   return result;
 }

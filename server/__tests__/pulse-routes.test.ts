@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { readFileSync } from "node:fs";
@@ -635,19 +636,17 @@ describeDb("the /chain/pulse routes", () => {
   });
 
   describe("the ribbons", () => {
-    it("refuses while a view has not been populated, rather than reporting no flow", async () => {
+    it("refuses while the day rollups have not been computed, rather than reporting no flow", async () => {
       // `edges: []` would state that nothing has ever crossed the boundary in Zcash's history.
       const response = await get("/chain/pulse/ribbons");
       expect(response.status).toBe(503);
     });
 
     it("states each edge as its own total once the views are filled", async () => {
-      await pool.query("REFRESH MATERIALIZED VIEW chain_day_pool_boundary");
-      await pool.query("REFRESH MATERIALIZED VIEW chain_day_pool_migration");
-      await pool.query("REFRESH MATERIALIZED VIEW chain_day_supply_close");
-      // The SAME router as the 503 above, deliberately: a refusal built from an unpopulated
-      // view must not be held for the cache's ten minutes, or the endpoint goes on refusing
-      // for minutes after the fill it was reporting has finished.
+      await rebuildRollups(pool);
+      // The SAME router as the 503 above, deliberately: a refusal built from uncomputed rollups
+      // must not be held for the cache's ten minutes, or the endpoint goes on refusing for
+      // minutes after the pass it was waiting for has run.
       const body = (await (await get("/chain/pulse/ribbons")).json()) as PulseRibbonsPayload;
 
       const all = body.windows.all;

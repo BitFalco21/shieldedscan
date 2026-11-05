@@ -15,8 +15,7 @@ import { log, requirePostgres } from "./entrypoint";
  * It applies no schema; the follower's boot is the single migration path. Safe to interrupt and
  * re-run: the remaining work is always `difficulty IS NULL`.
  *
- * Env: PGHOST/DATABASE_URL (required), NODE_RPC_URL, REPAIR_BATCH, REPAIR_CONCURRENCY,
- * REPAIR_REFRESH=0 to skip the matview refresh.
+ * Env: PGHOST/DATABASE_URL (required), NODE_RPC_URL, REPAIR_BATCH, REPAIR_CONCURRENCY.
  */
 
 const NODE_RPC_URL = process.env.NODE_RPC_URL ?? "http://zakura:8232";
@@ -46,7 +45,6 @@ try {
     ...(BATCH !== undefined ? { batch: BATCH } : {}),
     ...(CONCURRENCY !== undefined ? { concurrency: CONCURRENCY } : {}),
     ...(END !== undefined ? { end: END } : {}),
-    ...(process.env.REPAIR_REFRESH === "0" ? { refresh: false } : {}),
   });
 
   const minutes = Math.round((Date.now() - startedAt) / 60000);

@@ -79,9 +79,19 @@ export async function deriveTables(o: DeriveOptions): Promise<void> {
     await dropValueStaging(pool);
   });
 
+  await once(pool, "rollups", log, async () => {
+    // The import copied rows without the follower's ingest, so no period was marked: rebuild every
+    // rollup from scratch, unpaced, since nothing reads the database yet. The follower's pass
+    // keeps them current from there.
+    const started = Date.now();
+    if ((await store.rebuildRollups(log)) === null)
+      throw new Error("the rollup tables are missing");
+    log(`  rollups in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+  });
+
   await once(pool, "materialized-views", log, async () => {
-    // Plain REFRESH, not CONCURRENTLY: nothing reads the database yet, and a first fill cannot be
-    // concurrent anyway. Every view, the WITH NO DATA ones (fee extremes, pool analytics) too.
+    // Whatever materialized views remain: none on a database this release created (the rollups
+    // above are tables). Plain REFRESH: nothing reads the database yet.
     const { rows } = await pool.query<{ name: string }>(
       "SELECT matviewname AS name FROM pg_matviews WHERE schemaname = current_schema() ORDER BY 1",
     );

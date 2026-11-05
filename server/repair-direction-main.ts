@@ -20,8 +20,7 @@ import { log, requirePostgres } from "./entrypoint";
  * Safe to interrupt and re-run: the remaining work is always
  * `kind = 'mixed' AND direction IS NULL`.
  *
- * Env: PGHOST/DATABASE_URL (required), REPAIR_BATCH, REPAIR_LIMIT to bound a first run,
- * REPAIR_REFRESH=0 to skip the matview refresh.
+ * Env: PGHOST/DATABASE_URL (required), REPAIR_BATCH, REPAIR_LIMIT to bound a first run.
  */
 
 const BATCH = process.env.REPAIR_BATCH ? Number(process.env.REPAIR_BATCH) : undefined;
@@ -49,7 +48,6 @@ try {
     log,
     ...(BATCH !== undefined ? { batch: BATCH } : {}),
     ...(LIMIT !== undefined ? { limit: LIMIT } : {}),
-    ...(process.env.REPAIR_REFRESH === "0" ? { refresh: false } : {}),
   });
 
   const minutes = Math.round((Date.now() - startedAt) / 60000);

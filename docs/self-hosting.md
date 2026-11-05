@@ -62,8 +62,9 @@ migration step:
 | `server/schema.sql`       | API                | cross-chain transfers, prices, derived analytics |
 | `server/schema-net.sql`   | crawler            | the network map                                  |
 
-Several materialised views are created empty (`WITH NO DATA`) and filled by the steps below,
-because a first fill scans the whole chain and must not run inside a service's startup.
+The day and month series are tables the follower keeps current as it ingests (`server/rollup/`).
+The rich list is filled once by the steps below, because a first fill scans the whole chain and
+must not run inside a service's startup.
 
 ## Startup order
 
@@ -76,8 +77,9 @@ because a first fill scans the whole chain and must not run inside a service's s
    `node backfill.mjs` from the follower image to completion, recreate the follower with
    `CHAIN_INGEST_MODE=full`, then run the backfill once more to fill the blocks ingested between
    the two. The header of `server/backfill-main.ts` describes the sequence.
-5. **Fill the derived tables once:** `node bootstrap-rich-list.mjs` from the follower image, then
-   `npm run fill:pool-analytics`. The follower keeps both current afterwards.
+5. **Fill the rich list once:** `node bootstrap-rich-list.mjs` from the follower image. The
+   follower keeps it current afterwards, and the series too (they follow every ingested block,
+   the backfill's included).
 6. **Start the API** with `EXPLORER_API_TOKEN` (32 or more random characters), the database and
    `NODE_RPC_URL`. Set `PUBLIC_API_ENABLED=1` for the keyless `/v1` API and MCP server, and
    `AGENT_ENABLED=1` plus a model-host key for the assistant. `GET /health` reports readiness.

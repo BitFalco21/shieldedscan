@@ -12,6 +12,10 @@ import { REORG_DEPTH } from "./follow";
 import { minerRewardZat } from "@/domain";
 import type { ChainStorePort, ChainSyncState, ReorgEventRecord } from "./chain-store";
 import { createPool, rollbackQuietly } from "./pg-pool";
+import { MATVIEW_REFRESH_LOCK, withSessionLock } from "./rollup/lock";
+import { MARK_INGEST_SQL, MARK_ROLLBACK_SQL } from "./rollup/marks";
+import { DEFAULT_PASS_BUDGET_MS, rebuildRollups, runRollupPass } from "./rollup/run";
+import type { WorkLog } from "./rollup/pass";
 import "./pg-types";
 
 /**
@@ -35,9 +39,8 @@ export const RESOLVE_INPUTS_JOIN = `
      AND o.ordinal = i.prev_vout`;
 
 /**
- * The day-grained pool matviews `refreshPoolAnalytics` maintains and `npm run fill:pool-analytics`
- * fills. One list for the refresh, its row count and the fill script, so a view cannot reach the
- * schema and silently never be refreshed.
+ * The day-grained pool views `refreshPoolAnalytics` refreshes while a database still holds them as
+ * materialized views (until `swap-rollups`; afterwards they are rollup tables and this is a no-op).
  */
 export const POOL_ANALYTICS_MATVIEWS = [
   "chain_day_pool_tx",
@@ -55,7 +58,10 @@ export interface PoolAnalyticsPass {
   rows: number;
   /** Views this pass refreshed, in the constant's order. */
   refreshed: readonly string[];
-  /** Views left alone because they have never been populated. Only the fill script fills one. */
+  /**
+   * Views left alone because they have never been populated: a first fill takes an exclusive lock
+   * for a whole scan, which is never a timer's to take.
+   */
   skipped: readonly string[];
 }
 
@@ -210,6 +216,9 @@ export class PostgresChainStore implements ChainStorePort {
           )
         : null;
 
+      // The periods the doomed rows leave, read before the cascade removes them: a rollup period
+      // may hold no surviving or replacement block, so nothing later would name it.
+      await client.query(MARK_ROLLBACK_SQL, [height]);
       await client.query("DELETE FROM block WHERE height > $1", [height]);
       if (affected !== null) {
         // After the delete, so the re-derivation reads the chain as it now stands.
@@ -266,6 +275,12 @@ export class PostgresChainStore implements ChainStorePort {
     const client = await this.#pool.connect();
     try {
       await client.query("BEGIN");
+      // Before the upserts, which would overwrite a replaced row's timestamp (see `marks.ts`).
+      await client.query(MARK_INGEST_SQL, [
+        parsed.block.timestamp,
+        parsed.block.height,
+        parsed.transactions.map((t) => t.txid),
+      ]);
       await this.#writeBlock(client, parsed);
       // Rollup-only mode: the block row is the product (per-block activity counts and pool totals
       // for the analytics matviews), at a tiny fraction of the transparent-I/O index's size.
@@ -318,127 +333,136 @@ export class PostgresChainStore implements ChainStorePort {
   }
 
   /**
-   * Refresh the materialised monthly series.
-   *
-   * CONCURRENTLY is required: a plain refresh takes an ACCESS EXCLUSIVE lock that would block every
-   * analytics read for its duration. It needs the unique index `schema-chain.sql` creates with the
-   * view. Only the follower calls this; the API is read-only and must not write.
+   * Bring the rollup tables up to date with every period the dirty-period log names: the
+   * follower's periodic pass (`server/rollup/run.ts`). Returns the rows written, or null when it
+   * did not run.
    */
+  async refreshRollups(
+    log: (message: string) => void = () => {},
+    budgetMs = DEFAULT_PASS_BUDGET_MS,
+  ): Promise<number | null> {
+    return runRollupPass(this.#pool, log, budgetMs);
+  }
+
+  /**
+   * Rebuild every rollup table from scratch, unpaced, in one transaction. For a database nothing
+   * reads yet and for tests; production rebuilds with the paced `fill-rollups` job.
+   */
+  async rebuildRollups(log: (message: string) => void = () => {}): Promise<WorkLog | null> {
+    return rebuildRollups(this.#pool, log);
+  }
+
+  /*
+   * The materialized views a database holds until `swap-rollups` replaces them with the rollup
+   * tables. Each refresh below acts only while its name is still a view and is a no-op once it is
+   * a table. CONCURRENTLY keeps readers unblocked; only the follower calls these.
+   */
+
+  /** The monthly activity series. */
   async refreshMonthlyRollup(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_month_rollup");
+    await this.#refreshViews(["chain_month_rollup"]);
   }
 
-  /**
-   * Refresh the monthly shielding-flow view. Separate from the rollup above, and awaited separately
-   * by the caller, because it aggregates `tx` where that one aggregates `block`: one failing or
-   * being slow must not hold up the other.
-   */
+  /** The monthly shielding flow; separate because it reads `tx` where the rollup reads `block`. */
   async refreshShieldingFlow(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_month_shielding_flow");
+    await this.#refreshViews(["chain_month_shielding_flow"]);
   }
 
-  /** Refresh the monthly fee-by-kind view. Same contract as its two siblings. */
   async refreshFeeKinds(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_month_fee_kind");
+    await this.#refreshViews(["chain_month_fee_kind"]);
   }
 
-  /**
-   * Refresh the per-kind transaction counts and the per-direction counts beside them. Two views
-   * rather than one grouped view; see `chain_tx_mixed_direction_count` in `schema-chain.sql`.
-   */
+  /** Per-kind transaction counts and the per-direction counts beside them. */
   async refreshTxCounts(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_tx_kind_count");
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_tx_mixed_direction_count");
+    await this.#refreshViews(["chain_tx_kind_count", "chain_tx_mixed_direction_count"]);
   }
 
-  /**
-   * Refresh the daily views behind the chart range toggles. Same contract as the monthly set; the
-   * caller runs these on a slower cadence because a day-grain series changes once a day.
-   */
   async refreshDayRollup(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_rollup");
+    await this.#refreshViews(["chain_day_rollup"]);
   }
 
   async refreshDayShieldingFlow(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_shielding_flow");
+    await this.#refreshViews(["chain_day_shielding_flow"]);
   }
 
   async refreshDayFeeKinds(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_fee_kind");
+    await this.#refreshViews(["chain_day_fee_kind"]);
   }
 
   /**
-   * Refresh the per-pool day matviews that are already populated; what the hourly timer calls.
+   * Refresh the per-pool day views that are still populated materialized views.
    *
-   * It never performs a first fill, which is why it is separate from {@link fillPoolAnalytics}. An
-   * unpopulated matview forbids `REFRESH ... CONCURRENTLY`, so populating one takes an ACCESS
-   * EXCLUSIVE lock for an unmeasured scan in front of ingestion, and even lock-free heavy reads can
-   * push ingestion behind. So a never-filled view is skipped and named, and stays empty until an
-   * operator runs `npm run fill:pool-analytics` (paced, with the time printed). An empty view is
-   * visible: its routes answer 503.
-   *
-   * Uses its own client with its own `work_mem`, RESET in `finally`, because a pooled connection
-   * left raised would lift the ceiling for every later query on it; at the 4 MB default these
-   * refreshes spill.
-   *
+   * Never a first fill: an unpopulated view forbids CONCURRENTLY, so populating one takes an
+   * exclusive lock for a whole scan in front of ingestion. Such a view is skipped and named.
    * Returns the rows across the views it refreshed and the names it skipped, because a view that
    * stops being refreshed looks exactly like a fresh one.
    */
   async refreshPoolAnalytics(
     log: (message: string) => void = () => {},
   ): Promise<PoolAnalyticsPass> {
-    return this.#poolAnalyticsPass(false, log);
+    const refreshed: string[] = [];
+    const skipped: string[] = [];
+    await this.#refreshViews(POOL_ANALYTICS_MATVIEWS, {
+      firstFill: (view) => {
+        skipped.push(view);
+        log(`${view} SKIPPED — never populated, and a first fill is not the timer's to take`);
+        return false;
+      },
+      refreshed: (view) => refreshed.push(view),
+    });
+    // The names are a compile-time constant, never a query parameter. Counted only over what was
+    // refreshed: `count(*)` on an unpopulated matview is an error, not a zero.
+    if (refreshed.length === 0) return { rows: 0, refreshed, skipped };
+    const { rows } = await this.#pool.query<{ n: string }>(
+      `SELECT ${refreshed.map((v) => `(SELECT count(*) FROM ${v})`).join(" + ")} AS n`,
+    );
+    return { rows: Number(rows[0]?.n ?? 0), refreshed, skipped };
   }
 
   /**
-   * Fill the per-pool day matviews, populating any that have never been filled.
+   * Refresh each of `views` that is still a materialized view, holding the refresh lock shared.
+   * The swap takes it exclusively, so it never waits behind a long refresh with readers queued
+   * behind its rename, and no refresh starts while it waits.
    *
-   * The only caller is `fill-pool-analytics-main.ts`, which refuses to start against a follower
-   * that is already behind. `REFRESH MATERIALIZED VIEW` is a single statement that cannot be paced
-   * mid-flight, so whether it starts is an operator's decision, never a timer's.
+   * A never-populated view forbids CONCURRENTLY; `firstFill` decides whether it gets a plain,
+   * locking first refresh (the default, as the fee extremes always had).
    */
-  async fillPoolAnalytics(log: (message: string) => void = () => {}): Promise<PoolAnalyticsPass> {
-    return this.#poolAnalyticsPass(true, log);
-  }
-
-  async #poolAnalyticsPass(
-    populateUnfilled: boolean,
-    log: (message: string) => void,
-  ): Promise<PoolAnalyticsPass> {
-    const client = await this.#pool.connect();
-    try {
-      await client.query("SET work_mem = '256MB'");
-      const { rows: state } = await client.query<{ matviewname: string; ispopulated: boolean }>(
-        `SELECT matviewname, ispopulated FROM pg_matviews WHERE matviewname = ANY($1::text[])`,
-        [[...POOL_ANALYTICS_MATVIEWS]],
-      );
-      const refreshed: string[] = [];
-      const skipped: string[] = [];
-      for (const view of POOL_ANALYTICS_MATVIEWS) {
-        const populated = state.find((s) => s.matviewname === view)?.ispopulated === true;
-        if (!populated && !populateUnfilled) {
-          skipped.push(view);
-          // By name: the remedy is one specific command.
-          log(
-            `${view} SKIPPED — never populated, and a first fill is not the timer's to take; ` +
-              "run `npm run fill:pool-analytics`",
+  async #refreshViews(
+    views: readonly string[],
+    hooks: { firstFill?: (view: string) => boolean; refreshed?: (view: string) => void } = {},
+  ): Promise<void> {
+    const ran = await withSessionLock(
+      this.#pool,
+      MATVIEW_REFRESH_LOCK,
+      { shared: true },
+      async (client) => {
+        // On this connection only, and reset before it returns to the pool: at the 4 MB default
+        // these refreshes spill.
+        await client.query("SET work_mem = '256MB'");
+        try {
+          const { rows } = await client.query<{ name: string; populated: boolean }>(
+            `SELECT c.relname AS name, c.relispopulated AS populated
+               FROM pg_class c
+              WHERE c.oid = ANY(SELECT to_regclass(v) FROM unnest($1::text[]) AS v)
+                AND c.relkind = 'm'`,
+            [[...views]],
           );
-          continue;
+          for (const view of views) {
+            const state = rows.find((r) => r.name === view);
+            // A table now: the rollup pass keeps it.
+            if (state === undefined) continue;
+            if (!state.populated && !(hooks.firstFill?.(view) ?? true)) continue;
+            await client.query(
+              `REFRESH MATERIALIZED VIEW ${state.populated ? "CONCURRENTLY " : ""}${view}`,
+            );
+            hooks.refreshed?.(view);
+          }
+        } finally {
+          await client.query("RESET work_mem");
         }
-        await client.query(`REFRESH MATERIALIZED VIEW ${populated ? "CONCURRENTLY " : ""}${view}`);
-        refreshed.push(view);
-      }
-      // The names are a compile-time constant, never a query parameter. Counted only over what was
-      // refreshed: `count(*)` on an unpopulated matview is an error, not a zero.
-      if (refreshed.length === 0) return { rows: 0, refreshed, skipped };
-      const { rows } = await client.query<{ n: string }>(
-        `SELECT ${refreshed.map((v) => `(SELECT count(*) FROM ${v})`).join(" + ")} AS n`,
-      );
-      return { rows: Number(rows[0]?.n ?? 0), refreshed, skipped };
-    } finally {
-      await client.query("RESET work_mem").catch(() => undefined);
-      client.release();
-    }
+      },
+    );
+    if (ran === null) throw new Error("the rollup swap holds the view refresh lock");
   }
 
   /**
@@ -895,12 +919,12 @@ export class PostgresChainStore implements ChainStorePort {
 
   /** Total fees per day — the network's fee bill, as opposed to one transaction's cost. */
   async refreshDayFeeTotals(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_fee_total");
+    await this.#refreshViews(["chain_day_fee_total"]);
   }
 
   /** Daily difficulty and block size. */
   async refreshDayNetwork(): Promise<void> {
-    await this.#pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_network");
+    await this.#refreshViews(["chain_day_network"]);
   }
 
   /**
@@ -970,24 +994,11 @@ export class PostgresChainStore implements ChainStorePort {
   }
 
   /**
-   * The lowest and highest fee ever paid, by a transaction and by a block.
-   *
-   * `chain_fee_extremes` is created WITH NO DATA (so the scan stays out of the schema transaction
-   * the follower runs on every boot), and `CONCURRENTLY` is illegal on a matview that has never
-   * held data, so the first refresh here is a plain one. It is cheap next to the other daily views
-   * and rides `DAILY_VIEWS`.
+   * The lowest and highest fee ever paid, and the non-zero floor. Created WITH NO DATA as views,
+   * so the first refresh of each is a plain one; cheap next to the daily set it rides with.
    */
   async refreshFeeExtremes(): Promise<void> {
-    // The non-zero floor rides the same cycle: same source tables, same populated-check rule
-    // (CONCURRENTLY is illegal on a never-populated matview).
-    for (const view of ["chain_fee_extremes", "chain_fee_nonzero_floor"]) {
-      const { rows } = await this.#pool.query<{ ispopulated: boolean }>(
-        "SELECT ispopulated FROM pg_matviews WHERE matviewname = $1",
-        [view],
-      );
-      const concurrently = rows[0]?.ispopulated === true ? "CONCURRENTLY " : "";
-      await this.#pool.query(`REFRESH MATERIALIZED VIEW ${concurrently}${view}`);
-    }
+    await this.#refreshViews(["chain_fee_extremes", "chain_fee_nonzero_floor"]);
   }
 
   async close(): Promise<void> {

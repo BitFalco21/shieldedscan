@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { readFileSync } from "node:fs";
@@ -9,8 +10,8 @@ import { readFeeExtremes, readValueExtremes } from "../analytics-routes";
  *  - The floor is a separate figure from the minimum. The minimum is 0 with ties and the non-zero
  *    floor is tied too (two transactions at 1,000), so naming a "cheapest transaction" from either
  *    fails; the block floor is unique, so the two scopes must not copy each other's naming.
- *  - An unpopulated floor view costs the floor, never the range. SELECTing a never-populated
- *    matview is an error in Postgres, not an empty set; the enrichment swallows exactly that.
+ *  - A floor that cannot be read costs the floor, never the range: the enrichment swallows the
+ *    error (a never-populated view before the rollup swap, a missing relation).
  *  - The at-close valuation is attached only where a close exists for the record's own day,
  *    pre-formatted with the day and source; a missing day loses the valuation, never the figure.
  *
@@ -102,18 +103,24 @@ describeDb("the non-zero fee floor and the at-close valuation", () => {
     await pool?.end();
   });
 
-  it("costs the floor and never the range while the floor view is unpopulated", async () => {
-    await pool.query("REFRESH MATERIALIZED VIEW chain_fee_extremes");
-    const extremes = await readFeeExtremes(pool);
-    expect(extremes).not.toBeNull();
-    expect(extremes!.transaction.highest.feeZat).toBe(5_000);
-    // A never-populated matview SELECTs as an ERROR, not an empty set — swallowed as exactly
-    // "no floor", with the range intact.
-    expect(extremes!.transaction.lowestNonZero).toBeNull();
+  it("costs the floor and never the range while the floor cannot be read", async () => {
+    await rebuildRollups(pool);
+    await pool.query("ALTER TABLE chain_fee_nonzero_floor RENAME TO chain_fee_nonzero_floor_away");
+    try {
+      const extremes = await readFeeExtremes(pool);
+      expect(extremes).not.toBeNull();
+      expect(extremes!.transaction.highest.feeZat).toBe(5_000);
+      // An unreadable floor is an ERROR, not an empty set — swallowed as exactly "no floor",
+      // with the range intact.
+      expect(extremes!.transaction.lowestNonZero).toBeNull();
+    } finally {
+      await pool.query(
+        "ALTER TABLE chain_fee_nonzero_floor_away RENAME TO chain_fee_nonzero_floor",
+      );
+    }
   });
 
   it("serves the floor as a distinct figure, with per-scope naming decisions", async () => {
-    await pool.query("REFRESH MATERIALIZED VIEW chain_fee_nonzero_floor");
     const extremes = await readFeeExtremes(pool);
     expect(extremes).not.toBeNull();
 

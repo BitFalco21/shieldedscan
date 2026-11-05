@@ -44,11 +44,10 @@ import "./pg-types";
 import { Cached } from "./cached";
 
 /**
- * The analytics series, from the rollup `block` table and the daily/monthly matviews.
+ * The analytics series, from the rollup `block` table and the daily/monthly rollups.
  *
- * Plain queries with a short in-process cache. The monthly series is a materialized view (in
- * `schema-chain.sql`, refreshed by the follower), because deriving it means two sequential scans
- * of `block` per read.
+ * Plain queries with a short in-process cache. The monthly series is a rollup table the follower
+ * keeps (`server/rollup/`), because deriving it means two sequential scans of `block` per read.
  *
  * `medianFeeZat` is null on every point; `/chain/analytics/fees24h` below is the fee figure this
  * module serves.
@@ -650,9 +649,9 @@ export function usdAtCloseFor(
  * Read `chain_fee_extremes`, or null.
  *
  * Never throws: this rides on `/chain/analytics/fee-kinds`, which live fee charts depend on, and
- * the matview is created WITH NO DATA, so on a fresh database querying it raises "materialized view
- * has not been populated". `null` means "we could not read it", rendered as an explicit read
- * failure, never as a zero.
+ * the figure can be unreadable (a never-populated view before the rollup swap) or not yet computed
+ * (no rows). `null` means "we could not read it", rendered as an explicit read failure, never as a
+ * zero.
  */
 export async function readFeeExtremes(pool: Pool, currency = "usd"): Promise<FeeExtremes | null> {
   try {
@@ -983,9 +982,9 @@ export function analyticsRoutes(
   const poolMigrations = new Cached<PoolMigrationDayPoint[]>();
   const app = new Hono();
 
-  // The two per-pool chart series. The matviews are WITH NO DATA, and an unpopulated one raises
-  // rather than returning zero rows, so a fresh database answers 500, the adapter treats it as
-  // transient, and the chart renders DataUnavailable instead of an empty plot.
+  // The two per-pool chart series. A view never populated (before the rollup swap) raises rather
+  // than returning zero rows, so the route answers 500, the adapter treats it as transient, and
+  // the chart renders DataUnavailable instead of an empty plot.
   app.get("/chain/analytics/pool-usage", async (c) =>
     c.json(
       await poolUsage.get(async () => {
@@ -1216,7 +1215,7 @@ export function analyticsRoutes(
   /**
    * What a transaction costs, by privacy kind.
    *
-   * The monthly trend reads the matview the follower refreshes. The recent window is a live
+   * The monthly trend reads the rollup the follower keeps. The recent window is a live
    * percentile over about 90 days of rows, affordable because `tx_keyset_idx (timestamp DESC, txid
    * DESC)` makes it an index range, and it runs once per cache window.
    *
@@ -1291,9 +1290,13 @@ export function analyticsRoutes(
          * `all`: a shielding transaction is one `mixed` transaction, already counted.
          */
         const [kinds, directions] = await Promise.all([
-          pool.query<{ kind: string; txs: number }>("SELECT kind, txs FROM chain_tx_kind_count"),
+          // Ordered: the rows become the response's keys in row order, and a table's row order
+          // is not its key order.
+          pool.query<{ kind: string; txs: number }>(
+            "SELECT kind, txs FROM chain_tx_kind_count ORDER BY kind",
+          ),
           pool.query<{ direction: string; txs: number }>(
-            "SELECT direction, txs FROM chain_tx_mixed_direction_count",
+            "SELECT direction, txs FROM chain_tx_mixed_direction_count ORDER BY direction",
           ),
         ]);
         let all = 0;
@@ -1315,7 +1318,7 @@ export function analyticsRoutes(
    * grain.
    *
    * Each serves the trailing 366 days only (the longest such range is a year). All three read
-   * matviews the follower refreshes hourly; the WHERE is a seek on the view's unique ts index.
+   * day rollups the follower keeps; the WHERE is a seek on the table's `ts` key.
    */
   app.get("/chain/analytics/days", async (c) =>
     c.json(

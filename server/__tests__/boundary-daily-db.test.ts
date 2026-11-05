@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -102,15 +103,7 @@ describeDb("boundary_daily", () => {
         );
       }
     }
-    for (const view of [
-      "chain_day_rollup",
-      "chain_day_shielding_flow",
-      "chain_day_fee_total",
-      "chain_day_network",
-      "chain_day_pool_migration",
-    ]) {
-      await pool.query(`REFRESH MATERIALIZED VIEW ${view}`);
-    }
+    await rebuildRollups(pool);
   });
 
   afterAll(async () => {

@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import type { RpcBlockHeader } from "@/data/chain/rpc-types";
+import { markingUpdate } from "./rollup/marks";
 
 /**
  * Fill `block.difficulty` for rows that have none, without re-ingesting the chain.
@@ -34,8 +35,6 @@ export interface RepairDifficultyDeps {
    * database be bounded to a range small enough to check by hand.
    */
   end?: number;
-  /** Refresh `chain_day_network` when finished. On by default — see `refreshDayNetwork`. */
-  refresh?: boolean;
 }
 
 export interface RepairDifficultyResult {
@@ -154,15 +153,17 @@ export async function repairDifficulty(
 
     if (heights.length > 0) {
       // `AND b.difficulty IS NULL` so a concurrent follower write always wins: this job only fills
-      // holes and never overwrites a value the ingest established.
-      const { rowCount } = await pool.query(
-        `UPDATE block AS b
+      // holes and never overwrites a value the ingest established. The same statement marks the
+      // days it changed, so the follower's rollup pass recomputes `chain_day_network` for them.
+      const { rows } = await pool.query<{ changed: number }>(
+        markingUpdate(`UPDATE block AS b
             SET difficulty = v.d
            FROM (SELECT unnest($1::int[]) AS h, unnest($2::float8[]) AS d) AS v
-          WHERE b.height = v.h AND b.difficulty IS NULL`,
+          WHERE b.height = v.h AND b.difficulty IS NULL
+          RETURNING b.timestamp`),
         [heights, values],
       );
-      result.written += rowCount ?? 0;
+      result.written += rows[0]?.changed ?? 0;
     }
 
     log(
@@ -171,19 +172,7 @@ export async function repairDifficulty(
     );
   }
 
-  if (deps.refresh ?? true) await refreshDayNetwork(pool, log);
   return result;
-}
-
-/**
- * Refresh the daily matview the chart reads, so the repair is visible without waiting for the
- * follower's own refresh cycle. CONCURRENTLY (backed by the unique `chain_day_network_ts_idx`)
- * so the live site's readers never block.
- */
-export async function refreshDayNetwork(pool: Pool, log: (m: string) => void): Promise<void> {
-  log("refreshing chain_day_network");
-  await pool.query("REFRESH MATERIALIZED VIEW CONCURRENTLY chain_day_network");
-  log("chain_day_network refreshed");
 }
 
 /*

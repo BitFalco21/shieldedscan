@@ -138,7 +138,7 @@ public net flow (`*_value_balance_zat`, positive = into the pool) is.
 | `pool_usage_daily`, `boundary_daily`       | day (and pool): pool usage and anonymity set; shielding and unshielding                      |
 | `transparent_daily`, `transparent_monthly` | day / month: transparent volume and active addresses                                         |
 | `mining_day`, `mining_day_payout`          | day / day and payout address: blocks mined, reward and fees                                  |
-| `chain_day_*`, `chain_month_*`             | materialized daily and monthly series                                                        |
+| `chain_day_*`, `chain_month_*`             | daily and monthly series                                                                     |
 
 Why each column is what it is: `server/schema-chain.sql` and `server/schema.sql`.
 
