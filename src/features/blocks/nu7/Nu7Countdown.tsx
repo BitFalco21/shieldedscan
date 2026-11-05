@@ -118,8 +118,12 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
   const now = useDisplayNow(tipTimestamp);
   const toGo = blocksToGo(tipNow);
   const active = phase !== "counting";
-  const eta = activationEtaSeconds(tipNow, tipTime);
-  const clock = eta - now > SAME_DAY_SECONDS ? formatUtc(eta) : `~${formatUtc(eta).slice(11)}`;
+  // Once in, the activation block's own time when the feed carries it; until then an estimate.
+  const activationBlock = blocks.find((b) => b.height === NU7_HEIGHT);
+  const eta = activationBlock?.timestamp ?? activationEtaSeconds(tipNow, tipTime);
+  const exact = active && activationBlock !== undefined;
+  const utc = formatUtc(eta);
+  const clock = exact ? utc.slice(11) : eta - now > SAME_DAY_SECONDS ? utc : `~${utc.slice(11)}`;
 
   return (
     <>
@@ -142,19 +146,16 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
             </span>
             <b className="text-ink-bright">{toGo === 1 ? "block to go" : "blocks to go"}</b>
           </p>
-          {active ? null : (
-            <>
-              <Nu7Clock
-                seconds={eta - now}
-                spacingSeconds={targetSpacingAt(tipNow)}
-                blocksToGo={toGo}
-              />
-              <p className="mt-1 text-[13px] text-ink-dim">
-                arrives {clock}
-                <Nu7LocalTime eta={eta} />
-              </p>
-            </>
-          )}
+          <Nu7Clock
+            seconds={eta - now}
+            spacingSeconds={targetSpacingAt(tipNow)}
+            blocksToGo={toGo}
+            arrived={active}
+          />
+          <p className="mt-1 text-[13px] text-ink-dim">
+            {active ? "arrived" : "arrives"} {clock}
+            <Nu7LocalTime eta={eta} />
+          </p>
         </div>
         <Nu7Changes active={active} play={phase === "activating"} />
       </div>
