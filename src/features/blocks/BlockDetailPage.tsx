@@ -1,4 +1,4 @@
-import { network } from "@/lib/network";
+import { isTestnet, network } from "@/lib/network";
 import type { Block, BlockMiner, Transaction, TransparentOutput } from "@/domain";
 import {
   blockFeesZat,
@@ -6,6 +6,7 @@ import {
   publicValueZat,
   feeDestinationSentence,
   targetSpacingSeconds,
+  NU7_HEIGHT,
 } from "@/domain";
 import { AmountZec } from "@/components/AmountZec";
 import { DataTable, type TableColumn } from "@/components/DataTable";
@@ -19,6 +20,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatBytes, formatCount, formatUtc, formatZec } from "@/lib/format";
 import Link from "@/components/Link";
 import { ShieldedMiner } from "./ShieldedMiner";
+import { Nu7ActivatedBanner } from "./nu7/Nu7ActivatedBanner";
 
 export interface BlockDetailPageProps {
   block: Block;
@@ -218,6 +220,8 @@ export function BlockDetailPage({ block, txs, tipHeight, oldestHeight }: BlockDe
           </>
         }
       />
+
+      {block.height === NU7_HEIGHT && !isTestnet ? <Nu7ActivatedBanner className="mb-3" /> : null}
 
       <FactGrid
         className="grid gap-3 sm:grid-cols-2"

@@ -1,0 +1,48 @@
+/* The NU7 countdown on `/block/3543405`, the activation flag and the site bar. Temporary:
+   delete with `features/blocks/nu7/`. The reduced-motion block in motion.css stops all of it. */
+@layer components {
+  /* The hero figure. Its own colour token is set by the caller; the bloom follows the theme. */
+  .nu7-count {
+    font-size: clamp(4.5rem, 12vw, 7.75rem);
+    line-height: 0.88;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 18px oklch(0.874 0.252 var(--h) / 0.25);
+  }
+
+  /* A block arrived: the figure lifts and brightens once. */
+  .nu7-tick {
+    animation: nu7-tick 500ms ease-out;
+  }
+
+  .nu7-live-dot {
+    animation: nu7-pulse 2s ease-in-out infinite;
+  }
+
+  .nu7-reveal {
+    animation: nu7-reveal 900ms ease-out;
+  }
+}
+
+@keyframes nu7-tick {
+  from {
+    color: var(--ink-bright);
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes nu7-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes nu7-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  60% {
+    box-shadow: 0 0 18px var(--warn-edge);
+  }
+}
