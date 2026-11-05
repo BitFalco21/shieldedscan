@@ -589,7 +589,7 @@ test.describe("chain filters", () => {
     // A block, not a transaction: the block's disclosure is unconditional, while the raw-hex
     // panel exists only when the transaction carries `rawHex`, which the first /txs row may not.
     await page.goto("/blocks");
-    await page.locator('a[href^="/block/"]').first().click();
+    await page.locator('main a[href^="/block/"]').first().click();
     const disclosure = page.locator("details.panel").first();
     await expect(disclosure, "no content disclosure to check").toHaveCount(1);
     await disclosure.locator("summary").first().click();

@@ -70,7 +70,9 @@ test.describe("the live layer is an enhancement, never a dependency", () => {
 
       // The server-rendered rows must be there. Any row is a link to a detail page, which is
       // the thing a reader came for and the thing the live layer must never be load-bearing to.
-      const links = page.locator('a[href^="/block/"], a[href^="/tx/"], a[href^="/cross-chain/"]');
+      const links = page.locator(
+        'main a[href^="/block/"], main a[href^="/tx/"], main a[href^="/cross-chain/"]',
+      );
       expect(await links.count()).toBeGreaterThan(0);
     });
   }
