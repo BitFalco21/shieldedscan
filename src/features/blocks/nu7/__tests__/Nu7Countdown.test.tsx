@@ -65,9 +65,9 @@ describe("Nu7Countdown", () => {
   it("shows the blocks to go, the estimate and the latest block from the feed", async () => {
     feedAnswers(NU7_HEIGHT - 3);
     const { container } = render(<Nu7Countdown {...seed} />);
-    expect(screen.getByText("412")).toBeTruthy();
+    expect(document.querySelector(".nu7-count")?.textContent).toBe("412");
     await advance(0);
-    expect(screen.getByText("3")).toBeTruthy();
+    expect(document.querySelector(".nu7-count")?.textContent).toBe("3");
     expect(container.textContent).toContain("blocks to go · est. ~");
     expect(container.textContent).toContain("in about 4 min");
     expect(screen.getByText("1.25")).toBeTruthy();
@@ -83,7 +83,7 @@ describe("Nu7Countdown", () => {
     fetchMock.mockRejectedValue(new Error("down"));
     await advance(35_000);
     expect(screen.getByText(/reconnecting/)).toBeTruthy();
-    expect(screen.getByText("3")).toBeTruthy();
+    expect(document.querySelector(".nu7-count")?.textContent).toBe("3");
   });
 
   it("plays the activation when the tip crosses, then refreshes until the block exists", async () => {
@@ -95,7 +95,7 @@ describe("Nu7Countdown", () => {
 
     await advance(NU7_ACTIVATION_MS);
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("activating…")).toBeTruthy();
+    expect(screen.getByText("loading the block…")).toBeTruthy();
     expect(consumeNu7Watched()).toBe(true);
 
     await advance(6_000);
@@ -115,7 +115,10 @@ describe("Nu7Countdown", () => {
     feedAnswers(NU7_HEIGHT + 1);
     render(<Nu7Countdown {...seed} tipHeight={NU7_HEIGHT} />);
     await advance(0);
-    expect(refresh).toHaveBeenCalled();
+    // The server has just answered without the block: the first retry waits an interval.
+    expect(refresh).not.toHaveBeenCalled();
+    await advance(6_100);
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(consumeNu7Watched()).toBe(false);
   });
 });

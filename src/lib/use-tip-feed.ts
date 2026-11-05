@@ -19,11 +19,13 @@ export interface TipFeed {
   blocks: BlockSummary[];
   /** Wall-clock seconds of that poll, for estimates measured from "now". */
   readAt: number;
+  /** Counts accepted polls, so two answers in the same second are still two answers. */
+  seq: number;
   /** True after repeated failures: the values above are the last known ones. */
   reconnecting: boolean;
 }
 
-const EMPTY: TipFeed = { tip: null, blocks: [], readAt: 0, reconnecting: false };
+const EMPTY: TipFeed = { tip: null, blocks: [], readAt: 0, seq: 0, reconnecting: false };
 
 export function useTipFeed(intervalMs: number, enabled = true): TipFeed {
   const [feed, setFeed] = useState<TipFeed>(EMPTY);
@@ -52,12 +54,14 @@ export function useTipFeed(intervalMs: number, enabled = true): TipFeed {
           return false;
         }
         failures.current = 0;
-        setFeed({
+        const readAt = nowSeconds();
+        setFeed((prev) => ({
           tip: parsed.tip,
           blocks: parsed.blocks,
-          readAt: nowSeconds(),
+          readAt,
+          seq: prev.seq + 1,
           reconnecting: false,
-        });
+        }));
       } catch (error) {
         if (controller.signal.aborted || (error as Error)?.name === "AbortError") return false;
         fail();

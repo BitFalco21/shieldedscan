@@ -7,7 +7,7 @@
     line-height: 0.88;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 18px oklch(0.874 0.252 var(--h) / 0.25);
+    text-shadow: 0 0 18px color-mix(in oklch, currentColor 25%, transparent);
   }
 
   /* A block arrived: the figure lifts and brightens once. */
@@ -21,6 +21,31 @@
 
   .nu7-reveal {
     animation: nu7-reveal 900ms ease-out;
+  }
+
+  /* The site bar's blip: the slow pre-NU7 beat, three times faster once active. */
+  .nu7-blip {
+    animation: nu7-blip 2.4s linear infinite;
+  }
+  .nu7-blip-fast {
+    animation-duration: 0.8s;
+  }
+}
+
+/* motion.css would end the blip off the right edge; park it mid-trace instead. */
+@media (prefers-reduced-motion: reduce) {
+  .nu7-blip {
+    animation: none !important;
+    transform: translateX(17px);
+  }
+}
+
+@keyframes nu7-blip {
+  from {
+    transform: translateX(-6px);
+  }
+  to {
+    transform: translateX(40px);
   }
 }
 

@@ -16,7 +16,7 @@ export function Nu7Changes({ active }: Nu7ChangesProps) {
   const rows = [
     { label: "block", now: `${spacingBefore} s`, next: `${spacingAfter} s`, unit: "" },
     {
-      label: "reward",
+      label: "miner",
       now: formatZecShort(minerBeforeZat),
       next: formatZecShort(minerAfterZat),
       unit: " ZEC per block",
@@ -24,10 +24,10 @@ export function Nu7Changes({ active }: Nu7ChangesProps) {
   ];
   return (
     <section
-      aria-label={`What changes at block ${formatCount(NU7_HEIGHT)}`}
+      aria-labelledby="nu7-changes"
       className="border border-green-faint bg-panel px-4 py-3.5"
     >
-      <h2 className="microlabel mb-2.5 text-ink-faint">
+      <h2 id="nu7-changes" className="microlabel mb-2.5 text-ink-faint">
         what changes at block {formatCount(NU7_HEIGHT)}
       </h2>
       <dl className="grid grid-cols-[3rem_auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">

@@ -62,9 +62,9 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
   // Folded once per poll, during render: React's pattern for state derived from a changing
   // input, so a stale trace never paints.
   const [blocks, setBlocks] = useState<BlockSummary[]>(() => mergeRecent([], recent, tipHeight));
-  const [foldedAt, setFoldedAt] = useState(0);
-  if (feed.tip !== null && feed.readAt !== foldedAt) {
-    setFoldedAt(feed.readAt);
+  const [foldedSeq, setFoldedSeq] = useState(0);
+  if (feed.tip !== null && feed.seq !== foldedSeq) {
+    setFoldedSeq(feed.seq);
     setBlocks(mergeRecent(blocks, feed.blocks, feed.tip.height));
   }
 
@@ -89,13 +89,19 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
     if (watched) markNu7Watched();
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
-    const refresh = () => {
-      router.refresh();
-      attempts += 1;
+    const schedule = () => {
       const base = attempts < FAST_REFRESHES ? REFRESH_FAST_MS : REFRESH_SLOW_MS;
       timer = setTimeout(refresh, base + Math.random() * REFRESH_JITTER_MS);
     };
-    refresh();
+    const refresh = () => {
+      router.refresh();
+      attempts += 1;
+      schedule();
+    };
+    // Watched live: ask at once. Loaded already past the height: the server just answered
+    // without the block, so wait one interval before asking again.
+    if (watched) refresh();
+    else schedule();
     return () => clearTimeout(timer);
   }, [phase, watched, router]);
 
@@ -112,9 +118,11 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
     <>
       <div className="mt-6 grid items-end gap-x-10 gap-y-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div>
+          {/* The figure remounts to replay its tick, so it is hidden from assistive tech and a
+              stable live region beside it carries the announcement. */}
           <div
             key={toGo}
-            aria-live="polite"
+            aria-hidden="true"
             className={`nu7-count font-extrabold ${active ? "text-warn" : "text-green"} ${
               toGo === initialToGo ? "" : "nu7-tick"
             }`}
@@ -122,7 +130,10 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
             {formatCount(toGo)}
           </div>
           <p className="mt-2 text-ink-dim">
-            <b className="text-ink-bright">blocks to go</b>
+            <span aria-live="polite" aria-atomic="true" className="sr-only">
+              {formatCount(toGo)}
+            </span>
+            <b className="text-ink-bright">{toGo === 1 ? "block to go" : "blocks to go"}</b>
             {active ? null : (
               <>
                 {" "}
@@ -162,7 +173,9 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
         <p role="status" className="mt-4 min-h-[1.4em] text-[13px] text-ink-dim">
           <span className="text-warn">&gt;</span> block {formatCount(NU7_HEIGHT)} mined · NU7 is
           active
-          {phase === "awaiting" ? <span className="ml-3 text-ink-faint">activating…</span> : null}
+          {phase === "awaiting" ? (
+            <span className="ml-3 text-ink-faint">loading the block…</span>
+          ) : null}
         </p>
       ) : null}
     </>
