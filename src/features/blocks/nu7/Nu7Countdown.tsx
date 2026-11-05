@@ -2,19 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NU7_HEIGHT, type BlockSummary } from "@/domain";
+import { NU7_HEIGHT, targetSpacingAt, type BlockSummary } from "@/domain";
 import Link from "@/components/Link";
 import { formatCount, formatUtc, timeAgo } from "@/lib/format";
 import { useDisplayNow } from "@/lib/use-display-now";
 import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 import { useTipFeed } from "@/lib/use-tip-feed";
 import { Nu7Changes } from "./Nu7Changes";
+import { Nu7Clock } from "./Nu7Clock";
+import { Nu7LocalTime } from "./Nu7LocalTime";
 import { Nu7Heartbeat } from "./Nu7Heartbeat";
 import { markNu7Watched } from "./nu7-arrival";
 import {
   activationEtaSeconds,
   blocksToGo,
-  formatRemaining,
   initialPhase,
   mergeRecent,
   nextPhase,
@@ -118,7 +119,6 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
   const toGo = blocksToGo(tipNow);
   const active = phase !== "counting";
   const eta = activationEtaSeconds(tipNow, tipTime);
-  const remaining = formatRemaining(eta - now);
   const clock = eta - now > SAME_DAY_SECONDS ? formatUtc(eta) : `~${formatUtc(eta).slice(11)}`;
 
   return (
@@ -141,13 +141,16 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
               {formatCount(toGo)}
             </span>
             <b className="text-ink-bright">{toGo === 1 ? "block to go" : "blocks to go"}</b>
-            {active ? null : (
-              <>
-                {" "}
-                · est. {clock}, {remaining === null ? "any moment" : `in about ${remaining}`}
-              </>
-            )}
           </p>
+          {active ? null : (
+            <>
+              <Nu7Clock seconds={eta - now} spacingSeconds={targetSpacingAt(tipNow)} />
+              <p className="mt-1 text-[13px] text-ink-dim">
+                arrives {clock}
+                <Nu7LocalTime eta={eta} />
+              </p>
+            </>
+          )}
         </div>
         <Nu7Changes active={active} play={phase === "activating"} />
       </div>
