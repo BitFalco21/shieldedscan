@@ -6,6 +6,8 @@ export interface Nu7ClockProps {
   seconds: number;
   /** The block target the estimate assumes, printed so the clock never reads as a promise. */
   spacingSeconds: number;
+  /** Blocks still to come: past the estimate, only the last one is "any moment". */
+  blocksToGo: number;
 }
 
 /**
@@ -13,12 +15,14 @@ export interface Nu7ClockProps {
  * count stays the hero and this is marked as an estimate: it jumps when a block lands early or
  * late. A timer role is not announced on every tick.
  */
-export function Nu7Clock({ seconds, spacingSeconds }: Nu7ClockProps) {
+export function Nu7Clock({ seconds, spacingSeconds, blocksToGo }: Nu7ClockProps) {
   const parts = clockParts(seconds);
   return (
     <div role="timer" aria-label="Estimated time to activation" className="mt-4">
       {parts === null ? (
-        <p className="text-[22px] font-extrabold text-ink-bright">any moment</p>
+        <p className="text-[22px] font-extrabold text-ink-bright">
+          {blocksToGo <= 1 ? "any moment" : "past the estimate"}
+        </p>
       ) : (
         <div className="flex items-start gap-1.5 sm:gap-2">
           <span aria-hidden="true" className="nu7-clock-digit text-ink-faint">

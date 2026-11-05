@@ -144,7 +144,11 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
           </p>
           {active ? null : (
             <>
-              <Nu7Clock seconds={eta - now} spacingSeconds={targetSpacingAt(tipNow)} />
+              <Nu7Clock
+                seconds={eta - now}
+                spacingSeconds={targetSpacingAt(tipNow)}
+                blocksToGo={toGo}
+              />
               <p className="mt-1 text-[13px] text-ink-dim">
                 arrives {clock}
                 <Nu7LocalTime eta={eta} />
