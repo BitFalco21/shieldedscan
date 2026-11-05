@@ -1,6 +1,15 @@
 /* The NU7 countdown on `/block/3543405`, the activation flag and the site bar. Temporary:
    delete with `features/blocks/nu7/`. The reduced-motion block in motion.css stops all of it. */
 @layer components {
+  /* The estimate clock under the count: one size smaller than the hero, never brighter than it. */
+  .nu7-clock-digit {
+    font-size: clamp(1.75rem, 5vw, 2.25rem);
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px color-mix(in oklch, currentColor 18%, transparent);
+  }
+
   /* The hero figure. Its own colour token is set by the caller; the bloom follows the theme. */
   .nu7-count {
     font-size: clamp(4.5rem, 12vw, 7.75rem);

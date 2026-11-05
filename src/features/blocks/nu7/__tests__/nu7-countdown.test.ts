@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NU7_HEIGHT, blockSummaryOf, type BlockSummary } from "@/domain";
 import { blocks as fixtureBlocks } from "@/fixtures/blocks";
 import {
+  clockParts,
   activationEtaSeconds,
   blocksToGo,
   formatRemaining,
@@ -162,5 +163,24 @@ describe("the first NU7 blocks", () => {
   it("is empty until a block after the activation exists", () => {
     expect(firstNu7Intervals([block(NU7_HEIGHT, T)])).toEqual([]);
     expect(firstNu7Intervals([])).toEqual([]);
+  });
+});
+
+describe("clockParts", () => {
+  it("splits the estimate into padded hours, minutes and seconds", () => {
+    expect(clockParts(7 * 3_600 + 12 * 60 + 48)).toEqual([
+      { label: "hrs", value: "07" },
+      { label: "min", value: "12" },
+      { label: "sec", value: "48" },
+    ]);
+  });
+
+  it("adds days only when there is at least one", () => {
+    expect(clockParts(86_400 + 61)?.map((p) => p.value)).toEqual(["01", "00", "01", "01"]);
+  });
+
+  it("is null once the estimate is due, never a negative clock", () => {
+    expect(clockParts(0.4)).toBeNull();
+    expect(clockParts(-30)).toBeNull();
   });
 });

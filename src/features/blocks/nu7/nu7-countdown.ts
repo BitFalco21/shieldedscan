@@ -38,6 +38,28 @@ export function formatRemaining(seconds: number): string | null {
   return h === 0 ? `${m} min` : `${h} h ${m} min`;
 }
 
+export interface ClockPart {
+  label: "days" | "hrs" | "min" | "sec";
+  value: string;
+}
+
+/**
+ * The estimate as clock digits, days only when there is at least one, or null once it is due
+ * (a late block reads as "any moment", never as a negative clock).
+ */
+export function clockParts(seconds: number): ClockPart[] | null {
+  if (seconds < 1) return null;
+  const s = Math.floor(seconds);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const days = Math.floor(s / 86_400);
+  const parts: ClockPart[] = [
+    { label: "hrs", value: pad(Math.floor((s % 86_400) / 3_600)) },
+    { label: "min", value: pad(Math.floor((s % 3_600) / 60)) },
+    { label: "sec", value: pad(s % 60) },
+  ];
+  return days > 0 ? [{ label: "days", value: pad(days) }, ...parts] : parts;
+}
+
 /** The site bar's grain: whole hours above one, minutes below. */
 export function formatRemainingCoarse(seconds: number): string | null {
   if (seconds < 60) return null;

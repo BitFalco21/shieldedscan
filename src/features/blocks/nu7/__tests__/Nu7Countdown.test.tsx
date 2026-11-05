@@ -68,8 +68,10 @@ describe("Nu7Countdown", () => {
     expect(document.querySelector(".nu7-count")?.textContent).toBe("412");
     await advance(0);
     expect(document.querySelector(".nu7-count")?.textContent).toBe("3");
-    expect(container.textContent).toContain("blocks to go · est. ~");
-    expect(container.textContent).toContain("in about 4 min");
+    // Three blocks at 75 s from the newest block's time, as a clock marked as an estimate.
+    expect(screen.getByRole("timer").textContent).toContain("03min");
+    expect(container.textContent).toContain("estimate · 75 s per block");
+    expect(container.textContent).toContain("arrives ~");
     expect(screen.getByText("1.25")).toBeTruthy();
     expect(screen.getByText("0.4167")).toBeTruthy();
     expect(screen.getByRole("link", { name: `#${(NU7_HEIGHT - 3).toLocaleString("en-US")}` }));
