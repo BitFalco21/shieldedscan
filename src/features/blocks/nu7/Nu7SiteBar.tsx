@@ -24,6 +24,12 @@ const POLL_MS = 60_000;
 const COUNTDOWN_PATH = `/block/${NU7_HEIGHT}`;
 
 /**
+ * Where the bar stays away: the countdown itself, and the agent console, which is sized to the
+ * viewport, so a bar above it would make the page scroll under the reader.
+ */
+const HIDDEN_ON = new Set([COUNTDOWN_PATH, "/ai-agent"]);
+
+/**
  * A one-line bar above the nav that sends readers to the NU7 countdown, then for a day says the
  * upgrade is live. Temporary: delete this folder's bar files and its line in the root layout.
  *
@@ -36,7 +42,7 @@ export function Nu7SiteBar({ testnet = isTestnet }: Nu7SiteBarProps) {
   const [closed, setClosed] = useState(false);
   // Latched: once the live window is over, the bar stops polling for the rest of the view.
   const [over, setOver] = useState(false);
-  const shown = !testnet && !closed && !over && pathname !== COUNTDOWN_PATH;
+  const shown = !testnet && !closed && !over && !HIDDEN_ON.has(pathname);
   const feed = useTipFeed(POLL_MS, shown);
   if (!shown) return null;
 

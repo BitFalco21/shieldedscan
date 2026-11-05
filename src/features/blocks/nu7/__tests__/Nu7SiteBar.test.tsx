@@ -81,11 +81,14 @@ describe("Nu7SiteBar", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("renders nothing on testnet or on the countdown itself", () => {
+  it("renders nothing on testnet, on the countdown itself, or on the agent console", () => {
     answer(NU7_HEIGHT - 412);
     const { container, rerender } = render(<Nu7SiteBar testnet />);
     expect(container.innerHTML).toBe("");
     path.current = `/block/${NU7_HEIGHT}`;
+    rerender(<Nu7SiteBar testnet={false} />);
+    expect(container.innerHTML).toBe("");
+    path.current = "/ai-agent";
     rerender(<Nu7SiteBar testnet={false} />);
     expect(container.innerHTML).toBe("");
   });
