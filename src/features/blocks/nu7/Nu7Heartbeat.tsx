@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { targetSpacingAt, type BlockSummary } from "@/domain";
+import { NU7_HEIGHT, targetSpacingAt, type BlockSummary } from "@/domain";
 import { nowSeconds } from "@/lib/clock";
 import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 import { PROBE_CLASSES, TRACE_HEIGHT, drawHeartbeat, readPalette } from "./heartbeat-draw";
@@ -11,6 +11,8 @@ export interface Nu7HeartbeatProps {
   blocks: readonly BlockSummary[];
   tipHeight: number;
   tipTimestamp: number;
+  /** The activation was watched: the trace flashes amber once. */
+  flash?: boolean;
 }
 
 /**
@@ -18,11 +20,17 @@ export interface Nu7HeartbeatProps {
  * scrolls with the clock once a second; under reduced motion it is redrawn only when a block
  * arrives or the box resizes.
  */
-export function Nu7Heartbeat({ blocks, tipHeight, tipTimestamp }: Nu7HeartbeatProps) {
+export function Nu7Heartbeat({
+  blocks,
+  tipHeight,
+  tipTimestamp,
+  flash = false,
+}: Nu7HeartbeatProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const probe = useRef<HTMLSpanElement>(null);
   const reducedMotion = usePrefersReducedMotion();
   const step = targetSpacingAt(tipHeight);
+  const before = targetSpacingAt(NU7_HEIGHT - 1);
 
   useEffect(() => {
     const el = canvas.current;
@@ -62,7 +70,14 @@ export function Nu7Heartbeat({ blocks, tipHeight, tipTimestamp }: Nu7HeartbeatPr
       <span className="microlabel absolute top-2 left-3 text-ink-faint">heartbeat</span>
       <span className="absolute top-2 right-3 text-xs text-ink-dim">
         target <b className="text-green">{step} s</b>
+        {step === before ? null : <> · was {before} s</>}
       </span>
+      {flash ? (
+        <span
+          aria-hidden="true"
+          className="nu7-flash pointer-events-none absolute inset-0 bg-warn"
+        />
+      ) : null}
       <canvas
         ref={canvas}
         role="img"

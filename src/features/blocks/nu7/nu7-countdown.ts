@@ -110,6 +110,27 @@ export function heartbeatModel(
   return { spikes, projected, marker, blocksLeft, step };
 }
 
+/** How many blocks after the activation its page charts. */
+export const FIRST_NU7_BLOCKS = 8;
+
+/**
+ * One row per block after the activation, while the run is unbroken: the real time since its
+ * parent, from the two blocks' own timestamps.
+ */
+export function firstNu7Intervals(
+  blocks: readonly BlockSummary[],
+): { height: number; seconds: number }[] {
+  const byHeight = new Map(blocks.map((b) => [b.height, b.timestamp]));
+  const rows: { height: number; seconds: number }[] = [];
+  for (let h = NU7_HEIGHT + 1; h <= NU7_HEIGHT + FIRST_NU7_BLOCKS; h += 1) {
+    const at = byHeight.get(h);
+    const parent = byHeight.get(h - 1);
+    if (at === undefined || parent === undefined) break;
+    rows.push({ height: h, seconds: at - parent });
+  }
+  return rows;
+}
+
 /**
  * Fold one poll's blocks into the recent list, newest first. Keyed by height so a reorg's new
  * hash replaces the old one, and cut at the tip so blocks a reorg removed drop out.

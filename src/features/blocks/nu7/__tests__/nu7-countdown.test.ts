@@ -9,6 +9,7 @@ import {
   initialPhase,
   isNu7CountdownId,
   NU7_CHANGES,
+  firstNu7Intervals,
   formatZecShort,
   heartbeatModel,
   mergeRecent,
@@ -141,5 +142,25 @@ describe("the site bar's text", () => {
     const after = { height: NU7_HEIGHT + blocksInADay, lastBlockTimestamp: T };
     expect(nu7BarText(before, [], T).kind).toBe("live");
     expect(nu7BarText(after, [], T).kind).toBe("over");
+  });
+});
+
+describe("the first NU7 blocks", () => {
+  it("measures each block from its parent while the run is unbroken, negatives as they are", () => {
+    const rows = firstNu7Intervals([
+      block(NU7_HEIGHT + 2, T + 20),
+      block(NU7_HEIGHT, T),
+      block(NU7_HEIGHT + 1, T + 31),
+      block(NU7_HEIGHT + 4, T + 80),
+    ]);
+    expect(rows).toEqual([
+      { height: NU7_HEIGHT + 1, seconds: 31 },
+      { height: NU7_HEIGHT + 2, seconds: -11 },
+    ]);
+  });
+
+  it("is empty until a block after the activation exists", () => {
+    expect(firstNu7Intervals([block(NU7_HEIGHT, T)])).toEqual([]);
+    expect(firstNu7Intervals([])).toEqual([]);
   });
 });

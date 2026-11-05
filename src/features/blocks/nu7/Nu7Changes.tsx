@@ -1,25 +1,29 @@
 import { NU7_HEIGHT } from "@/domain";
 import { formatCount } from "@/lib/format";
+import { Nu7Scramble } from "./Nu7Scramble";
 import { NU7_CHANGES, formatZecShort } from "./nu7-countdown";
 
 export interface Nu7ChangesProps {
   /** After activation the new values are the current ones, and the old ones become "was". */
   active: boolean;
+  /** The activation was watched: the new values roll in digit by digit. */
+  play?: boolean;
 }
 
 /**
  * What the activation block changes, from the protocol schedule: the block target and the
  * miner's subsidy per block. Issuance per hour is unchanged, which is the one-line takeaway.
  */
-export function Nu7Changes({ active }: Nu7ChangesProps) {
+export function Nu7Changes({ active, play = false }: Nu7ChangesProps) {
   const { spacingBefore, spacingAfter, minerBeforeZat, minerAfterZat } = NU7_CHANGES;
   const rows = [
-    { label: "block", now: `${spacingBefore} s`, next: `${spacingAfter} s`, unit: "" },
+    { label: "block", now: `${spacingBefore} s`, next: `${spacingAfter} s`, unit: "", ms: 1_100 },
     {
       label: "miner",
       now: formatZecShort(minerBeforeZat),
       next: formatZecShort(minerAfterZat),
       unit: " ZEC per block",
+      ms: 1_400,
     },
   ];
   return (
@@ -39,7 +43,7 @@ export function Nu7Changes({ active }: Nu7ChangesProps) {
                 active ? "text-warn" : "text-ink-bright"
               }`}
             >
-              {active ? row.next : row.now}
+              {active ? <Nu7Scramble text={row.next} play={play} durationMs={row.ms} /> : row.now}
             </dd>
             <dd className="min-w-0 text-xs text-ink-dim">
               {active ? (

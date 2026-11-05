@@ -42,6 +42,13 @@ const REFRESH_FAST_MS = 4_000;
 const REFRESH_SLOW_MS = 30_000;
 const REFRESH_JITTER_MS = 2_000;
 const FAST_REFRESHES = 12;
+/**
+ * The line typed out at activation, and its typing parameters: `--chars` is its length with the
+ * "> " prompt (pinned by a test), `--delay` lets the values settle first. Literal classes,
+ * because Tailwind only generates what it can read.
+ */
+export const ACTIVE_LINE = `block ${formatCount(NU7_HEIGHT)} mined · NU7 is active`;
+export const ACTIVE_LINE_TIMING = "[--chars:39] [--delay:1600ms]";
 /** Past this the ETA prints its date, not only a clock time. */
 const SAME_DAY_SECONDS = 20 * 3_600;
 
@@ -142,10 +149,15 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
             )}
           </p>
         </div>
-        <Nu7Changes active={active} />
+        <Nu7Changes active={active} play={phase === "activating"} />
       </div>
 
-      <Nu7Heartbeat blocks={blocks} tipHeight={tipNow} tipTimestamp={tipTime} />
+      <Nu7Heartbeat
+        blocks={blocks}
+        tipHeight={tipNow}
+        tipTimestamp={tipTime}
+        flash={phase === "activating"}
+      />
 
       <p className="mt-5 flex flex-wrap gap-x-6.5 gap-y-2 text-[13px] text-ink-dim">
         {feed.reconnecting ? (
@@ -171,8 +183,11 @@ export function Nu7Countdown({ tipHeight, tipTimestamp, recent }: Nu7CountdownPr
 
       {active ? (
         <p role="status" className="mt-4 min-h-[1.4em] text-[13px] text-ink-dim">
-          <span className="text-warn">&gt;</span> block {formatCount(NU7_HEIGHT)} mined · NU7 is
-          active
+          <span
+            className={phase === "activating" ? `nu7-type ${ACTIVE_LINE_TIMING}` : "inline-block"}
+          >
+            <span className="text-warn">&gt;</span> {ACTIVE_LINE}
+          </span>
           {phase === "awaiting" ? (
             <span className="ml-3 text-ink-faint">loading the block…</span>
           ) : null}

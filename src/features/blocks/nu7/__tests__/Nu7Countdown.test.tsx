@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { NU7_HEIGHT, blockSummaryOf } from "@/domain";
 import { blocks as fixtureBlocks } from "@/fixtures/blocks";
-import { NU7_ACTIVATION_MS, Nu7Countdown } from "../Nu7Countdown";
+import { ACTIVE_LINE, ACTIVE_LINE_TIMING, NU7_ACTIVATION_MS, Nu7Countdown } from "../Nu7Countdown";
 import { consumeNu7Watched } from "../nu7-arrival";
 
 const refresh = vi.fn();
@@ -88,9 +88,16 @@ describe("Nu7Countdown", () => {
 
   it("plays the activation when the tip crosses, then refreshes until the block exists", async () => {
     feedAnswers(NU7_HEIGHT);
-    render(<Nu7Countdown {...seed} />);
+    const { container } = render(<Nu7Countdown {...seed} />);
     await advance(0);
     expect(screen.getByRole("status").textContent).toContain("NU7 is active");
+    // The flash, the typed line and the rolling values play; the values land on the schedule's.
+    expect(container.querySelector(".nu7-flash")).not.toBeNull();
+    expect(container.querySelector(".nu7-type")).not.toBeNull();
+    expect(container.textContent).toContain("target 25 s · was 75 s");
+    await advance(1_500);
+    expect(container.textContent).toContain("0.4167");
+    expect(container.textContent).toContain("was 1.25");
     expect(refresh).not.toHaveBeenCalled();
 
     await advance(NU7_ACTIVATION_MS);
@@ -105,9 +112,11 @@ describe("Nu7Countdown", () => {
   it("skips the animation under reduced motion and refreshes at once", async () => {
     reducedMotion(true);
     feedAnswers(NU7_HEIGHT);
-    render(<Nu7Countdown {...seed} />);
+    const { container } = render(<Nu7Countdown {...seed} />);
     await advance(0);
     expect(screen.getByRole("status").textContent).toContain("NU7 is active");
+    expect(container.querySelector(".nu7-flash, .nu7-type")).toBeNull();
+    expect(container.textContent).toContain("0.4167");
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -120,5 +129,11 @@ describe("Nu7Countdown", () => {
     await advance(6_100);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(consumeNu7Watched()).toBe(false);
+  });
+});
+
+describe("the typed line", () => {
+  it("types exactly as many characters as it has, prompt included", () => {
+    expect(ACTIVE_LINE_TIMING).toContain(`[--chars:${`> ${ACTIVE_LINE}`.length}]`);
   });
 });

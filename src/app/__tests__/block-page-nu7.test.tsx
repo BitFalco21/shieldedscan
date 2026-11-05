@@ -72,15 +72,31 @@ describe("/block/[id] when the block does not exist", () => {
     });
   });
 
-  it("renders the real block once it exists", async () => {
+  it("renders the real block once it exists, with the blocks after it", async () => {
     const block = { height: NU7_HEIGHT };
+    const after = [{ height: NU7_HEIGHT + 1 }, { height: NU7_HEIGHT }];
     data.getBlock.mockResolvedValue(block);
     data.getBlockTransactions.mockResolvedValue([]);
     data.getOldestHeight.mockResolvedValue(0);
+    data.listBlocks.mockResolvedValue({ items: after, nextCursor: null, prevCursor: null });
     const element = await Page(props(String(NU7_HEIGHT)));
     expect(element.type).toBe(BlockDetailPage);
+    expect(element.props.nu7Blocks).toBe(after);
+    // One keyset page ending at the eighth block after the activation.
+    const query = data.listBlocks.mock.calls[0]![0];
+    expect(query.limit).toBe(9);
+    expect(Buffer.from(query.before, "base64url").toString()).toBe(`${NU7_HEIGHT + 9}|0`);
     expect(await generateMetadata(props(String(NU7_HEIGHT)))).toEqual({
       title: `Block ${NU7_HEIGHT}`,
     });
+  });
+
+  it("reads no extra blocks for any other block", async () => {
+    data.getBlock.mockResolvedValue({ height: NU7_HEIGHT - 1 });
+    data.getBlockTransactions.mockResolvedValue([]);
+    data.getOldestHeight.mockResolvedValue(0);
+    const element = await Page(props(String(NU7_HEIGHT - 1)));
+    expect(element.props.nu7Blocks).toBeNull();
+    expect(data.listBlocks).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,24 @@
     animation: nu7-reveal 900ms ease-out;
   }
 
+  /* Activation: one amber wash over the trace, fading out. Ends invisible, so the reduced-motion
+     rule (which jumps to the last frame) shows nothing. */
+  .nu7-flash {
+    animation: nu7-flash 1.5s ease-out both;
+  }
+
+  /* A terminal line typed out: the width grows a character at a time. `--chars` is the line's
+     length and `--delay` its start, set by the caller as Tailwind arbitrary properties. */
+  .nu7-type {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    vertical-align: bottom;
+    max-width: 100%;
+    width: calc(var(--chars) * 1ch);
+    animation: nu7-type calc(var(--chars) * 28ms) steps(var(--chars), end) var(--delay, 0ms) both;
+  }
+
   /* The site bar's blip: the slow pre-NU7 beat, three times faster once active. */
   .nu7-blip {
     animation: nu7-blip 2.4s linear infinite;
@@ -37,6 +55,21 @@
   .nu7-blip {
     animation: none !important;
     transform: translateX(17px);
+  }
+}
+
+@keyframes nu7-flash {
+  from {
+    opacity: 0.18;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nu7-type {
+  from {
+    width: 0;
   }
 }
 

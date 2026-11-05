@@ -96,7 +96,25 @@ test("the activation is shown when the tip reaches the height, then the page ref
   // Coming back to the tab polls at once.
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByText(/NU7 is active/)).toBeVisible();
+  await expect(page.locator(".nu7-flash")).toHaveCount(1);
+  await expect(page.getByText("target 25 s · was 75 s")).toBeVisible();
+  await expect(page.getByText("was 1.25")).toBeVisible();
   await refreshed;
+});
+
+test.describe("under reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("the activation shows its end state at once", async ({ page }) => {
+    let tip = H - 1;
+    await stubFeed(page, () => tip);
+    await page.goto(COUNTDOWN);
+    await expect(page.locator(".nu7-count")).toHaveText("1");
+    tip = H;
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect(page.getByText(/NU7 is active/)).toBeVisible();
+    await expect(page.locator(".nu7-flash, .nu7-type")).toHaveCount(0);
+  });
 });
 
 test("any other missing block is still a 404", async ({ page }) => {
