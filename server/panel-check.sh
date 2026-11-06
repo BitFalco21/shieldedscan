@@ -117,8 +117,10 @@ const H = { authorization: "Bearer " + process.env.EXPLORER_API_TOKEN };
 fetch("http://127.0.0.1:8080/chain/info", { headers: H })
   .then((r) => r.json()).then((d) => console.log(d.height)).catch(() => console.log(""));
 ' 2>/dev/null)
+  # The page's own tip line ("zcash mainnet · block N"), not the first "block N" on the page: a
+  # site-wide banner can name another height (the NU7 bar says "activates at block 3,543,405").
   shown=$(curl -sS --max-time 30 "$base" 2>/dev/null | sed 's/<[^>]*>/ /g' \
-    | grep -oE 'block +[0-9,]{5,}' | head -1 | grep -oE '[0-9,]+' | tr -d ',')
+    | grep -oE '(mainnet|testnet) +· +block +[0-9,]{5,}' | head -1 | grep -oE '[0-9,]{5,}' | tr -d ',')
   # Either side missing means this check cannot conclude anything; log it rather than alerting (a
   # monitor that alerts on its own failure gets ignored, and layer 1 covers a dead API).
   if [ -z "$tip" ] || [ -z "$shown" ]; then
