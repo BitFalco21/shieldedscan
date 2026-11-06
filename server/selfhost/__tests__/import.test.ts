@@ -165,8 +165,13 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
     const url = new URL(ADMIN_URL!);
     url.pathname = `/${TARGET_DB}`;
     const answers = await smokeApi(url.toString(), join(work, "api"));
-    // No node: the live status is an outage, answered as one, never a crash.
-    expect(answers.status.code).toBe(503);
+    // No node: the chain is stated as of the release block, from the index.
+    expect(answers.status.code).toBe(200);
+    expect(JSON.stringify(answers.status.body)).toContain(`"height":${manifest.height}`);
+    expect(answers.blocks.code).toBe(200);
+    expect(JSON.stringify(answers.blocks.body)).toContain(manifest.hash);
+    // A block's header is the node's alone: an outage, answered as one, never a crash or a 404.
+    expect(answers.block.code).toBe(503);
     expect(answers.richList.code).toBe(200);
     expect(JSON.stringify(answers.richList.body)).toContain(MINER);
     expect(answers.transactions.code).toBe(200);

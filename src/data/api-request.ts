@@ -1,6 +1,7 @@
 import { hasDotSegment } from "@/lib/path-segments";
 import { isTransientUpstream } from "@/lib/transient-upstream";
 import { apiBreaker } from "@/lib/upstream-breaker";
+import { NOT_CONFIGURED_HEADER } from "./not-configured";
 
 /**
  * The one HTTP request both API adapters make: bearer-authenticated, retried,
@@ -99,8 +100,10 @@ export async function apiRequest(
   try {
     const res = await attemptRequest(config, path, revalidate);
     // The last attempt hands a 5xx back for the caller to reject on; that is still a failed
-    // request as far as the API's health is concerned.
-    if (res.status >= 500) apiBreaker.recordFailure();
+    // request as far as the API's health is concerned, unless the API said the source is not
+    // configured here: the caller still rejects it, but the API answered.
+    if (isNotConfigured(res)) apiBreaker.recordSuccess();
+    else if (res.status >= 500) apiBreaker.recordFailure();
     return res;
   } catch (err) {
     if (isTransientUpstream(err)) apiBreaker.recordFailure();
@@ -142,6 +145,12 @@ async function attemptRequest(
     if (res.status < 500) apiBreaker.recordSuccess();
     return res;
   }
+}
+
+/** A 503 marked `NOT_CONFIGURED_HEADER`: a source this deployment does not have. */
+function isNotConfigured(res: Response): boolean {
+  // Optional: a hand-built stand-in for a Response may carry no headers.
+  return res.status === 503 && res.headers?.get(NOT_CONFIGURED_HEADER) === "1";
 }
 
 function canRetry(deadline: number): boolean {

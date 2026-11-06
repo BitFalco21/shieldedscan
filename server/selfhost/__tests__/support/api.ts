@@ -20,7 +20,9 @@ export interface Answer {
 export async function smokeApi(
   databaseUrl: string,
   dir: string,
-): Promise<Record<"status" | "richList" | "transactions" | "reorgs" | "health", Answer>> {
+): Promise<
+  Record<"status" | "richList" | "transactions" | "reorgs" | "health" | "blocks" | "block", Answer>
+> {
   mkdirSync(dir, { recursive: true });
   const bundle = join(dir, "server.mjs");
   await build({
@@ -84,6 +86,8 @@ export async function smokeApi(
       transactions: await get("/v1/transactions"),
       reorgs: await get("/v1/reorgs"),
       health: await get("/health"),
+      blocks: await get("/v1/blocks?limit=3"),
+      block: await get("/v1/blocks/1"),
     };
   } finally {
     child.kill("SIGTERM");

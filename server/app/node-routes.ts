@@ -1,6 +1,8 @@
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import type { ChainIndexStore } from "../chain-index-store";
 import { chainRoutes } from "../chain-routes";
+import { type IndexChainSource, NoNodeError } from "../index-chain-source";
 import type { CrossChainStorePort } from "../crosschain-store";
 import { KrakenTracker } from "../kraken";
 import { LIVE_STATE_PATH, liveStateRoutes } from "../live-state";
@@ -15,8 +17,16 @@ import { createPool } from "../pg-pool";
 import { PulseMempoolTracker } from "../pulse-mempool";
 import { pulseRoutes } from "../pulse-routes";
 import { statsRoutes } from "../stats-routes";
-import { DATABASE_URL, IS_PRIMARY, IS_TESTNET, NODE_RPC_URL, USE_POSTGRES } from "./config";
+import {
+  DATABASE_URL,
+  EXTERNAL_SOURCES,
+  IS_PRIMARY,
+  IS_TESTNET,
+  NODE_RPC_URL,
+  USE_POSTGRES,
+} from "./config";
 import type { LiveSources } from "./live";
+import { NOT_CONFIGURED_HEADER } from "@/data/not-configured";
 
 /**
  * Mount the route groups that read the node, in this order. Each that also reads Postgres beyond
@@ -105,17 +115,20 @@ export function mountNodeRoutes(
    * a venue every ten seconds for a traded price and candle history, a different source, cadence
    * and quantity from `/chain/info`'s aggregate.
    */
-  const kraken = new KrakenTracker(log);
-  kraken.start();
-  app.route(
-    "/",
-    statsRoutes({
-      source: chainSource,
-      kraken,
-      pool: USE_POSTGRES ? createPool(DATABASE_URL, { max: 2 }) : null,
-    }),
-  );
-  log("stats routes mounted");
+  // An off-chain source, so off with the others under EXTERNAL_SOURCES=0.
+  if (EXTERNAL_SOURCES) {
+    const kraken = new KrakenTracker(log);
+    kraken.start();
+    app.route(
+      "/",
+      statsRoutes({
+        source: chainSource,
+        kraken,
+        pool: USE_POSTGRES ? createPool(DATABASE_URL, { max: 2 }) : null,
+      }),
+    );
+    log("stats routes mounted");
+  }
 
   /*
    * `/pulse`'s four reads. Requires the index as well as the node (the boxes, events and ledger
@@ -141,4 +154,47 @@ export function mountNodeRoutes(
     );
     log("pulse routes mounted");
   }
+}
+
+/**
+ * A 503 for a source this deployment does not have, marked so the site reads it as "unavailable"
+ * without counting it against the API's health (`NOT_CONFIGURED_HEADER`).
+ */
+export function notConfigured(c: Context, what: string): Response {
+  return c.json({ error: `${what} is not configured on this server` }, 503, {
+    [NOT_CONFIGURED_HEADER]: "1",
+  });
+}
+
+/**
+ * The Postgres-backed groups of an API with a database and no node, as a self-hosted copy of the
+ * open dataset runs. The index answers what it holds (`IndexChainSource`), and a read that needs
+ * the node answers `notConfigured`. Nothing here polls: there is no node to poll.
+ */
+export function mountIndexOnlyRoutes(
+  app: Hono,
+  deps: { source: IndexChainSource; chainIndex: ChainIndexStore; log: (message: string) => void },
+): void {
+  const { source, chainIndex, log } = deps;
+  const groups = [
+    chainRoutes(source, { chainIndex }),
+    // The rich list, address activity and the halving page; the subsidy schedule needs the node.
+    networkRoutes(source, DATABASE_URL),
+    // Miner shares from the block table. The hashrate is the node's, so it is unknown here.
+    miningRoutes({
+      pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 30_000 }),
+      solpsOver: () => Promise.resolve(null),
+    }),
+  ];
+  for (const routes of groups) {
+    // Hono's default for anything else: an HTTPException's own answer, otherwise a logged 500.
+    routes.onError((error, c) => {
+      if (error instanceof NoNodeError) return notConfigured(c, "a node");
+      if (error instanceof HTTPException) return error.getResponse();
+      console.error(error);
+      return c.text("Internal Server Error", 500);
+    });
+    app.route("/", routes);
+  }
+  log("NODE_RPC_URL unset — chain routes answer from the index, node reads answer 503");
 }

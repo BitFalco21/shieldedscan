@@ -12,6 +12,28 @@ import type { PriceTracker, Stats24hTracker } from "./chain-stats";
 import { clampPageSize } from "./page-size";
 import { ParamError, parseTxListPool } from "./v1/params";
 
+/**
+ * What the routes read from a chain source: `NodeChainSource`, or `IndexChainSource` on an API with
+ * a database and no node.
+ */
+export type ChainRouteSource = Pick<
+  NodeChainSource,
+  | "getChainFacts"
+  | "getPools"
+  | "getOldestHeight"
+  | "getSupplyBreakdown"
+  | "getTip"
+  | "blocksDescending"
+  | "getBlock"
+  | "getBlockTransactions"
+  | "listTransactions"
+  | "listLatestTransactions"
+  | "getTransaction"
+  | "getAddress"
+  | "getMempoolStats"
+  | "listMempool"
+>;
+
 export interface ChainRouteExtras {
   // Structural, so a replica's readers of the primary's state (`live-state.ts`) fit as well.
   price?: Pick<PriceTracker, "current">;
@@ -60,7 +82,7 @@ const pageParam = (raw: string | undefined): number => Math.max(1, finiteInt(raw
  * Error contract, matching `src/data/source.ts`: a missing thing is 404, and a transient failure
  * is a rejection that surfaces as 500. An outage is never dressed up as missing data.
  */
-export function chainRoutes(source: NodeChainSource, extras: ChainRouteExtras = {}): Hono {
+export function chainRoutes(source: ChainRouteSource, extras: ChainRouteExtras = {}): Hono {
   /**
    * The block list, from the chain index with the node topping up what the follower has not stored
    * yet (`block-list.ts`), behind a single-flight cache keyed on both the node's tip and the
