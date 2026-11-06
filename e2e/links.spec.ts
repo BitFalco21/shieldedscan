@@ -38,8 +38,8 @@ const VALID_ROUTES: readonly RegExp[] = [
   /^\/charts$/,
   /^\/charts\/[a-z-]+$/,
   // The window is enumerated rather than matched as `.+`: an unrecognised value parses to the
-  // default (`parseMiningWindow`), so a typo would render the 7d page under a URL promising 24h.
-  /^\/mining(\?window=(24h|3d|7d|30d|90d|1y))?$/,
+  // default (`parseMinersWindow`), so a typo would render the 30d page under a URL promising 90d.
+  /^\/miners(\/[a-z0-9-]+)?(\?window=(7d|90d))?$/,
   // `?vs=` is not enumerated: an unrecognised value renders a stated "NOT FOUND" rather than the
   // default page. `compare.spec.ts` asserts every option in the picker resolves to its asset.
   /^\/compare$/,

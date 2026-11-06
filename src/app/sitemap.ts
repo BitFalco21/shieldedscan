@@ -19,7 +19,7 @@ export const STATIC_PATHS = [
   "/mempool",
   "/reorgs",
   "/analytics",
-  // `/mining` is deliberately absent: a page hidden from the nav is not listed for indexing.
+  "/miners",
   "/api-docs",
   // The MCP server's how-to, for AI assistants.
   "/mcp",

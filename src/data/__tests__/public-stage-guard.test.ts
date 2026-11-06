@@ -70,34 +70,38 @@ describe("public-stage fixture guard", () => {
 });
 
 /**
- * Wherever the API is configured the mining overview comes from it; fixture miners are
+ * Wherever the API is configured the miners overview comes from it; fixture miners are
  * reachable only with no API at all, so invented miners can never be published as the
  * chain's hashrate distribution.
  */
-describe("the mining overview", () => {
-  const overview = (key: string) => ({
-    window: {
-      key,
-      fromHeight: 1,
-      toHeight: 9,
-      blocks: 9,
-      spanSeconds: 600,
-      avgDifficulty: 1,
-      avgTxCount: 2,
-      avgFeeZat: null,
-      solutionsPerSecond: null,
-    },
-    groups: [],
-    trend: [],
-    software: { zebra: 9, unidentified: 0 },
+describe("the miners overview", () => {
+  const usd = { closedUsd: 0, unpricedZat: 0, todayZat: 0 };
+  const totals = { blocks: 9, addresses: 1, rewardZat: 9, feeZat: 0, usd };
+  const overview = (window: string) => ({
+    window,
+    fromDay: "2026-10-08",
+    toDay: "2026-11-06",
+    fromHeight: 1,
+    toHeight: 9,
+    daysComputed: 30,
+    daysExpected: 30,
+    blocks: 9,
+    unrecordedBlocks: 0,
+    shieldedBlocks: 0,
+    noAddressBlocks: 0,
+    transparent: totals,
+    unattributed: { ...totals, largest: [] },
+    labelled: [],
+    topBlocks: { top1: 9, top3: 9, top10: 9 },
+    registry: [],
   });
-  const stubFetch = (key: string) => {
+  const stubFetch = (window: string) => {
     const urls: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
         urls.push(String(url));
-        return new Response(JSON.stringify(overview(key)), {
+        return new Response(JSON.stringify(overview(window)), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
@@ -109,20 +113,20 @@ describe("the mining overview", () => {
     vi.unstubAllGlobals();
   });
 
-  it("is read from /chain/mining in a public build, never from fixtures", async () => {
-    const urls = stubFetch("1y");
+  it("is read from /chain/miners in a public build, never from fixtures", async () => {
+    const urls = stubFetch("90d");
     const mod = await loadDataModule(LIVE);
-    const got = await mod.getDataSource().getMiningOverview("1y");
-    expect(got.window.blocks).toBe(9);
-    expect(urls.some((u) => u.endsWith("/chain/mining?window=1y"))).toBe(true);
+    const got = await mod.getDataSource().getMinersOverview("90d");
+    expect(got.blocks).toBe(9);
+    expect(urls.some((u) => u.endsWith("/chain/miners?window=90d"))).toBe(true);
   });
 
   it("refuses an answer for a different window than the one asked for", async () => {
-    // An API that ignored `?window=` answers the default week under a chip reading 1Y.
-    stubFetch("7d");
+    // An API that ignored `?window=` answers the default month under a chip reading 90D.
+    stubFetch("30d");
     const mod = await loadDataModule(LIVE);
-    await expect(mod.getDataSource().getMiningOverview("1y")).rejects.toThrow(
-      /unrecognised mining overview/,
+    await expect(mod.getDataSource().getMinersOverview("90d")).rejects.toThrow(
+      /unrecognised miners overview/,
     );
   });
 
@@ -132,8 +136,8 @@ describe("the mining overview", () => {
       CROSSCHAIN_API_URL: undefined,
       EXPLORER_API_TOKEN: undefined,
     });
-    const got = await mod.getDataSource().getMiningOverview("24h");
-    expect(got.window.key).toBe("24h");
-    expect(got.groups.length).toBeGreaterThan(0);
+    const got = await mod.getDataSource().getMinersOverview("7d");
+    expect(got.window).toBe("7d");
+    expect(got.labelled.length).toBeGreaterThan(0);
   });
 });

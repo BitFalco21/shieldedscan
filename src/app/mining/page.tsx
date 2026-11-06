@@ -1,46 +1,21 @@
-import type { Metadata } from "next";
-import { parseMiningWindow, type MiningWindowKey } from "@/domain";
-import { getDataSource } from "@/data";
-import { DataUnavailable } from "@/components/DataUnavailable";
-import { MiningPage } from "@/features/mining/MiningPage";
-import { isTransientUpstream } from "@/lib/transient-upstream";
+import { notFound, permanentRedirect } from "next/navigation";
+import { minersWindowFromMining, MINERS_DEFAULT_WINDOW } from "@/domain";
+import { isTestnet } from "@/lib/network";
 
-/** Rolling windows ending at the tip: never serve a stale Data Cache entry. */
+/** Rendered on request: the redirect reads the query, so it is never prerendered stale. */
 export const fetchCache = "force-no-store";
 
-export const metadata: Metadata = {
-  title: "Mining",
-  description:
-    "Zcash solution rate, difficulty, block economics and reward distribution by payout address.",
-};
-
 /**
- * No `loading.tsx` belongs above any route that can call `notFound()`: a Suspense boundary
- * commits HTTP 200 first. This route never 404s (an unrecognised window parses to the
- * default), but the rule still applies to the directory.
+ * `/mining` moved to `/miners`: a permanent redirect, so old links and search results land on
+ * the same figures. Its rolling 24h and 3d windows have no whole-day form and open on 7D; no
+ * window meant 7d here, so it still does.
  */
 export default async function Page({
   searchParams,
 }: {
   searchParams: Promise<{ window?: string }>;
 }) {
-  const params = await searchParams;
-  const window = parseMiningWindow(params.window);
-
-  // "7d" is the default, so it is omitted from the URL: an unfiltered request stays
-  // byte-identical and shares one CDN cache key, the same rule the cross-chain filters follow.
-  const windowHref = (key: MiningWindowKey) => (key === "7d" ? "/mining" : `/mining?window=${key}`);
-
-  // Served by `/chain/mining`. An outage is named, never crashed on; anything else still
-  // throws, so a wrong shape fails loudly instead of hiding behind a panel that looks
-  // like somebody else's outage.
-  let overview;
-  try {
-    overview = await getDataSource().getMiningOverview(window);
-  } catch (error) {
-    if (!isTransientUpstream(error)) throw error;
-    return <DataUnavailable what="The mining overview" />;
-  }
-
-  return <MiningPage overview={overview} windowHref={windowHref} />;
+  if (isTestnet) notFound();
+  const window = minersWindowFromMining((await searchParams).window);
+  permanentRedirect(window === MINERS_DEFAULT_WINDOW ? "/miners" : `/miners?window=${window}`);
 }

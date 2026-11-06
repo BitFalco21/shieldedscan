@@ -557,8 +557,17 @@ export interface V1RichListPage extends V1Page<V1RichListEntry> {
 export interface V1Label {
   address: string;
   name: string;
-  /** `external`: a third party attributes it and this explorer repeats them, unverified. */
-  basis: "external" | "self-declared";
+  /**
+   * `external`: a third party attributes it and this explorer repeats them, unverified.
+   * `self-declared`: the holder published it. For a mining pool's payout address,
+   * `pool-published`: the pool's own data names it; `coinbase-tag`: the pool's own marker is on
+   * the address's blocks, which is self-declared and could be copied.
+   */
+  basis: "external" | "self-declared" | "pool-published" | "coinbase-tag";
+  /** `mining-pool`: a pool's payout address, named after the pool. `entity`: every other label. */
+  category: "entity" | "mining-pool";
+  /** The pool a `mining-pool` label names; null on every other label. */
+  miningPool: { id: string; name: string } | null;
   /** Whose attribution the name is, and when it was read, e.g. Arkham's entity labels. */
   source: string;
   /** Present on an address a named investigator flagged in a theft; null otherwise. */

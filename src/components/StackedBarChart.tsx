@@ -37,6 +37,8 @@ export interface StackedBarChartProps {
   partial?: { index: number; note: string } | null;
   /** A series brought forward, the rest faded, so one band's trend reads across the stack. */
   highlightKey?: string | null;
+  /** A rule before the bar at `index`: a consensus upgrade the shape cannot be read without. */
+  marker?: { index: number; label: string } | null;
   /** Readout rows: every series, or the total alone when a companion states the breakdown. */
   readout?: "series" | "total";
   onActiveChange?: (index: number | null) => void;
@@ -59,6 +61,7 @@ export function StackedBarChart({
   formatTick = formatValue,
   partial = null,
   highlightKey = null,
+  marker = null,
   readout = "series",
   onActiveChange,
 }: StackedBarChartProps) {
@@ -177,6 +180,27 @@ export function StackedBarChart({
             </g>
           );
         })}
+        {marker !== null && marker.index >= 0 && marker.index < n
+          ? (() => {
+              const at = padL + marker.index * slot;
+              // The label flips left of its rule in the last fifth, so it is never clipped.
+              const near = at > CHART_W - plotW * 0.2;
+              return (
+                <g className="chart-marker">
+                  <line x1={at} x2={at} y1={CHART_PAD_T} y2={CHART_H - CHART_PAD_B} />
+                  <text
+                    x={at + (near ? -5 : 5)}
+                    y={CHART_PAD_T + 10}
+                    textAnchor={near ? "end" : "start"}
+                    fontSize={Math.round(TICK_FONT * (10 / 11))}
+                    className="chart-marker-label"
+                  >
+                    {marker.label}
+                  </text>
+                </g>
+              );
+            })()
+          : null}
         <XAxis frame={frame} labels={labels} />
       </svg>
     </ChartHover>

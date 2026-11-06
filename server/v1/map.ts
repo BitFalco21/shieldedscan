@@ -9,6 +9,8 @@ import {
   type ReorgEvent,
   type ReorgSummary,
   type AddressLabel,
+  MINING_POOLS,
+  type MiningPoolLabel,
   type LabelledBalances,
   type RichListEntry,
   type RichListSummary,
@@ -712,7 +714,10 @@ export function toHalving(
  * without it: a name is someone's claim about a real company or person, not a chain fact.
  */
 export const LABELS_NOTICE =
-  "Each name is a third-party attribution, repeated as its source states it and not verified by this explorer; `source` says whose claim it is. A label covers exactly its address: never extend it to addresses that transact with it. Balances are transparent only, and one address can hold many people's coins, so a balance is a wallet's total, not one holder's. Anything held in shielded addresses cannot be enumerated by anyone.";
+  "An `entity` name is a third-party attribution, repeated as its source states it and not verified by this explorer; `source` says whose claim it is. A `mining-pool` name marks a pool's payout address, reviewed by this explorer against the pool's own data or its own coinbase marker (`basis`); it names the pool, never the miners it pays. A label covers exactly its address: never extend it to addresses that transact with it. Balances are transparent only, and one address can hold many people's coins, so a balance is a wallet's total, not one holder's. Anything held in shielded addresses cannot be enumerated by anyone.";
+
+/** What a pool label's `source` says: who reviewed it, never the evidence itself. */
+const POOL_LABEL_SOURCE = "reviewed by this explorer";
 
 /**
  * The labelled addresses, domain → wire, in the label table's order.
@@ -725,22 +730,46 @@ export function toLabels(
   balances: LabelledBalances,
   labels: Readonly<Record<string, AddressLabel>>,
   asOf: number,
+  poolLabels: Readonly<Record<string, MiningPoolLabel>> = {},
 ): V1Labels {
-  const items: V1Label[] = balances.items.flatMap((item) => {
+  const items: V1Label[] = balances.items.flatMap((item): V1Label[] => {
     const label = labels[item.address];
-    if (!label) return [];
+    const poolLabel = poolLabels[item.address];
+    const unknowns: V1Unknowns =
+      item.rank === null ? { rank: item.balanceZat === 0 ? "nonexistent" : "unmeasured" } : {};
+    const held = { balanceZat: item.balanceZat, rank: item.rank };
+    if (label) {
+      return [
+        withUnknowns(
+          {
+            address: item.address,
+            name: label.name,
+            basis: label.basis,
+            category: "entity",
+            miningPool: null,
+            source: label.source,
+            flag: label.flag ? { by: label.flag.by, url: label.flag.href } : null,
+            ...held,
+          } satisfies V1Label,
+          unknowns,
+        ),
+      ];
+    }
+    if (!poolLabel) return [];
+    const pool = MINING_POOLS[poolLabel.miningPool];
     return [
       withUnknowns(
         {
           address: item.address,
-          name: label.name,
-          basis: label.basis,
-          source: label.source,
-          flag: label.flag ? { by: label.flag.by, url: label.flag.href } : null,
-          balanceZat: item.balanceZat,
-          rank: item.rank,
-        },
-        item.rank === null ? { rank: item.balanceZat === 0 ? "nonexistent" : "unmeasured" } : {},
+          name: pool.name,
+          basis: poolLabel.basis,
+          category: "mining-pool",
+          miningPool: { id: pool.id, name: pool.name },
+          source: POOL_LABEL_SOURCE,
+          flag: null,
+          ...held,
+        } satisfies V1Label,
+        unknowns,
       ),
     ];
   });

@@ -45,9 +45,9 @@ export const MINING_POOLS: { readonly [K in MiningPoolId]: MiningPool & { id: K 
   "2miners": { id: "2miners", name: "2Miners", logo: "2miners" },
   antpool: { id: "antpool", name: "AntPool", logo: "antpool" },
   kupool: { id: "kupool", name: "KuPool", logo: "kupool" },
-  kryptex: { id: "kryptex", name: "Kryptex", logo: null },
+  kryptex: { id: "kryptex", name: "Kryptex", logo: "kryptex" },
   nicehash: { id: "nicehash", name: "NiceHash", logo: "nicehash" },
-  "mining-dutch": { id: "mining-dutch", name: "Mining-Dutch", logo: null },
+  "mining-dutch": { id: "mining-dutch", name: "Mining-Dutch", logo: "mining-dutch" },
   "zec-mining-pool": { id: "zec-mining-pool", name: "ZEC Mining Pool", logo: null },
 };
 

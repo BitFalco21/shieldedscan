@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADDRESS_LABELS } from "@/domain";
+import { ADDRESS_LABELS, MINING_POOL_LABELS } from "@/domain";
 import { DONATION_ADDRESS } from "@/lib/donation";
 import { formatZec } from "@/lib/format";
 import { STATIC_PATHS } from "@/app/sitemap";
@@ -78,7 +78,7 @@ describe("the page guide", () => {
   });
 
   it("describes no page the sitemap does not publish", () => {
-    // The inverse: `/mining` and `/v1` are deliberately out of the nav and the sitemap, and
+    // The inverse: `/v1` is deliberately out of the nav and the sitemap, and
     // describing one to a visitor is the same act as listing it for indexing.
     const listed = new Set<string>([...STATIC_PATHS, "/ai-agent"]);
     for (const path of Object.keys(SITE_PAGES)) {
@@ -361,7 +361,8 @@ describe("the labels section", () => {
         const head = text.lastIndexOf('- "', at);
         expect(text.slice(head, at), address).toContain(`"${label.name}"`);
       }
-      expect(text).toContain(`${Object.keys(ADDRESS_LABELS).length} labelled addresses in all`);
+      const all = Object.keys(ADDRESS_LABELS).length + Object.keys(MINING_POOL_LABELS).length;
+      expect(text).toContain(`${all} labelled addresses in all`);
     }
   });
 

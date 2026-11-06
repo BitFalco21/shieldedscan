@@ -75,7 +75,7 @@ describe("AddressLink", () => {
 describe("AddressLink as a block's miner", () => {
   /** Payout addresses in `MINING_POOL_LABELS`: one pool with a logo, one without. */
   const VIABTC = "t1MKn34KBa8Xh4g8qU8psibBXvURafphVn7";
-  const KRYPTEX = "t1e6hceYHkzCbwcwGZzKeMfXXW7x7gr19Cw";
+  const ZEC_MINING_POOL = "t1Uo7EN1A3GN29UjQJbUFYvrhxQd6Gt7qdA";
 
   it("names a labelled payout address by its pool, with the pool's logo", () => {
     const { container } = render(<AddressLink address={VIABTC} asMiner />);
@@ -90,8 +90,8 @@ describe("AddressLink as a block's miner", () => {
   });
 
   it("draws the label glyph for a pool with no logo", () => {
-    const { container } = render(<AddressLink address={KRYPTEX} asMiner />);
-    expect(screen.getByRole("link", { name: "Kryptex" })).toBeDefined();
+    const { container } = render(<AddressLink address={ZEC_MINING_POOL} asMiner />);
+    expect(screen.getByRole("link", { name: "ZEC Mining Pool" })).toBeDefined();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("[data-label-icon]")).not.toBeNull();
   });

@@ -70,6 +70,8 @@ const MUST_BE_FRESH = [
   "/reorgs",
   // Keyset lists whose first page would otherwise be a stale ranking.
   "/mining",
+  "/miners",
+  "/miners/[pool]",
   "/rich-list",
   "/search",
   "/txs",

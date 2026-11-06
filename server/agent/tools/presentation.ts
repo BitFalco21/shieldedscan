@@ -341,7 +341,7 @@ export function sourceLinkFor(endpoint: string): SourceLink | null {
   if (base === RECENT_BLOCKS_PATH) return { label: "blocks", href: "/blocks" };
   if (base === RECENT_TRANSACTIONS_PATH) return { label: "transactions", href: "/txs" };
   // Who mined a period cites the page that shows the same shares by payout address.
-  if (base === V1_MINERS_PATH) return { label: "mining", href: "/mining" };
+  if (base === V1_MINERS_PATH) return { label: "miners", href: "/miners" };
   // No page publishes the transparent series yet: the endpoint's own reference entry does.
   if (base === V1_TRANSPARENT_PATH) {
     return { label: "transparent activity", href: "/api-docs#analytics-transparent" };

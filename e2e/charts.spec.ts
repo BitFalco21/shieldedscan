@@ -345,60 +345,6 @@ test.describe("chart hover readouts", () => {
     expect(readout, "net flow shows an unformatted zatoshi count").not.toMatch(/\d{9,}/);
   });
 
-  test("/mining difficulty is readable at every point, and the range labels agree", async ({
-    page,
-  }) => {
-    // The cross-check: sweep every point with the keyboard, then assert the low/high printed
-    // under the chart bracket exactly what the readout reports. Those labels and the readout
-    // are rendered from the same array but by different code paths — a scaling error, an
-    // off-by-one on the last point, or a second formatter would break the agreement.
-    await page.goto("/mining");
-    await page.waitForLoadState("networkidle");
-
-    const chart = page.getByRole("group", { name: /arrow keys/i }).first();
-    await chart.focus();
-    await page.keyboard.press("Home");
-
-    const seen: string[] = [];
-    for (let i = 0; i < 40; i += 1) {
-      const readout = await chart.locator('[role="status"]').innerText();
-      const value = readout.split("\n").at(-1)?.trim();
-      expect(value, `no difficulty in readout:\n${readout}`).toBeTruthy();
-      if (seen.at(-1) !== value) seen.push(value!);
-      await page.keyboard.press("ArrowRight");
-    }
-
-    // The whole panel, not the title's parent — `xpath=..` from the heading reaches only the
-    // panel header, where the range labels are not.
-    const panel = page.locator("section.panel").filter({ hasText: "DIFFICULTY TREND" }).first();
-    const text = await panel.innerText();
-    const low = text.match(/low\s+([\d.,]+[KMB]?)/)?.[1];
-    const high = text.match(/high\s+([\d.,]+[KMB]?)/)?.[1];
-    expect(low, `no low label in:\n${text}`).toBeTruthy();
-    expect(high, `no high label in:\n${text}`).toBeTruthy();
-
-    const numeric = (s: string) => Number(s.replace(/,/g, "").replace(/[KMB]$/, ""));
-    const values = seen.map(numeric).filter((n) => Number.isFinite(n));
-    expect(values.length, `no numeric readouts among ${seen.join(", ")}`).toBeGreaterThan(3);
-    expect(Math.min(...values)).toBeCloseTo(numeric(low!), 1);
-    expect(Math.max(...values)).toBeCloseTo(numeric(high!), 1);
-  });
-
-  test("/mining readout names a full year and the block height it can be checked against", async ({
-    page,
-  }) => {
-    await page.goto("/mining");
-    await page.waitForLoadState("networkidle");
-    const chart = page.getByRole("group", { name: /arrow keys/i }).first();
-    await chart.focus();
-    await page.keyboard.press("End");
-    const label = (await chart.locator('[role="status"]').innerText()).split("\n")[0] ?? "";
-    expect(label, `"${label}" has no full year`).toMatch(/\b(19|20)\d{2}\b/);
-    // A date names ~1,150 blocks; a height names one, which is what makes the figure
-    // checkable against the chain.
-    expect(label, `"${label}" names no block height`).toMatch(/#[\d,]+/);
-  });
-
   test("stepping right never moves the readout backwards in time", async ({ page }) => {
     // Monotonicity is the property that catches an off-by-one or an inverted axis, without
     // needing to know any particular value.

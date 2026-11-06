@@ -42,6 +42,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
       ...(isTestnet ? [] : [{ href: "/cross-chain", label: "cross-chain txns" }]),
       { href: "/mempool", label: "mempool" },
       { href: "/blocks", label: "blocks" },
+      // Mainnet-only: the payout rollup, the price and the reviewed pools are mainnet's.
+      ...(isTestnet ? [] : [{ href: "/miners", label: "miners" }]),
       { href: "/rich-list", label: "rich list" },
       { href: "/reorgs", label: "reorgs" },
       // No testnet guard: protocol documentation is network-independent and the route
@@ -62,7 +64,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
       ...(isTestnet ? [] : [{ href: "/pulse", label: "pulse" }]),
       { href: "/charts", label: "charts" },
       { href: "/shielded", label: "shielded" },
-      // `/mining` is deliberately absent: it stays reachable by direct URL but out of the nav.
       // `/analytics` is labelled by what it shows; under a parent called analytics the route
       // name would say nothing.
       { href: "/analytics", label: "network activity" },
