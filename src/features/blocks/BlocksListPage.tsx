@@ -71,13 +71,14 @@ function CompositionDots({ block }: { block: BlockSummary }) {
 }
 
 /**
- * Who took the block reward. A shielded coinbase is redacted rather than blanked — the
- * miner is unknowable there by design, and that is a fact about Zcash worth stating in
- * the same ink the rest of the explorer uses for it.
+ * Who took the block reward: a reviewed pool name where the payout address has one, the
+ * elided address otherwise. A shielded coinbase is redacted rather than blanked — the miner is
+ * unknowable there by design, and that is a fact about Zcash worth stating in the same ink the
+ * rest of the explorer uses for it.
  */
 function MinerCell({ miner }: { miner: BlockMiner }) {
   if (miner.kind === "transparent") {
-    return <AddressLink address={miner.address} edge={6} />;
+    return <AddressLink address={miner.address} edge={6} asMiner />;
   }
   if (miner.kind === "shielded") {
     return <ShieldedMiner glyphs={4} />;

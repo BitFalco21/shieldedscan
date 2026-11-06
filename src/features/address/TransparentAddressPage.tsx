@@ -1,6 +1,7 @@
 import Link from "@/components/Link";
-import type { AddressLabel, Transaction, TransparentAddress } from "@/domain";
-import { addressDeltaZat, addressLabel } from "@/domain";
+import type { ReactNode } from "react";
+import type { AddressFlag, Transaction, TransparentAddress } from "@/domain";
+import { addressDeltaZat, addressLabel, miningPoolOf } from "@/domain";
 import { ChainLogo } from "@/components/ChainLogo";
 import { CopyButton } from "@/components/CopyButton";
 import { DataTable } from "@/components/DataTable";
@@ -11,6 +12,7 @@ import { Panel } from "@/components/Panel";
 import { DIRECTION_COLUMN, TxDirectionCell } from "@/components/TxDirectionCell";
 import { KindPill } from "@/components/KindPill";
 import { LabelIcon } from "@/components/LabelIcon";
+import { MiningPoolMark } from "@/components/MiningPoolMark";
 import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
 import { DataUnavailable } from "@/components/DataUnavailable";
@@ -93,35 +95,36 @@ function NetDelta({ tx, address }: { tx: Transaction; address: string }) {
  *
  * The name sits under the address rather than replacing it, unlike `/tx`: a reader lands here
  * to see the address itself, so the name is a note about the page's subject. The labelling
- * basis is recorded per entry, not printed.
+ * basis is recorded per entry, not printed. A mining pool's payout address carries the pool's
+ * logo in place of the tag glyph.
  *
  * The flag is warn ink, not the accent: green is this site's privacy signal, and a theft flag
  * is a warning. It names who flagged it and links to their post, so the claim is theirs and
  * checkable rather than stated in this site's voice.
  */
-function AddressNotes({ label }: { label: AddressLabel }) {
+function AddressNotes({ name, mark, flag }: { name: string; mark: ReactNode; flag?: AddressFlag }) {
   return (
     <span className="flex flex-col items-start gap-3">
       <span
         data-name-tag
         className="inline-flex items-center gap-1.5 rounded-sm border border-edge px-2 py-0.5 text-xs text-ink-dim"
       >
-        <LabelIcon />
-        {label.name}
+        {mark}
+        {name}
       </span>
-      {label.flag ? (
+      {flag ? (
         <span
           data-address-flag
           className="block max-w-xl rounded-sm border border-warn-edge bg-warn-wash px-3 py-2 text-xs text-ink"
         >
           This address was flagged by{" "}
           <a
-            href={label.flag.href}
+            href={flag.href}
             rel="noreferrer"
             target="_blank"
             className="group text-warn underline underline-offset-2 hover:text-ink-bright"
           >
-            <span>{label.flag.by}</span>{" "}
+            <span>{flag.by}</span>{" "}
             <span aria-hidden className="font-extrabold">
               ↗
             </span>
@@ -145,6 +148,8 @@ export function TransparentAddressPage({
   oldestHref,
 }: TransparentAddressPageProps) {
   const label = addressLabel(info.address);
+  // An address's own page is one place a pool's name applies; see `AddressLink`'s `asMiner`.
+  const miningPool = miningPoolOf(info.address);
   return (
     <>
       {/* The address is the one string here a visitor will want to paste elsewhere, and it is
@@ -160,7 +165,16 @@ export function TransparentAddressPage({
             <CopyButton value={info.address} label="address" />
           </>
         }
-        meta={label ? <AddressNotes label={label} /> : undefined}
+        meta={
+          miningPool ? (
+            <AddressNotes
+              name={miningPool.name}
+              mark={<MiningPoolMark miningPool={miningPool} />}
+            />
+          ) : label ? (
+            <AddressNotes name={label.name} mark={<LabelIcon />} flag={label.flag} />
+          ) : undefined
+        }
         lede="Transparent addresses are fully public — balances and history below are visible to everyone, exactly like Bitcoin. For privacy, Zcash offers shielded addresses."
       />
       <StatGrid columns={3}>

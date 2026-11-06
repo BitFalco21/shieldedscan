@@ -70,7 +70,7 @@ function PublicAmount({ zat, unknownNote }: { zat: number | null; unknownNote: s
 /** Who took the reward. A shielded coinbase is the veil, never the word "unknown". */
 function MinerValue({ miner }: { miner: BlockMiner }) {
   if (miner.kind === "transparent") {
-    return <AddressLink address={miner.address} edge={10} copyable />;
+    return <AddressLink address={miner.address} edge={10} copyable asMiner />;
   }
   if (miner.kind === "shielded") {
     return <ShieldedMiner glyphs={6} />;
@@ -298,7 +298,7 @@ export function BlockDetailPage({
           },
           {
             label: "MINER",
-            hint: "Read from the coinbase: the miner is its largest transparent output. Zcash has no miner field, so this is derived rather than declared — and a miner is only NAMED where it wrote its own name into the block.",
+            hint: "Read from the coinbase: the miner is its largest transparent output. Zcash has no miner field, so this is derived rather than declared. A pool is named only where its payout address is on our reviewed list.",
             value: <MinerValue miner={block.miner} />,
           },
           {
