@@ -209,13 +209,8 @@ export function PoolTable({ overview, livePriceUsd }: PoolTableProps) {
           ) : null}
         </td>
         <td className={`${WIDE} text-right whitespace-nowrap text-ink-dim tabular-nums`}>
+          {/* A dollar figure only ever sits beside a public ZEC amount, never beside a veil. */}
           {usd(overview.transparent.rewardZat, overview.transparent.usd)}
-          {overview.shieldedBlocks > 0 ? (
-            <>
-              {" + "}
-              <Redacted glyphs={2} label="plus the shielded coinbase amounts, encrypted" />
-            </>
-          ) : null}
         </td>
         <td className={WIDE} />
       </tr>
