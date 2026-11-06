@@ -7,7 +7,8 @@ import {
   type AgentEvent,
 } from "../loop";
 import { formatTurnTiming, type TurnTiming } from "../timing";
-import type { AgentTools, ToolResult } from "../tools";
+import { AgentTools, type ToolResult } from "../tools";
+import { FIXTURE_NOW_MS, makeChain, makeV1 } from "../testing/fixture-world";
 import type { PlottedChart } from "@/domain";
 
 /**
@@ -208,6 +209,39 @@ describe("a round's calls", () => {
       })(),
     ).rejects.toThrow("transport");
     expect(timings[0]!.outcome).toBe("error");
+  });
+});
+
+describe("the cacheable prefix", () => {
+  /**
+   * A provider's prefix cache serves only bytes it has seen in the same order. The prompt and the
+   * tool list must therefore be identical on every round of a turn and on every turn of a day: no
+   * timestamp, id or per-request value may sit in them.
+   */
+  it("is byte-identical across rounds and across turns on the same day", async () => {
+    const seen: CompletionParams[] = [];
+    const tools = new AgentTools(makeV1(), makeChain(), () => FIXTURE_NOW_MS);
+    const turnOnce = async (question: string, offsetMs: number) => {
+      const { streamer, params } = script([
+        [done({ toolCalls: [call("a", "chain_status", { include: ["chain"] })] })],
+        ANSWER,
+      ]);
+      for await (const e of runAgentTurn(
+        { streamer, tools, now: () => FIXTURE_NOW_MS + offsetMs },
+        [{ role: "user", content: question }],
+        new AbortController().signal,
+      ))
+        void e;
+      seen.push(...params);
+    };
+    await turnOnce("first question", 0);
+    await turnOnce("a different question, an hour later", 3_600_000);
+    expect(seen).toHaveLength(4);
+    const prefix = (p: CompletionParams) =>
+      JSON.stringify([p.messages.filter((m) => m.role === "system"), p.tools]);
+    for (const p of seen) expect(prefix(p)).toBe(prefix(seen[0]!));
+    // And the system messages lead: nothing of the conversation precedes them.
+    for (const p of seen) expect(p.messages[0]!.role).toBe("system");
   });
 });
 

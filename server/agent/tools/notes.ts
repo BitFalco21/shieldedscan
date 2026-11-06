@@ -37,6 +37,13 @@ export const REORG_NOTE = `This is ONE NODE'S OWN OBSERVED ROLLBACKS, never a ce
  * public; `shielded: true` is the field most likely to be misread as "not knowable", so the note
  * says what that flag means and what it does not.
  */
+/**
+ * Above `/v1/chain` and `/v1/status`, which both carry the rolling 24-hour figures the homepage
+ * prints. Without it a "last 24 hours" question went to the day totals and a sum, several rounds for
+ * a figure this payload already held.
+ */
+export const LAST_24H_NOTE = `\`txCount24h\` is how many transactions the blocks of the LAST 24 HOURS carried, rolling by block time and EXCLUDING coinbase; \`fullyShieldedPct24h\` is the share of them that were fully shielded, and \`txCount24h\` is its denominator — name it with the share. This is the answer to "how many transactions in the last 24 hours" and "what share is shielded right now": quote both as they are. A rolling 24 hours is not a calendar day, so never set it beside a day's total, reconcile the two, or compute anything from them. Null means this explorer has not measured it yet — unmeasured, never zero.`;
+
 export const SUPPLY_NOTE = `All six of these pool balances are PUBLIC. The node publishes each one, this explorer renders them on /shielded, and together they account for every ZEC in existence. \`shielded: true\` describes the pool's CRYPTOGRAPHY, not the knowability of its total: a shielded pool's balance is public by construction and NO VIEWING KEY is involved in reading one — a viewing key reveals an individual holder's notes and says nothing about a total. What is encrypted is the inside of a pool: how the balance divides into notes, and who holds them. So state any total here freely, and never a note. \`balanceValue\` is that balance valued by this explorer, in the currency named in \`valuation.currency\` — quote the string and never multiply a balance by a price yourself, and never convert it into another currency yourself. Where it is null the money figure is unavailable right now, which says nothing about the ZEC balance beside it. When \`valuation.currency\` is not usd, the figures are in THAT currency: say so, and never call them dollars. The lockbox is mined but not circulating and no transaction can spend from it.`;
 
 /**

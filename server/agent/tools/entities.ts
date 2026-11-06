@@ -2,7 +2,7 @@ import { marketCapFromTermsUsd } from "@/domain";
 import { formatUsdExact } from "@/lib/format";
 import { labelFor, priceInCurrency, withPoolValues } from "./enrich";
 import { asRecord, NOT_JSON, parseJson, reshapeJson } from "./json";
-import { HALVING_NOTE, NETWORK_FEES_NOTE, REORG_NOTE, SUPPLY_NOTE } from "./notes";
+import { HALVING_NOTE, LAST_24H_NOTE, NETWORK_FEES_NOTE, REORG_NOTE, SUPPLY_NOTE } from "./notes";
 import { dataBlock, withFormattedZec } from "./payload";
 import {
   CHAIN_PATH,
@@ -25,6 +25,7 @@ import type { ToolCall, Valuation } from "./types";
  *
  * A note exists where a payload has a property a summary would discard:
  *
+ *  - chain and status: the 24-hour figures are a rolling window, not a day, and coinbase is out.
  *  - supply: every pool total is public, not "knowable only with a viewing key".
  *  - halving: the countdown is derived from the tip and shrinks continuously, so a date built from
  *    it is an estimate, not a schedule.
@@ -35,6 +36,8 @@ import type { ToolCall, Valuation } from "./types";
  * first, so keying both would print it twice.
  */
 const ENTITY_NOTES: Readonly<Record<string, string>> = {
+  [CHAIN_PATH]: LAST_24H_NOTE,
+  [STATUS_PATH]: LAST_24H_NOTE,
   [SUPPLY_PATH]: SUPPLY_NOTE,
   [HALVING_PATH]: HALVING_NOTE,
   [NETWORK_FEES_PATH]: NETWORK_FEES_NOTE,

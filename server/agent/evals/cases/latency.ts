@@ -76,8 +76,8 @@ export const LATENCY: readonly EvalCase[] = [
     mustCallAny: ["chain_status"],
     mustNotCall: ["chain_activity", "calculate"],
     maxToolRounds: 1,
-    route: [status("status")],
-    routeCarries: ["fullyShieldedPct24h", "denominator"],
+    route: [status("chain")],
+    routeCarries: ["fullyShieldedPct24h", "txCount24h"],
   },
   // ── pools and supply ─────────────────────────────────────────────────────────────────────
   {

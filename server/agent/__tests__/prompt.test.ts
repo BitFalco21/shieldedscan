@@ -450,7 +450,7 @@ describe("versioning", () => {
     // Bump the version on any change to the prompt or the tool definitions (a definition sits in
     // the fixed prefix on every turn). The corpus records this number, so a change that leaves it
     // alone makes past runs unattributable to the prompt that produced them.
-    expect(SYSTEM_PROMPT_VERSION).toBe(41);
+    expect(SYSTEM_PROMPT_VERSION).toBe(43);
   });
 });
 
@@ -618,5 +618,18 @@ describe("the cross-chain rules", () => {
   it("keeps the floor language on every cross-chain figure", () => {
     expect(SYSTEM_PROMPT).toMatch(/every figure is a floor/i);
     expect(SYSTEM_PROMPT).toMatch(/never call any of it a total/i);
+  });
+});
+
+/**
+ * Round trips are the agent's main cost in time: each one waits for the model's first token again.
+ * The prompt asks for one lookup per figure and for independent lookups in one round, and keeps a
+ * dependent lookup waiting for the result it needs.
+ */
+describe("lookups", () => {
+  it("asks for one call per figure, and independent calls in the same round", () => {
+    expect(SYSTEM_PROMPT).toMatch(/Look up once, and together/);
+    expect(SYSTEM_PROMPT).toMatch(/make all of those calls in the same round/);
+    expect(SYSTEM_PROMPT).toMatch(/Only a lookup that needs another's result/);
   });
 });

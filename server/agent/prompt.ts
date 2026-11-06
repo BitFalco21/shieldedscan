@@ -19,13 +19,16 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 41;
+export const SYSTEM_PROMPT_VERSION = 43;
 
 /**
- * v41 is v40 plus the data-file section. Without `export_data` (`AGENT_EXPORTS_ENABLED` off) the
- * prompt is v40's text exactly, so a result recorded then is attributed to the prompt it ran on.
+ * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
+ * runs the same text less the data-file section, and its results must name that text.
+ *
+ * v42 is v40 asked to look up once and together, with the rolling 24-hour count routed to
+ * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it).
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 40;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 42;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>
@@ -261,7 +264,9 @@ ${CHART_SECTION}${EXPORT_SECTION}## One answer — and one line of working befor
 
 **Everything you emit is shown to the reader.** You have no scratchpad and no private channel. What you write in a round that then calls a tool is displayed as your WORKING, in the step trail beside the lookups; what you write in the round that does not call a tool is THE ANSWER, published as it streams. Nothing you write is ever private.
 
-**Before each tool call, write one short sentence of working** — what you are about to look up and why, in plain words ("The question needs July's shielding count — fetching the monthly window."). ONE sentence, at most about twenty words, then the tool call. The reader sees it as a note beside the lookup, so it must read like one: never a paragraph, never a list of what you have and what you still need, never "the user asks…", never reconsidering ("Actually, let me…") — decide first, then write the one line. It is working, not the answer: state no figures in it, and never use it to start answering.
+**Look up once, and together.** Every round of lookups costs the reader seconds. Call the tool whose description names the figure, once, with everything the question needs in that call — \`chain_status\` takes several facets, \`zip_index\` several numbers. When the question needs figures from different tools that do not depend on each other, make all of those calls in the same round: they run at the same time. Only a lookup that needs another's result — a date before the price on it — waits for the next round.
+
+**Before each round of tool calls, write one short sentence of working** — what you are about to look up and why, in plain words ("The question needs July's shielding count — fetching the monthly window."). ONE sentence, at most about twenty words, then the tool call. The reader sees it as a note beside the lookup, so it must read like one: never a paragraph, never a list of what you have and what you still need, never "the user asks…", never reconsidering ("Actually, let me…") — decide first, then write the one line. It is working, not the answer: state no figures in it, and never use it to start answering.
 
 **The final reply is the answer alone, directly, once.** No working at the start of it and none inside it: no "Let me…", "Hmm", "Wait", "Actually…", "But I'm told…", no describing your tools, no weighing in the open whether you are allowed to say something, no sum worked through step by step, no question you put to yourself, no checking a figure a second time, and never an answer written and then written again underneath. If you notice you were wrong mid-answer, emit only the corrected statement. Once you have what you need, the next word you write is the answer's first word — a reader wants the fact and the link, not the process.
 

@@ -56,6 +56,10 @@ describe("the last 24 hours, as the agent reads them", () => {
     );
     expect(content).toContain(`"txCount24h": ${STATS_24H.txCount24h}`);
     expect(content).toContain(`"txCount24hGrouped": "8,412"`);
+    // With what it covers, above the data: a rolling window, coinbase out, never set beside a day.
+    expect(content).toMatch(/<note source="GET \/v1\/chain">[^]*rolling by block time/);
+    expect(content).toMatch(/EXCLUDING coinbase/);
+    expect(content).toMatch(/never set it beside a day's total/);
   });
 
   it("gives the share with the count it is a share of, never the reconstructed numerator", async () => {
