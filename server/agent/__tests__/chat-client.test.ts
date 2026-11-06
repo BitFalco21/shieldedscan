@@ -150,6 +150,46 @@ describe("parseSseStream", () => {
     });
   });
 
+  it("reads the prefix-cache hit under either spelling, and leaves it out when none is sent", async () => {
+    const usageOf = async (usage: object) => {
+      const stream = sse(
+        `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage })}\n\n`,
+      );
+      const events = [];
+      for await (const e of parseSseStream(stream)) events.push(e);
+      const last = events.at(-1);
+      return last?.type === "done" ? last.usage : undefined;
+    };
+    expect(
+      await usageOf({
+        prompt_tokens: 25_000,
+        completion_tokens: 9,
+        prompt_tokens_details: { cached_tokens: 24_576 },
+      }),
+    ).toEqual({ promptTokens: 25_000, completionTokens: 9, cachedTokens: 24_576 });
+    expect(
+      await usageOf({ prompt_tokens: 25_000, completion_tokens: 9, prompt_cache_hit_tokens: 128 }),
+    ).toEqual({ promptTokens: 25_000, completionTokens: 9, cachedTokens: 128 });
+    // Not reported is not zero: the key is absent, so nothing downstream can read it as a miss.
+    expect(
+      await usageOf({
+        prompt_tokens: 25_000,
+        completion_tokens: 9,
+        prompt_tokens_details: { cached_tokens: null },
+      }),
+    ).toEqual({ promptTokens: 25_000, completionTokens: 9 });
+  });
+
+  it("times the first data line only when the request's start is given", async () => {
+    const lines = [chunk({ content: "a" }), "data: [DONE]\n\n"];
+    const timed = [];
+    for await (const e of parseSseStream(sse(...lines), performance.now())) timed.push(e);
+    expect(timed.at(-1)).toMatchObject({ type: "done", firstDataMs: expect.any(Number) });
+    const untimed = [];
+    for await (const e of parseSseStream(sse(...lines))) untimed.push(e);
+    expect(untimed.at(-1)).not.toHaveProperty("firstDataMs");
+  });
+
   it("survives an SSE event split across transport chunks", async () => {
     const whole = chunk({ content: "split across the wire" });
     const stream = sse(whole.slice(0, 25), whole.slice(25), "data: [DONE]\n\n");

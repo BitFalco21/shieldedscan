@@ -12,6 +12,7 @@ import { AgentTools, type ChainRequester, type V1Requester } from "./tools";
 import { AdmissionGate } from "../admission-gate";
 import { TURN_RESERVE_TOKENS } from "./budget";
 import { DAY_SECONDS } from "@/domain/time";
+import type { TurnTiming } from "./timing";
 
 /**
  * The /agent HTTP surface: POST /agent/ask (SSE) and GET /agent/health.
@@ -101,6 +102,11 @@ export interface AgentRouteDeps {
   charts?: boolean;
   /** Whether `export_data` is offered (`AGENT_EXPORTS_ENABLED`); on when omitted. */
   exports?: boolean;
+  /**
+   * Where each turn's timing goes (`timing.ts`). Production mounts none: `/privacy` says this API
+   * logs no request, and a line per turn would be one. The local demo server prints it.
+   */
+  onTiming?: (timing: TurnTiming) => void;
 }
 
 /**
@@ -262,6 +268,7 @@ export function agentRoutes(deps: AgentRouteDeps): Hono {
               // The active host's model, not the prompt module's constant: they disagree whenever the
               // provider is overridden, and a model id sent to a host that does not serve it 404s.
               model: provider.model,
+              ...(deps.onTiming ? { onTiming: deps.onTiming } : {}),
               onUsage: (usage) => {
                 tokensIn += usage.promptTokens;
                 tokensOut += usage.completionTokens;
