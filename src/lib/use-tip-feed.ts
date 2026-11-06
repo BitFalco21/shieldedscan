@@ -8,7 +8,7 @@ import { FAILURES_BEFORE_UNAVAILABLE, UNAVAILABLE_INTERVAL_MS, runPollLoop } fro
 
 /**
  * The chain tip and newest blocks from `/api/live`, for pages that only need to know where the
- * chain is (the NU7 countdown and its site bar). The same URL as the live lists, so every
+ * chain is (the NU7 countdown). The same URL as the live lists, so every
  * reader shares its CDN entry; the same loop, so it skips hidden tabs and backs off in an outage.
  */
 

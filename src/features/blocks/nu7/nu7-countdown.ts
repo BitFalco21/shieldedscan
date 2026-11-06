@@ -26,18 +26,6 @@ export function activationEtaSeconds(tipHeight: number, tipTimestamp: number): n
   return tipTimestamp + blocksToGo(tipHeight) * targetSpacingAt(tipHeight);
 }
 
-/**
- * "7 h 42 min", "12 min", or null once the estimate is due: a late block reads as "any
- * moment", never as a negative clock. Minutes at most, because the estimate's error is minutes.
- */
-export function formatRemaining(seconds: number): string | null {
-  if (seconds < 60) return null;
-  const minutes = Math.round(seconds / 60);
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h === 0 ? `${m} min` : `${h} h ${m} min`;
-}
-
 export interface ClockPart {
   label: "days" | "hrs" | "min" | "sec";
   value: string;
@@ -58,13 +46,6 @@ export function clockParts(seconds: number): ClockPart[] | null {
     { label: "sec", value: pad(s % 60) },
   ];
   return days > 0 ? [{ label: "days", value: pad(days) }, ...parts] : parts;
-}
-
-/** The site bar's grain: whole hours above one, minutes below. */
-export function formatRemainingCoarse(seconds: number): string | null {
-  if (seconds < 60) return null;
-  if (seconds < 3_600) return `${Math.round(seconds / 60)} min`;
-  return `${Math.round(seconds / 3_600)} h`;
 }
 
 /** ZEC to at most four decimals, trailing zeros dropped: "1.25", "0.4167". */
