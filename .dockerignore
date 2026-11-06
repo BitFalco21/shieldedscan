@@ -1,0 +1,12 @@
+# The build context of every image. Each Dockerfile copies only what it names; this keeps local
+# state (dependencies, build output, history, env files) from being sent with the context at all.
+.git
+node_modules
+.next
+dist
+coverage
+test-results
+playwright-report
+.env*
+!.env.example
+**/.env

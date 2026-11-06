@@ -47,6 +47,22 @@ describe("securityHeaders", () => {
     expect(live.find((h) => h.key === "X-Robots-Tag")).toBeUndefined();
   });
 
+  it("drops only the https-upgrade and HSTS for a plain-http site", () => {
+    const https = securityHeaders(true);
+    expect(https).toEqual([...BASE_SECURITY_HEADERS]);
+    expect(valueOf("Content-Security-Policy")).toContain("upgrade-insecure-requests");
+
+    const http = securityHeaders(true, { plainHttp: true });
+    expect(http.map((h) => h.key)).not.toContain("Strict-Transport-Security");
+    const csp = http.find((h) => h.key === "Content-Security-Policy")?.value ?? "";
+    expect(csp).not.toContain("upgrade-insecure-requests");
+    // Everything else is the https policy, directive for directive.
+    expect(csp).toBe(
+      (valueOf("Content-Security-Policy") ?? "").replace("; upgrade-insecure-requests", ""),
+    );
+    expect(http).toHaveLength(BASE_SECURITY_HEADERS.length - 1);
+  });
+
   it("never lets a noindex escape into a public build, whatever else changes", () => {
     expect(
       securityHeaders(true)
