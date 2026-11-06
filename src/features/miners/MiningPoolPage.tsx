@@ -83,7 +83,7 @@ export function MiningPoolPage({
           }
         />
         <StatCard
-          label="PAID TO THIS POOL"
+          label="PAID"
           value={
             group === undefined ? (
               "—"
@@ -92,7 +92,7 @@ export function MiningPoolPage({
             ) : (
               <>
                 {formatZecCompact(group.rewardZat)}
-                <span className="text-base text-ink-dim"> · {usd ?? "USD unavailable"}</span>
+                <span className="block text-base text-ink-dim">{usd ?? "USD unavailable"}</span>
               </>
             )
           }
@@ -126,7 +126,13 @@ export function MiningPoolPage({
               </Link>
             )
           }
-          sub={newest === undefined ? "none recently" : timeAgo(newest.timestamp, nowSec)}
+          sub={
+            blocks === null
+              ? "not loaded"
+              : newest === undefined
+                ? "none recently"
+                : timeAgo(newest.timestamp, nowSec)
+          }
         />
       </StatGrid>
 

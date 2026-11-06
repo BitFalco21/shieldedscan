@@ -13,6 +13,7 @@ import {
   type MiningPoolBlock,
 } from "@/domain";
 import { DAY_SECONDS } from "@/domain/time";
+import { blocks } from "./blocks";
 import { ADDR_MINER_C, TIP_HEIGHT, TIP_TIME } from "./ids";
 
 /**
@@ -179,10 +180,14 @@ export function getMiningPoolBlocks(id: string): MiningPoolBlock[] {
     (a) => MINING_POOL_LABELS[a]!.miningPool === id,
   );
   if (addresses.length === 0) return [];
-  return Array.from({ length: 20 }, (_, i) => ({
-    height: TIP_HEIGHT - i * 3 - 1,
-    timestamp: TIP_TIME - (i * 3 + 1) * 25,
-    address: addresses[i % addresses.length]!,
-    rewardZat: REWARD_PER_BLOCK + i * 1_000,
-  }));
+  // The fixture chain's own blocks, newest first, so every height links to a block page.
+  return [...blocks]
+    .reverse()
+    .slice(0, 20)
+    .map((b, i) => ({
+      height: b.height,
+      timestamp: b.timestamp,
+      address: addresses[i % addresses.length]!,
+      rewardZat: REWARD_PER_BLOCK + i * 1_000,
+    }));
 }

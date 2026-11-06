@@ -100,7 +100,7 @@ export const ROUTES: readonly string[] = [
   // One entry: `filters.spec.ts` discovers the window chips from the DOM and exercises them, and
   // every route here is walked sequentially by several sweeps.
   "/miners",
-  "/miners/viabtc",
+  "/miners/foundry",
   "/mempool",
   "/reorgs",
   "/donate",

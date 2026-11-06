@@ -35,7 +35,7 @@ export function MinersTiles({ overview, grouped, livePriceUsd }: MinersTilesProp
           ) : (
             <>
               {formatZecCompact(transparent.rewardZat)}
-              <span className="text-base text-ink-dim"> · {usd ?? "USD unavailable"}</span>
+              <span className="block text-base text-ink-dim">{usd ?? "USD unavailable"}</span>
             </>
           )
         }

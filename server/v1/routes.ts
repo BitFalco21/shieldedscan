@@ -22,6 +22,7 @@ import {
   ADDRESS_LABELS,
   MINING_POOL_LABELS,
   type AddressInfo,
+  type LabelledBalances,
   type Block,
   type MempoolStats,
   type SupplyBreakdown,
@@ -278,6 +279,7 @@ export function v1Routes(deps: V1Deps): Hono {
       : null);
   // Both subsidies move once per ~2.5 years; 60s keeps the countdown fresh off one memo.
   const halvingMemo = new Cached<V1Halving>(60_000);
+  const labelsMemo = new Cached<LabelledBalances>(60_000);
   for (const middleware of v1Middleware()) app.use("/v1/*", middleware);
   app.use("/v1", ...v1Middleware());
 
@@ -816,11 +818,15 @@ export function v1Routes(deps: V1Deps): Hono {
   app.get("/v1/labels", async (c) => {
     rejectUnknownParams(c, []);
     if (!deps.pool) return upstreamDown(c, "the labelled-address balances");
-    // One walk for both tables: the ranks share one snapshot and one cost.
-    const balances = await loadLabelledBalances(deps.pool, [
-      ...Object.keys(ADDRESS_LABELS),
-      ...Object.keys(MINING_POOL_LABELS),
-    ]);
+    // One walk for both tables: the ranks share one snapshot and one cost. Pool payout addresses
+    // can hold dust, which lengthens the walk down the rich list, so it runs at most once a minute.
+    const pool = deps.pool;
+    const balances = await labelsMemo.get(() =>
+      loadLabelledBalances(pool, [
+        ...Object.keys(ADDRESS_LABELS),
+        ...Object.keys(MINING_POOL_LABELS),
+      ]),
+    );
     // `aggregate`: the balances and ranks move with the chain, but slowly at the top where the
     // labelled holders sit, and the payload names the height they are as of.
     setCache(c, "aggregate");

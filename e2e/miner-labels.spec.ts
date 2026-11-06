@@ -9,7 +9,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { POOL_PAYOUT_ADDR } from "./surface";
 
-/** The fixture chain's logo-less pool and its unnamed miner (src/fixtures/ids.ts). */
 // Kryptex: its logo came later than the others, from its own site.
 const SECOND_POOL_ADDR = "t1e6hceYHkzCbwcwGZzKeMfXXW7x7gr19Cw";
 const UNNAMED_MINER_ADDR = "t1SoloMinerPayoutFixture000003";
@@ -37,7 +36,7 @@ for (const width of [390, 1280]) {
       await expect(named).toHaveAttribute("href", `/address/${POOL_PAYOUT_ADDR}`);
       await expect(named).toHaveAttribute("title", POOL_PAYOUT_ADDR);
 
-      const logo = table.locator("img[data-mining-pool-logo]").first();
+      const logo = table.locator('img[data-mining-pool-logo][src$="/foundry.png"]').first();
       await expect(logo).toHaveAttribute("alt", "");
       await expect(logo).toHaveAttribute("src", "/ecosystem/logos/foundry.png");
       const box = await logo.boundingBox();

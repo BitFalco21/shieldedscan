@@ -15,7 +15,7 @@ const SAMPLE: Record<string, string> = {
   "/address/:addr": `/address/${TRANSPARENT_ADDR}`,
   "/name/:name": "/name/zenith",
   "/charts/:slug": "/charts/median-fee",
-  "/miners/:pool": "/miners/viabtc",
+  "/miners/:pool": "/miners/foundry",
 };
 const urlFor = (source: string): string => SAMPLE[source] ?? source;
 

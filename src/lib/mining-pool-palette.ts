@@ -1,4 +1,4 @@
-import { SHIELDED_GROUP, UNATTRIBUTED_GROUP, type MiningPoolId } from "@/domain";
+import { NO_ADDRESS_GROUP, SHIELDED_GROUP, UNATTRIBUTED_GROUP, type MiningPoolId } from "@/domain";
 
 /**
  * The colour of each mining pool on `/miners`, fixed by pool, never by rank: a pool keeps its hue
@@ -29,6 +29,8 @@ export function miningPoolColourKey(id: string): string {
 export function miningGroupClass(key: string): string {
   if (key === SHIELDED_GROUP) return "text-green";
   if (key === UNATTRIBUTED_GROUP) return "flow-rest";
+  // A bare public key (until 2018): no address, and not one miner either.
+  if (key === NO_ADDRESS_GROUP) return "flow-9";
   if (key === OTHER_POOLS_KEY) return OTHER_POOLS_CLASS;
   return OWN[key as MiningPoolId] ?? OTHER_POOLS_CLASS;
 }

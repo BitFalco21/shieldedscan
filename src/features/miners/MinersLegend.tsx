@@ -34,7 +34,6 @@ export function MinersLegend({ items, highlighted, onHighlight, columns = 3 }: M
           <button
             type="button"
             data-legend-key={item.key}
-            aria-pressed={highlighted === item.key}
             onPointerEnter={() => onHighlight(item.key)}
             onFocus={() => onHighlight(item.key)}
             onBlur={() => onHighlight(null)}
