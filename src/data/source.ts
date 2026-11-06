@@ -23,9 +23,12 @@ import type {
   RichListEntry,
   RichListSummary,
   MempoolStats,
-  MiningOverview,
+  MinersOverview,
+  MinerSeries,
+  MiningPoolBlock,
+  MiningPoolId,
   MiningTerms,
-  MiningWindowKey,
+  MinersWindowKey,
   NetCrawlHistory,
   NetHealth,
   NetMap,
@@ -237,11 +240,14 @@ export interface ExplorerDataSource {
   getCrossChainChains(): Promise<ListedChain[]>;
 
   /**
-   * Everything `/mining` shows for one window, in a single call: every panel is a projection
-   * of the same `GROUP BY` over the same block range, and splitting them would run the scan
-   * several times and let the answers disagree about which blocks were in the window.
+   * Who mined over a window of whole UTC days, by payout address with reviewed pools named, from
+   * the daily payout rollup. One call, so every figure on `/miners` reads the same days.
    */
-  getMiningOverview(window: MiningWindowKey): Promise<MiningOverview>;
+  getMinersOverview(window: MinersWindowKey): Promise<MinersOverview>;
+  /** Blocks, reward and fees per month or per day, by pool and by kind. */
+  getMinerSeries(interval: "month" | "day"): Promise<MinerSeries>;
+  /** A reviewed pool's newest blocks, newest first. */
+  getMiningPoolBlocks(id: MiningPoolId): Promise<MiningPoolBlock[]>;
 
   getActivitySeries(): Promise<ActivityPoint[]>;
   /**

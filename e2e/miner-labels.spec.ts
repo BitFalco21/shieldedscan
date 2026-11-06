@@ -10,7 +10,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { POOL_PAYOUT_ADDR } from "./surface";
 
 /** The fixture chain's logo-less pool and its unnamed miner (src/fixtures/ids.ts). */
-const NO_LOGO_POOL_ADDR = "t1e6hceYHkzCbwcwGZzKeMfXXW7x7gr19Cw";
+// Kryptex: its logo came later than the others, from its own site.
+const SECOND_POOL_ADDR = "t1e6hceYHkzCbwcwGZzKeMfXXW7x7gr19Cw";
 const UNNAMED_MINER_ADDR = "t1SoloMinerPayoutFixture000003";
 
 /** Sideways scroll of the document itself; a table scrolling inside its panel is by design. */
@@ -44,10 +45,12 @@ for (const width of [390, 1280]) {
       expect(box?.height).toBe(16);
       expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 
-      // A pool with no logo keeps the label glyph, so its name never stands bare.
-      const noLogo = table.getByRole("link", { name: "Kryptex", exact: true }).first();
-      await expect(noLogo).toHaveAttribute("href", `/address/${NO_LOGO_POOL_ADDR}`);
-      await expect(noLogo.locator("xpath=preceding-sibling::*[@data-label-icon]")).toHaveCount(1);
+      // Every reviewed pool on the list draws its own logo (a pool without one keeps the glyph).
+      const second = table.getByRole("link", { name: "Kryptex", exact: true }).first();
+      await expect(second).toHaveAttribute("href", `/address/${SECOND_POOL_ADDR}`);
+      await expect(
+        second.locator("xpath=preceding-sibling::img[@data-mining-pool-logo]"),
+      ).toHaveCount(1);
 
       // An unnamed miner is its elided address, as before.
       const unnamed = table.locator(`a[href="/address/${UNNAMED_MINER_ADDR}"]`).first();

@@ -99,7 +99,8 @@ export const ROUTES: readonly string[] = [
   "/charts/median-fee",
   // One entry: `filters.spec.ts` discovers the window chips from the DOM and exercises them, and
   // every route here is walked sequentially by several sweeps.
-  "/mining",
+  "/miners",
+  "/miners/viabtc",
   "/mempool",
   "/reorgs",
   "/donate",

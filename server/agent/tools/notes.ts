@@ -183,7 +183,7 @@ A PAYOUT ADDRESS IS NOT AN OPERATOR. A pool can be paid at several addresses and
 
 Windows are WHOLE UTC DAYS; there is no rolling 24-hour figure here. Repeat anything \`coverage.notes\` says the window does not cover yet. A window whose blocks are zero is an answer — nothing was mined in it — not an outage.
 
-Published on /mining.`;
+Published on /miners.`;
 
 /**
  * Said of the 'transparent' payload. Each paragraph is a way to be wrong with true numbers: volume

@@ -15,6 +15,7 @@ import type {
 } from "@/domain";
 import {
   ADDRESS_LABELS,
+  MINING_POOL_LABELS,
   parseChainWindowGroupBy,
   parseUtcDayStart,
   type LabelledBalances,
@@ -1185,11 +1186,15 @@ export const ADDRESS_ACTIVITY_KEY = "address-activity";
  */
 export const LABELLED_BALANCES_FIXTURE: LabelledBalances = {
   rankAsOfHeight: 3_428_100,
-  items: Object.keys(ADDRESS_LABELS).map((address, i, all) =>
-    i === all.length - 1
-      ? { address, balanceZat: 0, rank: null }
-      : { address, balanceZat: (i + 1) * 1_234_567_891, rank: i + 1 },
-  ),
+  items: [
+    ...Object.keys(ADDRESS_LABELS).map((address, i, all) =>
+      i === all.length - 1
+        ? { address, balanceZat: 0, rank: null }
+        : { address, balanceZat: (i + 1) * 1_234_567_891, rank: i + 1 },
+    ),
+    // Pool payout addresses come after the entities, as `/v1/labels` lists them; they hold dust.
+    ...Object.keys(MINING_POOL_LABELS).map((address) => ({ address, balanceZat: 0, rank: null })),
+  ],
 };
 
 /**

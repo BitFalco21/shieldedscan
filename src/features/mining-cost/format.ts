@@ -1,6 +1,6 @@
 import { formatCount, formatUsd, formatUsdExact } from "@/lib/format";
 // The solution rate has one formatter, `/mining`'s.
-export { formatSolRate } from "@/features/mining/format";
+export { formatSolRate } from "@/features/miners/format";
 
 /** A tariff, always to the tenth of a cent — "$0.268 / kWh". */
 export function formatTariff(usdPerKwh: number): string {

@@ -80,8 +80,14 @@ export const fixtureDataSource: ExplorerDataSource = {
   async listCrossChainTransfersForZcashTx(txid) {
     return fixtures.listCrossChainTransfersForZcashTx(txid);
   },
-  async getMiningOverview(window) {
-    return fixtures.getMiningOverview(window);
+  async getMinersOverview(window) {
+    return fixtures.getMinersOverview(window);
+  },
+  async getMinerSeries(interval) {
+    return fixtures.getMinerSeries(interval);
+  },
+  async getMiningPoolBlocks(id) {
+    return fixtures.getMiningPoolBlocks(id);
   },
   async getActivitySeries() {
     return fixtures.getActivitySeries();

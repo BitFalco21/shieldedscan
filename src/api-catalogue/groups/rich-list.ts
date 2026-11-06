@@ -78,13 +78,15 @@ export const RICH_LIST_GROUP: ApiGroup = {
         "Every labelled transparent address: its name, whose claim it is (`source`: Arkham's entity labels, or a theft investigator), balance and rank.",
       params: [],
       exampleResponse: `{
-  "notice": "Each name is a third-party attribution, repeated as its source states it and not verified by this explorer; …",
-  "count": 45,
+  "notice": "An \`entity\` name is a third-party attribution, repeated as its source states it and not verified by this explorer; …",
+  "count": 64,
   "labels": [
     {
       "address": "t3aPMe94jMKyrgkbH5SSukimvdMFJ59EFhP",
       "name": "Gemini Cold Wallet",
       "basis": "external",
+      "category": "entity",
+      "miningPool": null,
       "source": "Arkham entity labels (intel.arkm.com), read 2026-08-21",
       "flag": null,
       "balanceZat": 43892090013445,
@@ -94,8 +96,22 @@ export const RICH_LIST_GROUP: ApiGroup = {
       "address": "t1SyhmRJ35RpGsyuLArsPLepyoiLcawLia5",
       "name": "DPRK attackers",
       "basis": "external",
+      "category": "entity",
+      "miningPool": null,
       "source": "ZachXBT on X, 2026-09-30 (Bitget exploit; flows checked against /v1)",
       "flag": { "by": "ZachXBT", "url": "https://t.me/investigations/364" },
+      "balanceZat": 0,
+      "rank": null,
+      "unknowns": { "rank": "nonexistent" }
+    },
+    {
+      "address": "t1MKn34KBa8Xh4g8qU8psibBXvURafphVn7",
+      "name": "ViaBTC",
+      "basis": "pool-published",
+      "category": "mining-pool",
+      "miningPool": { "id": "viabtc", "name": "ViaBTC" },
+      "source": "reviewed by this explorer",
+      "flag": null,
       "balanceZat": 0,
       "rank": null,
       "unknowns": { "rank": "nonexistent" }
@@ -107,6 +123,7 @@ export const RICH_LIST_GROUP: ApiGroup = {
       notes: [
         'A name is someone\'s claim about a real company or person, not a chain fact. `source` says whose, and `basis: "external"` that this explorer repeats it without verifying it. The `notice` on every response says the same, so the names never travel without it.',
         "A label covers exactly its address. Never extend it to an address that sent to or received from a labelled one, and never total a label's addresses as one owner's holdings without saying they are the labelled addresses only.",
+        'A `category: "mining-pool"` label names a pool\'s payout address after the pool, from this explorer\'s review of the pool\'s own data (`basis: "pool-published"`) or its own coinbase marker (`basis: "coinbase-tag"`). It names the pool, never the miners it pays.',
         "`balanceZat` is current and transparent only; `rank` is as of `rankHeight`, the height the rich list's balances cover, never the tip. A null rank carries its reason: `nonexistent` means the address holds nothing, `unmeasured` that the list could not be read.",
       ],
       toolNotes: ["Third-party names, not verified here; one label, one address."],

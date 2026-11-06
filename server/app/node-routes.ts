@@ -5,6 +5,7 @@ import type { CrossChainStorePort } from "../crosschain-store";
 import { KrakenTracker } from "../kraken";
 import { LIVE_STATE_PATH, liveStateRoutes } from "../live-state";
 import { miningRoutes } from "../mining-routes";
+import { minersRoutes } from "../miners-routes";
 import { miningTermsRoutes } from "../mining-terms-routes";
 import { netmapRoutes } from "../netmap-routes";
 import type { createNetmapReader } from "../netmap/snapshot";
@@ -80,6 +81,15 @@ export function mountNodeRoutes(
       }),
     );
     log("mining overview route mounted");
+    // `/miners`: the daily payout rollup the trackers keep on mainnet only. No poller, so every
+    // replica serves it.
+    if (!IS_TESTNET) {
+      app.route(
+        "/",
+        minersRoutes({ pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }) }),
+      );
+      log("miners routes mounted");
+    }
   }
 
   // The rest are mainnet-only (TAZ has no market, and `/pulse`'s cross-chain half has no testnet

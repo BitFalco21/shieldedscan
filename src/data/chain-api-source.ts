@@ -13,9 +13,12 @@ import type {
   MarketSnapshot,
   MempoolEntry,
   MempoolStats,
-  MiningOverview,
+  MinersOverview,
+  MinerSeries,
+  MiningPoolBlock,
+  MiningPoolId,
   MiningTerms,
-  MiningWindowKey,
+  MinersWindowKey,
   NetCrawlHistory,
   NetHealth,
   NetMap,
@@ -76,7 +79,9 @@ import {
   isHalvingEvent,
   isMarketAsset,
   isMempoolEntry,
-  isMiningOverview,
+  isMinersOverview,
+  isMinerSeries,
+  isMiningPoolBlocks,
   isPulseRibbonWindow,
   isReorgEvent,
   isRichListEntry,
@@ -1324,19 +1329,37 @@ export function createChainApiSource(config: ChainApiConfig) {
       };
     },
 
-    /*
-     * `/mining`'s overview. The window is checked, not displayed: an API that ignored
-     * `?window=` would answer the default window under a different chip.
-     */
-    async getMiningOverview(window: MiningWindowKey): Promise<MiningOverview> {
+    async getMinersOverview(window: MinersWindowKey): Promise<MinersOverview> {
       const body = await json<unknown>(
-        await request(config, `/chain/mining?window=${window}`, CACHE_MINUTE),
-        "mining overview",
+        await request(config, `/chain/miners?window=${window}`, CACHE_MINUTE),
+        "miners overview",
       );
-      if (!isMiningOverview(body, window)) {
-        throw new Error("chain API returned an unrecognised mining overview shape");
+      if (!isMinersOverview(body, window)) {
+        throw new Error("chain API returned an unrecognised miners overview shape");
       }
       return body;
+    },
+
+    async getMinerSeries(interval: "month" | "day"): Promise<MinerSeries> {
+      const body = await json<unknown>(
+        await request(config, `/chain/miners/series?interval=${interval}`, CACHE_MINUTE),
+        "miners series",
+      );
+      if (!isMinerSeries(body, interval)) {
+        throw new Error("chain API returned an unrecognised miners series shape");
+      }
+      return body;
+    },
+
+    async getMiningPoolBlocks(id: MiningPoolId): Promise<MiningPoolBlock[]> {
+      const body = await json<unknown>(
+        await request(config, `/chain/miners/pools/${id}/blocks`, CACHE_MINUTE),
+        "mining pool blocks",
+      );
+      if (!isMiningPoolBlocks(body, id)) {
+        throw new Error("chain API returned an unrecognised mining pool blocks shape");
+      }
+      return body.blocks;
     },
 
     async getMiningTerms(): Promise<MiningTerms> {

@@ -58,6 +58,9 @@ const MAINNET_ONLY_PREFIXES = [
   "/fact-check",
   // A break-even tariff needs a price, and TAZ has none.
   "/mining-cost",
+  // The payout rollup, the price and the reviewed pools are mainnet-only.
+  "/miners",
+  "/mining",
   // Mainnet value pools and cross-chain crossings; no venue bridges testnet ZEC.
   "/pulse",
   // The crawler and the peers tile cover mainnet only; the testnet API mounts neither.

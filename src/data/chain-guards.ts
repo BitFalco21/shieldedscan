@@ -2,8 +2,13 @@ import type {
   HalvingEvent,
   MarketAsset,
   MempoolEntry,
-  MiningOverview,
-  MiningWindowKey,
+  MinerAddressRow,
+  MinerSeries,
+  MinerTotals,
+  MinerUsdParts,
+  MinersOverview,
+  MinersWindowKey,
+  MiningPoolBlocks,
   PulseEdgeTotal,
   PulseRibbonWindow,
   ReorgEvent,
@@ -167,43 +172,116 @@ export function isPulseRibbonWindow(value: unknown): value is PulseRibbonWindow 
   );
 }
 
-/** A mining overview for the window asked for. Shallow version-skew check. */
-export function isMiningOverview(b: unknown, window: MiningWindowKey): b is MiningOverview {
-  if (typeof b !== "object" || b === null) return false;
-  const o = b as Partial<MiningOverview>;
-  const w = o.window;
+const isUsdParts = (u: unknown): boolean => {
+  if (typeof u !== "object" || u === null) return false;
+  const p = u as Partial<MinerUsdParts>;
+  return isFiniteNumber(p.closedUsd) && isFiniteNumber(p.unpricedZat) && isFiniteNumber(p.todayZat);
+};
+
+const isMinerAddressRow = (r: unknown): boolean => {
+  if (typeof r !== "object" || r === null) return false;
+  const a = r as Partial<MinerAddressRow>;
   return (
-    typeof w === "object" &&
-    w !== null &&
-    w.key === window &&
-    isFiniteNumber(w.fromHeight) &&
-    isFiniteNumber(w.toHeight) &&
-    isFiniteNumber(w.blocks) &&
-    isFiniteNumber(w.spanSeconds) &&
-    isFiniteNumber(w.avgDifficulty) &&
-    isFiniteNumber(w.avgTxCount) &&
-    isFiniteOrNull(w.avgFeeZat) &&
-    isFiniteOrNull(w.solutionsPerSecond) &&
-    Array.isArray(o.groups) &&
-    o.groups.every(
-      (g) =>
-        (g.address === null || typeof g.address === "string") &&
-        (g.name === null || typeof g.name === "string") &&
-        (g.basis === "self-declared" || g.basis === "external" || g.basis === "unattributed") &&
-        isFiniteNumber(g.blocks) &&
-        isFiniteNumber(g.selfDeclaredBlocks) &&
-        isFiniteNumber(g.rewardZat) &&
-        isFiniteOrNull(g.feeZat) &&
-        isFiniteOrNull(g.avgIntervalSeconds),
+    typeof a.address === "string" &&
+    (a.miningPool === null || typeof a.miningPool === "string") &&
+    isFiniteNumber(a.blocks) &&
+    isFiniteOrNull(a.rewardZat) &&
+    isFiniteOrNull(a.feeZat) &&
+    isFiniteNumber(a.firstHeight) &&
+    isFiniteNumber(a.lastHeight) &&
+    isUsdParts(a.usd)
+  );
+};
+
+const isMinerTotals = (t: unknown): boolean => {
+  if (typeof t !== "object" || t === null) return false;
+  const m = t as Partial<MinerTotals>;
+  return (
+    isFiniteNumber(m.blocks) &&
+    isFiniteNumber(m.addresses) &&
+    isFiniteOrNull(m.rewardZat) &&
+    isFiniteOrNull(m.feeZat) &&
+    isUsdParts(m.usd)
+  );
+};
+
+/**
+ * The miners overview for the window asked for. The window is checked, not displayed: an API that
+ * ignored `?window=` would answer the default window under a different chip.
+ */
+export function isMinersOverview(b: unknown, window: MinersWindowKey): b is MinersOverview {
+  if (typeof b !== "object" || b === null) return false;
+  const o = b as Partial<MinersOverview>;
+  return (
+    o.window === window &&
+    typeof o.fromDay === "string" &&
+    typeof o.toDay === "string" &&
+    isFiniteOrNull(o.fromHeight) &&
+    isFiniteOrNull(o.toHeight) &&
+    isFiniteNumber(o.daysComputed) &&
+    isFiniteNumber(o.daysExpected) &&
+    isFiniteNumber(o.blocks) &&
+    isFiniteNumber(o.unrecordedBlocks) &&
+    isFiniteNumber(o.shieldedBlocks) &&
+    isFiniteNumber(o.noAddressBlocks) &&
+    isMinerTotals(o.transparent) &&
+    isMinerTotals(o.unattributed) &&
+    Array.isArray(o.unattributed?.largest) &&
+    o.unattributed.largest.every(isMinerAddressRow) &&
+    Array.isArray(o.labelled) &&
+    o.labelled.every(isMinerAddressRow) &&
+    typeof o.topBlocks === "object" &&
+    o.topBlocks !== null &&
+    isFiniteNumber(o.topBlocks.top1) &&
+    isFiniteNumber(o.topBlocks.top3) &&
+    isFiniteNumber(o.topBlocks.top10) &&
+    Array.isArray(o.registry) &&
+    o.registry.every((a) => typeof a === "string")
+  );
+}
+
+/** A miners series at the interval asked for. */
+export function isMinerSeries(b: unknown, interval: "month" | "day"): b is MinerSeries {
+  if (typeof b !== "object" || b === null) return false;
+  const s = b as Partial<MinerSeries>;
+  return (
+    s.interval === interval &&
+    typeof s.fromDay === "string" &&
+    typeof s.toDay === "string" &&
+    Array.isArray(s.periods) &&
+    s.periods.every(
+      (p) =>
+        typeof p.period === "string" &&
+        isFiniteNumber(p.blocks) &&
+        isFiniteOrNull(p.firstHeight) &&
+        isFiniteOrNull(p.lastHeight) &&
+        typeof p.partial === "boolean",
     ) &&
-    Array.isArray(o.trend) &&
-    o.trend.every(
-      (t) =>
-        isFiniteNumber(t.timestamp) && isFiniteNumber(t.height) && isFiniteNumber(t.difficulty),
-    ) &&
-    typeof o.software === "object" &&
-    o.software !== null &&
-    isFiniteNumber(o.software.zebra) &&
-    isFiniteNumber(o.software.unidentified)
+    Array.isArray(s.points) &&
+    s.points.every(
+      (p) =>
+        typeof p.period === "string" &&
+        typeof p.group === "string" &&
+        isFiniteNumber(p.blocks) &&
+        isFiniteOrNull(p.rewardZat) &&
+        isFiniteOrNull(p.feeZat),
+    )
+  );
+}
+
+/** One pool's newest blocks, for the pool asked for. */
+export function isMiningPoolBlocks(b: unknown, id: string): b is MiningPoolBlocks {
+  if (typeof b !== "object" || b === null) return false;
+  const o = b as Partial<MiningPoolBlocks>;
+  return (
+    o.miningPool === id &&
+    Array.isArray(o.blocks) &&
+    o.blocks.every(
+      (x) =>
+        isFiniteNumber(x.height) &&
+        isFiniteNumber(x.timestamp) &&
+        typeof x.address === "string" &&
+        isFiniteOrNull(x.rewardZat),
+    )
   );
 }

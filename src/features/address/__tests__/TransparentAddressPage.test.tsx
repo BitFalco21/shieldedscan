@@ -133,9 +133,9 @@ describe("a mining pool's payout address", () => {
   });
 
   it("falls back to the tag icon for a pool with no logo", () => {
-    const { container } = renderAt("t1cQA9Rxn31tqHcgZzydrpDjgsQGmjpBgpB");
+    const { container } = renderAt("t1Uo7EN1A3GN29UjQJbUFYvrhxQd6Gt7qdA");
     const chip = container.querySelector("[data-name-tag]");
-    expect(chip?.textContent).toBe("Mining-Dutch");
+    expect(chip?.textContent).toBe("ZEC Mining Pool");
     expect(chip?.firstElementChild?.hasAttribute("data-label-icon")).toBe(true);
   });
 

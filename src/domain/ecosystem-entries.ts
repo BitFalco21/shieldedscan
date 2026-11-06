@@ -524,6 +524,20 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "named in 40 of 2,000 recent coinbases",
   },
   {
+    id: "kryptex",
+    name: "Kryptex",
+    category: "mining",
+    url: "https://pool.kryptex.com/",
+    source: "mining pool · its own block list names its payout address",
+  },
+  {
+    id: "mining-dutch",
+    name: "Mining-Dutch",
+    category: "mining",
+    url: "https://www.mining-dutch.nl/",
+    source: "mining pool · its own block list names its payout address",
+  },
+  {
     id: "zecminingpool",
     name: "Zcash Mining Pool",
     category: "mining",

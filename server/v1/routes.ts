@@ -20,6 +20,7 @@ import {
   decodeUnifiedAddress,
   nextHalvingHeight,
   ADDRESS_LABELS,
+  MINING_POOL_LABELS,
   type AddressInfo,
   type Block,
   type MempoolStats,
@@ -815,12 +816,21 @@ export function v1Routes(deps: V1Deps): Hono {
   app.get("/v1/labels", async (c) => {
     rejectUnknownParams(c, []);
     if (!deps.pool) return upstreamDown(c, "the labelled-address balances");
-    const balances = await loadLabelledBalances(deps.pool, Object.keys(ADDRESS_LABELS));
+    // One walk for both tables: the ranks share one snapshot and one cost.
+    const balances = await loadLabelledBalances(deps.pool, [
+      ...Object.keys(ADDRESS_LABELS),
+      ...Object.keys(MINING_POOL_LABELS),
+    ]);
     // `aggregate`: the balances and ranks move with the chain, but slowly at the top where the
     // labelled holders sit, and the payload names the height they are as of.
     setCache(c, "aggregate");
     return c.json(
-      toLabels(balances, ADDRESS_LABELS, Math.floor(Date.now() / 1000)) satisfies V1Labels,
+      toLabels(
+        balances,
+        ADDRESS_LABELS,
+        Math.floor(Date.now() / 1000),
+        MINING_POOL_LABELS,
+      ) satisfies V1Labels,
     );
   });
 

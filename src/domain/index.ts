@@ -48,3 +48,4 @@ export * from "./plottable";
 export * from "./plot-resample";
 export * from "./plot-chart";
 export * from "./mining-pools";
+export * from "./miners";

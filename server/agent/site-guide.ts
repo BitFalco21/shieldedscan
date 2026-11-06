@@ -1,5 +1,11 @@
 import { API_CONVENTIONS, API_GROUPS, curlCommand, type ApiEndpoint } from "@/api-catalogue";
-import { ADDRESS_LABELS, type LabelledBalance, type LabelledBalances } from "@/domain";
+import {
+  ADDRESS_LABELS,
+  MINING_POOL_LABELS,
+  MINING_POOLS,
+  type LabelledBalance,
+  type LabelledBalances,
+} from "@/domain";
 import { formatZec } from "@/lib/format";
 import { asRecord } from "./tools/json";
 import { DONATION_ADDRESS } from "@/lib/donation";
@@ -54,7 +60,7 @@ const ANSWERING_WINDOW = `${REACHABLE_WINDOW_SEC / 3600} hours`;
  * never appear in an answer, which reads as the page not existing. The coverage test is the
  * mechanism.
  *
- * `/mining` and `/v1` are deliberately absent, as they are from the sitemap: describing an
+ * `/v1` is deliberately absent, as it is from the sitemap: describing an
  * unlisted page to a visitor is the same act as listing it for indexing.
  */
 export const SITE_PAGES: Readonly<Record<string, PageEntry>> = {
@@ -62,6 +68,9 @@ export const SITE_PAGES: Readonly<Record<string, PageEntry>> = {
     what: "The homepage: chain tip, market cap, 24h transaction count and fully-shielded share, plus a search box that takes a block height, a block hash, a txid or an address.",
   },
   "/blocks": { what: "The most recent blocks, newest first, with miner, size and privacy mix." },
+  "/miners": {
+    what: "Who mined Zcash over the last 7, 30 or 90 days, by reviewed mining pool: blocks, share, ZEC paid and its USD value at each day's close, each pool's payout addresses, and monthly pool shares.",
+  },
   "/txs": {
     what: "The most recent transactions, newest first, filterable by privacy kind — transparent, shielded, shielding, unshielding, coinbase.",
   },
@@ -375,11 +384,23 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
     balances === null
       ? `BALANCES UNAVAILABLE: the read of these addresses' balances failed this turn. Say so, give no balance from anywhere else, and look an address up for its figures.`
       : `Balances are current transparent balances from this explorer's index, read at ${retrievedAt}. Ranks are as of block ${balances.rankAsOfHeight}, the height the rich list's balances cover: quote that height beside a rank, never the tip.`;
+  // Pools apart from the entities: a pool label names a payout address after the pool that holds
+  // it, from this explorer's own review, never a third party's attribution.
+  const pools = new Map<string, string[]>();
+  for (const [address, label] of Object.entries(MINING_POOL_LABELS)) {
+    const name = MINING_POOLS[label.miningPool].name;
+    pools.set(name, [...(pools.get(name) ?? []), address]);
+  }
+  const poolRows = [...pools].map(([name, addresses]) =>
+    row([name, { addresses, source: "this explorer's review of the pool's own data or marker" }]),
+  );
+  const total = Object.keys(ADDRESS_LABELS).length + Object.keys(MINING_POOL_LABELS).length;
   return (
     `<site-guide section="labels">\n${GUIDE_NOTICE}\n${LABEL_RULES}\n${balanceLine}\n\n` +
     `Addresses flagged in public investigations of thefts and exploits:\n${flagged.map(row).join("\n")}\n\n` +
-    `Other named addresses (exchanges, custodians, funds):\n${plain.map(row).join("\n")}\n` +
-    `${Object.keys(ADDRESS_LABELS).length} labelled addresses in all.\n</site-guide>`
+    `Other named addresses (exchanges, custodians, funds):\n${plain.map(row).join("\n")}\n\n` +
+    `Mining pool payout addresses (a pool's name on the address its block rewards are paid to; it names the pool, never the miners it pays; /miners sums them per pool):\n${poolRows.join("\n")}\n` +
+    `${total} labelled addresses in all.\n</site-guide>`
   );
 }
 

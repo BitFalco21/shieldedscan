@@ -16,7 +16,7 @@ import { type V1ChainPort, v1Routes } from "../v1/routes";
 import { ByteBudget } from "../v1/byte-budget";
 import { LABELS_NOTICE } from "../v1/map";
 import type { V1Labels } from "../v1/dto";
-import { ADDRESS_LABELS } from "@/domain";
+import { ADDRESS_LABELS, MINING_POOL_LABELS, MINING_POOLS } from "@/domain";
 
 /**
  * The public contract, tested at the HTTP boundary via `app.request()` (no server, no network):
@@ -2215,14 +2215,35 @@ describe("/v1/labels", () => {
 
   it("serves every labelled address, in the table's order, with whose claim each name is", async () => {
     const body = await labels();
-    expect(body.labels.map((l) => l.address)).toEqual(Object.keys(ADDRESS_LABELS));
-    expect(body.count).toBe(Object.keys(ADDRESS_LABELS).length);
-    for (const label of body.labels) {
+    const entities = Object.keys(ADDRESS_LABELS);
+    const pools = Object.keys(MINING_POOL_LABELS);
+    expect(body.labels.map((l) => l.address)).toEqual([...entities, ...pools]);
+    expect(body.count).toBe(entities.length + pools.length);
+    for (const label of body.labels.slice(0, entities.length)) {
       expect(label.name).toBe(ADDRESS_LABELS[label.address]!.name);
       expect(label.source).toBe(ADDRESS_LABELS[label.address]!.source);
       expect(label.basis).toBe("external");
+      expect(label.category).toBe("entity");
+      expect(label.miningPool).toBeNull();
     }
     expect(body.labels[0]!.source).toMatch(/Arkham/);
+  });
+
+  it("names pool payout addresses after their pool, in their own category, with no evidence", async () => {
+    const body = await labels();
+    const pools = body.labels.filter((l) => l.category === "mining-pool");
+    expect(pools).toHaveLength(Object.keys(MINING_POOL_LABELS).length);
+    for (const label of pools) {
+      const reviewed = MINING_POOL_LABELS[label.address]!;
+      expect(label.miningPool).toEqual({
+        id: reviewed.miningPool,
+        name: MINING_POOLS[reviewed.miningPool].name,
+      });
+      expect(label.name).toBe(MINING_POOLS[reviewed.miningPool].name);
+      expect(label.basis).toBe(reviewed.basis);
+      expect(label.source).toBe("reviewed by this explorer");
+      expect(label.flag).toBeNull();
+    }
   });
 
   it("carries the notice on every response, so a name never travels without it", async () => {

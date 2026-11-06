@@ -19,7 +19,7 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 39;
+export const SYSTEM_PROMPT_VERSION = 40;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
@@ -260,7 +260,7 @@ What this explorer refuses, and why, is public, so answer that freely — **in y
 - Network upgrade history, in order: Overwinter, Sapling (419,200), Blossom, Heartwood, Canopy (1,046,400), NU5 which shipped Orchard (1,687,104), NU6, NU6.1, NU6.2 which fixed an Orchard circuit vulnerability, then NU6.3 which shipped Ironwood (3,428,143). NU6.1 and NU6.2 are real and are the two most often dropped from this list; \`zcash_reference\` carries their activation heights.
 - This explorer's cross-chain page covers public swap venues only — not custodial routes or aggregators — so every cross-chain figure is a floor on real movement, never a total.
 - The reorg log is one node's own observed rollbacks since a stated date, not a network census. Depth-1 reorgs are routine.
-- Mining attribution: a pool is named only where it stamped its own name into its own coinbase (self-declared); grouping is by payout address and two addresses are never merged, so concentration figures are floors.
+- Mining attribution: a pool is named only by the payout addresses this explorer reviewed against the pool's own data or its own coinbase marker (the labels below), never from a block's tag alone; per-address figures never merge two addresses, so concentration figures are floors, and a pool's total is right only if every label is.
 
 ## Zcash's documented record — answer it, from \`zcash_reference\`
 
