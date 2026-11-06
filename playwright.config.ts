@@ -28,7 +28,9 @@ export default defineConfig({
     : {
         webServer: {
           // The sweeps would trip the crawl guard's per-address throttle, so it is disabled.
-          command: "npm run build && CRAWL_GUARD_DISABLED=1 npm start",
+          // E2E_FAULTS lets `degraded.spec.ts` fail one fixture read per request by header; it
+          // is set on the server only, never on the build.
+          command: "npm run build && CRAWL_GUARD_DISABLED=1 E2E_FAULTS=1 npm start",
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 180_000,

@@ -13,14 +13,17 @@ import { KindPill } from "@/components/KindPill";
 import { LabelIcon } from "@/components/LabelIcon";
 import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { Counterparty } from "./Counterparty";
 import { COUNTERPARTY_CELL_CLASS, CounterpartyCell } from "./CounterpartyCell";
 import { formatCount, formatUtc, formatZatUsd, formatZec, timeAgo } from "@/lib/format";
 
 export interface TransparentAddressPageProps {
   info: TransparentAddress;
-  txs: Transaction[];
-  now: number;
+  /** This page of history; null when it could not be read (the history, or the tip it needs). */
+  txs: Transaction[] | null;
+  /** The tip timestamp; null when it could not be read, in which case `txs` is null too. */
+  now: number | null;
   /**
    * Keyset controls: the history is served by an index seek that knows no total, so the page
    * shows no ordinal.
@@ -194,49 +197,53 @@ export function TransparentAddressPage({
         way value moved, who was on the other side, what it did to this address, and when.
       */}
       <Panel title="TRANSACTIONS" className="mt-3">
-        <DataTable caption={`Transactions for ${info.address}, newest first`} columns={COLUMNS}>
-          {txs.map((tx) => (
-            <tr key={tx.txid} className="row-hover hairline-b last:border-0">
-              {/* The four list tables share one row shape: a one-line hash on a phone and from
+        {txs === null || now === null ? (
+          <DataUnavailable what="This address's history" inset />
+        ) : (
+          <DataTable caption={`Transactions for ${info.address}, newest first`} columns={COLUMNS}>
+            {txs.map((tx) => (
+              <tr key={tx.txid} className="row-hover hairline-b last:border-0">
+                {/* The four list tables share one row shape: a one-line hash on a phone and from
                   `xl` (between, it may break after its ellipsis — see TxsListPage), and a time
                   that never splits into "8s / ago". */}
-              <td className="whitespace-nowrap sm:max-xl:whitespace-normal">
-                <HashLink value={tx.txid} href={`/tx/${tx.txid}`} edge={8} copyable />
-                {/* On a phone the table scrolls sideways and only its first column is sure to
+                <td className="whitespace-nowrap sm:max-xl:whitespace-normal">
+                  <HashLink value={tx.txid} href={`/tx/${tx.txid}`} edge={8} copyable />
+                  {/* On a phone the table scrolls sideways and only its first column is sure to
                     be on screen, so the other side sits here, under the hash. */}
-                <span className="mt-1 block whitespace-normal sm:hidden">
-                  <Counterparty tx={tx} address={info.address} />
-                </span>
-              </td>
-              <td>
-                <KindPill tx={tx} />
-              </td>
-              <TxDirectionCell tx={tx} />
-              <CounterpartyCell tx={tx} address={info.address} />
-              <td className="text-xs">
-                <NetDelta tx={tx} address={info.address} />
-              </td>
-              <td className={BLOCK_CELL_CLASS}>
-                {tx.blockHeight !== null ? (
-                  <Link
-                    href={`/block/${tx.blockHeight}`}
-                    className="text-green tabular-nums hover:underline"
-                  >
-                    #{formatCount(tx.blockHeight)}
-                  </Link>
-                ) : (
-                  <span className="microlabel text-ink-dim">PENDING</span>
-                )}
-              </td>
-              <td
-                className="text-right text-xs whitespace-nowrap text-ink-faint tabular-nums"
-                title={formatUtc(tx.timestamp)}
-              >
-                {timeAgo(tx.timestamp, now)}
-              </td>
-            </tr>
-          ))}
-        </DataTable>
+                  <span className="mt-1 block whitespace-normal sm:hidden">
+                    <Counterparty tx={tx} address={info.address} />
+                  </span>
+                </td>
+                <td>
+                  <KindPill tx={tx} />
+                </td>
+                <TxDirectionCell tx={tx} />
+                <CounterpartyCell tx={tx} address={info.address} />
+                <td className="text-xs">
+                  <NetDelta tx={tx} address={info.address} />
+                </td>
+                <td className={BLOCK_CELL_CLASS}>
+                  {tx.blockHeight !== null ? (
+                    <Link
+                      href={`/block/${tx.blockHeight}`}
+                      className="text-green tabular-nums hover:underline"
+                    >
+                      #{formatCount(tx.blockHeight)}
+                    </Link>
+                  ) : (
+                    <span className="microlabel text-ink-dim">PENDING</span>
+                  )}
+                </td>
+                <td
+                  className="text-right text-xs whitespace-nowrap text-ink-faint tabular-nums"
+                  title={formatUtc(tx.timestamp)}
+                >
+                  {timeAgo(tx.timestamp, now)}
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
       </Panel>
       <CursorPagination
         newerHref={newerHref}

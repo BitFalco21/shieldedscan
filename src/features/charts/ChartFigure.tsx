@@ -64,7 +64,7 @@ const axisLabel = (ts: number, daily: boolean) => (daily ? utcDayFromSeconds(ts)
 const readoutLabel = (ts: number, daily: boolean) =>
   daily ? utcDayFromSeconds(ts) : monthLong(ts);
 
-const unavailable = (what: string) => <DataUnavailable what={what} refreshesWithin="15 minutes" />;
+const unavailable = (what: string) => <DataUnavailable what={what} />;
 
 /** One column of a table, as a series' values. */
 const column = (t: ChartTable, i: number) => t.rows.map((r) => r[i] ?? null);

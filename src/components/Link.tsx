@@ -11,8 +11,8 @@ export type LinkProps = ComponentProps<typeof NextLink>;
  * render. One visit to a list page would otherwise fire a render per visible row before the
  * reader clicks anything, and multiply any browser-driven crawler.
  *
- * `prefetch={false}` still prefetches on hover, so a reader about to click loses nothing
- * perceptible. The default is site-wide rather than a per-link judgement; a caller that wants
+ * `prefetch={false}` prefetches nothing, on hover included (Next 16): a page renders when a
+ * reader clicks. The default is site-wide rather than a per-link judgement; a caller that wants
  * eager prefetch says so explicitly. `eslint` forbids importing `next/link` anywhere else, and
  * `src/components/__tests__/Link.test.ts` counts the imports.
  */

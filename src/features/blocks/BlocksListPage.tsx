@@ -30,6 +30,7 @@ import {
 import Link from "@/components/Link";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { ShieldedMiner } from "./ShieldedMiner";
 
 const VARIANT_ORDER: PrivacyVariant[] = ["shielded", "mixed", "transparent"];
@@ -109,10 +110,15 @@ export function blocksPageLabel(
 }
 
 export interface BlocksListPageProps {
-  blocks: BlockSummary[];
-  now: number;
-  /** Chain tip, for deriving the page ordinal — heights make it free, no count involved. */
-  tipHeight: number;
+  /** This page of blocks; null when it could not be read (the list, or the tip it needs). */
+  blocks: BlockSummary[] | null;
+  /** The tip timestamp; null when it could not be read, in which case `blocks` is null too. */
+  now: number | null;
+  /**
+   * Chain tip, for deriving the page ordinal — heights make it free, no count involved. Null
+   * when it could not be read.
+   */
+  tipHeight: number | null;
   /** Daily closes for pricing each block's fees at its own date. */
   dailyUsd: Record<string, number>;
   priceUsd: number | null;
@@ -153,16 +159,20 @@ export function BlocksListPage({
    * would claim they belong there.
    */
   const atTip = newestHref === null;
+  // Not over rows that did not load: the feed would grow an empty table into a list that looks
+  // complete.
+  const live = atTip && blocks !== null;
   const feed = useLiveFeed({
     kind: "all",
     mode: "grow",
     cap: LIVE_ROW_CAP,
-    server: { blocks },
-    enabled: atTip,
+    server: { blocks: blocks ?? [] },
+    enabled: live,
   });
-  const displayNow = useDisplayNow(feed.tip?.lastBlockTimestamp ?? now);
+  // `now` is null only when no row renders, so the 0 is never measured against.
+  const displayNow = useDisplayNow(feed.tip?.lastBlockTimestamp ?? now ?? 0);
 
-  const rows = displayRows(feed.blocks.rows, blocks, {
+  const rows = displayRows(feed.blocks.rows, blocks ?? [], {
     idOf: (b) => b.hash,
     sortKeyOf: (b) => b.height,
   });
@@ -210,7 +220,11 @@ export function BlocksListPage({
               <Unmeasured />
             )
           }
-          sub={`measured, target is ${targetSpacingSeconds(network, tipHeight)} s`}
+          sub={
+            tipHeight === null
+              ? "measured"
+              : `measured, target is ${targetSpacingSeconds(network, tipHeight)} s`
+          }
         />
         <StatCard
           label="BLOCKS (24H)"
@@ -220,18 +234,24 @@ export function BlocksListPage({
       </StatGrid>
       {/* tip+1 IS the total — heights are dense, so this is arithmetic, not a COUNT. */}
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="text-sm text-ink-dim">
-          A total of <span className="text-ink tabular-nums">{formatCount(tipHeight + 1)}</span>{" "}
-          blocks
-        </p>
+        {tipHeight === null ? (
+          <span />
+        ) : (
+          <p className="text-sm text-ink-dim">
+            A total of <span className="text-ink tabular-nums">{formatCount(tipHeight + 1)}</span>{" "}
+            blocks
+          </p>
+        )}
         {/* Absent, never "live", on a paged view: an indicator claiming to be live over a page
             that is not polling would be a lie. The cap belongs to the list, everything else to
             the feed. */}
-        {atTip && (
+        {live && (
           <LiveIndicator status={feed.status === "live" ? feed.blocks.status : feed.status} />
         )}
       </div>
-      {rows.length === 0 ? (
+      {blocks === null || now === null ? (
+        <DataUnavailable what="This page of blocks" />
+      ) : rows.length === 0 ? (
         <EmptyBlocks />
       ) : (
         <Panel>
@@ -303,7 +323,11 @@ export function BlocksListPage({
         olderHref={olderHref}
         newestHref={newestHref}
         oldestHref={oldestHref}
-        rangeLabel={blocksPageLabel(blocks, tipHeight, pageSize)}
+        rangeLabel={
+          blocks === null || tipHeight === null
+            ? null
+            : blocksPageLabel(blocks, tipHeight, pageSize)
+        }
       />
     </>
   );

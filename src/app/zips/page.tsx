@@ -23,7 +23,7 @@ export default async function Page() {
   const index: ZipIndex | null = await nullIfTransient(() => getCachedDataSource().getZipIndex());
 
   if (index === null) {
-    return <DataUnavailable what="The ZIP index" refreshesWithin="an hour" />;
+    return <DataUnavailable what="The ZIP index" />;
   }
 
   return <ZipsPage index={index} />;

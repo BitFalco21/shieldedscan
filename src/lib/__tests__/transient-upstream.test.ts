@@ -13,6 +13,16 @@ describe("transient upstream failures", () => {
     netFail.name = "TypeError";
     expect(isTransientUpstream(netFail)).toBe(true);
     expect(isTransientUpstream(new Error("chain API returned 503 for months"))).toBe(true);
+    expect(isTransientUpstream(new Error("cross-chain API returned 503"))).toBe(true);
+  });
+
+  it("treats a rate limit as transient: it is a wait, not a wrong contract", () => {
+    expect(isTransientUpstream(new Error("chain API returned 429 for daily prices"))).toBe(true);
+  });
+
+  it("treats a body cut off mid-read as transient, not as a bad shape", () => {
+    // undici's error when the socket closes while `res.json()` is still streaming.
+    expect(isTransientUpstream(new TypeError("terminated"))).toBe(true);
   });
 
   it("does NOT swallow version skew — the build tripwire must still fire", () => {

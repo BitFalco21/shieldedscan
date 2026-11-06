@@ -40,7 +40,7 @@ export default async function Page() {
     <NetworkTabPage shell={shell} tab="topology">
       {() =>
         hubs === null ? (
-          <DataUnavailable what="The network's gossip graph" refreshesWithin="a minute" />
+          <DataUnavailable what="The network's gossip graph" />
         ) : (
           <TopologyPage hubs={hubs} />
         )

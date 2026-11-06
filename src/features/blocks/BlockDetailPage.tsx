@@ -17,6 +17,8 @@ import { HashLink } from "@/components/HashLink";
 import { KindPill } from "@/components/KindPill";
 import { DIRECTION_COLUMN, TxDirectionCell } from "@/components/TxDirectionCell";
 import { PageHeader } from "@/components/PageHeader";
+import { DataUnavailable } from "@/components/DataUnavailable";
+import { Unmeasured } from "@/components/Unmeasured";
 import { formatBytes, formatCount, formatUtc, formatZec } from "@/lib/format";
 import Link from "@/components/Link";
 import { ShieldedMiner } from "./ShieldedMiner";
@@ -25,9 +27,12 @@ import { Nu7FirstBlocks } from "./nu7/Nu7FirstBlocks";
 
 export interface BlockDetailPageProps {
   block: Block;
-  txs: Transaction[];
-  tipHeight: number;
-  oldestHeight: number;
+  /** The block's transactions; null when they could not be read. */
+  txs: Transaction[] | null;
+  /** The chain tip; null when it could not be read (no confirmations, no "next" link). */
+  tipHeight: number | null;
+  /** The oldest indexed height; null when it could not be read (no "previous" link). */
+  oldestHeight: number | null;
   /**
    * On the NU7 activation block's page only: that block and the ones after it, for the first
    * NU7 blocks panel. Null elsewhere, or when they could not be read.
@@ -181,7 +186,10 @@ export function BlockDetailPage({
 }: BlockDetailPageProps) {
   // Derived rather than carried: `confirmations` is tip-relative, and a block cached for an
   // hour would serve a stale count if the number travelled with it.
-  const confirmations = tipHeight - block.height + 1;
+  const confirmations = tipHeight === null ? null : tipHeight - block.height + 1;
+  // An adjacent link only where its block is known to exist.
+  const hasPrevious = oldestHeight !== null && block.height > oldestHeight;
+  const hasNext = tipHeight !== null && block.height < tipHeight;
 
   return (
     <>
@@ -197,9 +205,9 @@ export function BlockDetailPage({
           </>
         }
         actions={
-          block.height > oldestHeight || block.height < tipHeight ? (
+          hasPrevious || hasNext ? (
             <nav aria-label="Adjacent blocks" className="flex gap-3 text-xs text-ink-dim">
-              {block.height > oldestHeight ? (
+              {hasPrevious ? (
                 <Link
                   href={`/block/${block.height - 1}`}
                   className="btn btn-secondary whitespace-nowrap"
@@ -207,7 +215,7 @@ export function BlockDetailPage({
                   ← #{formatCount(block.height - 1)}
                 </Link>
               ) : null}
-              {block.height < tipHeight ? (
+              {hasNext ? (
                 <Link
                   href={`/block/${block.height + 1}`}
                   className="btn btn-secondary whitespace-nowrap"
@@ -220,7 +228,15 @@ export function BlockDetailPage({
         }
         meta={
           <>
-            <span>{formatCount(confirmations)} confirmations</span>
+            <span>
+              {confirmations === null ? (
+                <>
+                  confirmations <Unmeasured />
+                </>
+              ) : (
+                `${formatCount(confirmations)} confirmations`
+              )}
+            </span>
             <span>{formatUtc(block.timestamp)}</span>
             {block.coinbaseTag === null ? null : (
               // Miner-controlled text. React escapes it, and the parse boundary has already
@@ -298,22 +314,26 @@ export function BlockDetailPage({
       <HeaderDetails block={block} />
 
       <Panel title="TRANSACTIONS" className="mt-3">
-        <DataTable caption={`Transactions in block ${block.height}`} columns={TX_COLUMNS}>
-          {txs.map((tx) => (
-            <tr key={tx.txid} className="row-hover hairline-b last:border-0">
-              <td className="whitespace-nowrap">
-                <HashLink value={tx.txid} href={`/tx/${tx.txid}`} edge={8} copyable />
-              </td>
-              <td>
-                <KindPill tx={tx} />
-              </td>
-              <TxDirectionCell tx={tx} />
-              <td className="text-right whitespace-nowrap">
-                <TxValue tx={tx} />
-              </td>
-            </tr>
-          ))}
-        </DataTable>
+        {txs === null ? (
+          <DataUnavailable what="This block's transactions" inset />
+        ) : (
+          <DataTable caption={`Transactions in block ${block.height}`} columns={TX_COLUMNS}>
+            {txs.map((tx) => (
+              <tr key={tx.txid} className="row-hover hairline-b last:border-0">
+                <td className="whitespace-nowrap">
+                  <HashLink value={tx.txid} href={`/tx/${tx.txid}`} edge={8} copyable />
+                </td>
+                <td>
+                  <KindPill tx={tx} />
+                </td>
+                <TxDirectionCell tx={tx} />
+                <td className="text-right whitespace-nowrap">
+                  <TxValue tx={tx} />
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
       </Panel>
     </>
   );

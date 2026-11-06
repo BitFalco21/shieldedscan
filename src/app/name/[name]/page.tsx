@@ -48,9 +48,7 @@ export default async function Page({ params }: { params: Promise<{ name: string 
   if (name === null) notFound();
   const lookup = await nullIfTransient(() => getDataSource().getZnsName(name));
   if (lookup === null || lookup.withheld) {
-    return (
-      <DataUnavailable what="the Zcash Name System registry" refreshesWithin="a few minutes" />
-    );
+    return <DataUnavailable what="The Zcash Name System registry" />;
   }
   if (lookup.registrations.length === 0 && lookup.history.length === 0) notFound();
   return <NamePage lookup={lookup} />;

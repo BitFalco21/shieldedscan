@@ -48,7 +48,7 @@ export default async function Page({
     <NetworkTabPage shell={shell} tab="nodes">
       {({ summary }) =>
         page === null ? (
-          <DataUnavailable what="The list of answering nodes" refreshesWithin="a minute" />
+          <DataUnavailable what="The list of answering nodes" />
         ) : (
           <NodesListPage
             page={page}

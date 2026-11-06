@@ -134,6 +134,24 @@ export function applyTheme(id: string): { persisted: boolean } {
 }
 
 /**
+ * Stamps the stored theme when nothing has. The boot script below does this on every page that
+ * arrives as HTML; a page the browser renders itself (Next's recovery from a failed server
+ * render) gets the script as a React-created element, which browsers never execute.
+ */
+export function restoreStoredTheme(): void {
+  if (document.documentElement.dataset.theme !== undefined) return;
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (stored === null || !THEMES.some((t) => t.id === stored && !t.isDefault)) return;
+  document.documentElement.dataset.theme = stored;
+  for (const l of listeners) l();
+}
+
+/**
  * The inline `<head>` script that stamps `data-theme` before first paint, so a reader who
  * chose violet never sees a green flash. Kept under 400 bytes because it runs on every page
  * view. Only a known theme id is written to the attribute, so a hand-edited key cannot inject

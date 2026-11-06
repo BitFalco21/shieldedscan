@@ -76,7 +76,7 @@ export function CompareAllPage({ snapshot }: CompareAllPageProps) {
       <CompareTabs active="all" />
 
       {snapshot === null ? (
-        <DataUnavailable what="Market capitalisations" refreshesWithin="a few minutes" />
+        <DataUnavailable what="Market capitalisations" />
       ) : rows.length === 0 ? (
         /*
          * Reachable two ways, and neither is an outage: no asset in the snapshot is larger

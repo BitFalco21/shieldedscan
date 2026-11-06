@@ -23,11 +23,14 @@ import { HomeLivePanels } from "./HomeLivePanels";
 
 export interface HomePageProps {
   chain: ChainInfo;
-  /** Only for the shielded-supply stat card; the pool chart lives on /shielded?view=shielded. */
-  pools: ShieldedPool[];
-  latestBlocks: BlockSummary[];
-  latestTxs: Transaction[];
-  latestTransfers: CrossChainTransfer[];
+  /**
+   * Only for the shielded-supply stat card; the pool chart lives on /shielded?view=shielded.
+   * Null, like each list below, when it could not be read.
+   */
+  pools: ShieldedPool[] | null;
+  latestBlocks: BlockSummary[] | null;
+  latestTxs: Transaction[] | null;
+  latestTransfers: CrossChainTransfer[] | null;
 }
 
 export function HomePage({
@@ -37,7 +40,7 @@ export function HomePage({
   latestTxs,
   latestTransfers,
 }: HomePageProps) {
-  const shieldedTotal = totalShieldedZat(pools);
+  const shieldedTotal = pools === null ? null : totalShieldedZat(pools);
   // Read into locals so the null checks narrow for TypeScript and each card reads once.
   const { txCount24h, fullyShieldedPct24h, priceUsd, priceChange24hPct } = chain;
   const marketCap = marketCapUsd(chain);
@@ -87,7 +90,7 @@ export function HomePage({
         )}
         <StatCard
           label="SHIELDED SUPPLY"
-          value={formatZecCompact(shieldedTotal)}
+          value={shieldedTotal === null ? <Unmeasured /> : formatZecCompact(shieldedTotal)}
           sub="across Ironwood · Orchard · Sapling · Sprout"
         />
         {/* The 24h window comes from a poller that is cold just after an API restart, and the

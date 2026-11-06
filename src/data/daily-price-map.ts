@@ -20,7 +20,6 @@ const PAGE_TIMEOUT_MS = 4_000;
 const memo = createStaleMemo<Record<string, number>>({
   ttlMs: 3_600_000,
   failureCooldownMs: 60_000,
-  unavailableMessage: "daily price history is temporarily unavailable",
 });
 
 export function dailyPriceMap(baseUrl: string): Promise<Record<string, number>> {

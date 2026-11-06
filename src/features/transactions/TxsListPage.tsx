@@ -23,6 +23,7 @@ import { FilterChips } from "@/components/FilterChips";
 import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
 import { Unmeasured } from "@/components/Unmeasured";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { Panel } from "@/components/Panel";
 import { HashLink } from "@/components/HashLink";
 import { DIRECTION_COLUMN, TxDirectionCell } from "@/components/TxDirectionCell";
@@ -126,8 +127,10 @@ function EmptyTxs({ kind, pool }: { kind: TxKindFilter; pool: PoolName | null })
 }
 
 export interface TxsListPageProps {
-  txs: Transaction[];
-  now: number;
+  /** This page of rows; null when it could not be read (the list, or the tip its ages need). */
+  txs: Transaction[] | null;
+  /** The tip timestamp; null when it could not be read, in which case `txs` is null too. */
+  now: number | null;
   /** Which privacy kind this page is filtered to; "all" shows every transaction. */
   /** Filter-aware total for the headline line; null renders nothing (count unavailable). */
   totalForKind: number | null;
@@ -186,17 +189,20 @@ export function TxsListPage({
    * every pool. A pool view is a snapshot, and says nothing about being live.
    */
   const atTip = newestHref === null;
-  const live = atTip && activePool === null;
+  // Not over rows that did not load either: the feed would grow an empty table into a list
+  // that looks complete.
+  const live = atTip && activePool === null && txs !== null;
   const feed = useLiveFeed({
     kind: activeKind,
     mode: "grow",
     cap: LIVE_ROW_CAP,
-    server: { transactions: txs },
+    server: { transactions: txs ?? [] },
     enabled: live,
   });
-  const displayNow = useDisplayNow(feed.tip?.lastBlockTimestamp ?? now);
+  // `now` is null only when no row renders, so the 0 is never measured against.
+  const displayNow = useDisplayNow(feed.tip?.lastBlockTimestamp ?? now ?? 0);
 
-  const rows = displayRows(feed.transactions.rows, txs, {
+  const rows = displayRows(feed.transactions.rows, txs ?? [], {
     idOf: (t) => t.txid,
     sortKeyOf: (t) => t.timestamp,
   });
@@ -289,6 +295,8 @@ export function TxsListPage({
         <p className="panel mt-3 px-5 py-8 text-center text-sm text-ink-dim">
           Filtering by pool is <Unmeasured /> right now.
         </p>
+      ) : txs === null || now === null ? (
+        <DataUnavailable what="This page of transactions" className="mt-3" />
       ) : rows.length === 0 ? (
         <div className="mt-3">
           <EmptyTxs kind={activeKind} pool={activePool} />

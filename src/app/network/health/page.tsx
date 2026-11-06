@@ -34,7 +34,7 @@ export default async function Page() {
     <NetworkTabPage shell={shell} tab="health">
       {({ peers }) =>
         health === null ? (
-          <DataUnavailable what="The network's health figures" refreshesWithin="a minute" />
+          <DataUnavailable what="The network's health figures" />
         ) : (
           <HealthPage health={health} peers={peers} />
         )

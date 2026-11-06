@@ -41,7 +41,7 @@ export default async function Page() {
     <NetworkTabPage shell={shell} tab="map">
       {({ summary }) =>
         map === null ? (
-          <DataUnavailable what="The map of answering nodes" refreshesWithin="a minute" />
+          <DataUnavailable what="The map of answering nodes" />
         ) : (
           <NodeMapExplorer map={map} summary={summary} />
         )

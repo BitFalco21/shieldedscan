@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { classifyZcashAddress, parseZnsName, type ZnsRegistration } from "@/domain";
 import { getDataSource } from "@/data";
+import { SubjectUnavailable } from "@/components/SubjectUnavailable";
 import { ShieldedAddressPage } from "@/features/address/ShieldedAddressPage";
 import { TransparentAddressPage } from "@/features/address/TransparentAddressPage";
 import { shortHash } from "@/lib/format";
@@ -21,6 +22,11 @@ export async function generateMetadata({
   return { title: `Address ${shortHash(addr, 8)}` };
 }
 
+/**
+ * The address itself is the page's subject: if it cannot be read, the page says so under the
+ * address rather than claiming it does not exist. Its history (the heaviest read on the site)
+ * and the tip are a section: the balances stand without them.
+ */
 export default async function Page({
   params,
   searchParams,
@@ -46,22 +52,34 @@ export default async function Page({
       />
     );
   }
-  const known = await data.getAddress(addr);
+  const known = await nullIfTransient(() => data.getAddress(addr));
+  if (known === null) {
+    return (
+      <SubjectUnavailable
+        breadcrumb={[{ label: "HOME", href: "/" }, { label: "ADDRESS" }]}
+        subject={addr}
+        what="This address"
+      />
+    );
+  }
   if (known?.kind === "transparent") {
-    const [{ items: txs, nextCursor, prevCursor }, chain] = await Promise.all([
-      data.getAddressTransactions(known.address, { before, after, limit: 10 }),
-      data.getChainInfo(),
+    const [page, chain] = await Promise.all([
+      nullIfTransient(() =>
+        data.getAddressTransactions(known.address, { before, after, limit: 10 }),
+      ),
+      nullIfTransient(() => data.getChainInfo()),
     ]);
+    const loaded = page !== null && chain !== null ? page : null;
     const base = `/address/${encodeURIComponent(known.address)}`;
     const href = (step?: CursorStep) =>
       step ? `${base}?${step.name}=${encodeURIComponent(step.value)}` : base;
     return (
       <TransparentAddressPage
         info={known}
-        txs={txs}
-        now={chain.lastBlockTimestamp}
-        priceUsd={chain.priceUsd}
-        {...cursorNavHrefs({ nextCursor, prevCursor }, href)}
+        txs={loaded?.items ?? null}
+        now={chain?.lastBlockTimestamp ?? null}
+        priceUsd={chain?.priceUsd ?? null}
+        {...cursorNavHrefs(loaded ?? { nextCursor: null, prevCursor: null }, href)}
       />
     );
   }
