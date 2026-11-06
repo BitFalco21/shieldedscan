@@ -82,12 +82,10 @@ test.describe("with the live layer mounted", () => {
   test("the poll carries the reader's active filter", async ({ page }) => {
     // A filtered list quietly widened by unfiltered arrivals is unfalsifiable from the rendered
     // page — an unfiltered list is a well-formed list — so the request is the evidence. The
-    // listener is armed before navigating. The NU7 site bar polls `kind=all` on every page, so
-    // its request is skipped; a list poll that dropped the filter then times out here.
-    const pollPromise = page.waitForRequest(
-      (r) => r.url().includes("/api/live") && !r.url().includes("kind=all"),
-      { timeout: 30_000 },
-    );
+    // listener is armed before navigating.
+    const pollPromise = page.waitForRequest((r) => r.url().includes("/api/live"), {
+      timeout: 30_000,
+    });
     await page.goto("/txs?kind=shielded");
     const poll = await pollPromise;
 

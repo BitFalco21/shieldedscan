@@ -1,4 +1,4 @@
-/* The NU7 countdown on `/block/3543405`, the activation flag and the site bar. Temporary:
+/* The NU7 countdown on `/block/3543405`, and the activation flag. Temporary:
    delete with `features/blocks/nu7/`. The reduced-motion block in motion.css stops all of it. */
 @layer components {
   /* The estimate clock under the count: one size smaller than the hero, never brighter than it. */
@@ -49,22 +49,6 @@
     width: calc(var(--chars) * 1ch);
     animation: nu7-type calc(var(--chars) * 28ms) steps(var(--chars), end) var(--delay, 0ms) both;
   }
-
-  /* The site bar's blip: the slow pre-NU7 beat, three times faster once active. */
-  .nu7-blip {
-    animation: nu7-blip 2.4s linear infinite;
-  }
-  .nu7-blip-fast {
-    animation-duration: 0.8s;
-  }
-}
-
-/* motion.css would end the blip off the right edge; park it mid-trace instead. */
-@media (prefers-reduced-motion: reduce) {
-  .nu7-blip {
-    animation: none !important;
-    transform: translateX(17px);
-  }
 }
 
 @keyframes nu7-flash {
@@ -79,15 +63,6 @@
 @keyframes nu7-type {
   from {
     width: 0;
-  }
-}
-
-@keyframes nu7-blip {
-  from {
-    transform: translateX(-6px);
-  }
-  to {
-    transform: translateX(40px);
   }
 }
 

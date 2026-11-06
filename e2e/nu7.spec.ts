@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The NU7 countdown on `/block/3543405` and the site bar that leads to it.
+ * The NU7 countdown on `/block/3543405`.
  *
  * The fixture chain sits far below the activation height and does not advance, so `/api/live`
  * is stubbed with the fixture's own answer moved up to just below (or at) the height. The page
@@ -59,23 +59,7 @@ for (const viewport of WIDTHS) {
       await expect(page.locator(".nu7-count")).toHaveText("412");
       await expect(page.getByText("what changes at block 3,543,405")).toBeVisible();
       await expect(page.locator("canvas[role=img]")).toBeVisible();
-      // The bar is not shown on the page it leads to.
-      await expect(page.getByRole("button", { name: "Hide for this page view" })).toHaveCount(0);
       await noSidewaysScroll(page);
-    });
-
-    test("the site bar fills in its counts and closes for this view", async ({ page }) => {
-      await stubFeed(page, () => H - 412);
-      await page.goto("/blocks");
-      const bar = page.getByRole("link", { name: /nu7>/ });
-      await expect(bar).toHaveAttribute("href", COUNTDOWN);
-      await expect(bar).toContainText("412");
-      await noSidewaysScroll(page);
-      await page.getByRole("button", { name: "Hide for this page view" }).click();
-      await expect(bar).toHaveCount(0);
-      // Nothing is stored: the next load brings it back.
-      await page.reload();
-      await expect(page.getByRole("link", { name: /nu7>/ })).toBeVisible();
     });
   });
 }

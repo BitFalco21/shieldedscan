@@ -5,8 +5,6 @@ import {
   clockParts,
   activationEtaSeconds,
   blocksToGo,
-  formatRemaining,
-  formatRemainingCoarse,
   initialPhase,
   isNu7CountdownId,
   NU7_CHANGES,
@@ -16,7 +14,6 @@ import {
   mergeRecent,
   nextPhase,
 } from "../nu7-countdown";
-import { NU7_BAR_LIVE_SECONDS, nu7BarText } from "../nu7-bar";
 
 const T = 1_799_000_000;
 
@@ -44,15 +41,6 @@ describe("the countdown math", () => {
   it("estimates the activation at 75 s per block from the newest block's time", () => {
     expect(activationEtaSeconds(NU7_HEIGHT - 412, T)).toBe(T + 412 * 75);
     expect(activationEtaSeconds(NU7_HEIGHT, T)).toBe(T);
-  });
-
-  it("prints minutes at most, and nothing once the estimate is due", () => {
-    expect(formatRemaining(8 * 3_600 + 35 * 60)).toBe("8 h 35 min");
-    expect(formatRemaining(12 * 60)).toBe("12 min");
-    expect(formatRemaining(59)).toBeNull();
-    expect(formatRemaining(-300)).toBeNull();
-    expect(formatRemainingCoarse(8 * 3_600 + 20 * 60)).toBe("8 h");
-    expect(formatRemainingCoarse(40 * 60)).toBe("40 min");
   });
 });
 
@@ -117,32 +105,6 @@ describe("the transition", () => {
     expect(nextPhase("counting", NU7_HEIGHT, true)).toBe("awaiting");
     // A reorg back below the height does not undo an activation already shown.
     expect(nextPhase("awaiting", NU7_HEIGHT - 1, false)).toBe("awaiting");
-  });
-});
-
-describe("the site bar's text", () => {
-  it("keeps the static line until a read succeeds", () => {
-    expect(nu7BarText(null, [], 0)).toEqual({ kind: "static" });
-  });
-
-  it("counts blocks and hours before activation", () => {
-    const tip = { height: NU7_HEIGHT - 412, lastBlockTimestamp: T };
-    expect(nu7BarText(tip, [], T)).toEqual({ kind: "counting", blocks: 412, remaining: "9 h" });
-  });
-
-  it("says live for a day after the activation block, then nothing", () => {
-    const at = { height: NU7_HEIGHT, lastBlockTimestamp: T };
-    expect(nu7BarText(at, [block(NU7_HEIGHT, T)], T)).toEqual({ kind: "live" });
-    const dayLater = { height: NU7_HEIGHT + 10, lastBlockTimestamp: T + NU7_BAR_LIVE_SECONDS };
-    expect(nu7BarText(dayLater, [block(NU7_HEIGHT, T)], T)).toEqual({ kind: "over" });
-  });
-
-  it("counts back from the tip at 25 s when the activation block is out of the payload", () => {
-    const blocksInADay = NU7_BAR_LIVE_SECONDS / 25;
-    const before = { height: NU7_HEIGHT + blocksInADay - 1, lastBlockTimestamp: T };
-    const after = { height: NU7_HEIGHT + blocksInADay, lastBlockTimestamp: T };
-    expect(nu7BarText(before, [], T).kind).toBe("live");
-    expect(nu7BarText(after, [], T).kind).toBe("over");
   });
 });
 
