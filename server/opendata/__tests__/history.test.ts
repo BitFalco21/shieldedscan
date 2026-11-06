@@ -277,6 +277,33 @@ describe("declared history changes", () => {
     ]);
   });
 
+  it("accepts the NU6.1 row in a real blocks_coinbase file, and only that row", () => {
+    const path = blocksCoinbaseFile(3_000_000);
+    const coinbase = (rows: [number, string][]): PublishedFile => {
+      const values = [rows.map((r) => r[0]), rows.map((r) => r[1]), rows.map(() => null)];
+      const bytes = toParquet(arrowTable(BLOCK_COINBASE_COLUMNS, values));
+      return { path, sha256: createHash("sha256").update(bytes).digest("hex"), read: () => bytes };
+    };
+    const published: [number, string][] = [
+      [3_146_399, MINER],
+      [3_146_400, MULTISIG],
+      [3_146_401, MINER],
+    ];
+    const fixed = published.map(([h, a]): [number, string] => [h, h === 3_146_400 ? MINER : a]);
+    expect(
+      compareHistory([coinbase(published)], [coinbase(fixed)], undefined, "2026-11-08"),
+    ).toEqual({
+      failures: [],
+      fills: [],
+      accepted: [`nu61-miner: ${path}: 1 published values changed, 0 rows gone`],
+    });
+    const neighbour = fixed.map(([h, a]): [number, string] => [h, h === 3_146_401 ? MULTISIG : a]);
+    expect(
+      compareHistory([coinbase(published)], [coinbase(neighbour)], undefined, "2026-11-08")
+        .failures,
+    ).toEqual([`${path}: 1 published values changed`]);
+  });
+
   it("names real published files, their row keys and columns", () => {
     const columnsOf: Record<string, readonly ColumnSpec[]> = {
       [blocksFile(3_000_000)]: BLOCK_COLUMNS,

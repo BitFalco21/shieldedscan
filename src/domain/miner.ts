@@ -1,5 +1,5 @@
 import { hasShielded } from "./classify";
-import { REISSUANCE_START_HEIGHT, scheduledSubsidyZat } from "./halving";
+import { blockSubsidyZat, REISSUANCE_START_HEIGHT } from "./halving";
 import { isLockboxDisbursementOutput } from "./lockbox-disbursement";
 import type { Transaction } from "./transaction";
 
@@ -62,22 +62,17 @@ export function blockMiner(txs: readonly Transaction[], height: number): BlockMi
 }
 
 /**
- * Whether a recorded miner reward is more than the block could pay anyone: its scheduled subsidy
- * plus every fee in it. Above that, an output that was not the miner's was counted as the
- * miner's, which is how the NU6.1 disbursement was first recorded. Mainnet's schedule, and only
- * before ZIP 237 reissuance (8,939,664) adds a bonus to it. Null where it cannot be decided: in
- * the slow start, which the schedule does not model, and when the fee total is unknown.
+ * Whether a recorded miner reward is more than the block could pay anyone: its subsidy plus every
+ * fee in it. Above that, an output that was not the miner's was counted as the miner's, which is
+ * how the NU6.1 disbursement was first recorded. Mainnet's schedule, slow start included. Null
+ * where it cannot be decided: from ZIP 237 reissuance (8,939,664), which adds a bonus the
+ * schedule cannot know, and when the fee total is unknown.
  */
 export function minerRewardAboveIssuance(
   height: number,
   minerRewardZat: number,
   totalFeeZat: number | null,
 ): boolean | null {
-  if (height < SLOW_START_END || height >= REISSUANCE_START_HEIGHT || totalFeeZat === null) {
-    return null;
-  }
-  return minerRewardZat > scheduledSubsidyZat(height) + totalFeeZat;
+  if (height >= REISSUANCE_START_HEIGHT || totalFeeZat === null) return null;
+  return minerRewardZat > blockSubsidyZat(height) + totalFeeZat;
 }
-
-/** The slow start's last height plus one; `scheduledSubsidyZat` refuses below it. */
-const SLOW_START_END = 20_000;

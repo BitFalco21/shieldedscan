@@ -16,6 +16,7 @@ export const NU61_FIRST_TXID = "525f440283b4c9ec30fa04a5796f3ddfa4ba1e1e48657a8d
 const captured = template as unknown as RpcBlock;
 const coinbase = captured.tx[0]!;
 
+// The script's `asm`/`hex` stay the template's: the parser reads only `type` and `addresses`.
 const out = (n: number, valueZat: number, address: string, type: string) => ({
   ...coinbase.vout[0]!,
   n,

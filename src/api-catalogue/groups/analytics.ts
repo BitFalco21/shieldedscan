@@ -1057,7 +1057,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
   "query": { "from": "2026-09-01", "to": "2026-10-01", "limit": 3 },
   "coverage": { "status": "complete", "notes": [] },
   "source": { "name": "ShieldedScan", "url": "https://shieldedscan.xyz/miners" },
-  "basis": "blocks grouped by the payout address of each coinbase's largest output, which is the miner by consensus. Two addresses are never merged, so an operator paid at several addresses appears as several and every share and concentration figure is a lower bound for any operator. Shares are of every block in the window. reward is everything the miner's coinbase outputs paid it, its fees included; fees is that included part — never add the two. coinbaseTag is text the miner wrote into its block and identifies nobody verifiably. A shielded coinbase (ZIP 213) has no payout address, and some miners until 2018 paid a bare public key, which has no address form; both are counted apart.",
+  "basis": "blocks grouped by the payout address of each coinbase's largest output, which is the miner by consensus once the NU6.1 lockbox disbursement is set aside. Two addresses are never merged, so an operator paid at several addresses appears as several and every share and concentration figure is a lower bound for any operator. Shares are of every block in the window. reward is everything the miner's coinbase outputs paid it, its fees included; fees is that included part — never add the two. coinbaseTag is text the miner wrote into its block and identifies nobody verifiably. A shielded coinbase (ZIP 213) has no payout address, and some miners until 2018 paid a bare public key, which has no address form; both are counted apart.",
   "data": {
     "fromHeight": 3467591,
     "toHeight": 3501995,

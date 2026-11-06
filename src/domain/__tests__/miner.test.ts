@@ -256,8 +256,13 @@ describe("minerRewardAboveIssuance", () => {
     expect(minerRewardAboveIssuance(3_543_405, 52_083_333 + 300_001, 300_000)).toBe(true);
   });
 
-  it("cannot decide in the slow start, past reissuance, or without the fee total", () => {
-    expect(minerRewardAboveIssuance(19_999, 1, 0)).toBeNull();
+  it("holds the slow start to its ramp", () => {
+    // 62,500 zat per height below 10,000: block 100's subsidy is 6,250,000.
+    expect(minerRewardAboveIssuance(100, 6_250_000, 0)).toBe(false);
+    expect(minerRewardAboveIssuance(100, 6_250_001, 0)).toBe(true);
+  });
+
+  it("cannot decide past reissuance, or without the fee total", () => {
     expect(minerRewardAboveIssuance(8_939_664, 1, 0)).toBeNull();
     expect(minerRewardAboveIssuance(NU61, 7_875_000_000_000, null)).toBeNull();
   });

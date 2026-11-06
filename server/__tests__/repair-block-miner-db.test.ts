@@ -121,6 +121,28 @@ describeDb("repairBlockMiner", () => {
     );
   });
 
+  it("changes nothing when the row moves between its read and its write", async () => {
+    await pool.query(
+      `UPDATE block SET miner_address = $1, miner_reward_zat = 7875000000000 WHERE height = 3146400`,
+      [NU61_MULTISIG],
+    );
+    const racing: MinerRpc = {
+      ...rpc,
+      getBlockSummaryByHash: async (hash) => {
+        await pool.query(
+          "UPDATE block SET miner_reward_zat = miner_reward_zat + 1 WHERE height = 3146400",
+        );
+        return rpc.getBlockSummaryByHash(hash);
+      },
+    };
+    const r = await repairBlockMiner({ pool, rpc: racing, hash: NU61_HASH, commit: true });
+    expect(r).toMatchObject({ status: "refused", reason: "the row changed while this ran" });
+    expect(await stored()).toEqual({
+      miner_address: NU61_MULTISIG,
+      miner_reward_zat: "7875000000001",
+    });
+  });
+
   it("refuses a hash it has no row for, or one the node cannot answer", async () => {
     const missing = await repairBlockMiner({ pool, rpc, hash: "cd".repeat(32), commit: true });
     expect(missing).toMatchObject({ status: "refused", reason: "no stored block has this hash" });
