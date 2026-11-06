@@ -244,9 +244,12 @@ export function withFormattedZec(value: unknown): unknown {
   return out;
 }
 
-/** Keys whose integer value is a COUNT of things — the figures a model restates with separators. */
+/**
+ * Keys whose integer value is a COUNT of things — the figures a model restates with separators. A
+ * trailing window tag (`txCount24h`) is still a count.
+ */
 const COUNT_KEY =
-  /(?:Count|Txs|Transactions|Blocks|Actions|Transfers|Requests|Rows|Addresses|Holders|Considered|Covered)$/;
+  /(?:Count|Txs|Transactions|Blocks|Actions|Transfers|Requests|Rows|Addresses|Holders|Considered|Covered)(?:24h)?$/;
 
 /**
  * A grouped string beside a large count: `txCount: 1410990` gains `txCountGrouped: "1,410,990"`.

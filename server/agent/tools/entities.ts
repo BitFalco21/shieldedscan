@@ -155,7 +155,7 @@ export function entityBlock(
       : path === CHAIN_PATH
         ? chainJson(body, valuation)
         : path === STATUS_PATH
-          ? chainJson(body, valuation)
+          ? chainJson(body, valuation, { dropShareNumerator: true })
           : TX_DETAIL_PATH_RE.test(path)
             ? transactionJson(body)
             : ADDRESS_SUMMARY_PATH_RE.test(path)
@@ -201,7 +201,11 @@ export function spotPriceUsdFrom(
  * not enough: "what is ZEC worth in euros" needs the spot price itself converted, or the agent
  * receives only dollars and correctly declines to derive a euro figure.
  */
-function chainJson(body: string, v: Valuation): string {
+function chainJson(
+  body: string,
+  v: Valuation,
+  opts: { dropShareNumerator?: boolean } = {},
+): string {
   return reshapeJson(body, (parsed) => {
     const p = asRecord(parsed);
     if (p === null) return withFormattedZec(parsed);
@@ -210,10 +214,24 @@ function chainJson(body: string, v: Valuation): string {
     const cap = supplyZat === null ? null : marketCapFromTermsUsd(supplyZat, price);
     return withFormattedZec({
       ...p,
+      ...(opts.dropShareNumerator ? withoutShareNumerator(p.fullyShieldedPct24h) : {}),
       marketCapUsd: cap === null ? null : formatUsdExact(cap),
       ...priceInCurrency(price, cap, v),
     });
   });
+}
+
+/**
+ * `/v1/status`'s 24-hour share without its numerator, which the route reconstructs from the share
+ * already rounded to a tenth of a percent: 36.8% of 7,426 publishes 2,733 where the true count is
+ * anywhere from 2,730 to 2,736. The site prints only the percentage; the agent is handed only what is
+ * exact — the percentage and the count it is a share of.
+ */
+function withoutShareNumerator(share: unknown): Record<string, unknown> {
+  const s = asRecord(share);
+  if (s === null || !("numerator" in s)) return {};
+  const { numerator: _reconstructed, ...exact } = s;
+  return { fullyShieldedPct24h: exact };
 }
 
 /** The supply payload with each pool's balance valued in dollars, then formatted as usual. */

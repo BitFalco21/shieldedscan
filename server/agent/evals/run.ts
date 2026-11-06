@@ -194,8 +194,11 @@ function wiringFailures(
 const PER_CASE_TIMEOUT_MS = 180_000;
 
 async function runCase(testCase: EvalCase, run: number, scripted: boolean): Promise<CaseResult> {
-  const now = clockFor(testCase);
-  const tools = new AgentTools(requesterFor(testCase), chainRequesterFor(testCase), now);
+  // A scripted run stays on this machine: a live case reads the fixture world instead.
+  const world: EvalCase =
+    scripted && testCase.world === "live" ? { ...testCase, world: "fixture" } : testCase;
+  const now = clockFor(world);
+  const tools = new AgentTools(requesterFor(world), chainRequesterFor(world), now);
   /*
    * A scripted run reads what each call returned, to tell a dispatch failure of ours from data. A
    * real run does not: the answer is what it grades, and wrapping the tools would be one more thing
@@ -355,7 +358,7 @@ async function main(): Promise<void> {
 
   console.log(
     scripted
-      ? `model SCRIPTED (wiring only — measures nothing about the real model) · prompt v${SYSTEM_PROMPT_VERSION} · /v1 ${V1_BASE_URL}`
+      ? `model SCRIPTED (wiring only — measures nothing about the real model) · prompt v${SYSTEM_PROMPT_VERSION} · fixture world`
       : `model ${AGENT_PROVIDER.model} @ ${AGENT_PROVIDER.id} · prompt v${SYSTEM_PROMPT_VERSION} · /v1 ${V1_BASE_URL}`,
   );
   console.log(`${cases.length} cases${repeat > 1 ? ` × ${repeat}` : ""}\n`);
