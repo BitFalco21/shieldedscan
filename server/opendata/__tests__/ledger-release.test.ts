@@ -392,6 +392,7 @@ describe.skipIf(!ADMIN_URL)("the ledger in a release", () => {
     expect(compareHistory(asPublished(before), asPublished(after))).toEqual({
       failures: [],
       fills: [],
+      accepted: [],
     });
   });
 

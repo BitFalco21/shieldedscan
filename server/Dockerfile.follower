@@ -32,6 +32,9 @@ COPY server ./server
 #   node fill-rollups.mjs [--restart]                  rollup fill / full rebuild (paced)
 #   node check-rollups.mjs [--live]                    rollup tables vs their views (read-only)
 #   node swap-rollups.mjs [--revert]                   rollup tables into the views' names
+#   REPAIR_BLOCK_HASH=<hash> node repair-block-miner.mjs  one block's miner rewritten from the
+#                                                      parser, its day recomputed (dry run unless
+#                                                      REPAIR_COMMIT=1)
 RUN npx esbuild \
       follower=server/follow-main.ts \
       backfill=server/backfill-main.ts \
@@ -47,6 +50,7 @@ RUN npx esbuild \
       fill-rollups=server/fill-rollups-main.ts \
       check-rollups=server/check-rollups-main.ts \
       swap-rollups=server/swap-rollups-main.ts \
+      repair-block-miner=server/repair-block-miner-main.ts \
       --bundle --platform=node --target=node22 --format=esm \
       --outdir=dist --out-extension:.js=.mjs \
       --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"

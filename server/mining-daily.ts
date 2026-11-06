@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { rollbackQuietly } from "./pg-pool";
 import { DAY_SECONDS } from "@/domain/time";
 import { NU7_HEIGHT } from "@/domain/halving";
@@ -68,20 +68,34 @@ export async function computeMiningDay(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`DELETE FROM mining_day_payout WHERE day = ${DAY_OF}`, [dayStart]);
-    await client.query(MINING_DAY_PAYOUT_SQL, [dayStart, dayStart + DAY_SECONDS]);
-    const { rows } = await client.query<{ blocks: number; unrecorded_blocks: number }>(
-      MINING_DAY_SQL,
-      [dayStart, dayStart + DAY_SECONDS, nowSec],
-    );
+    const day = await writeMiningDay(client, dayStart, nowSec);
     await client.query("COMMIT");
-    return { blocks: rows[0]!.blocks, unrecorded: rows[0]!.unrecorded_blocks };
+    return day;
   } catch (error) {
     await rollbackQuietly(client);
     throw error;
   } finally {
     client.release();
   }
+}
+
+/**
+ * One day's rows, written inside the caller's open transaction: `computeMiningDay`'s body, and
+ * the block-miner repair's, which recomputes the day of the row it corrected in the same
+ * transaction so a dry run can show the day's rows after and roll both back.
+ */
+export async function writeMiningDay(
+  client: Pick<PoolClient, "query">,
+  dayStart: number,
+  nowSec: number,
+): Promise<{ blocks: number; unrecorded: number }> {
+  await client.query(`DELETE FROM mining_day_payout WHERE day = ${DAY_OF}`, [dayStart]);
+  await client.query(MINING_DAY_PAYOUT_SQL, [dayStart, dayStart + DAY_SECONDS]);
+  const { rows } = await client.query<{ blocks: number; unrecorded_blocks: number }>(
+    MINING_DAY_SQL,
+    [dayStart, dayStart + DAY_SECONDS, nowSec],
+  );
+  return { blocks: rows[0]!.blocks, unrecorded: rows[0]!.unrecorded_blocks };
 }
 
 /**

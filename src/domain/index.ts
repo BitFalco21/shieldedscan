@@ -25,6 +25,7 @@ export * from "./market";
 export * from "./mempool";
 export * from "./stats";
 export * from "./miner";
+export * from "./lockbox-disbursement";
 export * from "./mining";
 export * from "./mining-cost";
 export * from "./mining-hardware";

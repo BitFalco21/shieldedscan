@@ -50,7 +50,8 @@ brand/          Reproducible generators for the site's brand assets.
    on-chain_. `Unmeasured` ("unavailable") means _we could not read it_. Never spend the Veil on
    an outage of ours.
 4. **Facts the chain implies are derived in `domain/`, not stored.** The miner is the coinbase's
-   largest transparent output; a transaction's kind, direction and pool path come from its
+   largest transparent output, once any one-time payout consensus requires at that height (the
+   NU6.1 lockbox disbursement, `domain/lockbox-disbursement.ts`) is set aside; a transaction's kind, direction and pool path come from its
    bundles. One function answers each question — `POOL_BUNDLE` in `domain/pool.ts` is the single
    list of shielded pools, so adding a pool is a compile error until every consumer handles it.
 5. **Every shielded pool is a term in the fee equation.** `feeFromTermsZat` is the only fee
