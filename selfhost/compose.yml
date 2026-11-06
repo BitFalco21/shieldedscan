@@ -107,8 +107,8 @@ services:
       EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:-}
       PUBLIC_API_ENABLED: "1"
       NODE_RPC_URL: ${NODE_RPC_URL:-}
-      # Prices, market caps, swap venues, the ZIP index and names are polled from the internet
-      # only when this is 1.
+      # Market caps, swap venues, the ZIP index and names (and prices, with a node) are polled
+      # from the internet only when this is 1.
       EXTERNAL_SOURCES: ${EXTERNAL_SOURCES:-0}
     ports:
       - 127.0.0.1:${API_PORT:-8080}:8080

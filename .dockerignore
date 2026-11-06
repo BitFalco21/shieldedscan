@@ -1,12 +1,15 @@
-# The build context of every image. Each Dockerfile copies only what it names; this keeps local
-# state (dependencies, build output, history, env files) from being sent with the context at all.
-.git
-node_modules
-.next
-dist
-coverage
-test-results
-playwright-report
-.env*
-!.env.example
-**/.env
+# The build context of every image: only what the Dockerfiles copy, so local state (dependencies,
+# build output, history, env files, anything else in the checkout) is never sent at all.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.ts
+!postcss.config.mjs
+!public
+!scripts
+!server
+!src
+**/node_modules
+**/.next
+**/.env*

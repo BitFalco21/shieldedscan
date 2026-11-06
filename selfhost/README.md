@@ -58,7 +58,8 @@ tools are the `/v1` routes. For a client that takes a JSON config:
 ```
 
 **SQL.** Set `POSTGRES_READONLY_PASSWORD` in `.env` and start again: the importer then creates
-`shieldedscan_reader`, which can read every table and view and change nothing.
+`shieldedscan_reader`, which can read every table and view and change nothing. Unset it and start
+again to lock that login.
 
 ```sh
 psql "postgresql://shieldedscan_reader@127.0.0.1:5432/shieldedscan"
@@ -98,14 +99,15 @@ What only a node can answer is "unavailable" (HTTP 503), never a guess:
 - `/v1/blocks/{heightOrHash}` and its `/transactions`, `/v1/addresses/{address}`, `/v1/search`
   for a height or hash, `/v1/mempool/summary`, `/v1/network/halving`, and
   `/v1/transactions/{txid}` for a transaction after the release;
-- on the website: block pages, address balances, the mempool, pulse, mining cost and search.
+- on the website: block pages, address balances, the mempool, pulse, the halving, mining cost,
+  stats, the network map and search.
 
 The day-by-day tables stop at the release's final day, three days before the release block's day.
 `block.received_at` stays NULL: it is when our node first saw a block, not chain data.
 
 Empty unless you run their collectors: prices and FX rates, market caps, cross-chain swaps, the
-network map, social posts. `EXTERNAL_SOURCES=1` lets the API poll the public ones. The assistant
-is off: it needs a model host's key.
+network map, social posts. `EXTERNAL_SOURCES=1` lets the API poll market caps, swap venues, the ZIP
+index and names, and with a node prices too. The assistant is off: it needs a model host's key.
 
 ## The tables
 
