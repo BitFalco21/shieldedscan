@@ -36,7 +36,10 @@ export type TurnOutcome = "complete" | "length" | "tool-limit" | "unanswered" | 
 
 export interface TurnTiming {
   totalMs: number;
-  /** Model calls made, retries of a round included. */
+  /**
+   * Model calls made. A round re-run after going silent mid-stream counts again; a call retried
+   * because it produced nothing at all is one call, its wait included in `ttfeMs`.
+   */
   modelCalls: number;
   /** Model calls that asked for at least one tool: the round trips a well-routed answer minimises. */
   toolRounds: number;

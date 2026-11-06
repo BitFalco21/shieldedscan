@@ -9,7 +9,7 @@ import {
 import { formatTurnTiming, type TurnTiming } from "../timing";
 import { AgentTools, type ToolResult } from "../tools";
 import { FIXTURE_NOW_MS, makeChain, makeV1 } from "../testing/fixture-world";
-import type { PlottedChart } from "@/domain";
+import type { DataExportCard, PlottedChart } from "@/domain";
 
 /**
  * A round's tool calls answered together, and the timing record of a turn. The tools are a stub
@@ -188,6 +188,34 @@ describe("a round's calls", () => {
     expect(events.filter((e) => e.event === "chart")).toHaveLength(2);
     expect(stub.dispatched).toHaveLength(2);
     expect(toolMessages(params)[2]!.content).toMatch(/reason="chart-limit"/);
+  });
+
+  it("holds a chart and its lookups to one cap, and caps files like charts", async () => {
+    const stub = stubTools(
+      (name, args) =>
+        name === "make_chart"
+          ? { content: "drawn", endpoints: [], chart: chart(Number(args.n)) }
+          : { content: `${name}`, endpoints: [] },
+      () => 5,
+    );
+    const calls = [
+      call("m1", "make_chart", { n: 1 }),
+      ...[0, 1, 2, 3].map((i) => call(`c${i}`, "chain_status", { i })),
+    ];
+    const { params, events } = await run([[done({ toolCalls: calls })], ANSWER], stub);
+    expect(stub.maxActive()).toBe(MAX_CONCURRENT_LOOKUPS);
+    expect(events.filter((e) => e.event === "chart")).toHaveLength(1);
+    expect(toolMessages(params).map((m) => m.tool_call_id)).toEqual(["m1", "c0", "c1", "c2", "c3"]);
+
+    const files = stubTools((_name, args) => ({
+      content: "offered",
+      endpoints: [],
+      export: { path: "/v1/x", query: { n: String(args.n) } } as unknown as DataExportCard,
+    }));
+    const exportCalls = [1, 2, 3].map((n) => call(`e${n}`, "export_data", { n }));
+    const filed = await run([[done({ toolCalls: exportCalls })], ANSWER], files);
+    expect(files.dispatched).toHaveLength(2);
+    expect(toolMessages(filed.params)[2]!.content).toMatch(/reason="export-limit"/);
   });
 
   it("fails the turn when a read throws, as a sequential read did", async () => {

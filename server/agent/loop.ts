@@ -276,6 +276,8 @@ async function* callModelOnce(
     const attempt = new AbortController();
     const onAbort = () => attempt.abort();
     outerSignal.addEventListener("abort", onAbort, { once: true });
+    // A listener added after the abort never fires, so a turn already over must say so here.
+    if (outerSignal.aborted) attempt.abort();
     let sawEvent = false;
     try {
       const iterator = deps.streamer(params, attempt.signal)[Symbol.asyncIterator]();
@@ -685,11 +687,11 @@ async function* turn(
      *    refused exactly as it was;
      *  - `make_chart` and `export_data`, run one after another in their own lane, because their caps
      *    count what was actually drawn and a refused chart draws nothing;
-     *  - nothing else: an identical call repeated in the same round is read once and its answer given
-     *    to both ids, which is the repeat the cap below would otherwise pay for twice.
+     *  - and an identical call repeated in the same round is read once and its answer given to both
+     *    ids (each still spends its share of the budget, as before).
      *
-     * At most `MAX_CONCURRENT_LOOKUPS` reads run at once, because some answer from uncached queries on
-     * the database the explorer itself depends on.
+     * At most `MAX_CONCURRENT_LOOKUPS` reads run at once, the lane's included, because some answer
+     * from uncached queries on the database the explorer itself depends on.
      */
     const pending: Promise<ToolResult>[] = [];
     const readOnce = new Map<string, Promise<ToolResult>>();
@@ -735,7 +737,7 @@ async function* turn(
               message: `this answer already offers ${MAX_EXPORTS_PER_ANSWER} files, the most one answer carries — answer with them`,
             });
           }
-          const result = await read();
+          const result = await limit(read);
           // The same chart asked twice, however it was spelled, is shown once.
           const drawn = result.chart;
           if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
@@ -755,12 +757,17 @@ async function* turn(
       const key = `${toolCall.name}\u0000${toolCall.arguments}`;
       const known = readOnce.get(key);
       const result = known ?? limit(read);
+      // Marked handled at once: if the visitor leaves at one of the statuses above, `Promise.all`
+      // below is never reached, and a read that then rejects must not become an unhandled rejection.
+      result.catch(() => {});
       readOnce.set(key, result);
       pending.push(result);
     }
     // A read that throws fails the turn, as one did when they ran in turn; the others are left to
     // settle unobserved.
     const results = await Promise.all(pending);
+    // The turn's clock may have run out while the round was being read.
+    if (signal.aborted) return;
     final.toolCalls.forEach((toolCall, i) => {
       const result = results[i]!;
       endpoints.push(...result.endpoints);
