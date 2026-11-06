@@ -5,6 +5,8 @@
  * which makes it useless as a judge fixture.
  */
 
+import type { CaseLatency } from "./latency";
+
 export interface DumpCase {
   id: string;
   category: string;
@@ -20,6 +22,10 @@ export interface DumpCase {
   rawAnswer?: string;
   toolsCalled: string[];
   tokens: number;
+  /** Which repetition of the case this was, from 1, when the run repeated cases (`--repeat`). */
+  run?: number;
+  /** Where the turn's time went (`latency.ts`); null when the turn produced no timing record. */
+  latency?: CaseLatency | null;
 }
 
 export interface DumpMeta {

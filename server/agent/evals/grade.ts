@@ -5,8 +5,9 @@
  *
  * ── HOW A CASE IS GRADED ────────────────────────────────────────────────────────────────
  *
- *   MECHANICAL — `mustContain`, `mustNotContain`, `mustNeverRelay`, `mustCall`, `mustCallAny`.
- *   Regexes and recorded tool names: exact, free and deterministic.
+ *   MECHANICAL — `mustContain`, `mustNotContain`, `mustNeverRelay`, `mustCall`, `mustCallAny`,
+ *   `mustNotCall`, `maxToolRounds`. Regexes, recorded tool names and counted rounds: exact, free
+ *   and deterministic.
  *
  *   SEMANTIC — `mustSatisfy`, `mustNotSatisfy`. Rubrics are review prompts: they travel with the
  *   answer into the dump and the case is marked `NEEDS REVIEW` for a person to grade. No rubric is
@@ -56,6 +57,11 @@ export interface GradeInput {
   chartsShown?: number;
   /** How many `export` events the turn emitted; optional for the same reason as `chartsShown`. */
   exportsShown?: number;
+  /**
+   * Model calls that asked for tools, from the turn's timing record. Optional like `chartsShown`: a
+   * case with `maxToolRounds` fails when it is absent rather than passing unobserved.
+   */
+  toolRounds?: number;
 }
 
 /** One semantic property a person must decide, carried to the dump with its answer. */
@@ -137,6 +143,15 @@ export function gradeAnswer(testCase: EvalCase, ctx: GradeInput): Grade {
   const any = testCase.mustCallAny ?? [];
   if (any.length > 0 && !any.some((tool) => ctx.toolsCalled.includes(tool))) {
     failures.push(`called none of ${any.join(", ")}`);
+  }
+  for (const tool of testCase.mustNotCall ?? []) {
+    if (ctx.toolsCalled.includes(tool)) failures.push(`called ${tool}`);
+  }
+  if (testCase.maxToolRounds !== undefined) {
+    if (ctx.toolRounds === undefined) failures.push("tool rounds were not observed");
+    else if (ctx.toolRounds > testCase.maxToolRounds) {
+      failures.push(`took ${ctx.toolRounds} tool rounds, at most ${testCase.maxToolRounds}`);
+    }
   }
   // A chart is counted from the events the reader receives, not from the tool being called: a
   // refused `make_chart` call still "called" it and drew nothing.

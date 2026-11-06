@@ -39,6 +39,11 @@ export interface EvalCase {
     | "charts"
     /** When an answer carries a data file, and what is refused as one. */
     | "exports"
+    /**
+     * Common questions with the number of round trips a well-routed answer needs. Graded on routing
+     * and rounds; what the answer says is the rest of the corpus's job.
+     */
+    | "latency"
     | "upstream-failure"
     | "over-refusal"
     | "injection-direct"
@@ -53,6 +58,28 @@ export interface EvalCase {
    * well, where requiring a specific one would make the case flap on the model's choice.
    */
   mustCallAny?: ToolName[];
+  /**
+   * Tools the turn must not call: the detour a well-routed answer does not take, e.g. a period
+   * total and a sum for a figure one status read carries.
+   */
+  mustNotCall?: ToolName[];
+  /**
+   * The most model calls that may ask for tools before the answer. One is a question a single round
+   * of lookups answers; two is one that genuinely needs a second step (a chart over a figure, a
+   * calculation over what came back). Counted from the turn's timing record.
+   */
+  maxToolRounds?: number;
+  /**
+   * The calls a well-routed answer makes, all in its first round. The scripted model makes exactly
+   * these, so a run without a key proves the wiring; a test dispatches them against the fixture world
+   * so a route that no longer validates fails in the commit gate.
+   */
+  route?: { name: ToolName; args: Record<string, unknown> }[];
+  /**
+   * Keys the route's payload must carry in the fixture world: the figure the question asks for, so
+   * "one round" is a claim about the data, not only about the model.
+   */
+  routeCarries?: string[];
   /** The answer must carry at least one chart (counted from `chart` events, not tool calls). */
   mustChart?: true;
   /** The answer must carry no chart: a single figure, or a question words answer better. */
