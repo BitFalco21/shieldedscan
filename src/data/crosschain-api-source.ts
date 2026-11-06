@@ -146,7 +146,6 @@ function isPreviousWindow(value: unknown): value is CrossChainPreviousWindow {
 const chainListMemo = createStaleMemo<ListedChain[]>({
   ttlMs: 600_000,
   failureCooldownMs: 60_000,
-  unavailableMessage: "cross-chain chain list is temporarily unavailable",
 });
 
 function chainList(config: CrossChainApiConfig): Promise<ListedChain[]> {

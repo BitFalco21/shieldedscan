@@ -1,8 +1,10 @@
+import { headers } from "next/headers";
 import { readApiConfig } from "./api-request";
 import { createChainApiSource } from "./chain-api-source";
 import { createCrossChainApiSource } from "./crosschain-api-source";
 import { fixtureDataSource } from "./fixture-source";
 import type { ExplorerDataSource } from "./source";
+import { FAULT_HEADER, injectFaults, tagTransientFailures } from "./source-wrappers";
 import { isPublicStage } from "@/lib/site";
 
 export type { CursorPage, CursorQuery, ExplorerDataSource, Paginated } from "./source";
@@ -39,9 +41,29 @@ function assertLiveSourcesConfigured(configured: boolean): void {
  * serving sample data in production.
  */
 function build(tipRevalidateSeconds?: number): ExplorerDataSource {
+  return tagTransientFailures(buildUntagged(tipRevalidateSeconds));
+}
+
+/**
+ * The methods `x-e2e-fault` names for this request. Outside a request (a build, a test) there is
+ * no header and nothing fails.
+ */
+async function faultsForRequest(): Promise<readonly string[]> {
+  try {
+    return ((await headers()).get(FAULT_HEADER) ?? "").split(",").map((name) => name.trim());
+  } catch {
+    return [];
+  }
+}
+
+function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
   const config = readApiConfig();
   assertLiveSourcesConfigured(config !== null);
-  if (config === null) return fixtureDataSource;
+  if (config === null) {
+    return process.env.E2E_FAULTS === "1"
+      ? injectFaults(fixtureDataSource, faultsForRequest)
+      : fixtureDataSource;
+  }
 
   const crossChain = createCrossChainApiSource({
     ...config,

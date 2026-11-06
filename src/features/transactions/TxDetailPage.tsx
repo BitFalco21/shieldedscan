@@ -9,6 +9,7 @@ import { HashLink } from "@/components/HashLink";
 import { KindPill } from "@/components/KindPill";
 import { ActionPanel } from "@/components/ActionPanel";
 import { PageHeader } from "@/components/PageHeader";
+import { Unmeasured } from "@/components/Unmeasured";
 import { privacyVariantFor } from "@/components/PrivacyShield";
 import { formatBytes, formatCount, formatUtc, formatZatUsd, formatZec } from "@/lib/format";
 import { TxFlow } from "./TxFlow";
@@ -17,7 +18,8 @@ import Link from "@/components/Link";
 
 export interface TxDetailPageProps {
   tx: Transaction;
-  tipHeight: number;
+  /** The chain tip, for confirmations; null when it could not be read. */
+  tipHeight: number | null;
   /**
    * ZEC's price on the transaction's day (its close; the current price for today's), for the
    * approximate USD figures beside public amounts. `null` when there is none: the ZEC amounts
@@ -26,9 +28,10 @@ export interface TxDetailPageProps {
   priceUsd: number | null;
   /**
    * The crossings this transaction is the Zcash leg of — usually none. Optional so a caller
-   * that cannot know (a testnet build, where no venue bridges) simply passes nothing.
+   * that cannot know (a testnet build, where no venue bridges) simply passes nothing. `null`
+   * when the lookup failed: the page says so rather than implying there is no swap.
    */
-  crossings?: ZcashTxCrossings;
+  crossings?: ZcashTxCrossings | null;
 }
 
 /**
@@ -107,6 +110,15 @@ function BlockFact({ height, hash }: { height: number | null; hash: string | nul
   );
 }
 
+/**
+ * The FEE hint. Where the fee goes depends on the height that mines it; for a pending
+ * transaction that is the next block, unknown when the tip could not be read.
+ */
+function feeHint(height: number | null): string {
+  const base = "Zcash prices fees by ZIP-317 on logical actions.";
+  return height === null ? base : `${base} ${feeDestinationSentence(network, height)}`;
+}
+
 /** The one element carrying the raw hex; both buttons read it from the DOM by this id. */
 const RAW_HEX_ID = "raw-hex";
 
@@ -115,13 +127,13 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
   // so its lines lead; a swap out came after the deposit, so its lines follow. A batch is one
   // direction in practice; a mixed one follows the sentence.
   const swapPlacement =
-    crossings === undefined || crossings.transfers.length === 0
+    crossings === undefined || crossings === null || crossings.transfers.length === 0
       ? null
       : crossings.transfers.every((t) => t.direction === "in")
         ? "before"
         : "after";
   const swapLines =
-    crossings === undefined || swapPlacement === null ? null : (
+    crossings === undefined || crossings === null || swapPlacement === null ? null : (
       <SwapLegLines
         crossings={crossings}
         placement={swapPlacement}
@@ -130,7 +142,8 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
     );
   // Derived at render time, never carried on the transaction: a stored count would go
   // stale inside the CDN's cache window.
-  const confirmations = tx.blockHeight !== null ? tipHeight - tx.blockHeight + 1 : null;
+  const confirmations =
+    tx.blockHeight !== null && tipHeight !== null ? tipHeight - tx.blockHeight + 1 : null;
   // The hex is deliberately dropped from what the page passes on.
   const { rawHex: _rawHex, ...txWithoutRawHex } = tx;
   const value = publicValueZat(tx);
@@ -176,7 +189,7 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
       ),
       hint: tx.isCoinbase
         ? "A coinbase pays no fee. It is the transaction that creates the block reward and collects the fees every other transaction in the block paid."
-        : `Zcash prices fees by ZIP-317 on logical actions. ${feeDestinationSentence(network, tx.blockHeight ?? tipHeight + 1)}`,
+        : feeHint(tx.blockHeight ?? (tipHeight === null ? null : tipHeight + 1)),
     },
     {
       // Directly after FEE by design — see the adjacency note above.
@@ -260,9 +273,15 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
             <span>
               STATUS{" "}
               <b className="text-ink">
-                {confirmations !== null
-                  ? `Confirmed · ${formatCount(confirmations)} confirmations`
-                  : "Unconfirmed — in the mempool"}
+                {tx.blockHeight === null ? (
+                  "Unconfirmed — in the mempool"
+                ) : confirmations !== null ? (
+                  `Confirmed · ${formatCount(confirmations)} confirmations`
+                ) : (
+                  <>
+                    Confirmed · confirmations <Unmeasured />
+                  </>
+                )}
               </b>
             </span>
             <span>
@@ -285,6 +304,11 @@ export function TxDetailPage({ tx, tipHeight, priceUsd, crossings }: TxDetailPag
           lead={swapPlacement === "before" ? swapLines : undefined}
         >
           {swapPlacement === "after" ? swapLines : null}
+          {crossings === null ? (
+            <p className="text-xs text-ink-dim">
+              Cross-chain swap lookup <Unmeasured /> right now.
+            </p>
+          ) : null}
         </ActionPanel>
       </PageHeader>
 

@@ -12,6 +12,15 @@
  * spell, who triggers the refresh). Each route's pair is chosen so that age is harmless for what the
  * page states. No `stale-if-error`: Netlify does not document it, and a directive we cannot rely on
  * would read as a guarantee.
+ *
+ * A render with a section that did not load answers 200 and is stored like any other: a response
+ * header cannot depend on the render (`next.config.ts` conditions match the request only). That is
+ * acceptable because the section says it could not be read and states no figure, and
+ * stale-while-revalidate replaces it on the first revalidation after its fresh window. On the
+ * day-long stale windows it outlives that window only for the first request after a quiet spell,
+ * the request that triggers its replacement; the busiest of those pages are warmed
+ * (`netlify/functions/warm-cache.mjs`). Flight responses stay cached too, so client navigations
+ * under load share a render instead of costing one per click; a retry may get the stored copy once.
  */
 
 export interface EdgeCachePolicy {
@@ -55,9 +64,9 @@ export const EDGE_CACHE_POLICIES: readonly EdgeCachePolicy[] = [
   // The former ISR pages: each prints the block or instant it was read at, most with a live layer
   // on top, and they render on request so a build never reads the API. A day of stale window is
   // what ISR gave them (the plugin's is a year): a reader never waits on a render, and while the
-  // API is down each request retries behind the last good copy, provided Netlify does not store
-  // the failed render (undocumented: check `cache-status` on a deploy). Their figures can also be
-  // up to a minute older than the render (`getCachedDataSource`).
+  // API is down a page that cannot render at all retries behind the last good copy, provided
+  // Netlify does not store the failed render (undocumented: check `cache-status` on a deploy).
+  // Their figures can also be up to a minute older than the render (`getCachedDataSource`).
   ...[
     "/",
     "/analytics",

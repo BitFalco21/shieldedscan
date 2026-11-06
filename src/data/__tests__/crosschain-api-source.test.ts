@@ -410,18 +410,18 @@ describe("the previous-window comparison", () => {
 });
 
 describe("retries", () => {
-  it("makes the same three attempts as the chain adapter before giving up on a 5xx", async () => {
+  it("shares the chain adapter's policy: one retry after a 502, then the answer", async () => {
     // Both adapters share one request() and therefore one retry policy.
     let calls = 0;
     vi.stubGlobal("fetch", async () => {
       calls += 1;
-      return new Response(calls < 3 ? "" : JSON.stringify({ nonsense: true }), {
-        status: calls < 3 ? 502 : 200,
+      return new Response(calls < 2 ? "" : JSON.stringify({ nonsense: true }), {
+        status: calls < 2 ? 502 : 200,
       });
     });
     const source = createCrossChainApiSource({ baseUrl: "https://api.example", token: "t" });
     await expect(source.getCrossChainFlows()).rejects.toThrow(/shape/);
-    expect(calls).toBe(3);
+    expect(calls).toBe(2);
   });
 });
 

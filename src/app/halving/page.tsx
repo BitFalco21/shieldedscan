@@ -37,16 +37,17 @@ export default async function Page() {
   // A transient upstream failure degrades the page to "unavailable" rather than an error page.
   // Only transient failures are caught; a shape error still throws.
   // The price map is optional: an empty map drops the price column.
-  const [schedule, dailyUsd]: [HalvingSchedule | null, Record<string, number>] = await Promise.all([
-    nullIfTransient(() => data.getHalvingSchedule()),
-    data.getDailyPriceMap().catch(() => ({})),
-  ]);
+  const [schedule, dailyUsd]: [HalvingSchedule | null, Record<string, number> | null] =
+    await Promise.all([
+      nullIfTransient(() => data.getHalvingSchedule()),
+      nullIfTransient(() => data.getDailyPriceMap()),
+    ]);
 
   // Nothing is estimated in its place: a countdown from a fallback would be a confident wrong
-  // date. ISR replaces this on the next successful revalidation.
+  // date. The next good render replaces this.
   if (schedule === null) {
-    return <DataUnavailable what="The halving schedule" refreshesWithin="a minute" />;
+    return <DataUnavailable what="The halving schedule" />;
   }
 
-  return <HalvingPage schedule={schedule} dailyUsd={dailyUsd} now={nowSeconds()} />;
+  return <HalvingPage schedule={schedule} dailyUsd={dailyUsd ?? {}} now={nowSeconds()} />;
 }

@@ -34,7 +34,7 @@ export default async function Page() {
     <NetworkTabPage shell={shell} tab="upgrade">
       {() =>
         releases === null ? (
-          <DataUnavailable what="The release record" refreshesWithin="a minute" />
+          <DataUnavailable what="The release record" />
         ) : (
           <UpgradePage releases={releases} />
         )

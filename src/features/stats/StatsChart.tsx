@@ -58,7 +58,7 @@ export function StatsChart({
   return (
     <div className="grid gap-3">
       {active === undefined ? (
-        <DataUnavailable what={`The ${range} ${unavailableNoun}`} refreshesWithin="15 minutes" />
+        <DataUnavailable what={`The ${range} ${unavailableNoun}`} />
       ) : (
         <MultiLineChart
           labels={active.map((p) => axisLabel(p.t, range))}

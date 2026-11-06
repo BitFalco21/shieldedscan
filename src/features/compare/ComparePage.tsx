@@ -117,7 +117,7 @@ export function ComparePage({ snapshot, selection }: ComparePageProps) {
       <CompareTabs active="comparison" />
 
       {snapshot === null ? (
-        <DataUnavailable what="Market capitalisations" refreshesWithin="a few minutes" />
+        <DataUnavailable what="Market capitalisations" />
       ) : selection.kind === "comparison" ? (
         <section
           className="flex flex-col gap-4"

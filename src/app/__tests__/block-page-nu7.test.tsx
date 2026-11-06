@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NU7_HEIGHT } from "@/domain";
 import { BlockDetailPage } from "@/features/blocks/BlockDetailPage";
 import { Nu7CountdownPage } from "@/features/blocks/nu7/Nu7CountdownPage";
+import { SubjectUnavailable } from "@/components/SubjectUnavailable";
 
 /**
  * `/block/[id]` answers the NU7 activation height with a countdown while that block does not
@@ -98,5 +99,24 @@ describe("/block/[id] when the block does not exist", () => {
     const element = await Page(props(String(NU7_HEIGHT - 1)));
     expect(element.props.nu7Blocks).toBeNull();
     expect(data.listBlocks).not.toHaveBeenCalled();
+  });
+});
+
+describe("/block/[id] at the activation height when the block could not be read", () => {
+  const timeout = () => Object.assign(new Error("timed out"), { name: "TimeoutError" });
+
+  it("says the block did not load, never the countdown or a 404", async () => {
+    data.getBlock.mockRejectedValue(timeout());
+    const element = await Page(props(String(NU7_HEIGHT)));
+    expect(element.type).toBe(SubjectUnavailable);
+    expect(data.listBlocks).not.toHaveBeenCalled();
+    expect(await generateMetadata(props(String(NU7_HEIGHT)))).toEqual({
+      title: `Block ${NU7_HEIGHT}`,
+    });
+  });
+
+  it("still throws on a shape error", async () => {
+    data.getBlock.mockRejectedValue(new Error("unrecognised block shape"));
+    await expect(Page(props(String(NU7_HEIGHT)))).rejects.toThrow(/unrecognised/);
   });
 });

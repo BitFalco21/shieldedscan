@@ -18,7 +18,7 @@ export interface NetworkTabPageProps {
  */
 export function NetworkTabPage({ shell, tab, children }: NetworkTabPageProps) {
   if (shell === null) {
-    return <DataUnavailable what="The node map" refreshesWithin="a minute" />;
+    return <DataUnavailable what="The node map" />;
   }
   return (
     <NetworkShell summary={shell.summary} crawls={shell.crawls} peers={shell.peers} tab={tab}>

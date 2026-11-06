@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { THEME_BOOT_SCRIPT, THEME_STORAGE_KEY } from "../theme";
+import { restoreStoredTheme, THEME_BOOT_SCRIPT, THEME_STORAGE_KEY } from "../theme";
 
 /**
  * The inline `<head>` script that stamps `data-theme` before first paint. It runs before
@@ -58,5 +58,33 @@ describe("THEME_BOOT_SCRIPT", () => {
 
   it("is small enough to inline — a head script is paid on every page view", () => {
     expect(THEME_BOOT_SCRIPT.length).toBeLessThan(400);
+  });
+});
+
+/**
+ * A page the browser renders itself (after a server render answered 500) gets the boot script as
+ * a React element, which never runs; `ThemeRestore` applies the same rule after mount.
+ */
+describe("restoreStoredTheme", () => {
+  it("stamps the stored theme when nothing has", () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, "amber");
+    restoreStoredTheme();
+    expect(document.documentElement.dataset.theme).toBe("amber");
+  });
+
+  it("leaves a theme the boot script already stamped alone", () => {
+    document.documentElement.dataset.theme = "ice";
+    window.localStorage.setItem(THEME_STORAGE_KEY, "amber");
+    restoreStoredTheme();
+    expect(document.documentElement.dataset.theme).toBe("ice");
+  });
+
+  it("stamps nothing for an unknown value or the default", () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'x" onload="alert(1)');
+    restoreStoredTheme();
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    window.localStorage.setItem(THEME_STORAGE_KEY, "green");
+    restoreStoredTheme();
+    expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 });

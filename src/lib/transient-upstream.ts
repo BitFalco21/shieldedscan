@@ -5,8 +5,8 @@
  * tripwire that must throw until the API serving a new field is live. Catching everything would
  * turn a skew into a permanent "temporarily unavailable" panel.
  *
- * Only an incomplete request (timeout, abort, connection failure, open circuit) or a 5xx is
- * transient. Everything else, such as a shape that does not parse, is rethrown.
+ * Only an incomplete request (timeout, abort, connection failure, open circuit), a 5xx or a 429
+ * is transient. Everything else, such as a shape that does not parse, is rethrown.
  */
 export function isTransientUpstream(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -15,10 +15,27 @@ export function isTransientUpstream(error: unknown): boolean {
   // The circuit breaker refusing a call while the API is known to be down: an outage stated
   // quickly, rendered exactly as the outage it stands in for.
   if (error.name === "UpstreamOpenError") return true;
-  // Node's fetch wraps connection failures in a TypeError with a cause.
-  if (error.name === "TypeError" && /fetch failed/i.test(error.message)) return true;
-  // The adapter's own message for a non-ok response: "chain API returned 503 for months".
-  return /returned 5\d\d for /.test(error.message);
+  // Node's fetch wraps connection failures in a TypeError with a cause, and a body cut off
+  // mid-read (a socket closed while `res.json()` streams) in one that reads "terminated".
+  if (error.name === "TypeError" && /fetch failed|^terminated$/i.test(error.message)) return true;
+  // The adapter's own message for a non-ok response: "chain API returned 503 for months". A 429
+  // is a rate limit (the keyless `/v1` routes have one): a wait, not a wrong contract.
+  return /returned (5\d\d|429)\b/.test(error.message);
+}
+
+/**
+ * The digest a transient failure carries out of the data source, so the error boundary can say
+ * "didn't load" instead of "something broke". Production withholds an error's message from the
+ * browser but not its digest, and Next keeps a digest the error already has.
+ */
+export const UPSTREAM_UNAVAILABLE_DIGEST = "UPSTREAM_UNAVAILABLE";
+
+/** Stamps the digest on a transient failure that has none; returns the error either way. */
+export function tagTransient(error: unknown): unknown {
+  if (isTransientUpstream(error) && error instanceof Error && !("digest" in error)) {
+    Object.assign(error, { digest: UPSTREAM_UNAVAILABLE_DIGEST });
+  }
+  return error;
 }
 
 /**

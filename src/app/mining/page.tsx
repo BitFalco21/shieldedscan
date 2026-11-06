@@ -39,7 +39,7 @@ export default async function Page({
     overview = await getDataSource().getMiningOverview(window);
   } catch (error) {
     if (!isTransientUpstream(error)) throw error;
-    return <DataUnavailable what="the mining overview" refreshesWithin="a minute" />;
+    return <DataUnavailable what="The mining overview" />;
   }
 
   return <MiningPage overview={overview} windowHref={windowHref} />;

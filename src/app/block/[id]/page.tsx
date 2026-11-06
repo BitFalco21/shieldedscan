@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDataSource } from "@/data";
+import { SubjectUnavailable } from "@/components/SubjectUnavailable";
 import { BlockDetailPage } from "@/features/blocks/BlockDetailPage";
 import { Nu7CountdownPage } from "@/features/blocks/nu7/Nu7CountdownPage";
 import {
@@ -25,17 +26,39 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  if (isNu7CountdownId(id, isTestnet) && !(await getDataSource().getBlock(id))) {
+  // Only a definite absence is the countdown: a read that failed keeps the plain title.
+  if (
+    isNu7CountdownId(id, isTestnet) &&
+    (await nullIfTransient(() => getDataSource().getBlock(id))) === undefined
+  ) {
     return { title: "NU7 countdown" };
   }
   return { title: `Block ${id}` };
 }
 
+/**
+ * The block is the page's subject: if it cannot be read, the page says so under the id rather
+ * than claiming it does not exist. Its transactions, the tip (confirmations, "next") and the
+ * oldest height ("previous") each degrade on their own.
+ */
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = getDataSource();
-  const block = await data.getBlock(id);
-  if (!block) {
+  const block = await nullIfTransient(() => data.getBlock(id));
+  if (block === null) {
+    return (
+      <SubjectUnavailable
+        breadcrumb={[
+          { label: "HOME", href: "/" },
+          { label: "BLOCKS", href: "/blocks" },
+          { label: "BLOCK" },
+        ]}
+        subject={id}
+        what="This block"
+      />
+    );
+  }
+  if (block === undefined) {
     // The activation height is opened before it exists; everything else missing is a 404.
     if (!isNu7CountdownId(id, isTestnet)) notFound();
     // `listBlocks`, coalesced and read from the index: this render is not cached, and
@@ -54,9 +77,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   }
   const isNu7 = block.height === NU7_HEIGHT && !isTestnet;
   const [txs, chain, oldestHeight, nu7Blocks] = await Promise.all([
-    data.getBlockTransactions(block),
-    data.getChainInfo(),
-    data.getOldestHeight(),
+    nullIfTransient(() => data.getBlockTransactions(block)),
+    nullIfTransient(() => data.getChainInfo()),
+    nullIfTransient(() => data.getOldestHeight()),
     // The activation block's page charts the first blocks after it: one keyset page ending at
     // the last of them, read from the index like any list. Optional: an outage drops the panel,
     // never the block.
@@ -74,7 +97,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     <BlockDetailPage
       block={block}
       txs={txs}
-      tipHeight={chain.height}
+      tipHeight={chain?.height ?? null}
       oldestHeight={oldestHeight}
       nu7Blocks={nu7Blocks}
     />

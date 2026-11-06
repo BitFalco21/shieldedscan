@@ -89,6 +89,9 @@ brand/          Reproducible generators for the site's brand assets.
     "unavailable"; shape errors throw, so version skew between API and frontend is loud. No page
     is rendered at build, so skew shows as a 500 on the deployed page, not a red build: check a
     deploy preview against the live API before publishing a change to a domain type.
+    Degrade, don't die: a failed optional read (`nullIfTransient`) costs only its section, which
+    says it did not load and offers a retry. A failed read of the page's subject (an address, a
+    transaction, a block) shows that subject over the same panel, never a not-found.
 17. **Deploy order: the API ships before a frontend that requires its new fields.** A change that
     only widens what the frontend accepts ships frontend-first.
 
@@ -110,8 +113,12 @@ brand/          Reproducible generators for the site's brand assets.
   the fresh window plus the stale window; a page that prints no height gets no stale window.
   `Netlify-Vary` names every query parameter the page reads: the plugin's default key names only
   `_rsc` and `__nextDataReq`.
-- A cached route has no `loading.tsx`: a streamed shell commits 200 before the data arrives, so a
-  failed render would be stored and served as a page. Without it a failure answers 500.
+- A cached route has no `loading.tsx`, and no layout holds a Suspense boundary: a streamed shell
+  commits 200 before the data arrives, so a failed render would be stored and served as a page.
+  Without it a failure answers 500, which rests on Netlify not storing a 5xx (undocumented;
+  check `cache-status` on one during an outage).
+- A page with a section that did not load is an ordinary 200 and may be shared for its fresh
+  window. It states no figure, and stale-while-revalidate replaces it on the next good render.
 - An outage must be cheap: a shared circuit breaker fails fast after repeated upstream failures,
   and live pollers back off.
 

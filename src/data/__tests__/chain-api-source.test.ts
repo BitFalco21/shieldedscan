@@ -3,7 +3,11 @@ import { blockSummaryOf, type Block } from "@/domain";
 import { readApiConfig, resetApiBreaker } from "../api-request";
 import { createChainApiSource } from "../chain-api-source";
 import { FilterNotAppliedError } from "../filter-not-applied";
-import { isTransientUpstream } from "@/lib/transient-upstream";
+import {
+  isTransientUpstream,
+  tagTransient,
+  UPSTREAM_UNAVAILABLE_DIGEST,
+} from "@/lib/transient-upstream";
 
 /**
  * The adapter's contract, tested against a stubbed `fetch`: which status codes mean
@@ -538,61 +542,139 @@ describe("a day with no recorded difficulty", () => {
 });
 
 /**
- * Retry on a transient upstream. List routes run without the fetch Data Cache, so a single
- * stall on the frontend→API path would otherwise render an error page. Retrying is narrow —
- * a stall or a 5xx, never a shape — so these tests pin both halves: a blip recovers, and
- * version skew is still loud on the first attempt.
+ * The retry policy. One deadline per request; a second attempt only when the first never reached
+ * the API (a connection failure or a 502), because aborting a fetch does not cancel the query
+ * behind it and re-issuing a slow one doubles the load that made it slow. A shape is never
+ * retried, so version skew is loud on the first attempt.
  */
-describe("transient upstream retry", () => {
-  /** Fails the first `failures` calls to `needle` with `mode`, then succeeds. */
-  function flaky(needle: string, failures: number, mode: "stall" | "500", body: unknown) {
+describe("upstream retry", () => {
+  const LIST = { items: [tx], nextCursor: null, prevCursor: null };
+  // An Error named as Node names it: jsdom's DOMException is not an Error, Node's is.
+  const timeout = () =>
+    Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+  const connectionFailure = (code: string) => new TypeError("fetch failed", { cause: { code } });
+
+  /** Answers `/chain/info` always; `/chain/transactions` with `failures` in turn, then `body`. */
+  function scripted(failures: (() => Promise<unknown>)[], body: unknown = LIST) {
     let seen = 0;
     return vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes("/chain/info") && !needle.includes("/chain/info")) {
+      if (String(url).includes("/chain/info")) {
         return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(facts) });
       }
-      if (String(url).includes(needle) && seen < failures) {
-        seen += 1;
-        if (mode === "500") {
-          return Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) });
-        }
-        const err = new Error("The operation was aborted due to timeout");
-        err.name = "TimeoutError";
-        return Promise.reject(err);
-      }
+      const failure = failures[seen];
+      seen += 1;
+      if (failure) return failure();
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
     });
   }
+  const status = (code: number) => () =>
+    Promise.resolve({ ok: false, status: code, json: () => Promise.resolve({}) });
+  const listCalls = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.filter(([u]) => String(u).includes("/chain/transactions")).length;
+  const list = () => createChainApiSource(config).listTransactions({ limit: 25 }, "all", null);
 
-  it("recovers from a single stall rather than showing the error page", async () => {
-    const fetchMock = flaky("/chain/transactions", 1, "stall", {
-      items: [tx],
-      nextCursor: null,
-      prevCursor: null,
-    });
+  it("does NOT re-issue a request that timed out: it may be a slow query still running", async () => {
+    const fetchMock = scripted([() => Promise.reject(timeout())]);
     vi.stubGlobal("fetch", fetchMock);
-    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all", null);
-    expect(page.items).toHaveLength(1);
+    await expect(list()).rejects.toThrow(/timeout/);
+    expect(listCalls(fetchMock)).toBe(1);
   });
 
-  it("recovers from a 5xx, which is the upstream failing rather than answering", async () => {
-    const fetchMock = flaky("/chain/transactions", 2, "500", {
-      items: [tx],
-      nextCursor: null,
-      prevCursor: null,
+  it.each(["ECONNRESET", "ECONNREFUSED", "UND_ERR_SOCKET", "ENOTFOUND"])(
+    "retries once after a connection failure (%s) and recovers",
+    async (code) => {
+      const fetchMock = scripted([() => Promise.reject(connectionFailure(code))]);
+      vi.stubGlobal("fetch", fetchMock);
+      expect((await list()).items).toHaveLength(1);
+      expect(listCalls(fetchMock)).toBe(2);
+    },
+  );
+
+  it("recognises a connection failure reported for several addresses at once", async () => {
+    const aggregate = new TypeError("fetch failed", {
+      cause: new AggregateError([{ code: "ECONNREFUSED" }, { code: "ECONNREFUSED" }]),
     });
+    const fetchMock = scripted([() => Promise.reject(aggregate)]);
     vi.stubGlobal("fetch", fetchMock);
-    const page = await createChainApiSource(config).listTransactions({ limit: 25 }, "all", null);
-    expect(page.items).toHaveLength(1);
+    expect((await list()).items).toHaveLength(1);
+    expect(listCalls(fetchMock)).toBe(2);
+  });
+
+  it("does NOT retry a fetch failure that is not a connection failure", async () => {
+    // A headers timeout is the server taking too long: the same case as a timeout.
+    const fetchMock = scripted([
+      () => Promise.reject(connectionFailure("UND_ERR_HEADERS_TIMEOUT")),
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(list()).rejects.toThrow(/fetch failed/);
+    expect(listCalls(fetchMock)).toBe(1);
+  });
+
+  it("retries once after a 502, the proxy failing to reach the API, and recovers", async () => {
+    const fetchMock = scripted([status(502)]);
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await list()).items).toHaveLength(1);
+    expect(listCalls(fetchMock)).toBe(2);
+  });
+
+  it.each([500, 503, 504])(
+    "does NOT retry a %i: the API answered, and is failing",
+    async (code) => {
+      const fetchMock = scripted([status(code)]);
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(list()).rejects.toThrow(new RegExp(`returned ${code}`));
+      expect(listCalls(fetchMock)).toBe(1);
+    },
+  );
+
+  it("retries at most once, so a dead upstream cannot be retried forever", async () => {
+    const fetchMock = scripted(
+      Array(9).fill(() => Promise.reject(connectionFailure("ECONNREFUSED"))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(list()).rejects.toThrow(/fetch failed/);
+    expect(listCalls(fetchMock)).toBe(2);
   });
 
   it("gives up and REJECTS on a persistent outage — an outage is never data", async () => {
     // The alternative would be an empty list, which reads as "the chain is empty".
-    const fetchMock = flaky("/chain/transactions", 99, "stall", {});
+    vi.stubGlobal("fetch", scripted([status(502), status(502)]));
+    await expect(list()).rejects.toThrow(/returned 502/);
+  });
+
+  it("spends one 9 s deadline across both attempts, and skips a retry it could not finish", async () => {
+    const budgets: number[] = [];
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      budgets.push(ms);
+      return realTimeout(ms);
+    });
+    let clock = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+
+    // The first failure lands 3 s in: the retry gets what is left.
+    const fetchMock = scripted([
+      () => {
+        clock += 3_000;
+        return Promise.reject(connectionFailure("ECONNRESET"));
+      },
+    ]);
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
-    ).rejects.toThrow();
+    await list();
+    expect(budgets).toEqual([9_000, 6_000]);
+
+    // A failure 8.5 s in leaves too little for a retry to finish: no second attempt.
+    budgets.length = 0;
+    const late = scripted([
+      () => {
+        clock += 8_500;
+        return Promise.reject(connectionFailure("ECONNRESET"));
+      },
+    ]);
+    vi.stubGlobal("fetch", late);
+    await expect(list()).rejects.toThrow(/fetch failed/);
+    expect(listCalls(late)).toBe(1);
+    vi.restoreAllMocks();
   });
 
   it("does NOT retry a 404: it is an answer, and means the resource is absent", async () => {
@@ -606,23 +688,15 @@ describe("transient upstream retry", () => {
   it("does NOT retry a bad shape, so version skew stays loud on the first attempt", async () => {
     const fetchMock = stub(200, { items: [{ nope: true }] }, { "/chain/info": facts });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
-    ).rejects.toThrow(/unrecognised/i);
-    const calls = fetchMock.mock.calls.filter(([u]) => String(u).includes("/chain/transactions"));
-    expect(calls).toHaveLength(1);
+    await expect(list()).rejects.toThrow(/unrecognised/i);
+    expect(listCalls(fetchMock)).toBe(1);
   });
 
-  it("bounds the attempts, so a stalled upstream cannot be retried forever", async () => {
-    // The budget is three attempts of four seconds — a 12 s worst case — so a dead upstream
-    // cannot hold a function open indefinitely.
-    const fetchMock = flaky("/chain/transactions", 99, "stall", {});
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      createChainApiSource(config).listTransactions({ limit: 25 }, "all", null),
-    ).rejects.toThrow();
-    const calls = fetchMock.mock.calls.filter(([u]) => String(u).includes("/chain/transactions"));
-    expect(calls).toHaveLength(3);
+  it("stamps an escaping transient failure with the unavailable digest; a shape error keeps none", async () => {
+    vi.stubGlobal("fetch", scripted([() => Promise.reject(timeout())]));
+    const transient = await list().catch((e: unknown) => e);
+    expect(tagTransient(transient)).toMatchObject({ digest: UPSTREAM_UNAVAILABLE_DIGEST });
+    expect(tagTransient(new Error("unrecognised shape"))).not.toHaveProperty("digest");
   });
 });
 
@@ -743,7 +817,7 @@ describe("circuit breaker — an outage costs milliseconds, not seconds", () => 
       await expect(source.getChainFacts()).rejects.toThrow();
     }
     const before = fetchMock.mock.calls.length;
-    expect(before).toBe(9); // three requests × three attempts, the retry rule intact
+    expect(before).toBe(3); // three requests, none retried: a 503 is the API answering
     await expect(source.getChainFacts()).rejects.toThrow(/circuit open/);
     expect(fetchMock.mock.calls.length).toBe(before);
   });

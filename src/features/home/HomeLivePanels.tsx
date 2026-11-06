@@ -40,17 +40,21 @@ const MAX_PANEL_ROWS = 8;
  */
 function panelRows<T>(
   live: readonly T[],
-  server: readonly T[],
+  server: readonly T[] | null,
   idOf: (row: T) => string,
   sortKeyOf: (row: T) => number,
-): T[] {
+): T[] | null {
+  // A panel whose rows did not load stays unavailable: the feed alone cannot say how many rows
+  // the panel should hold.
+  if (server === null) return null;
   return displayRows(live, server, { idOf, sortKeyOf, size: server.length });
 }
 
+/** Each list is null when it could not be read: its panel says so and the feed leaves it alone. */
 export interface HomeLivePanelsProps {
-  latestBlocks: BlockSummary[];
-  latestTxs: Transaction[];
-  latestTransfers: CrossChainTransfer[];
+  latestBlocks: BlockSummary[] | null;
+  latestTxs: Transaction[] | null;
+  latestTransfers: CrossChainTransfer[] | null;
   /** The tip timestamp from the server render — the fallback until the first poll lands. */
   now: number;
 }
@@ -66,7 +70,11 @@ export function HomeLivePanels({
     kind: "all",
     mode: "window",
     cap: MAX_PANEL_ROWS,
-    server: { blocks: latestBlocks, transactions: latestTxs, transfers: latestTransfers },
+    server: {
+      blocks: latestBlocks ?? [],
+      transactions: latestTxs ?? [],
+      transfers: latestTransfers ?? [],
+    },
   });
 
   /*

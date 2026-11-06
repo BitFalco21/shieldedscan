@@ -53,7 +53,7 @@ export default async function Page() {
   if (series === null || series.length === 0) {
     return (
       <div className="pt-10">
-        <DataUnavailable what="The monthly activity series" refreshesWithin="the hour" />
+        <DataUnavailable what="The monthly activity series" />
       </div>
     );
   }

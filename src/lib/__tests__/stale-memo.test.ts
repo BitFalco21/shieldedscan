@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStaleMemo } from "../stale-memo";
 
-const options = { ttlMs: 1_000, failureCooldownMs: 100, unavailableMessage: "unavailable" };
+const options = { ttlMs: 1_000, failureCooldownMs: 100 };
 
 afterEach(() => {
   vi.useRealTimers();
@@ -40,12 +40,14 @@ describe("createStaleMemo", () => {
   it("rejects with nothing to fall back on, and does not retry inside the cooldown", async () => {
     vi.useFakeTimers();
     const memo = createStaleMemo<number>(options);
-    const failing = vi.fn(() => Promise.reject(new Error("down")));
-    await expect(memo.get(failing)).rejects.toThrow("down");
-    await expect(memo.get(failing)).rejects.toThrow("unavailable");
+    const down = Object.assign(new Error("timed out"), { name: "TimeoutError" });
+    const failing = vi.fn(() => Promise.reject(down));
+    await expect(memo.get(failing)).rejects.toBe(down);
+    // The same failure, not a new one: a timeout stays a timeout for the caller to classify.
+    await expect(memo.get(failing)).rejects.toBe(down);
     expect(failing).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(100);
-    await expect(memo.get(failing)).rejects.toThrow("down");
+    await expect(memo.get(failing)).rejects.toBe(down);
     expect(failing).toHaveBeenCalledTimes(2);
   });
 

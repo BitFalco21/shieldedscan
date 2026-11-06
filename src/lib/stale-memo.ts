@@ -6,7 +6,9 @@
  * - Concurrent callers share one in-flight load.
  * - A failed load is remembered for `failureCooldownMs`, so an outage costs one timeout rather
  *   than one per render; meanwhile the last good value is served, however old.
- * - A failure is never cached as a value: with nothing good to fall back on, `get` rejects.
+ * - A failure is never cached as a value: with nothing good to fall back on, `get` rejects, and
+ *   during the cooldown it rejects with that same failure, so a caller can still tell an outage
+ *   (rendered "unavailable") from a wrong shape (thrown).
  *
  * Only for values where staleness is harmless (a past daily close, which chains exist).
  */
@@ -19,30 +21,28 @@ export interface StaleMemo<T> {
 export interface StaleMemoOptions {
   ttlMs: number;
   failureCooldownMs: number;
-  /** The error a caller sees while cooling down with no previous value to serve. */
-  unavailableMessage: string;
 }
 
 export function createStaleMemo<T>(options: StaleMemoOptions): StaleMemo<T> {
   let cache: { at: number; value: T } | null = null;
   let inflight: Promise<T> | null = null;
-  let failedAt = 0;
+  let failure: { at: number; error: unknown } | null = null;
 
   return {
     async get(load) {
       if (cache && Date.now() - cache.at < options.ttlMs) return cache.value;
-      if (Date.now() - failedAt < options.failureCooldownMs) {
+      if (failure && Date.now() - failure.at < options.failureCooldownMs) {
         if (cache) return cache.value;
-        throw new Error(options.unavailableMessage);
+        throw failure.error;
       }
       inflight ??= load()
         .then((value) => {
           cache = { at: Date.now(), value };
-          failedAt = 0;
+          failure = null;
           return value;
         })
         .catch((err: unknown) => {
-          failedAt = Date.now();
+          failure = { at: Date.now(), error: err };
           throw err;
         })
         .finally(() => {
@@ -59,7 +59,7 @@ export function createStaleMemo<T>(options: StaleMemoOptions): StaleMemo<T> {
     reset() {
       cache = null;
       inflight = null;
-      failedAt = 0;
+      failure = null;
     },
   };
 }

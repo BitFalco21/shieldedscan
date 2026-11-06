@@ -30,26 +30,61 @@ export function resetApiBreaker(): void {
 }
 
 /**
- * The upstream budget, spent as three chances rather than one.
+ * The upstream budget: one deadline per request, and a second attempt only when the first
+ * provably never reached the API.
  *
- * List routes run without the fetch Data Cache so they are always current, which means
- * every view makes several upstream calls and a single stall on the frontend→API path would
- * render the error page. Such stalls happen occasionally while the API itself answers in
- * well under a second.
+ * A request without an answer is never re-issued. Aborting a fetch does not cancel the query
+ * behind it, so re-issuing a slow one runs it twice on an API that is slow because it is busy.
+ * A slow answer inside the deadline lands; a shorter per-attempt timeout would abort it and run
+ * the same query again beside the first.
  *
- * `ATTEMPT_TIMEOUT_MS * MAX_ATTEMPTS` keeps the worst-case wait at 12 seconds, spent as
- * three attempts; a stalled connection rarely completes, so a retry usually resolves fast.
+ * A connection that fails outright (refused, reset, closed, DNS) or a 502 (the proxy could not
+ * reach the API; it sets no response timeout, so a 502 never means a query still running) is
+ * retried once with what is left of the deadline: a dead keep-alive socket fails at once and the
+ * retry gets a fresh one. A connection that stalls silently cannot be told from a slow query, so
+ * it waits out the deadline like one.
  *
- * Retrying cannot fabricate: only `isTransientUpstream` failures are retried, so a shape
- * error propagates on the first attempt (the version-skew tripwire), and a persistent outage
- * still rejects.
+ * Retrying cannot fabricate: a shape error propagates on the first attempt (the version-skew
+ * tripwire), and an outage still rejects.
  */
-const ATTEMPT_TIMEOUT_MS = 4_000;
-const MAX_ATTEMPTS = 3;
-/** Short, because what is being retried is a stall rather than a busy upstream. */
+const DEADLINE_MS = 9_000;
+/** Below this, a retry could not get an answer in time and would only add load. */
+const MIN_RETRY_BUDGET_MS = 1_000;
 const RETRY_BACKOFF_MS = 100;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** undici's codes for a connection that failed before any answer could arrive. */
+const CONNECTION_FAILURE_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
+
+function errorCode(value: unknown): string | null {
+  if (typeof value !== "object" || value === null || !("code" in value)) return null;
+  return typeof value.code === "string" ? value.code : null;
+}
+
+/**
+ * Did this fetch fail at the connection, before the API could answer? Judged by the cause's
+ * code rather than the message: Node wraps every network failure as "fetch failed". A
+ * multi-address connect reports an AggregateError whose members carry the codes.
+ */
+function isConnectionFailure(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false;
+  const cause: unknown = error.cause;
+  const code = errorCode(cause);
+  if (code !== null) return CONNECTION_FAILURE_CODES.has(code);
+  return (
+    cause instanceof AggregateError &&
+    cause.errors.some((member: unknown) => CONNECTION_FAILURE_CODES.has(errorCode(member) ?? ""))
+  );
+}
 
 export async function apiRequest(
   config: ApiRequestConfig,
@@ -59,7 +94,7 @@ export async function apiRequest(
   // An identifier must never climb out of the route it was put in (see `hasDotSegment`).
   if (hasDotSegment(path)) throw new Error(`refusing an API path with a dot segment: ${path}`);
   // Refuses at once while the API is known to be down. The breaker counts failed requests,
-  // not attempts, so a single stall is still absorbed by the retries below.
+  // not attempts, so a connection blip is still absorbed by the retry below.
   apiBreaker.assertClosed(path);
   try {
     const res = await attemptRequest(config, path, revalidate);
@@ -78,35 +113,37 @@ async function attemptRequest(
   path: string,
   revalidate: number,
 ): Promise<Response> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+  const deadline = Date.now() + DEADLINE_MS;
+  for (let attempt = 1; ; attempt += 1) {
+    const remaining = deadline - Date.now();
+    let res: Response;
     try {
-      const res = await fetch(`${config.baseUrl}${path}`, {
+      res = await fetch(`${config.baseUrl}${path}`, {
         headers: { authorization: `Bearer ${config.token}` },
-        signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(remaining),
         next: { revalidate },
       });
-      /*
-       * A 5xx is the upstream failing rather than answering, so it earns another attempt.
-       * Every other status is returned for the caller to interpret — including 404, which on
-       * this API means "does not exist". 429 is not retried either: `/chain/*` with a token is
-       * unthrottled, so a 429 there is a real instruction to back off.
-       */
-      if (res.status >= 500 && attempt < MAX_ATTEMPTS) {
-        lastError = new Error(`chain API returned ${res.status} for ${path}`);
-        await sleep(RETRY_BACKOFF_MS * attempt);
+    } catch (err) {
+      if (attempt === 1 && isConnectionFailure(err) && canRetry(deadline)) {
+        await sleep(RETRY_BACKOFF_MS);
         continue;
       }
-      // Any answer that is not a server failure — a 404 included — is the API alive.
-      if (res.status < 500) apiBreaker.recordSuccess();
-      return res;
-    } catch (err) {
-      // Anything that is not a stall or a 5xx is a contract problem: rethrow at once, so
-      // version skew stays loud instead of being retried into a merely slower failure.
-      if (!isTransientUpstream(err) || attempt === MAX_ATTEMPTS) throw err;
-      lastError = err;
-      await sleep(RETRY_BACKOFF_MS * attempt);
+      throw err;
     }
+    if (res.status === 502 && attempt === 1 && canRetry(deadline)) {
+      await sleep(RETRY_BACKOFF_MS);
+      continue;
+    }
+    /*
+     * Every other status is returned for the caller to interpret: 404 means "does not exist",
+     * any other 5xx is rejected by the caller as an outage. 429 is not retried: `/chain/*`
+     * with a token is unthrottled, so a 429 there is a real instruction to back off.
+     */
+    if (res.status < 500) apiBreaker.recordSuccess();
+    return res;
   }
-  throw lastError instanceof Error ? lastError : new Error(`chain API unreachable for ${path}`);
+}
+
+function canRetry(deadline: number): boolean {
+  return deadline - Date.now() - RETRY_BACKOFF_MS >= MIN_RETRY_BUDGET_MS;
 }

@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { CommandPalette } from "@/components/CommandPalette";
 import { DismissPopovers } from "@/components/DismissPopovers";
+import { ThemeRestore } from "@/components/ThemeRestore";
 import { TestnetBanner } from "@/components/TestnetBanner";
 import { Zeno } from "@/features/agent/Zeno";
 import { ZenoBubble } from "@/features/agent/bubble/ZenoBubble";
@@ -121,6 +122,7 @@ export default function RootLayout({
         {/* Closes `<details data-popover>` menus on an outside click or Escape. Pure
             enhancement: with no JavaScript they still open and still choose. */}
         <DismissPopovers />
+        <ThemeRestore />
       </body>
     </html>
   );
