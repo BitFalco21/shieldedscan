@@ -12,6 +12,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { MEMPOOL_TXID, SHIELDED_TXID, TIP_HEIGHT, TRANSPARENT_ADDR } from "./surface";
+import { MINING_POOLS } from "../src/domain/mining-pools";
 
 const mainText = (page: Page) => page.locator("main").innerText();
 
@@ -81,11 +82,14 @@ test.describe("block detail", () => {
   test("the miner is a transparent address or an honest 'shielded'", async ({ page }) => {
     // Zcash has no miner field; it is derived from the coinbase. A coinbase carrying a
     // shielded bundle must say shielded rather than naming a funding stream as the miner.
+    // A reviewed pool name may stand in for the address (`MINING_POOLS`).
     await page.goto(`/block/${TIP_HEIGHT}`);
     const text = await mainText(page);
     const miner = text.match(/MINER[\s\S]{0,60}/i)?.[0] ?? "";
+    const poolNames = Object.values(MINING_POOLS).map((p) => p.name);
     expect(
-      /t[13][a-zA-Z0-9]{6,}|shielded|unknown/i.test(miner),
+      /t[13][a-zA-Z0-9]{6,}|shielded|unknown/i.test(miner) ||
+        poolNames.some((name) => miner.includes(name)),
       `MINER reads "${miner.replace(/\s+/g, " ")}"`,
     ).toBe(true);
   });

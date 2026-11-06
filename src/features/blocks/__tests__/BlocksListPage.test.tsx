@@ -55,6 +55,17 @@ describe("BlocksListPage miner column", () => {
     expect(link.getAttribute("href")).toBe("/address/t1TheMiner");
   });
 
+  it("names a labelled payout address by its pool, linking to the address", () => {
+    const address = "t1SqwRAAdSig6dE4EBPLonAait219VmkUjP";
+    renderWith({ kind: "transparent", address });
+    const link = screen.getByRole("link", { name: "Foundry USA" });
+    expect(link.getAttribute("href")).toBe(`/address/${address}`);
+    expect(link.getAttribute("title")).toBe(address);
+    expect(document.querySelector("img[data-mining-pool-logo]")?.getAttribute("src")).toBe(
+      "/ecosystem/logos/foundry.png",
+    );
+  });
+
   it("redacts a shielded coinbase instead of leaving the cell empty", () => {
     renderWith({ kind: "shielded" });
     const redaction = screen.getByRole("img", { name: /miner shielded/ });

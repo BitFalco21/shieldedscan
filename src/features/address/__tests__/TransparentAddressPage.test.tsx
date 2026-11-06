@@ -109,6 +109,42 @@ describe("the name-tag chip", () => {
   });
 });
 
+describe("a mining pool's payout address", () => {
+  const renderAt = (address: string) =>
+    render(
+      <TransparentAddressPage
+        info={{ ...info, address }}
+        txs={[]}
+        now={1_785_000_000}
+        newerHref={null}
+        olderHref={null}
+        newestHref={null}
+        oldestHref={null}
+        priceUsd={null}
+      />,
+    );
+
+  it("carries the pool's name and logo in the name-tag chip", () => {
+    const { container } = renderAt("t1PEp2GJLSdhDfCKqc2J211WKDUS1NfoQNy");
+    const chip = container.querySelector("[data-name-tag]");
+    expect(chip?.textContent).toBe("F2Pool");
+    expect(chip?.firstElementChild?.getAttribute("src")).toBe("/ecosystem/logos/f2pool.png");
+    expect(container.querySelector("[data-address-flag]")).toBeNull();
+  });
+
+  it("falls back to the tag icon for a pool with no logo", () => {
+    const { container } = renderAt("t1cQA9Rxn31tqHcgZzydrpDjgsQGmjpBgpB");
+    const chip = container.querySelector("[data-name-tag]");
+    expect(chip?.textContent).toBe("Mining-Dutch");
+    expect(chip?.firstElementChild?.hasAttribute("data-label-icon")).toBe(true);
+  });
+
+  it("prints no basis or evidence beside the name", () => {
+    const { container } = renderAt("t1SqwRAAdSig6dE4EBPLonAait219VmkUjP");
+    expect(container.textContent).not.toMatch(/coinbase-tag|pool-published|block list|sampled/i);
+  });
+});
+
 describe("the flag banner", () => {
   const renderAt = (address: string) =>
     render(

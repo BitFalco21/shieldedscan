@@ -21,9 +21,12 @@ export const TIP_TIME = 1_783_875_480; // 2026-07-12 ~17:38 UTC
  * Coinbase payees. Three pools take turns mining the fixture chain, and each block also
  * pays the three Canopy funding streams — the era `TIP_HEIGHT` sits in. Streams are `t3`
  * (P2SH) because that is what they are on mainnet.
+ *
+ * The first two are real pool payout addresses in `MINING_POOL_LABELS`, one with a logo and one
+ * without, so the MINER column renders a named pool both ways beside an unnamed address.
  */
-export const ADDR_MINER = "t1MinerPoolPayoutFixture000001";
-export const ADDR_MINER_B = "t1SecondPoolPayoutFixture00002";
+export const ADDR_MINER = "t1SqwRAAdSig6dE4EBPLonAait219VmkUjP";
+export const ADDR_MINER_B = "t1e6hceYHkzCbwcwGZzKeMfXXW7x7gr19Cw";
 export const ADDR_MINER_C = "t1SoloMinerPayoutFixture000003";
 export const ADDR_FS_FOUNDATION = "t3FoundationStreamFixture00001";
 export const ADDR_FS_BOOTSTRAP = "t3BootstrapStreamFixture000001";

@@ -1,8 +1,9 @@
 import Link from "@/components/Link";
-import { addressLabel } from "@/domain";
+import { addressLabel, miningPoolOf } from "@/domain";
 import { CopyButton } from "@/components/CopyButton";
 import { HashLink } from "@/components/HashLink";
 import { LabelIcon } from "@/components/LabelIcon";
+import { MiningPoolMark } from "@/components/MiningPoolMark";
 
 export interface AddressLinkProps {
   address: string;
@@ -10,13 +11,18 @@ export interface AddressLinkProps {
   edge?: number;
   /** Render a copy button carrying the full address. */
   copyable?: boolean;
+  /**
+   * The address is shown as a block's payout, so a mining pool's name applies to it. Off
+   * everywhere else: a pool's name stays out of the histories of the addresses it pays.
+   */
+  asMiner?: boolean;
 }
 
 /**
  * A transparent address, shown by name where one is known and by its elided form otherwise.
  *
  * The one place that decides this: a page asks this component and never asks `addressLabel`
- * and formats the answer itself, so every page names an address the same way.
+ * or `miningPoolOf` and formats the answer itself, so every page names an address the same way.
  *
  * A name is an attribution and the address is the fact underneath it, so three things survive
  * the substitution:
@@ -26,13 +32,20 @@ export interface AddressLinkProps {
  *  - the copy button still copies the address. A name is a string no wallet, node or explorer
  *    can consume.
  *
- * The label's basis is recorded on every entry (`domain/address-label.ts`) but not rendered.
+ * The label's basis is recorded on every entry (`domain/address-label.ts`,
+ * `domain/mining-pools.ts`) but not rendered.
  *
  * Stays a Server Component: only `CopyButton` crosses the client boundary.
  */
-export function AddressLink({ address, edge = 4, copyable = false }: AddressLinkProps) {
-  const label = addressLabel(address);
-  if (!label) {
+export function AddressLink({
+  address,
+  edge = 4,
+  copyable = false,
+  asMiner = false,
+}: AddressLinkProps) {
+  const miningPool = asMiner ? miningPoolOf(address) : null;
+  const name = miningPool?.name ?? addressLabel(address)?.name;
+  if (name === undefined) {
     return (
       <HashLink
         value={address}
@@ -47,13 +60,17 @@ export function AddressLink({ address, edge = 4, copyable = false }: AddressLink
   // its copy button would spread to opposite ends of the row.
   return (
     <span className="inline-flex min-w-0 items-center">
-      <LabelIcon className="mr-1 text-green-dim" />
+      {miningPool ? (
+        <MiningPoolMark miningPool={miningPool} className="mr-1.5" />
+      ) : (
+        <LabelIcon className="mr-1 text-green-dim" />
+      )}
       <Link
         href={`/address/${address}`}
         title={address}
         className="truncate text-green hover:underline"
       >
-        {label.name}
+        {name}
       </Link>
       {copyable ? <CopyButton value={address} label="address" /> : null}
     </span>

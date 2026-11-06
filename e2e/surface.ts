@@ -18,6 +18,8 @@ export const SPROUT_TXID = "750b0dc0".padEnd(64, "0");
 /** Fully shielded Orchard z->z transaction still in the mempool, from src/fixtures/mempool.ts. */
 export const MEMPOOL_TXID = "dead01".padEnd(64, "0");
 export const TRANSPARENT_ADDR = "t1XWk29dAliceFixtureAddr000001";
+/** A real pool payout address the fixture chain mines to, named "Foundry USA" with a logo. */
+export const POOL_PAYOUT_ADDR = "t1SqwRAAdSig6dE4EBPLonAait219VmkUjP";
 export const SHIELDED_ADDR = "zs1exampleshieldedsaplingaddressfixture0000000000000001";
 /**
  * The site's own donation address (src/lib/donation.ts) — a REAL unified address, so
@@ -38,6 +40,8 @@ export const ROUTES: readonly string[] = [
   `/tx/${SPROUT_TXID}`,
   `/tx/${MEMPOOL_TXID}`,
   `/address/${TRANSPARENT_ADDR}`,
+  // A mining pool's payout address: the name-tag chip with a logo in it.
+  `/address/${POOL_PAYOUT_ADDR}`,
   `/address/${SHIELDED_ADDR}`,
   `/address/${UNIFIED_ADDR}`,
   "/shielded",

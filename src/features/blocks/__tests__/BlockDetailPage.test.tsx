@@ -180,6 +180,22 @@ describe("named addresses on a block", () => {
     expect(screen.getAllByRole("link", { name: "ZIP-271 Disbursement Multisig" }).length).toBe(1);
   });
 
+  it("names a pool's payout address by the pool, as the blocks list does", () => {
+    const address = "t1L2b66MXbgpVMXDfUa94GCBFAN4dCxGohM";
+    renderPage({ miner: { kind: "transparent", address } });
+    const link = screen.getByRole("link", { name: "AntPool" });
+    expect(link.getAttribute("href")).toBe(`/address/${address}`);
+    expect(link.getAttribute("title")).toBe(address);
+  });
+
+  it("does not name a pool's address that is only a funding-stream payee", () => {
+    // A pool name applies where the address is the miner; anywhere else it is an address.
+    renderPage({
+      fundingStreams: [{ address: "t1L2b66MXbgpVMXDfUa94GCBFAN4dCxGohM", valueZat: 1 }],
+    });
+    expect(screen.queryByRole("link", { name: "AntPool" })).toBeNull();
+  });
+
   it("leaves an unattributed address as an address", () => {
     renderPage({ miner: { kind: "transparent", address: "t1TheMiner" } });
     expect(screen.getByRole("link", { name: /t1TheMiner/ })).toBeDefined();
