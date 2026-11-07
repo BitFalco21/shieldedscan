@@ -1,12 +1,7 @@
 import {
-  CHART_RANGES,
-  chartRangeDays,
-  DAY_SECONDS,
   isOneOf,
   MAX_PLOT_SERIES,
   parseSeriesSpec,
-  parseUtcDayStart,
-  PLOT_EPOCH_DAY,
   PLOT_FAMILIES,
   PLOT_SCALES,
   PLOT_TYPES,
@@ -19,6 +14,7 @@ import {
   type PlotType,
 } from "@/domain";
 import { closestForUnknown, type ChartRefusal } from "./chart-refusal";
+import { parseDayWindow } from "./day-window";
 
 /**
  * `make_chart`'s arguments, validated. The model chooses only WHAT to plot: series specs from closed
@@ -45,8 +41,6 @@ export interface ChartRequest {
   /** The trailing preset asked for, or null for an absolute window. */
   range: ChartRange | null;
 }
-
-const RANGE_VALUES = CHART_RANGES.map((r) => r.value);
 
 const refuse = (
   reason: ChartRefusal["reason"],
@@ -91,9 +85,7 @@ export function parseChartArgs(
     );
   }
 
-  const today = Math.floor(nowMs / 1000 / DAY_SECONDS) * DAY_SECONDS;
-  const epoch = parseUtcDayStart(PLOT_EPOCH_DAY)!;
-  const window = parseWindow(args, today, epoch, series);
+  const window = parseDayWindow(args, nowMs, (patch) => ({ series, ...patch }));
   if (isRefusal(window)) return window;
 
   return { series, type, scale, ...window };
@@ -146,71 +138,4 @@ function parseSeries(raw: unknown): PlotSeriesSpec[] | ChartRefusal {
     );
   }
   return specs;
-}
-
-function parseWindow(
-  args: Record<string, unknown>,
-  today: number,
-  epoch: number,
-  series: PlotSeriesSpec[],
-): Pick<ChartRequest, "fromDay" | "toDay" | "range"> | ChartRefusal {
-  const tomorrow = today + DAY_SECONDS;
-  const lastMonth = { series, range: "30d" };
-  if (args.range !== undefined) {
-    if (args.from !== undefined || args.to !== undefined) {
-      return refuse(
-        "bad-parameter",
-        "use range for a trailing window OR from/to for an absolute one, never both",
-      );
-    }
-    if (typeof args.range !== "string" || !isOneOf(RANGE_VALUES, args.range)) {
-      return refuse("bad-parameter", `range must be one of ${RANGE_VALUES.join(", ")}`);
-    }
-    const days = chartRangeDays(args.range);
-    return {
-      fromDay: days === null ? epoch : today - days * DAY_SECONDS,
-      toDay: tomorrow,
-      range: args.range,
-    };
-  }
-  if (args.from === undefined) {
-    if (args.to !== undefined) {
-      return refuse("bad-parameter", "to needs a from — or use range for a trailing window");
-    }
-    // The site's own default range: the whole series.
-    return { fromDay: epoch, toDay: tomorrow, range: "all" };
-  }
-  const day = (key: "from" | "to"): number | ChartRefusal => {
-    const value = args[key];
-    const parsed = typeof value === "string" ? parseUtcDayStart(value.trim()) : null;
-    return parsed ?? refuse("bad-parameter", `${key} must be a real UTC day as YYYY-MM-DD`);
-  };
-  const fromDay = day("from");
-  if (isRefusal(fromDay)) return fromDay;
-  const toDay = args.to === undefined ? tomorrow : day("to");
-  if (isRefusal(toDay)) return toDay;
-  if (fromDay >= tomorrow) {
-    return refuse("window", "that window is in the future: nothing has been measured there yet", {
-      closest: [lastMonth],
-    });
-  }
-  if (toDay <= fromDay) {
-    return refuse(
-      "window",
-      "to must be after from — and it is EXCLUSIVE, so a whole month ends on the 1st of the next",
-    );
-  }
-  if (fromDay < epoch) {
-    return refuse("window", `from must be on or after ${PLOT_EPOCH_DAY}, Zcash's launch`, {
-      closest: [
-        { series, from: PLOT_EPOCH_DAY, ...(args.to === undefined ? {} : { to: args.to }) },
-      ],
-    });
-  }
-  if (toDay > tomorrow) {
-    return refuse("window", "to must not be in the future: nothing has been measured there yet", {
-      closest: [{ series, from: args.from }],
-    });
-  }
-  return { fromDay, toDay, range: null };
 }

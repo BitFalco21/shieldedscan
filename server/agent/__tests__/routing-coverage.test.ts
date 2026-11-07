@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAKE_CHART_PARAMETERS } from "../tools/chart-definition";
+import { EXPORT_DATA_PARAMETERS } from "../tools/export-definition";
 import { AgentTools, TOOL_NAMES, type ToolName } from "../tools";
 import { ALL_CASES } from "../evals/cases";
 import { makeChain, makeV1, FIXTURE_NOW_MS, TXID } from "../testing/fixture-world";
@@ -454,6 +455,9 @@ describe("a tool description names the quantities its payload carries", () => {
       // last, extremes, change), none of them a quantity a description must name; the series
       // themselves are each drawn by the catalogue sweep in `chart-tool.test.ts`.
       ...enumValuesOf(MAKE_CHART_PARAMETERS).map((v) => `make_chart:${v}`),
+      // export_data: the model reads the file's columns as the export layer declares them, not a
+      // payload of quantities; every family and window is swept by `export-tool.test.ts`.
+      ...enumValuesOf(EXPORT_DATA_PARAMETERS).map((v) => `export_data:${v}`),
     ]);
     const unexcused = missing.filter((m) => !shapeOnly.has(m));
     expect(

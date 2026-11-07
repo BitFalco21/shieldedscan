@@ -37,9 +37,10 @@ export const MCP_EXCLUDED_PARAMS: Readonly<Record<string, readonly string[]>> = 
 /**
  * Parameters no tool offers, on any endpoint. `cursor` pages forward and is all a model needs;
  * `before` is its older spelling and `after` pages backwards, and describing both on every list
- * would cost tokens in every conversation.
+ * would cost tokens in every conversation. `format` returns a file for a person to save; a tool
+ * reads the answer itself.
  */
-export const MCP_EXCLUDED_PARAMS_EVERYWHERE: readonly string[] = ["before", "after"];
+export const MCP_EXCLUDED_PARAMS_EVERYWHERE: readonly string[] = ["before", "after", "format"];
 
 /**
  * Endpoints no tool reads, each with its reason. A documented endpoint is otherwise reachable
@@ -49,6 +50,8 @@ export const MCP_EXCLUDED_ENDPOINTS: Readonly<Record<string, string>> = {
   status: "the same live facts as `chain_info`, under an older name",
   circulating:
     "a bare decimal for price aggregators; `supply` carries the same figure with its context",
+  "address-export":
+    "a file for a person to save; the address tool's transactions view pages the same history",
 };
 
 export interface McpViewTool {

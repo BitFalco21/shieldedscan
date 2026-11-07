@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { coreRouteErrors, rejectUnknownParams, setCache } from "./http";
+import { exportsDescriptor } from "./export/describe";
 
 export const V1_VERSION = "1.0.0-beta";
 
@@ -40,6 +41,13 @@ export const V1_EXPENSIVE_LIMITS = {
     perIpSustained: { events: 10, windowSeconds: 60 },
     globalCeiling: { events: 120, windowSeconds: 60 },
   },
+  // An address's whole history as a file: a walk of up to the export's row cap.
+  addressExport: {
+    appliesTo: ["/v1/addresses/{address}/export"],
+    perIpBurst: { events: 1, windowSeconds: 1 },
+    perIpSustained: { events: 5, windowSeconds: 60 },
+    globalCeiling: { events: 60, windowSeconds: 60 },
+  },
 } as const;
 
 /**
@@ -50,6 +58,39 @@ export const V1_EXPENSIVE_LIMITS = {
 export function v1DescriptorRoutes(extensionEndpoints: readonly string[]): Hono {
   const app = new Hono();
   app.onError(coreRouteErrors);
+  const endpoints = [
+    "GET /v1",
+    "GET /v1/status",
+    "GET /v1/supply",
+    "GET /v1/supply/circulating",
+    "GET /v1/network/fees",
+    "GET /v1/network/halving",
+    "GET /v1/prices/daily",
+    "GET /v1/chain",
+    "GET /v1/blocks",
+    "GET /v1/blocks/{heightOrHash}",
+    "GET /v1/blocks/{heightOrHash}/transactions",
+    "GET /v1/addresses/{address}",
+    "GET /v1/addresses/{address}/transactions",
+    "GET /v1/rich-list",
+    "GET /v1/rich-list/distribution",
+    "GET /v1/labels",
+    "GET /v1/search",
+    "GET /v1/transactions",
+    "GET /v1/transactions/{txid}",
+    "GET /v1/transactions/{txid}/privacy",
+    "GET /v1/crosschain/transfers",
+    "GET /v1/crosschain/transfers/top",
+    "GET /v1/crosschain/transfers/{id}",
+    "GET /v1/crosschain/flows",
+    "GET /v1/crosschain/destinations",
+    "GET /v1/reorgs",
+    "GET /v1/reorgs/summary",
+    "GET /v1/mempool/summary",
+    "GET /v1/analytics/monthly",
+    "GET /v1/reference",
+    ...extensionEndpoints.map((p) => `GET ${p}`),
+  ];
   app.get("/v1", (c) => {
     rejectUnknownParams(c, []);
     setCache(c, "descriptor");
@@ -75,39 +116,8 @@ export function v1DescriptorRoutes(extensionEndpoints: readonly string[]): Hono 
         pagination: "opaque keyset cursors (nextCursor/prevCursor); no totals, no page numbers",
         shares: "every percentage is {pct, numerator, denominator}",
       },
-      endpoints: [
-        "GET /v1",
-        "GET /v1/status",
-        "GET /v1/supply",
-        "GET /v1/supply/circulating",
-        "GET /v1/network/fees",
-        "GET /v1/network/halving",
-        "GET /v1/prices/daily",
-        "GET /v1/chain",
-        "GET /v1/blocks",
-        "GET /v1/blocks/{heightOrHash}",
-        "GET /v1/blocks/{heightOrHash}/transactions",
-        "GET /v1/addresses/{address}",
-        "GET /v1/addresses/{address}/transactions",
-        "GET /v1/rich-list",
-        "GET /v1/rich-list/distribution",
-        "GET /v1/labels",
-        "GET /v1/search",
-        "GET /v1/transactions",
-        "GET /v1/transactions/{txid}",
-        "GET /v1/transactions/{txid}/privacy",
-        "GET /v1/crosschain/transfers",
-        "GET /v1/crosschain/transfers/top",
-        "GET /v1/crosschain/transfers/{id}",
-        "GET /v1/crosschain/flows",
-        "GET /v1/crosschain/destinations",
-        "GET /v1/reorgs",
-        "GET /v1/reorgs/summary",
-        "GET /v1/mempool/summary",
-        "GET /v1/analytics/monthly",
-        "GET /v1/reference",
-        ...extensionEndpoints.map((p) => `GET ${p}`),
-      ],
+      endpoints,
+      exports: exportsDescriptor(endpoints),
       refused: [
         {
           path: "viewing-key anything",

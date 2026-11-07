@@ -54,6 +54,8 @@ export interface GradeInput {
    * case that asserts on charts fails when it is absent rather than passing unobserved.
    */
   chartsShown?: number;
+  /** How many `export` events the turn emitted; optional for the same reason as `chartsShown`. */
+  exportsShown?: number;
 }
 
 /** One semantic property a person must decide, carried to the dump with its answer. */
@@ -143,6 +145,15 @@ export function gradeAnswer(testCase: EvalCase, ctx: GradeInput): Grade {
     else if (testCase.mustChart === true && ctx.chartsShown === 0) failures.push("drew no chart");
     else if (testCase.mustNotChart === true && ctx.chartsShown > 0) {
       failures.push(`drew ${ctx.chartsShown} chart(s) for a question words answer`);
+    }
+  }
+  // A file likewise, from the events: a refused `export_data` call offers nothing.
+  if (testCase.mustExport === true || testCase.mustNotExport === true) {
+    if (ctx.exportsShown === undefined) failures.push("files were not observed");
+    else if (testCase.mustExport === true && ctx.exportsShown === 0)
+      failures.push("offered no file");
+    else if (testCase.mustNotExport === true && ctx.exportsShown > 0) {
+      failures.push(`offered ${ctx.exportsShown} file(s) where none should be`);
     }
   }
 

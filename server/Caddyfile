@@ -150,6 +150,30 @@ api.shieldedscan.xyz, shieldedscan-api.duckdns.org {
 		}
 	}
 
+	# One transparent address's whole history as a file (`server/v1/export/address-route.ts`), up
+	# to its row cap. Also inside @v1. The app runs one at a time on connections of its own, paced
+	# to half their time, and refuses the rest before touching the database; these keep one IP
+	# from queueing behind itself and bound the refusals. The route carries the same pattern and a
+	# test holds the two together.
+	@v1_address_export path_regexp ^/v1/addresses/[^/]+/export$
+	rate_limit @v1_address_export {
+		zone v1_address_export_ip {
+			key {remote_host}
+			events 5
+			window 1m
+		}
+		zone v1_address_export_burst {
+			key {remote_host}
+			events 1
+			window 1s
+		}
+		zone v1_address_export_global {
+			key v1_address_export
+			events 60
+			window 1m
+		}
+	}
+
 	# ------------------------------------------------------------------ /mcp
 	#
 	# The public MCP server: every tool is one /v1 read dispatched in-process, so a call here does

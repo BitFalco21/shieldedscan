@@ -1,6 +1,7 @@
 import { POOL_MIGRATION_DESTINATIONS, POOL_MIGRATION_SOURCES, POOL_NAMES } from "@/domain";
 import { REFERENCE_TOPIC_NAMES } from "../reference";
 import { MAKE_CHART_DESCRIPTION, MAKE_CHART_PARAMETERS } from "./chart-definition";
+import { EXPORT_DATA_DESCRIPTION, EXPORT_DATA_PARAMETERS } from "./export-definition";
 import { MAX_ZIP_PICKS, ZIP_SECTION_IDS } from "../zip-index";
 import type { ToolName } from "./names";
 import {
@@ -449,5 +450,7 @@ export function toolDefinitions() {
       },
       ["expressions"],
     ),
+    // Last, so an agent without it (`AGENT_EXPORTS_ENABLED=0`) offers byte-for-byte the list before it.
+    def("export_data", EXPORT_DATA_DESCRIPTION, EXPORT_DATA_PARAMETERS, ["family"]),
   ];
 }

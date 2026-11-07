@@ -36,6 +36,11 @@ export const API_CONVENTIONS = [
     body: "Every analytics answer with a list of periods (or of cross-chain groups) takes `sort` (a numeric field path inside one period, such as `transactions.total`), `order`, `top` and `fields`. A ranked answer carries `data.ranking`: what it ranked by, how many periods were considered, how many were left out because the field was null there — a null is never ranked as zero — and `tiedAtTop`, which above 1 means there is no single first. Ranking and trimming apply to the same cached answer, so they cost nothing extra; an unknown field path is a 400 that lists the valid ones.",
   },
   {
+    id: "exports",
+    title: "Any series or list as a file",
+    body: "Add `format=csv` (or `format=json`, the same table with its provenance) to an analytics series, a list page, `/v1/supply` or `/v1/prices/daily`. Columns name their unit (`_zat` integer zatoshi, `_utc` ISO time); an empty cell is NULL, never 0. `X-Source` is the exact call, `X-Data-Height` and `X-Data-Through` how fresh it is; a list exports one page and names the next in `Link`. One address's whole history is `/v1/addresses/{address}/export`. Cross-chain data is not exportable yet. Example: `curl -fo pools.csv 'https://api.shieldedscan.xyz/v1/analytics/pools?interval=day&from=2026-01-01&to=2026-11-01&format=csv'`",
+  },
+  {
     id: "cors",
     title: "Callable from a browser",
     body: "`Access-Control-Allow-Origin: *` on every response, with `ETag`, `Retry-After` and `X-Request-Id` exposed to scripts. There is no key to leak, so there is nothing to protect by refusing cross-origin reads — the try-it panels on this page are ordinary `fetch` calls from your browser, sent nowhere else.",

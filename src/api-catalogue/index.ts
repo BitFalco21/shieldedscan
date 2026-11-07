@@ -22,6 +22,7 @@ import { CROSSCHAIN_GROUP } from "./groups/crosschain";
 import { REORGS_GROUP } from "./groups/reorgs";
 import { MEMPOOL_GROUP } from "./groups/mempool";
 import { ANALYTICS_GROUP } from "./groups/analytics";
+import { withFormatParam } from "./exports";
 import type { ApiEndpoint, ApiGroup } from "./types";
 
 export type * from "./types";
@@ -32,7 +33,7 @@ export { API_ERRORS } from "./errors";
 export { API_RATE_LIMITS } from "./rate-limits";
 
 /** Every documented endpoint, by group, in the order the reference and the MCP server list them. */
-export const API_GROUPS: ApiGroup[] = [
+export const API_GROUPS: ApiGroup[] = withFormatParam([
   CHAIN_GROUP,
   RICH_LIST_GROUP,
   META_GROUP,
@@ -45,7 +46,7 @@ export const API_GROUPS: ApiGroup[] = [
   REORGS_GROUP,
   MEMPOOL_GROUP,
   ANALYTICS_GROUP,
-];
+]);
 
 /**
  * The one-line curl a reader copies, built from the endpoint's own pinned examples.

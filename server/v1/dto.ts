@@ -56,7 +56,11 @@ export interface V1Error {
       | "method_not_allowed"
       | "rate_limited"
       | "upstream_unavailable"
-      | "internal";
+      | "internal"
+      /** `format` on an endpoint whose data may not leave as a file (cross-chain swaps). */
+      | "not_exportable"
+      /** An address export past its row cap; the body names the count, the cap and the dataset. */
+      | "export_too_large";
     message: string;
   };
   requestId: string;

@@ -7,7 +7,8 @@ import type { ChainRequester } from "../agent/tools";
 import type { BearerAuth } from "../auth";
 import { PostgresFxRates } from "../fx-rates";
 import { createPool } from "../pg-pool";
-import { AGENT_CHARTS_ENABLED, DATABASE_URL, USE_POSTGRES } from "./config";
+import { promptVersion } from "../agent/prompt";
+import { AGENT_CHARTS_ENABLED, AGENT_EXPORTS_ENABLED, DATABASE_URL, USE_POSTGRES } from "./config";
 
 /** The answer to an in-process request whose path contains a `.` or `..` segment. */
 function dotSegmentRefusal(): Response {
@@ -92,9 +93,10 @@ export function mountAgent(
       apiKey: inferenceKey,
       provider: inferenceProvider,
       charts: AGENT_CHARTS_ENABLED,
+      exports: AGENT_EXPORTS_ENABLED,
     }),
   );
   log(
-    `AGENT mounted — ${inferenceProvider.model} @ ${inferenceProvider.id}, daily budget ${dailyTokenBudget} tokens, keyless, Caddy-limited, charts ${AGENT_CHARTS_ENABLED ? "on" : "off"}`,
+    `AGENT mounted — ${inferenceProvider.model} @ ${inferenceProvider.id}, daily budget ${dailyTokenBudget} tokens, keyless, Caddy-limited, charts ${AGENT_CHARTS_ENABLED ? "on" : "off"}, exports ${AGENT_EXPORTS_ENABLED ? "on" : "off"}, prompt v${promptVersion(AGENT_EXPORTS_ENABLED)}`,
   );
 }

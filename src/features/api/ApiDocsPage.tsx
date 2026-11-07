@@ -202,7 +202,7 @@ function EndpointSection({ endpoint }: { endpoint: ApiEndpoint }) {
           {endpoint.notes?.map((note) => (
             <p
               key={note}
-              className="border-l-2 border-edge-faint pl-3 text-xs leading-relaxed text-ink-faint"
+              className="border-l-2 border-edge-faint pl-3 text-xs leading-relaxed wrap-anywhere text-ink-faint"
             >
               <Prose text={note} />
             </p>
@@ -355,7 +355,7 @@ export function ApiDocsPage() {
               {API_CONVENTIONS.map((convention) => (
                 <Panel key={convention.id} density="compact">
                   <h3 className="text-sm font-bold text-ink">{convention.title}</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-ink-dim">
+                  <p className="mt-1.5 text-xs leading-relaxed wrap-anywhere text-ink-dim">
                     <Prose text={convention.body} />
                   </p>
                 </Panel>

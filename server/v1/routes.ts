@@ -69,6 +69,7 @@ import { v1ReferenceRoutes } from "./reference";
 import { v1DescriptorRoutes } from "./descriptor";
 import { v1PriceRoutes } from "./prices";
 import { v1CrossChainRoutes, venueHealthReader } from "./crosschain";
+import { exportLayer } from "./export/layer";
 import { encodeCursor } from "@/data/cursor";
 import {
   toMempoolSummary,
@@ -282,6 +283,8 @@ export function v1Routes(deps: V1Deps): Hono {
   const labelsMemo = new Cached<LabelledBalances>(60_000);
   for (const middleware of v1Middleware()) app.use("/v1/*", middleware);
   app.use("/v1", ...v1Middleware());
+  // After the stack above, so a file is written before its ETag is computed.
+  app.use("/v1/*", exportLayer());
 
   const venueHealth = venueHealthReader(deps.store, deps.enabledProtocols);
 

@@ -16,11 +16,16 @@ export const API_ERRORS: ApiErrorRow[] = [
   {
     status: "400",
     meaning:
-      "Bad request — including any query parameter the endpoint does not define. `?cachebust=x` is a 400 by design, not a cache miss.",
+      "Bad request — including any query parameter the endpoint does not define. `?cachebust=x` is a 400 by design, not a cache miss. `format` on an endpoint with no file is one too; on cross-chain data its code is `not_exportable`.",
   },
   {
     status: "404",
     meaning: "The block, transaction or transfer does not exist. Never used for outages.",
+  },
+  {
+    status: "422",
+    meaning:
+      "An address export past its 10,000-transaction cap (`export_too_large`). The body carries the count and a DuckDB query over the open dataset that returns the same rows.",
   },
   {
     status: "429",

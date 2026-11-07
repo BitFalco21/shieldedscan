@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/CopyButton";
-import { chartKey } from "@/domain";
+import { chartKey, exportKey } from "@/domain";
 import { AgentChart } from "./AgentChart";
+import { AgentExport } from "./AgentExport";
 import { AnswerMarkdown } from "./AnswerMarkdown";
 import { AgentSources } from "./AgentSources";
 import { AgentTrail } from "./AgentTrail";
@@ -107,6 +108,10 @@ export function AgentExchange({
                 answer's end, so they never draw beside a half-written sentence. */}
             {exchange.charts.map((chart) => (
               <AgentChart key={chartKey(chart)} chart={chart} />
+            ))}
+            {/* Its data files, after the charts: the answer says what each holds. */}
+            {exchange.exports.map((card) => (
+              <AgentExport key={exportKey(card)} card={card} />
             ))}
           </div>
         )}

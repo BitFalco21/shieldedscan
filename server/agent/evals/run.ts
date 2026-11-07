@@ -167,6 +167,7 @@ async function runCase(testCase: EvalCase): Promise<CaseResult> {
   let rawAnswer = "";
   let tokens = 0;
   let chartsShown = 0;
+  let exportsShown = 0;
 
   const events: AsyncGenerator<AgentEvent> = runAgentTurn(
     {
@@ -210,6 +211,8 @@ async function runCase(testCase: EvalCase): Promise<CaseResult> {
         toolsCalled.push(event.data.tool);
       } else if (event.event === "chart") {
         chartsShown += 1;
+      } else if (event.event === "export") {
+        exportsShown += 1;
       }
       // `narration` text is not folded into `answer`: it is trail text, and grading it as the
       // answer would grade prose no visitor reads as one.
@@ -237,6 +240,7 @@ async function runCase(testCase: EvalCase): Promise<CaseResult> {
     rawAnswer,
     toolsCalled,
     chartsShown,
+    exportsShown,
   });
 
   return {

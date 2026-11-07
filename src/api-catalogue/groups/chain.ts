@@ -463,6 +463,60 @@ export const CHAIN_GROUP: ApiGroup = {
 }`,
     },
     {
+      id: "address-export",
+      method: "GET",
+      path: "/v1/addresses/{address}/export",
+      title: "An address's whole history, as a file",
+      description:
+        "Every transaction of one transparent address, oldest first, as CSV (the default) or JSON: what each paid the address, what its inputs spent, the net, and the fee. Up to 10,000 transactions; past that the answer is a 422 with the count and a ready DuckDB query over the open dataset.",
+      params: [
+        {
+          name: "address",
+          kind: "path",
+          type: "t1… | t3…",
+          required: true,
+          description: "A transparent address. A shielded one has no public history.",
+          example: "t1a7HnBdsBSvkGZQXD5vPYqoWRvnpG555Jy",
+        },
+        {
+          name: "format",
+          kind: "query",
+          type: "csv | json",
+          required: false,
+          description: "Default csv.",
+        },
+      ],
+      exampleResponse: `{
+  "dataset": "address-transactions-history",
+  "request": "https://api.shieldedscan.xyz/v1/addresses/t1a7HnBdsBSv…/export?format=json",
+  "dataHeight": 3447900,
+  "transactions": 812,
+  "columns": [
+    { "name": "block_height", "type": "int", "empty": [] },
+    { "name": "sent_zat", "type": "zat", "empty": ["indeterminate"] }
+  ],
+  "rows": [
+    {
+      "block_height": 1188632,
+      "block_time_utc": "2020-12-06T00:00:00Z",
+      "txid": "658732282e2e…",
+      "tx_kind": "transparent",
+      "received_zat": 98421356000,
+      "sent_zat": 0,
+      "net_zat": 98421356000,
+      "tx_fee_zat": 10000
+    }
+  ],
+  "rowCount": 812,
+  "unknowns": {}
+}`,
+      notes: [
+        "CSV columns: `block_height,block_time_utc,txid,tx_kind,received_zat,sent_zat,net_zat,tx_fee_zat`. An empty cell is NULL, never 0.",
+        "`curl -fo history.csv https://api.shieldedscan.xyz/v1/addresses/t1a7HnBdsBSvkGZQXD5vPYqoWRvnpG555Jy/export` — `-f` makes a refusal fail instead of saving the error as the file.",
+        "A transfer that breaks off (a failure, or the 60-second limit) ends without its last chunk, so curl reports it incomplete: a short file never looks whole.",
+      ],
+    },
+    {
       id: "address-activity",
       method: "GET",
       path: "/v1/addresses/{address}/activity",

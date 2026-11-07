@@ -4,7 +4,7 @@ import { etag } from "hono/etag";
 import { requestId } from "hono/request-id";
 import { NodeRpcError } from "../node-rpc";
 import type { V1Error } from "./dto";
-import { ParamError, acceptedParams } from "./params";
+import { ParamError, acceptedParams, isUnknownParam } from "./params";
 
 /**
  * The cross-cutting HTTP layer /v1 needs and the private API deliberately lacks.
@@ -132,7 +132,7 @@ export function routeGroupErrors(upstreamMessage: string) {
  */
 export function rejectUnknownParams(c: Context, allowed: readonly string[]): void {
   const supplied = Object.keys(c.req.query());
-  const unknown = supplied.filter((key) => !allowed.includes(key));
+  const unknown = supplied.filter((key) => isUnknownParam(key, allowed));
   if (unknown.length === 0) return;
   throw new ParamError(
     "unknown_parameter",
@@ -198,7 +198,20 @@ export function v1Middleware() {
       origin: "*",
       allowMethods: ["GET", "HEAD", "OPTIONS"],
       allowHeaders: ["Accept", "Content-Type", "If-None-Match"],
-      exposeHeaders: ["ETag", "Retry-After", "X-Request-Id"],
+      // The export headers too: a script reading a file's provenance or next page is cross-origin.
+      exposeHeaders: [
+        "ETag",
+        "Retry-After",
+        "X-Request-Id",
+        "Content-Disposition",
+        "Link",
+        "X-Source",
+        "X-Data-Height",
+        "X-Data-Through",
+        "X-As-Of",
+        "X-Truncated",
+        "X-Coverage",
+      ],
       maxAge: 86400,
       credentials: false,
     }),
