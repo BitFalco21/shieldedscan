@@ -74,8 +74,8 @@ front of it: the per-address rate limits live in `server/Caddyfile`, not in the 
 - **Disk: plan for 250 GB free, on an SSD.** About 150 GB stays in use once the import is done:
   the transparent ledger is about 130 GB with its indexes, transactions about 9 GB, blocks about
   2 GB, everything else under 2 GB. Building the indexes needs about 40 GB more for a while. The
-  download is 20–27 GB; each file is deleted once its rows are in. The space is needed where
-  Docker keeps its volumes (`docker info --format '{{.DockerRootDir}}'`).
+  download is about 13.4 GB (the release of 2026-11-07); each file is deleted once its rows are in.
+  The space is needed where Docker keeps its volumes (`docker info --format '{{.DockerRootDir}}'`).
 - **RAM: 8 GB at least, 16 GB recommended.**
 - **Time:** a few hours on a machine with 8 cores and NVMe storage; longer on slower disks or a
   slow connection.
@@ -105,9 +105,17 @@ What only a node can answer is "unavailable" (HTTP 503), never a guess:
 The day-by-day tables stop at the release's final day, three days before the release block's day.
 `block.received_at` stays NULL: it is when our node first saw a block, not chain data.
 
-Empty unless you run their collectors: prices and FX rates, market caps, cross-chain swaps, the
-network map, social posts. `EXTERNAL_SOURCES=1` lets the API poll market caps, swap venues, the ZIP
-index and names, and with a node prices too. The assistant is off: it needs a model host's key.
+## Prices and other off-chain data
+
+Prices are not chain data, so the dataset does not carry them (the price sources' terms do not allow
+republishing). Your API fetches them itself: on first start it loads the daily ZEC/USD close back
+to 2016 and the currency rates, in a few minutes, with no key and no node, and refreshes them daily.
+Every USD figure and price chart fills in from them. It also polls market caps, swap venues, the ZIP
+index and names. The live price on the home page needs a node as well. `EXTERNAL_SOURCES=0` turns
+all of this off: the box then calls no third party, and USD figures stay empty.
+
+Empty unless you run their collectors: cross-chain swap history, the network map, social posts.
+The assistant is off: it needs a model host's key.
 
 ## The tables
 
