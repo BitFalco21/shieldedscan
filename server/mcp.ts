@@ -116,6 +116,16 @@ interface McpTool {
 }
 
 /**
+ * Tool names a client may still call that no longer appear in `tools/list`, each mapped to the tool
+ * and view that answer it now. A partner that hard-coded a name keeps working, and the alias costs
+ * nothing in the definitions every conversation pays for. `analytics_miners` became the `miners`
+ * tool's `addresses` view when the mining pools joined it.
+ */
+export const MCP_TOOL_ALIASES: Readonly<Record<string, { tool: string; view: string }>> = {
+  analytics_miners: { tool: "miners", view: "addresses" },
+};
+
+/**
  * The size a tool result may reach before it is refused with a message instead: a safety net
  * beneath the exclusions above, set well above the largest legitimate result (a year of daily pool
  * balances). A refusal the model can read and narrow beats a result that silently fills its
@@ -469,12 +479,15 @@ export function mcpRoutes(deps: McpDeps): Hono {
   }
 
   async function callTool(c: Context, id: JsonRpcId, params: Record<string, unknown>) {
-    const name = params.name;
+    const asked = params.name;
+    const alias = typeof asked === "string" ? MCP_TOOL_ALIASES[asked] : undefined;
+    const name = alias?.tool ?? asked;
     const entry = typeof name === "string" ? byName.get(name) : undefined;
-    if (entry === undefined) return rpcError(id, -32602, `unknown tool: ${String(name)}`);
-    const args = (
+    if (entry === undefined) return rpcError(id, -32602, `unknown tool: ${String(asked)}`);
+    const given = (
       typeof params.arguments === "object" && params.arguments !== null ? params.arguments : {}
     ) as Record<string, unknown>;
+    const args = alias ? { ...given, view: alias.view } : given;
     const target = requestPath(entry.spec, args);
     // A bad argument is a tool error the model can read and correct, not a protocol error.
     if ("error" in target) {

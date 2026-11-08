@@ -26,8 +26,8 @@ import {
 /**
  * The `/miners` page's reads, memoised, and the private routes that serve them, token-gated like
  * every `/chain/*` route and answering in domain types. The public `/v1/analytics/mining-pools`
- * and `/v1/analytics/nsm` read the same reader (`server/v1/mining-pools.ts`), so the page and the
- * API state one set of figures from one set of queries.
+ * and `/v1/analytics/nsm` build the same reader (`server/v1/mining-pools.ts`), so the page and the
+ * API read one set of queries; each holds its own memo, so they can differ by one memo window.
  *
  * Each read is memoised 10 minutes per key: every window holds today, which moves, and the reads
  * are small (`miners-overview.ts`). A window that is not open answers the default and says so in

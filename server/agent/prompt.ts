@@ -19,17 +19,18 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 44;
+export const SYSTEM_PROMPT_VERSION = 45;
 
 /**
  * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
  * runs the same text less the data-file section, and its results must name that text.
  *
  * v42 is v40 asked to look up once and together, with the rolling 24-hour count routed to
- * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it). v43 without
- * exports and v44 with them add the mining pools and the NSM to `chain_activity`.
+ * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it). v44 without
+ * exports and v45 with them add the mining pools and the NSM to `chain_activity`; each number is
+ * new, so no version names two texts.
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 43;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 44;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>

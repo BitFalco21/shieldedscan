@@ -1,3 +1,4 @@
+import { MINING_POOLS } from "@/domain/mining-pools";
 import type { ApiGroup } from "../types";
 
 /**
@@ -283,7 +284,7 @@ export const MINING_GROUP: ApiGroup = {
         {
           name: "pool",
           kind: "path",
-          type: "viabtc | foundry | f2pool | luxor | 2miners | antpool | kupool | kryptex | nicehash | mining-dutch | zec-mining-pool",
+          type: Object.keys(MINING_POOLS).join(" | "),
           required: true,
           description: "The pool's id.",
           example: "foundry",

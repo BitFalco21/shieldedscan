@@ -9,6 +9,7 @@ import {
   MCP_PROTOCOL_VERSIONS,
   MAX_TOOL_TEXT_BYTES,
   MCP_RATE_LIMITS,
+  MCP_TOOL_ALIASES,
   THIRD_PARTY_TEXT_NOTICE,
   mcpRoutes,
   requestPath,
@@ -16,6 +17,9 @@ import {
 import { Hono } from "hono";
 import { MemoryStorePort } from "../crosschain-store";
 import { REFERENCE_TOPIC_LIST } from "../v1/reference";
+import { V1_MINERS_PATH, v1MinersRoutes } from "../v1/miners";
+import { MINER_WINDOW } from "../agent/testing/fixture-world";
+import type { Pool } from "pg";
 import { v1Routes } from "../v1/routes";
 
 /**
@@ -278,6 +282,60 @@ describe("the protocol", () => {
 });
 
 describe("tools/call", () => {
+  it("still answers a renamed tool's old name, unlisted, exactly as its new home does", async () => {
+    // analytics_miners became the `miners` tool's `addresses` view; a partner that hard-coded the
+    // old name must get the same answer, and the name must cost nothing in tools/list.
+    const app = mcpRoutes({
+      v1: v1Routes({
+        store: new MemoryStorePort(),
+        enabledProtocols: {},
+        extensions: [
+          {
+            routes: v1MinersRoutes({
+              pool: {} as Pool,
+              now: () => Date.UTC(2026, 7, 3),
+              load: async () => MINER_WINDOW,
+            }),
+            endpoints: [V1_MINERS_PATH],
+          },
+        ],
+      }),
+      version: "test",
+    });
+    const send = async (body: unknown) =>
+      (
+        await (
+          await app.request(MCP_PATH, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              accept: "application/json, text/event-stream",
+            },
+            body: JSON.stringify(body),
+          })
+        ).json()
+      ).result;
+    const args = { from: "2026-07-01", to: "2026-08-01", limit: 3 };
+    const old = await send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "analytics_miners", arguments: args },
+    });
+    const now = await send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "miners", arguments: { ...args, view: "addresses" } },
+    });
+    expect(old.isError).toBeUndefined();
+    expect(old).toEqual(now);
+    const listed = await send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const names = listed.tools.map((t: { name: string }) => t.name);
+    for (const alias of Object.keys(MCP_TOOL_ALIASES)) expect(names).not.toContain(alias);
+    for (const { tool } of Object.values(MCP_TOOL_ALIASES)) expect(names).toContain(tool);
+  });
+
   it("returns the /v1 response itself, as text and as structured content", async () => {
     const res = await call("descriptor");
     expect(res.body.result.isError).toBeUndefined();

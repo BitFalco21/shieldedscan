@@ -1,3 +1,4 @@
+import { MINING_POOLS } from "@/domain/mining-pools";
 import { API_BASE_URL, API_GROUPS, type ApiEndpoint } from "./index";
 
 /**
@@ -116,7 +117,7 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
       addresses: "analytics-miners",
     },
     params: {
-      pool: "A pool id: viabtc, foundry, f2pool, luxor, 2miners, antpool, kupool, kryptex, nicehash, mining-dutch, zec-mining-pool. Required for view=pool; view=series also takes unattributed, shielded, no-address.",
+      pool: `A pool id: ${Object.keys(MINING_POOLS).join(", ")}. Required for view=pool; view=series also takes unattributed, shielded, no-address.`,
       limit: "view=pool: blocks, 1-20 (20). view=addresses: addresses, 1-100 (25).",
     },
   },

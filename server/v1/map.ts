@@ -89,6 +89,7 @@ import type {
   V1BlockCount,
   V1MinerRow,
   V1MiningPool,
+  V1MiningPoolAddress,
   V1MiningPoolBlock,
   V1MiningPools,
   V1MiningPoolSeries,
@@ -943,6 +944,16 @@ function miningCoverage(o: MinersOverview): V1MiningPools["coverage"] {
 export const MINING_POOLS_BASIS =
   "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30 or 90 UTC days, today unfinished; nothing before `historyFrom` is read, and longer windows are not served until one stored block's miner is repaired.";
 
+/**
+ * How a pool's payout address was reviewed. Every address grouped into a pool has a label, so a
+ * missing one is a programming error: it throws rather than claim the strongest evidence.
+ */
+function reviewedBasis(address: string): V1MiningPoolAddress["basis"] {
+  const label = MINING_POOL_LABELS[address];
+  if (label === undefined) throw new Error(`no reviewed label for pool address ${address}`);
+  return label.basis;
+}
+
 /** One pool's figures over the window, from the overview's labelled rows. */
 function poolSummary(
   g: MiningPoolGroup,
@@ -965,7 +976,7 @@ function poolSummary(
     valueUsd: valueUsd(g.rewardZat, g.usd, livePriceUsd, `${path}.valueUsd`, unknowns),
     addresses: g.addresses.map((r, i) => ({
       ...minerRow(r, o.blocks, `${path}.addresses.${i}`, unknowns),
-      basis: MINING_POOL_LABELS[r.address]?.basis ?? "pool-published",
+      basis: reviewedBasis(r.address),
     })),
   };
 }
@@ -1121,6 +1132,7 @@ export function toMiningPoolSeries(
       ? { id, name: MINING_POOLS[id as MiningPoolId].name, kind: "mining-pool" }
       : { id, name: SERIES_GROUP_NAME[id]!, kind: SERIES_GROUP_KIND[id]! },
   );
+  const byCell = new Map(s.points.map((x) => [`${x.period}|${x.group}`, x]));
   const periods = s.periods.map((p, i) => ({
     period: p.period,
     partial: p.partial,
@@ -1128,7 +1140,7 @@ export function toMiningPoolSeries(
     firstHeight: p.firstHeight,
     lastHeight: p.lastHeight,
     groups: ids.map((id, j): V1MiningSeriesCell => {
-      const point = s.points.find((x) => x.period === p.period && x.group === id);
+      const point = byCell.get(`${p.period}|${id}`);
       const blocks = point?.blocks ?? 0;
       const path = `data.periods.${i}.groups.${j}`;
       const sh = share(blocks, p.blocks);

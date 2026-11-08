@@ -25,11 +25,12 @@ import { ParamError, rejectUnknown } from "./params";
  * The `/miners` page on the public API: who mined the last 7, 30 or 90 days by reviewed mining pool,
  * one pool's addresses and newest blocks, each pool's share per day or month, and the NSM.
  *
- * Every read goes through `MinersReader` (`server/miners-routes.ts`), the same memoised queries the
- * page reads, so the two cannot disagree and a crowd costs the database one query per window per
- * ten minutes. The one read a caller can vary without bound is a pool's older blocks by cursor:
- * each page is a bounded walk of at most 31 payout days and 20 primary-key-ranged blocks, held
- * in a small response cache. So these ride `/v1`'s ordinary limits.
+ * Every read goes through `MinersReader` (`server/miners-routes.ts`), the loaders the page's own
+ * routes use. Each surface keeps its own ten-minute memo, so the two can differ by at most one memo
+ * window, and a crowd costs the database one query per window per ten minutes. The one read a
+ * caller can vary without bound is a pool's older blocks by cursor: each page is a bounded walk of
+ * at most 31 payout days and 20 primary-key-ranged blocks, held in a small response cache. So these
+ * ride `/v1`'s ordinary limits.
  *
  * The windows are exactly the page's: 1y and all of history wait for one stored block's miner to be
  * repaired (`MINERS_OPEN_WINDOWS`), and are refused by name rather than silently narrowed.
