@@ -12,10 +12,9 @@ import {
   type MiningPoolBlock,
   type NsmBalance,
   type NsmOverview,
-  type SupplyBreakdown,
 } from "@/domain";
 import { Cached } from "./cached";
-import { loadNsmDays } from "./miners-nsm";
+import { loadNsmDays, loadNsmPrefix, nsmCarriedInZat, type NsmPrefix } from "./miners-nsm";
 import { loadMinerSeries, loadMiningPoolBlocks, loadMinersOverview } from "./miners-overview";
 
 /**
@@ -25,7 +24,8 @@ import { loadMinerSeries, loadMiningPoolBlocks, loadMinersOverview } from "./min
  * says so in `window`, the way the page parses it.
  *
  * The NSM route pairs the index's daily series with the node's balance, read per request (the
- * chain source memoises it for a second). A node that does not answer costs the balance only.
+ * chain source memoises it for a second). A node that does not answer costs the balance only; an
+ * index that cannot account for the balance block by block costs only what it carried in.
  */
 
 export const MINERS_PATH = "/chain/miners";
@@ -36,8 +36,8 @@ const CACHE_MS = 10 * 60_000;
 
 export interface MinersRoutesDeps {
   pool: Pool;
-  /** The node's value pools and NSM balance; absent, the balance is null. */
-  supply?: () => Promise<SupplyBreakdown>;
+  /** The node's NSM balance and the tip it was read at; absent, the balance is null. */
+  nsmAtTip?: () => Promise<{ height: number; hash: string; nsmZat: number | null }>;
   now?: () => number;
   log?: (message: string) => void;
 }
@@ -54,16 +54,26 @@ export function minersRoutes(deps: MinersRoutesDeps): Hono {
   };
   const poolBlocks = new Map<string, Cached<MiningPoolBlock[]>>();
   const nsmDays = new Cached<Omit<NsmOverview, "balance">>(CACHE_MS);
+  const nsmPrefix = new Cached<NsmPrefix>(CACHE_MS);
 
   const nsmBalance = async (): Promise<NsmBalance | null> => {
-    if (deps.supply === undefined) return null;
+    if (deps.nsmAtTip === undefined) return null;
+    let tip;
     try {
-      const s = await deps.supply();
-      return { height: s.height, zat: nsmBalanceZat(s, "mainnet") };
+      tip = await deps.nsmAtTip();
     } catch (error) {
       deps.log?.(`miners nsm: balance unavailable (${(error as Error).message})`);
       return null;
     }
+    const zat = nsmBalanceZat({ pools: [], height: tip.height, nsmZat: tip.nsmZat }, "mainnet");
+    let carriedInZat: number | null = null;
+    try {
+      const prefix = await nsmPrefix.get(() => loadNsmPrefix(deps.pool));
+      carriedInZat = await nsmCarriedInZat(deps.pool, prefix, { ...tip, nsmZat: zat });
+    } catch (error) {
+      deps.log?.(`miners nsm: carried-in unavailable (${(error as Error).message})`);
+    }
+    return { height: tip.height, zat, carriedInZat };
   };
 
   app.get(MINERS_PATH, async (c) => {

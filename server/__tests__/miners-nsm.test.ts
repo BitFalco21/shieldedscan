@@ -1,7 +1,15 @@
 import type { Pool } from "pg";
 import { describe, expect, it } from "vitest";
-import { NU7_HEIGHT, type NsmOverview, type SupplyBreakdown } from "@/domain";
-import { loadNsmDays, NSM_DAYS_SQL, nsmDaysOf, type NsmDayRow } from "../miners-nsm";
+import { NU7_HEIGHT, REISSUANCE_START_HEIGHT, type NsmOverview } from "@/domain";
+import {
+  loadNsmDays,
+  loadNsmPrefix,
+  NSM_DAYS_SQL,
+  NSM_SPAN_SQL,
+  nsmCarriedInZat,
+  nsmDaysOf,
+  type NsmDayRow,
+} from "../miners-nsm";
 import { minersRoutes } from "../miners-routes";
 
 /**
@@ -51,12 +59,34 @@ interface FakeDb {
   rows?: NsmDayRow[];
   held?: number;
   closes?: { day: string; usd: number }[];
+  /** The stored blocks from NU7 on, height to fee (null: unknown), for the carried-in read. */
+  fees?: Map<number, number | null>;
+  /** A stored block's hash, when not `h<height>`. */
+  hashes?: Map<number, string>;
 }
+
+/** Blocks NU7..NU7+205, each with a 10-zat fee, of which the NSM takes 6. */
+const CHAIN = new Map(Array.from({ length: 206 }, (_, i) => [NU7_HEIGHT + i, 10 as number | null]));
+/** What the NSM held before NU7's first fee: the open dataset's underclaim. */
+const CARRIED = 36_858_445_520;
 
 /** A pool that answers each of the read's queries, and records the parameters it was given. */
 function fakePool(db: FakeDb, seen: unknown[][] = []): Pool {
   const query = async (sql: string, params: unknown[] = []) => {
     seen.push(params);
+    if (sql === NSM_SPAN_SQL) {
+      const [after, upTo] = params as [number, number];
+      const inSpan = [...(db.fees ?? CHAIN)].filter(([h]) => h > after && h <= upTo);
+      const known = inSpan.filter(([, f]) => f !== null);
+      const nsm = known.reduce((sum, [, f]) => sum + Math.floor((f! * 6) / 10), 0);
+      return { rows: [{ n: inSpan.length, known: known.length, nsm: String(nsm) }] };
+    }
+    if (sql.startsWith("SELECT max(height)"))
+      return { rows: [{ h: Math.max(...(db.fees ?? CHAIN).keys()) }] };
+    if (sql.startsWith("SELECT hash")) {
+      const h = params[0] as number;
+      return { rows: (db.fees ?? CHAIN).has(h) ? [{ hash: db.hashes?.get(h) ?? `h${h}` }] : [] };
+    }
     if (sql.includes("WHERE height = $1")) {
       return { rows: db.activation === undefined ? [] : [{ timestamp: String(db.activation) }] };
     }
@@ -144,13 +174,57 @@ describe("loadNsmDays", () => {
   });
 });
 
+describe("nsmCarriedInZat", () => {
+  const tip = (over: Partial<{ height: number; hash: string; nsmZat: number | null }> = {}) => ({
+    height: NU7_HEIGHT + 205,
+    hash: `h${NU7_HEIGHT + 205}`,
+    nsmZat: CARRIED + 206 * 6,
+    ...over,
+  });
+  const carried = async (db: FakeDb, t = tip()) => {
+    const pool = fakePool(db);
+    return nsmCarriedInZat(pool, await loadNsmPrefix(pool), t);
+  };
+
+  it("is the balance less every fee share from NU7 to the block it was read at", async () => {
+    expect(await carried({})).toBe(CARRIED);
+  });
+
+  it("is null when the index is a block behind the node, never short by that block", async () => {
+    expect(
+      await carried({}, tip({ height: NU7_HEIGHT + 206, hash: `h${NU7_HEIGHT + 206}` })),
+    ).toBeNull();
+  });
+
+  it("is null when the index holds another branch at that height", async () => {
+    expect(await carried({ hashes: new Map([[NU7_HEIGHT + 205, "other"]]) })).toBeNull();
+  });
+
+  it("is null when one fee since NU7 is unknown, or one block is missing", async () => {
+    const unknown = new Map(CHAIN).set(NU7_HEIGHT + 3, null);
+    expect(await carried({ fees: unknown })).toBeNull();
+    const late = new Map(CHAIN).set(NU7_HEIGHT + 200, null);
+    expect(await carried({ fees: late })).toBeNull();
+    const gap = new Map(CHAIN);
+    gap.delete(NU7_HEIGHT + 150);
+    expect(await carried({ fees: gap })).toBeNull();
+  });
+
+  it("is null without a balance, before NU7, from reissuance, or below zero", async () => {
+    expect(await carried({}, tip({ nsmZat: null }))).toBeNull();
+    expect(await carried({}, tip({ height: NU7_HEIGHT - 1 }))).toBeNull();
+    expect(await carried({}, tip({ height: REISSUANCE_START_HEIGHT }))).toBeNull();
+    expect(await carried({}, tip({ nsmZat: 5 }))).toBeNull();
+  });
+});
+
 describe("GET /chain/miners/nsm", () => {
-  const supply =
-    (over: Partial<SupplyBreakdown> = {}) =>
-    async (): Promise<SupplyBreakdown> => ({
-      pools: [],
-      height: NU7_HEIGHT + 6,
-      nsmZat: 614,
+  const nsmAtTip =
+    (over: Partial<{ height: number; hash: string; nsmZat: number | null }> = {}) =>
+    async () => ({
+      height: NU7_HEIGHT + 205,
+      hash: `h${NU7_HEIGHT + 205}`,
+      nsmZat: CARRIED + 206 * 6,
       ...over,
     });
   const get = async (deps: Parameters<typeof minersRoutes>[0]) => {
@@ -160,22 +234,26 @@ describe("GET /chain/miners/nsm", () => {
   };
   const pool = () => fakePool({ activation: ACTIVATION_TS });
 
-  it("pairs the index's days with the node's balance", async () => {
-    const body = await get({ pool: pool(), supply: supply() });
-    expect(body.balance).toEqual({ height: NU7_HEIGHT + 6, zat: 614 });
+  it("pairs the index's days with the node's balance and what it carried in", async () => {
+    const body = await get({ pool: pool(), nsmAtTip: nsmAtTip() });
+    expect(body.balance).toEqual({
+      height: NU7_HEIGHT + 205,
+      zat: CARRIED + 1_236,
+      carriedInZat: CARRIED,
+    });
     expect(body.days).toHaveLength(3);
   });
 
   it("states an unreported balance after NU7 as unknown, never zero", async () => {
-    const body = await get({ pool: pool(), supply: supply({ nsmZat: null }) });
-    expect(body.balance).toEqual({ height: NU7_HEIGHT + 6, zat: null });
+    const body = await get({ pool: pool(), nsmAtTip: nsmAtTip({ nsmZat: null }) });
+    expect(body.balance).toEqual({ height: NU7_HEIGHT + 205, zat: null, carriedInZat: null });
   });
 
   it("answers the days when the node does not, with no balance", async () => {
     const logged: string[] = [];
     const body = await get({
       pool: pool(),
-      supply: async () => {
+      nsmAtTip: async () => {
         throw new Error("node timeout");
       },
       log: (m) => logged.push(m),

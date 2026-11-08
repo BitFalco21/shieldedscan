@@ -32,6 +32,13 @@ export interface NsmBalance {
   height: number;
   /** Null when the node does not report it (before Zakura 1.7.0): unknown, never zero. */
   zat: number | null;
+  /**
+   * What the balance held beyond fees: the balance less every block's fee share from NU7 to
+   * `height`. ZIP 234 opened the NSM with the subsidy miners never claimed since genesis, and no
+   * ZIP 237 reissuance has left it yet. Null unless the index holds every one of those blocks,
+   * with its fee, up to the very block the balance was read at.
+   */
+  carriedInZat: number | null;
 }
 
 export interface NsmOverview {

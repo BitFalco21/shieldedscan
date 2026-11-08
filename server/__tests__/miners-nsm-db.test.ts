@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { minerFeeShareZat, NU7_HEIGHT } from "@/domain";
-import { loadNsmDays } from "../miners-nsm";
+import { loadNsmDays, loadNsmPrefix, nsmCarriedInZat } from "../miners-nsm";
 
 /**
  * The NSM read on a real Postgres with the real schemas: blocks around NU7 with fees chosen so
@@ -89,6 +89,21 @@ describeDb("loadNsmDays", () => {
       ["2026-11-08", 2, null, null, null],
     ]);
     expect(o.days[0]!.nsmZat).toBe(75);
+  });
+
+  it("carries in the balance less every fee share up to the block it was read at", async () => {
+    const hash = (h: number) => `h${h}`.padEnd(64, "0");
+    const prefix = await loadNsmPrefix(pool);
+    const shares = [7, 7, 13, 25, 100, 9].reduce((s, f) => s + nsmOf(f), 0);
+    const at = NU7_HEIGHT + 5;
+    expect(
+      await nsmCarriedInZat(pool, prefix, { height: at, hash: hash(at), nsmZat: 1_000 + shares }),
+    ).toBe(1_000);
+    // The next block's fee is unknown: nothing to subtract it by.
+    const next = NU7_HEIGHT + 6;
+    expect(
+      await nsmCarriedInZat(pool, prefix, { height: next, hash: hash(next), nsmZat: 9_999 }),
+    ).toBeNull();
   });
 
   it("leaves every day unknown when a block in the span is missing", async () => {

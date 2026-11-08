@@ -88,7 +88,7 @@ export function mountNodeRoutes(
         "/",
         minersRoutes({
           pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }),
-          supply: () => chainSource.getSupplyBreakdown(),
+          nsmAtTip: () => chainSource.getNsmAtTip(),
           log,
         }),
       );

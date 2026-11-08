@@ -281,6 +281,20 @@ export class NodeChainSource {
     };
   }
 
+  /**
+   * The NSM balance with the tip it was read at, by height and hash, from one
+   * `getblockchaininfo`: what `/chain/miners/nsm` needs to hold the balance against the index's
+   * blocks up to exactly that tip. Null where the node does not report it, which is not zero.
+   */
+  async getNsmAtTip(): Promise<{ height: number; hash: string; nsmZat: number | null }> {
+    const info = await this.#blockchainInfo();
+    return {
+      height: info.blocks,
+      hash: info.bestblockhash,
+      nsmZat: typeof info.nsmValueBalanceZat === "number" ? info.nsmValueBalanceZat : null,
+    };
+  }
+
   /** Genesis. The node holds the whole chain, so nothing bounds this above 0. */
   getOldestHeight(): Promise<number> {
     return Promise.resolve(0);

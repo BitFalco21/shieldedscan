@@ -16,7 +16,7 @@ const day = (d: string, over: Partial<NsmDay> = {}): NsmDay => ({
 const overview = (days: NsmDay[], activationDay: string | null = "2026-11-06"): NsmOverview => ({
   activationHeight: NU7_HEIGHT,
   activationDay,
-  balance: { height: NU7_HEIGHT + 10_000, zat: 1_800_000 },
+  balance: { height: NU7_HEIGHT + 10_000, zat: 1_800_000, carriedInZat: null },
   days,
 });
 
