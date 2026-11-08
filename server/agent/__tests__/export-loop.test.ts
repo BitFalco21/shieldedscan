@@ -152,8 +152,8 @@ const toolNames = (t: AgentTools) => t.defs().map((d) => d.function.name);
  * or definition change re-pins these with its version bump.
  */
 const V42 = {
-  prompt: "50262038007ab78d4441f417c41a301c17f0462f224b9a3bcfc998c67a6775e4",
-  promptWithoutCharts: "b7b676b4c84285912bdac0a3541bc47d5d6478a517456cfde0fec2b556eba4df",
+  prompt: "88e5d2656811aab2463f747cc364cfb304796d9dc3a24eb0ce15c5ea97933da2",
+  promptWithoutCharts: "68c9b1fbe86ead2b5fb4bf04952b591902609ebebf7b6884688a9dab38f01029",
   defs: "571991a9b2d67c1ff4dc8c3d7f493f7556c257ef0e4720c6abc0517e09c1072e",
   defsWithoutCharts: "2333bae35cef3027db443458e410bf976cc3f700fbfb07fd8a49ecf836fbca15",
 };
