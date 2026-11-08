@@ -19,16 +19,17 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 43;
+export const SYSTEM_PROMPT_VERSION = 44;
 
 /**
  * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
  * runs the same text less the data-file section, and its results must name that text.
  *
  * v42 is v40 asked to look up once and together, with the rolling 24-hour count routed to
- * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it).
+ * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it). v43 without
+ * exports and v44 with them add the mining pools and the NSM to `chain_activity`.
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 42;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 43;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>
@@ -180,7 +181,7 @@ A read that failed arrives as an \`<unavailable>\` block instead of data. Say th
 
 ## Zcash's own activity over a period — the totals are computed for you
 
-\`chain_activity\` answers questions about the chain itself over a period (\`window\`), about who mined it, by payout address (\`miners\`), and about what has just happened (\`recent-blocks\`, \`recent-transactions\`). Give the window the question names — a month, a week, a day, or none for all of recorded history, which the index covers back to 2016.
+\`chain_activity\` answers questions about the chain itself over a period (\`window\`), about who mined it, by payout address (\`miners\`) or by named mining pool over the last 7, 30 or 90 days (\`mining-pools\`), about the fees moved into the NSM (\`nsm\`), and about what has just happened (\`recent-blocks\`, \`recent-transactions\`). Give the window the question names — a month, a week, a day, or none for all of recorded history, which the index covers back to 2016.
 
 - **The totals arrive summed.** Counts by privacy kind, gross ZEC shielded and unshielded, fees, blocks and the period's averages are all computed before you see them. If a question's figure is not in the payload, say so; never build it from the daily points.
 - **A window has edges and you state them.** \`daysCovered\` says how many days carried data. Where a window reaches past what is indexed, describe what the figures cover rather than repeating the dates you asked for.
@@ -340,7 +341,7 @@ You answer about Zcash and this explorer. Adjacent questions — how Zcash compa
 
 - Handling, requesting or advising on a viewing key beyond this: never paste a viewing key into any website, including this one. A viewing key reveals an entire transaction history.
 - Linkability, clustering, or deanonymisation — including correlating shieldings with unshieldings, or guessing which output of a transparent transaction was the payment and which was change. That inference is not chain fact and this explorer does not make it.
-- Naming the person, company or exchange behind an UNLABELLED address — an attribution we would be inventing. Two things are different and both are allowed: a \`label\` in a payload is a name this site itself prints beside that address, so give it; and a mining pool that stamped its own name into its own coinbase is self-declared, so report it as that.
+- Naming the person, company or exchange behind an UNLABELLED address — an attribution we would be inventing. Three things are different and all are allowed: a \`label\` in a payload is a name this site itself prints beside that address, so give it; a \`miningPool\` in a payload is this explorer's reviewed label on that payout address, so give it as the pool's and never extend it to an unlabelled address; and a mining pool that stamped its own name into its own coinbase is self-declared, so report it as that.
 - Privacy scores or any single figure claiming to rate a transaction's privacy.
 - Price predictions, investment advice, or an opinion on whether to buy anything.
 - Help constructing, signing or broadcasting a transaction, or anything touching a wallet or a seed phrase.

@@ -749,7 +749,7 @@ export const MINING_GROUP: ApiGroup = {
           "zat": 61720000,
           "zec": "0.61720000"
         },
-        "closeUsd": 38.42
+        "usdClose": 38.42
       },
       {
         "day": "2026-07-11",
@@ -767,7 +767,7 @@ export const MINING_GROUP: ApiGroup = {
           "zat": 85771008,
           "zec": "0.85771008"
         },
-        "closeUsd": 39.39
+        "usdClose": 39.39
       },
       {
         "day": "2026-07-12",
@@ -785,12 +785,12 @@ export const MINING_GROUP: ApiGroup = {
           "zat": 57348120,
           "zec": "0.57348120"
         },
-        "closeUsd": null
+        "usdClose": null
       }
     ]
   },
   "unknowns": {
-    "data.days.2.closeUsd": "nonexistent"
+    "data.days.2.usdClose": "nonexistent"
   },
   "asOf": 1783875480
 }`,

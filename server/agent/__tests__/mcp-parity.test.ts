@@ -81,6 +81,10 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   "analytics-fees": { tool: "explorer_insights", via: "transaction-costs" },
   "analytics-ironwood": { tool: "explorer_insights", via: "ironwood-inflow" },
   "analytics-records": { tool: "chain_status", via: "records" },
+  "mining-pools": { tool: "chain_activity", via: "mining-pools" },
+  "mining-pool": { tool: "chain_activity", via: "mining-pools" },
+  "mining-pools-series": { tool: "chain_activity", via: "mining-pools" },
+  nsm: { tool: "chain_activity", via: "nsm" },
 };
 
 /** Every string `enum` anywhere in a JSON schema. */

@@ -1,5 +1,7 @@
 import {
   addressLabel,
+  MINING_POOL_LABELS,
+  MINING_POOLS,
   type ChainWindowBucket,
   type ChainWindowMeasure,
   DAY_MS,
@@ -56,6 +58,33 @@ export function labelFor(address: unknown): { label?: string; labelSource?: stri
   if (typeof address !== "string") return {};
   const found = addressLabel(address);
   return found === null ? {} : { label: found.name, labelSource: found.source };
+}
+
+/**
+ * The mining pool whose payout address this is, as `/miners`, the block page and the address page
+ * name it: only where the address is a block's payout or the subject of its own page, never beside
+ * a payment in someone's transaction (`mining-pools.ts`). Keyed off the reviewed table, never off a
+ * coinbase tag.
+ */
+export function miningPoolFor(address: unknown): {
+  miningPool?: { id: string; name: string; basis: string };
+} {
+  if (typeof address !== "string") return {};
+  const label = MINING_POOL_LABELS[address];
+  if (label === undefined) return {};
+  const pool = MINING_POOLS[label.miningPool];
+  return { miningPool: { id: pool.id, name: pool.name, basis: label.basis } };
+}
+
+/** A block, or a page of blocks (`items`), each with `miningPool` where its payout is a pool's. */
+export function withMinerMiningPools(payload: unknown): unknown {
+  const withPool = (row: unknown) => {
+    const r = asRecord(row);
+    return r === null ? row : { ...r, ...miningPoolFor(r.minerAddress) };
+  };
+  const out = asRecord(payload);
+  if (out === null) return payload;
+  return Array.isArray(out.items) ? { ...out, items: out.items.map(withPool) } : withPool(out);
 }
 
 /**
@@ -781,5 +810,48 @@ export function withoutDirection(payload: unknown, dropped: "in" | "out"): unkno
       totals: without(data.totals),
       ...(Array.isArray(data.groups) ? { groups: data.groups.map(without) } : {}),
     },
+  };
+}
+
+/**
+ * A payload without its `basis` paragraph: the note above it carries the same reading rules in the
+ * agent's own words, and the paragraph would be read twice per turn for nothing.
+ */
+export function withoutBasis(payload: unknown): unknown {
+  if (typeof payload !== "object" || payload === null || !("basis" in payload)) return payload;
+  const { basis: _basis, ...rest } = payload as Record<string, unknown>;
+  return rest;
+}
+
+/**
+ * The per-pool series, compacted for the model: each period's blocks and every group's blocks and
+ * share percentage, its reward and fees dropped (the window view carries a pool's reward), and the
+ * periods lifted to the top level so a long daily series is windowed with its true length beside
+ * it. Four nested objects per cell, a year of days, read twice per turn, otherwise.
+ */
+export function compactMiningSeries(payload: unknown): unknown {
+  const body = asRecord(payload);
+  const data = asRecord(body?.data);
+  if (body === null || data === null || !Array.isArray(data.periods)) return payload;
+  return {
+    query: body.query,
+    coverage: body.coverage,
+    interval: data.interval,
+    fromDay: data.fromDay,
+    toDay: data.toDay,
+    groups: data.groups,
+    periods: data.periods.map((raw: unknown) => {
+      const p = asRecord(raw) ?? {};
+      return {
+        period: p.period,
+        partial: p.partial,
+        blocks: p.blocks,
+        groups: (Array.isArray(p.groups) ? p.groups : []).map((cell: unknown) => {
+          const c = asRecord(cell) ?? {};
+          const share = asRecord(c.share);
+          return { group: c.group, blocks: c.blocks, sharePct: share?.pct ?? null };
+        }),
+      };
+    }),
   };
 }

@@ -193,6 +193,8 @@ export const CHAIN_ACTIVITY_MODES = [
   "transparent",
   "pools",
   "pool-balances",
+  "mining-pools",
+  "nsm",
 ] as const;
 
 export type ChainActivityMode = (typeof CHAIN_ACTIVITY_MODES)[number];
@@ -258,6 +260,14 @@ export const WINDOW_MEASURES: readonly ChainWindowMeasure[] = [
 export const MAX_MINER_ROWS = 25;
 
 export const DEFAULT_MINER_ROWS = 10;
+
+/** The trailing windows 'mining-pools' and 'nsm' read, in whole UTC days, today included. */
+export const MINING_WINDOW_DAYS = [7, 30, 90] as const;
+
+/** How many of a pool's newest blocks one 'mining-pools' call lists. */
+export const MAX_POOL_BLOCK_ROWS = 20;
+
+export const DEFAULT_POOL_BLOCK_ROWS = 5;
 
 /**
  * What 'transparent' ranks its periods by, in the words a visitor uses, and the field of the

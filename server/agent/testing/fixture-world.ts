@@ -34,6 +34,8 @@ import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../../v1/wind
 import { crosschainRoutes } from "../../crosschain-routes";
 import { type V1ChainPort, v1Routes } from "../../v1/routes";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../../v1/miners";
+import { V1_MINING_POOL_PATHS, v1MiningPoolRoutes } from "../../v1/mining-pools";
+import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "./miners-reader";
 import type { MinerWindow } from "../../mining-daily";
 import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
@@ -509,6 +511,15 @@ export function makeV1(
           load: async () => MINER_WINDOW,
         }),
         endpoints: [V1_MINERS_PATH],
+      },
+      // The /miners page by pool and the NSM, its 'mining-pools' and 'nsm' modes, on the fixtures' clock.
+      {
+        routes: v1MiningPoolRoutes({
+          reader: fixtureMinersReader(),
+          price: { current: () => (overrides.price === undefined ? PRICE : overrides.price) },
+          now: () => MINERS_FIXTURE_NOW_MS,
+        }),
+        endpoints: V1_MINING_POOL_PATHS,
       },
       // And the one its 'transparent' mode reads.
       {

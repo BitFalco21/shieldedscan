@@ -1269,7 +1269,7 @@ export function toNsm(
           unknowns[`data.days.${i}.toMiners`] = "unmeasured";
         }
         if (d.closeUsd === null) {
-          unknowns[`data.days.${i}.closeUsd`] = d.partial ? "nonexistent" : "unmeasured";
+          unknowns[`data.days.${i}.usdClose`] = d.partial ? "nonexistent" : "unmeasured";
         }
         return {
           day: d.day,
@@ -1279,7 +1279,7 @@ export function toNsm(
           toNsm: amountOrNull(d.nsmZat),
           toMiners:
             d.feeZat === null || d.nsmZat === null ? null : amountOrNull(d.feeZat - d.nsmZat),
-          closeUsd: d.closeUsd,
+          usdClose: d.closeUsd,
         };
       }),
     },

@@ -1026,7 +1026,7 @@ export interface V1NsmDay {
   toNsm: V1Amount | null;
   toMiners: V1Amount | null;
   /** The day's stored close; null for today, which has none yet. */
-  closeUsd: number | null;
+  usdClose: number | null;
 }
 
 export interface V1Nsm {

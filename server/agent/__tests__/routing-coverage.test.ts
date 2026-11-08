@@ -133,6 +133,10 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
   { tool: "crosschain", args: { mode: "destinations" } },
   { tool: "chain_activity", args: { mode: "window", from: "2026-07-01", to: "2026-08-01" } },
   { tool: "chain_activity", args: { mode: "miners", from: "2026-07-01", to: "2026-08-01" } },
+  { tool: "chain_activity", args: { mode: "mining-pools", lastDays: 7 } },
+  { tool: "chain_activity", args: { mode: "mining-pools", miningPool: "viabtc" } },
+  { tool: "chain_activity", args: { mode: "mining-pools", groupBy: "month" } },
+  { tool: "chain_activity", args: { mode: "nsm", lastDays: 30 } },
   { tool: "chain_status", args: { include: ["records"] } },
   { tool: "chain_status", args: { include: ["mining"] } },
   { tool: "chain_status", args: { include: ["nodes"] } },
@@ -403,6 +407,18 @@ describe("a tool description names the quantities its payload carries", () => {
       "chain_activity:sprout",
       "chain_activity:sapling",
       "chain_activity:multi",
+      // The other reviewed pools: the viabtc call above exercises one pool's payload, and another
+      // pool changes which rows come back, never which keys.
+      "chain_activity:foundry",
+      "chain_activity:f2pool",
+      "chain_activity:luxor",
+      "chain_activity:2miners",
+      "chain_activity:antpool",
+      "chain_activity:kupool",
+      "chain_activity:kryptex",
+      "chain_activity:nicehash",
+      "chain_activity:mining-dutch",
+      "chain_activity:zec-mining-pool",
       // The ranking measures. Each selects which bucket sorts first, never which keys come back;
       // the ranked call above already checks every quantity `ranking` carries. The ZEC measures are
       // named distinctly from the transaction kinds, since the schema walk cannot tell which enum a

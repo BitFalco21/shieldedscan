@@ -164,7 +164,7 @@ describe("/v1/analytics/nsm", () => {
     const days = body.data.days;
     expect(body.data.window!.toNsm!.zat).toBe(days.reduce((s, d) => s + d.toNsm!.zat, 0));
     expect(days.at(-1)!.partial).toBe(true);
-    expect(body.unknowns[`data.days.${days.length - 1}.closeUsd`]).toBe("nonexistent");
+    expect(body.unknowns[`data.days.${days.length - 1}.usdClose`]).toBe("nonexistent");
   });
 
   it("withholds the balance when the node cannot be read, never a zero", async () => {

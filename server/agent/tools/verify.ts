@@ -70,6 +70,27 @@ export function verifyMinersEcho(
 }
 
 /**
+ * Why a mining-pool or NSM payload cannot be used, or null: its `query` must echo every value asked
+ * for (and, for one pool, name that pool), so an older API that ignored a parameter cannot answer a
+ * different window or pool under this one's name.
+ */
+export function verifyMiningEcho(
+  payload: unknown,
+  expected: Readonly<Record<string, unknown>>,
+  pool: string | null = null,
+): string | null {
+  const refuse = `THIS READ CANNOT BE USED: the API did not apply the window or pool that was asked for, so these figures answer a different question. Say the figure could not be read and give no number in its place.`;
+  if (typeof payload !== "object" || payload === null) return refuse;
+  const body = payload as { query?: Record<string, unknown>; data?: { pool?: { id?: unknown } } };
+  if (typeof body.query !== "object" || body.query === null) return refuse;
+  for (const [key, value] of Object.entries(expected)) {
+    if (body.query[key] !== value) return refuse;
+  }
+  if (pool !== null && body.data?.pool?.id !== pool) return refuse;
+  return null;
+}
+
+/**
  * Why the window payload cannot be described as the answer to the question asked, or null.
  *
  * Same guard as `crosschain`'s aggregate: a service one deploy behind ignores an unknown `?from=` and
