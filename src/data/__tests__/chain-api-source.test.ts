@@ -909,3 +909,35 @@ describe("tipRevalidateSeconds", () => {
     expect(initFor(fetchMock, "/chain/analytics/months").next?.revalidate).toBe(3600);
   });
 });
+
+describe("getNsmOverview", () => {
+  const nsm = {
+    activationHeight: 3_543_405,
+    activationDay: "2026-11-06",
+    balance: { height: 3_550_000, zat: 1_234_567, carriedInZat: 1_000_000 },
+    days: [
+      {
+        day: "2026-11-06",
+        blocks: 3_000,
+        feeZat: 1_000,
+        nsmZat: 600,
+        closeUsd: 500,
+        partial: false,
+      },
+      { day: "2026-11-07", blocks: 1, feeZat: null, nsmZat: null, closeUsd: null, partial: true },
+    ],
+  };
+
+  it("reads the days and a balance the node may not have answered", async () => {
+    vi.stubGlobal("fetch", stub(200, nsm));
+    expect(await createChainApiSource(config).getNsmOverview()).toEqual(nsm);
+    vi.stubGlobal("fetch", stub(200, { ...nsm, balance: null }));
+    expect((await createChainApiSource(config).getNsmOverview()).balance).toBeNull();
+  });
+
+  it("rejects a day with one share known and the other not", async () => {
+    const day = { ...nsm.days[0]!, nsmZat: null };
+    vi.stubGlobal("fetch", stub(200, { ...nsm, days: [day] }));
+    await expect(createChainApiSource(config).getNsmOverview()).rejects.toThrow(/unrecognised/);
+  });
+});

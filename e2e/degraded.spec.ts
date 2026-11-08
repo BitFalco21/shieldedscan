@@ -114,6 +114,20 @@ const CASES: Case[] = [
     },
   },
   {
+    name: "miners-nsm",
+    url: "/miners",
+    fault: "getNsmOverview",
+    status: 200,
+    unavailable: /The NSM figures could not be read just now/,
+    kept: async (page) => {
+      await expect(page.getByText("PAID TO MINERS", { exact: true })).toBeVisible();
+      await expect(page.getByText("NSM BALANCE")).toHaveCount(0);
+    },
+    recovered: async (page) => {
+      await expect(page.getByText("NSM BALANCE")).toBeVisible();
+    },
+  },
+  {
     // A page whose one read is essential: the error boundary, in its "didn't load" voice.
     name: "mempool-page",
     url: "/mempool",

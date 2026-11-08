@@ -60,10 +60,11 @@ export default async function Page({
     if (!isTransientUpstream(error)) throw error;
     return <DataUnavailable what="The miners overview" />;
   }
-  const [terms, months, days] = await Promise.all([
+  const [terms, months, days, nsm] = await Promise.all([
     nullIfTransient(() => data.getMiningTerms()),
     nullIfTransient(() => data.getMinerSeries("month")),
     nullIfTransient(() => data.getMinerSeries("day")),
+    nullIfTransient(() => data.getNsmOverview()),
   ]);
   return (
     <MinersPage
@@ -71,6 +72,7 @@ export default async function Page({
       terms={terms}
       months={months}
       days={days === null ? null : lastDays(days)}
+      nsm={nsm}
       windowHref={windowHref}
     />
   );

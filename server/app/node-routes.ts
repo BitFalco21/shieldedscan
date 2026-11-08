@@ -81,12 +81,16 @@ export function mountNodeRoutes(
       }),
     );
     log("mining overview route mounted");
-    // `/miners`: the daily payout rollup the trackers keep on mainnet only. No poller, so every
-    // replica serves it.
+    // `/miners`: the daily payout rollup the trackers keep on mainnet only, and the NSM's days
+    // from the index beside its balance from the node. No poller, so every replica serves it.
     if (!IS_TESTNET) {
       app.route(
         "/",
-        minersRoutes({ pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }) }),
+        minersRoutes({
+          pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }),
+          nsmAtTip: () => chainSource.getNsmAtTip(),
+          log,
+        }),
       );
       log("miners routes mounted");
     }

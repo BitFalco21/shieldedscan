@@ -5,6 +5,7 @@ import {
   type MinersOverview,
   type MinersWindowKey,
   type MiningTerms,
+  type NsmOverview,
 } from "@/domain";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { FilterChips } from "@/components/FilterChips";
@@ -15,6 +16,7 @@ import { MinerDailyCharts } from "./MinerDailyCharts";
 import { MinerFeesChart } from "./MinerFeesChart";
 import { MinersTiles } from "./MinersTiles";
 import { MoreMiningLinks } from "./MoreMiningLinks";
+import { NsmSection } from "./NsmSection";
 import { PoolShareBar } from "./PoolShareBar";
 import { PoolShareByMonthChart } from "./PoolShareByMonthChart";
 import { PoolTable } from "./PoolTable";
@@ -28,10 +30,12 @@ export interface MinersPageProps {
   months: MinerSeries | null;
   /** The day series, trimmed to the days drawn. */
   days: MinerSeries | null;
+  /** The NSM since NU7, or null when it did not load: only its section says so. */
+  nsm: NsmOverview | null;
   windowHref: (key: MinersWindowKey) => string;
 }
 
-export function MinersPage({ overview, terms, months, days, windowHref }: MinersPageProps) {
+export function MinersPage({ overview, terms, months, days, nsm, windowHref }: MinersPageProps) {
   const groups = grouped(overview);
   const livePriceUsd = terms?.priceUsd ?? null;
   const pct = (n: number) => {
@@ -132,6 +136,17 @@ export function MinersPage({ overview, terms, months, days, windowHref }: Miners
           </p>
         </Panel>
       </div>
+
+      {nsm === null ? (
+        <DataUnavailable what="The NSM figures" className="mt-6" />
+      ) : (
+        <NsmSection
+          nsm={nsm}
+          fromDay={overview.fromDay}
+          toDay={overview.toDay}
+          livePriceUsd={livePriceUsd}
+        />
+      )}
 
       <MoreMiningLinks />
     </>

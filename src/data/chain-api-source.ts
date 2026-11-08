@@ -15,6 +15,7 @@ import type {
   MempoolStats,
   MinersOverview,
   MinerSeries,
+  NsmOverview,
   MiningPoolBlock,
   MiningPoolId,
   MiningTerms,
@@ -81,6 +82,7 @@ import {
   isMempoolEntry,
   isMinersOverview,
   isMinerSeries,
+  isNsmOverview,
   isMiningPoolBlocks,
   isPulseRibbonWindow,
   isReorgEvent,
@@ -1360,6 +1362,17 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised mining pool blocks shape");
       }
       return body.blocks;
+    },
+
+    async getNsmOverview(): Promise<NsmOverview> {
+      const body = await json<unknown>(
+        await request(config, "/chain/miners/nsm", CACHE_MINUTE),
+        "nsm overview",
+      );
+      if (!isNsmOverview(body)) {
+        throw new Error("chain API returned an unrecognised nsm overview shape");
+      }
+      return body;
     },
 
     async getMiningTerms(): Promise<MiningTerms> {

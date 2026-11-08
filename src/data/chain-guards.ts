@@ -9,6 +9,8 @@ import type {
   MinersOverview,
   MinersWindowKey,
   MiningPoolBlocks,
+  NsmDay,
+  NsmOverview,
   PulseEdgeTotal,
   PulseRibbonWindow,
   ReorgEvent,
@@ -283,5 +285,39 @@ export function isMiningPoolBlocks(b: unknown, id: string): b is MiningPoolBlock
         typeof x.address === "string" &&
         isFiniteOrNull(x.rewardZat),
     )
+  );
+}
+
+function isNsmDay(d: unknown): d is NsmDay {
+  if (typeof d !== "object" || d === null) return false;
+  const x = d as Partial<NsmDay>;
+  return (
+    typeof x.day === "string" &&
+    isFiniteNumber(x.blocks) &&
+    isFiniteOrNull(x.feeZat) &&
+    isFiniteOrNull(x.nsmZat) &&
+    // One is never known without the other: a lone figure is a server bug, not a day.
+    (x.feeZat === null) === (x.nsmZat === null) &&
+    isFiniteOrNull(x.closeUsd) &&
+    typeof x.partial === "boolean"
+  );
+}
+
+/** The NSM's days and balance. A null balance is the node not answering, and is allowed. */
+export function isNsmOverview(b: unknown): b is NsmOverview {
+  if (typeof b !== "object" || b === null) return false;
+  const o = b as Partial<NsmOverview>;
+  const balance = o.balance;
+  return (
+    isFiniteNumber(o.activationHeight) &&
+    (o.activationDay === null || typeof o.activationDay === "string") &&
+    (balance === null ||
+      (typeof balance === "object" &&
+        balance !== undefined &&
+        isFiniteNumber(balance.height) &&
+        isFiniteOrNull(balance.zat) &&
+        isFiniteOrNull(balance.carriedInZat))) &&
+    Array.isArray(o.days) &&
+    o.days.every(isNsmDay)
   );
 }

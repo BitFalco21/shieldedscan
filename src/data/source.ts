@@ -25,6 +25,7 @@ import type {
   MempoolStats,
   MinersOverview,
   MinerSeries,
+  NsmOverview,
   MiningPoolBlock,
   MiningPoolId,
   MiningTerms,
@@ -248,6 +249,8 @@ export interface ExplorerDataSource {
   getMinerSeries(interval: "month" | "day"): Promise<MinerSeries>;
   /** A reviewed pool's newest blocks, newest first. */
   getMiningPoolBlocks(id: MiningPoolId): Promise<MiningPoolBlock[]>;
+  /** The NSM since NU7: fees into it per day from the index, and its balance from the node. */
+  getNsmOverview(): Promise<NsmOverview>;
 
   getActivitySeries(): Promise<ActivityPoint[]>;
   /**
