@@ -85,6 +85,32 @@ for (const width of [390, 1280]) {
       expect(await pageScrollsSideways(page)).toBe(false);
     });
 
+    test("the NSM section states its figures and starts its days at NU7", async ({ page }) => {
+      await page.goto("/miners");
+      const section = page.locator("section", {
+        has: page.getByRole("heading", { name: "NSM · SINCE NU7" }),
+      });
+      await expect(section).toBeVisible();
+      for (const label of ["NSM BALANCE", "FEES TO THE NSM", "FEES KEPT BY MINERS"]) {
+        // Each tile pairs a ZEC figure with its USD: the NSM is public, never veiled.
+        const tile = section.locator(".stat-card", { hasText: label });
+        await expect(tile).toContainText(/[\d.,]+ ZEC/);
+        await expect(tile).toContainText("$");
+        await expect(tile.locator(".redact")).toHaveCount(0);
+      }
+      // The fixture's 30D window opens before its activation: the sums say where they start.
+      await expect(section.locator(".stat-card", { hasText: "FEES TO THE NSM" })).toContainText(
+        /60% of [\d.,]+ ZEC in fees · since \d+ \w+/,
+      );
+      // The chart's days begin at activation; the space before it is named, not drawn as zeros.
+      await expect(section.getByText("no NSM before NU7")).toBeVisible();
+      await expect(section.getByRole("link", { name: /ZIP 235/ })).toHaveAttribute(
+        "href",
+        "https://zips.z.cash/zip-0235",
+      );
+      expect(await pageScrollsSideways(page)).toBe(false);
+    });
+
     test("a window chip is a link that carries the window", async ({ page }) => {
       await page.goto("/miners");
       await page.getByRole("link", { name: "90D" }).click();

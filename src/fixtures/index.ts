@@ -657,6 +657,7 @@ export { getMinersOverview, getMinerSeries, getMiningPoolBlocks } from "./miners
 export { getMarketSnapshot } from "./market";
 export { getHalvingSchedule } from "./halving";
 export { getMiningTerms } from "./mining-terms";
+export { getNsmOverview } from "./nsm";
 export { getRichListSummary, listRichList } from "./rich-list";
 export { getSocialPost } from "./social";
 export { getZipIndex } from "./zips";

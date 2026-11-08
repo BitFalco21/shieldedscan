@@ -39,6 +39,12 @@ export interface StackedBarChartProps {
   highlightKey?: string | null;
   /** A rule before the bar at `index`: a consensus upgrade the shape cannot be read without. */
   marker?: { index: number; label: string } | null;
+  /**
+   * Empty slots drawn before the first period, with `note` in them: a span the measure did not
+   * exist in (the NSM before NU7). Without them a young series draws a few slab-wide bars; with
+   * them the space says "not yet" in words, so it cannot read as periods of zero.
+   */
+  before?: { slots: number; note: string } | null;
   /** Readout rows: every series, or the total alone when a companion states the breakdown. */
   readout?: "series" | "total";
   onActiveChange?: (index: number | null) => void;
@@ -62,6 +68,7 @@ export function StackedBarChart({
   partial = null,
   highlightKey = null,
   marker = null,
+  before = null,
   readout = "series",
   onActiveChange,
 }: StackedBarChartProps) {
@@ -76,7 +83,10 @@ export function StackedBarChart({
     Math.max(...ticks.map((t) => formatTick(t).length)) * tickCharW(TICK_FONT) + CHART_GUTTER_GAP;
   const plotW = CHART_W - padL - CHART_PAD_R;
   const plotH = CHART_H - CHART_PAD_T - CHART_PAD_B;
-  const slot = plotW / n;
+  const lead = Math.max(0, Math.floor(before?.slots ?? 0));
+  const slot = plotW / (n + lead);
+  // Where the first period's slot starts: everything left of it is the empty lead.
+  const start = padL + lead * slot;
   // A fifth of the slot as the gap keeps bars dominant at any count, as `FlowBalanceChart` does.
   const barW = slot * 0.8;
   const y = (v: number) => CHART_H - CHART_PAD_B - (v / ceiling) * plotH;
@@ -84,9 +94,9 @@ export function StackedBarChart({
     padL,
     tickFont: TICK_FONT,
     // Slot centres: a bar's label sits under the bar.
-    x: (i: number) => padL + (i + 0.5) * slot,
+    x: (i: number) => start + (i + 0.5) * slot,
     y,
-    plotStart: padL / CHART_W,
+    plotStart: start / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
     height: CHART_H,
   };
@@ -130,7 +140,7 @@ export function StackedBarChart({
         </defs>
         <YAxis frame={frame} ticks={ticks} formatValue={formatTick} />
         {labels.map((label, i) => {
-          const left = padL + i * slot + (slot - barW) / 2;
+          const left = start + i * slot + (slot - barW) / 2;
           const running = i === partial?.index;
           let base = 0;
           return (
@@ -182,7 +192,7 @@ export function StackedBarChart({
         })}
         {marker !== null && marker.index >= 0 && marker.index < n
           ? (() => {
-              const at = padL + marker.index * slot;
+              const at = start + marker.index * slot;
               // The label flips left of its rule in the last fifth, so it is never clipped.
               const near = at > CHART_W - plotW * 0.2;
               return (
@@ -201,7 +211,25 @@ export function StackedBarChart({
               );
             })()
           : null}
-        <XAxis frame={frame} labels={labels} />
+        {before !== null &&
+        lead > 0 &&
+        before.note.length * tickCharW(TICK_FONT) < lead * slot - 16 ? (
+          <text
+            x={padL + (lead * slot) / 2}
+            y={CHART_PAD_T + plotH / 2}
+            textAnchor="middle"
+            fontSize={TICK_FONT}
+            className="chart-tick"
+          >
+            {before.note}
+          </text>
+        ) : null}
+        {/* The axis spans the lead too, as blank labels: its end labels anchor at the plot's
+            edges, so a few bars at the right would otherwise put the first label over the last. */}
+        <XAxis
+          frame={{ ...frame, x: (i: number) => padL + (i + 0.5) * slot }}
+          labels={lead > 0 ? [...Array<string>(lead).fill(""), ...labels] : labels}
+        />
       </svg>
     </ChartHover>
   );

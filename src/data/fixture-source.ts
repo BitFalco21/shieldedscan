@@ -89,6 +89,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getMiningPoolBlocks(id) {
     return fixtures.getMiningPoolBlocks(id);
   },
+  async getNsmOverview() {
+    return fixtures.getNsmOverview();
+  },
   async getActivitySeries() {
     return fixtures.getActivitySeries();
   },
