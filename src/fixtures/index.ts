@@ -6,6 +6,7 @@ import type {
   ActivityPoint,
   AddressInfo,
   Block,
+  BlockDetail,
   ChainInfo,
   ChainMonthPoint,
   FeeKindMonthPoint,
@@ -40,6 +41,7 @@ import type {
 import {
   buildProtocolSummary,
   aggregateFlowWindows,
+  hasBlockHeader,
   listedChains,
   type ListedChain,
   matchesCrossChainFilters,
@@ -160,8 +162,10 @@ export function getTransaction(txid: string): Transaction | undefined {
   return transactionsById.get(id) ?? mempoolById.get(id);
 }
 
-export function getBlockTransactions(block: Block): Transaction[] {
-  return block.txids.flatMap((id) => transactionsById.get(id) ?? []).map(withoutRawHex);
+export function getBlockTransactions(block: BlockDetail): Transaction[] {
+  // A list row carries no txids; the fixture block at its height does.
+  const whole = hasBlockHeader(block) ? block : getBlock(String(block.height));
+  return (whole?.txids ?? []).flatMap((id) => transactionsById.get(id) ?? []).map(withoutRawHex);
 }
 
 export function listLatestTransactions(n: number): Transaction[] {

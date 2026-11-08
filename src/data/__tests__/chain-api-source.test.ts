@@ -3,6 +3,7 @@ import { blockSummaryOf, type Block } from "@/domain";
 import { readApiConfig, resetApiBreaker } from "../api-request";
 import { createChainApiSource } from "../chain-api-source";
 import { FilterNotAppliedError } from "../filter-not-applied";
+import { NOT_CONFIGURED_HEADER } from "../not-configured";
 import {
   isTransientUpstream,
   tagTransient,
@@ -127,6 +128,12 @@ describe("error contract", () => {
     expect(await source.getBlock("999")).toBeUndefined();
     expect(await source.getTransaction("d".repeat(64))).toBeUndefined();
     expect(await source.getAddress("t1x")).toBeUndefined();
+  });
+
+  it("takes a block's list row as the block, its header not read (an API without a node)", async () => {
+    const row = blockSummaryOf(block as Block);
+    vi.stubGlobal("fetch", stub(200, row, { "/chain/info": facts }));
+    expect(await createChainApiSource(config).getBlock("100")).toEqual(row);
   });
 
   it("rejects on 5xx rather than masquerading as missing data", async () => {
@@ -855,6 +862,25 @@ describe("circuit breaker — an outage costs milliseconds, not seconds", () => 
     expect((await source.getChainFacts()).height).toBe(facts.height); // the probe
     expect(fetchMock.mock.calls.length).toBe(before + 1);
     expect((await source.getChainFacts()).height).toBe(facts.height); // closed again
+  });
+
+  it("a 503 for a source the API does not have rejects as an outage but never trips it", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 503,
+        headers: new Headers({ [NOT_CONFIGURED_HEADER]: "1" }),
+        json: () => Promise.resolve({}),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const source = createChainApiSource(config);
+    for (let i = 0; i < 5; i += 1) {
+      const err = await source.getChainFacts().catch((e: unknown) => e);
+      expect(isTransientUpstream(err)).toBe(true);
+      expect(String(err)).not.toMatch(/circuit open/);
+    }
+    expect(fetchMock.mock.calls).toHaveLength(5);
   });
 
   it("a 404 is an ANSWER and never trips the breaker", async () => {

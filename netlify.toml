@@ -3,7 +3,8 @@
   # Stated explicitly: an omitted value falls through to the Netlify UI, which cannot be
   # reviewed in a diff. The plugin requires `.next` containing `BUILD_ID` and `standalone/`.
   # `standalone` is absent from a plain local build because the plugin sets
-  # NEXT_PRIVATE_STANDALONE itself, so do not add `output: "standalone"` to next.config.ts.
+  # NEXT_PRIVATE_STANDALONE itself, so do not add `output: "standalone"` to next.config.ts
+  # (its one is gated on NEXT_STANDALONE, which is never set here).
   publish = ".next"
 
 [build.environment]

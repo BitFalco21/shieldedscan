@@ -164,9 +164,44 @@ describe.skipIf(!ADMIN_URL)("self-host import", () => {
   it("serves the imported database through the API, without a node", async () => {
     const url = new URL(ADMIN_URL!);
     url.pathname = `/${TARGET_DB}`;
-    const answers = await smokeApi(url.toString(), join(work, "api"));
-    // No node: the live status is an outage, answered as one, never a crash.
-    expect(answers.status.code).toBe(503);
+    const db = new Pool({ connectionString: url.toString(), max: 1 });
+    pools.push(db);
+    const { rows } = await db.query<{ txid: string }>(
+      "SELECT txid FROM tx WHERE block_height = 1 ORDER BY txid LIMIT 1",
+    );
+    const txid = rows[0]!.txid;
+    const answers = await smokeApi(url.toString(), join(work, "api"), {
+      address: `/v1/addresses/${MINER}`,
+      byHeight: "/v1/search?q=1",
+      byHash: `/v1/search?q=${manifest.hash}`,
+      byTxid: `/v1/search?q=${txid}`,
+      beyond: `/v1/blocks/${manifest.height + 1}`,
+    });
+    // No node: the chain is stated as of the release block, from the index.
+    expect(answers.status.code).toBe(200);
+    expect(JSON.stringify(answers.status.body)).toContain(`"height":${manifest.height}`);
+    expect(answers.blocks.code).toBe(200);
+    expect(JSON.stringify(answers.blocks.body)).toContain(manifest.hash);
+    // A stored block, address and search are answered from the index as of the release block.
+    expect(answers.block.code).toBe(200);
+    expect(answers.block.body).toMatchObject({ height: 1 });
+    expect(answers.address.code).toBe(200);
+    expect(answers.address.body).toMatchObject({ kind: "transparent", address: MINER });
+    expect((answers.byHeight.body as { resolvesTo: unknown }).resolvesTo).toMatchObject({
+      type: "block",
+      height: 1,
+    });
+    expect((answers.byHash.body as { resolvesTo: unknown }).resolvesTo).toEqual({
+      type: "block",
+      height: manifest.height,
+      hash: manifest.hash,
+    });
+    expect((answers.byTxid.body as { resolvesTo: unknown }).resolvesTo).toEqual({
+      type: "transaction",
+      txid,
+    });
+    // A block after the release may exist: an outage, answered as one, never a crash or a 404.
+    expect(answers.beyond.code).toBe(503);
     expect(answers.richList.code).toBe(200);
     expect(JSON.stringify(answers.richList.body)).toContain(MINER);
     expect(answers.transactions.code).toBe(200);

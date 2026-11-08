@@ -63,9 +63,28 @@ export const BASE_SECURITY_HEADERS: readonly SecurityHeader[] = [
  *
  * `X-Robots-Tag: noindex, nofollow` is private-preview only, derived from the same stage flag
  * that flips `robots.ts`, so no manual launch step can leave a `noindex` on a public site.
+ *
+ * `plainHttp` is a site served over http, as a self-hosted copy on a home network is: there,
+ * `upgrade-insecure-requests` sends every script and stylesheet to an https port that does not
+ * answer, and HSTS means nothing. Both stay on every https site.
  */
-export function securityHeaders(isPublic: boolean): SecurityHeader[] {
-  const headers = [...BASE_SECURITY_HEADERS];
+export function securityHeaders(
+  isPublic: boolean,
+  { plainHttp = false }: { plainHttp?: boolean } = {},
+): SecurityHeader[] {
+  const headers = plainHttp
+    ? BASE_SECURITY_HEADERS.filter((h) => h.key !== "Strict-Transport-Security").map((h) =>
+        h.key === "Content-Security-Policy"
+          ? {
+              ...h,
+              value: h.value
+                .split("; ")
+                .filter((d) => d !== "upgrade-insecure-requests")
+                .join("; "),
+            }
+          : h,
+      )
+    : [...BASE_SECURITY_HEADERS];
   if (!isPublic) headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });
   return headers;
 }

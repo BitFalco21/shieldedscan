@@ -18,7 +18,7 @@ import { V1_SERIES_PATHS, v1SeriesRoutes } from "../v1/analytics-series";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../v1/miners";
 import { V1_MINING_PATH, v1MiningRoutes } from "../v1/mining";
 import { V1_NODES_PATHS, v1NodesRoutes } from "../v1/network-nodes";
-import { type V1Extension, v1Routes } from "../v1/routes";
+import { type V1ChainPort, type V1Extension, v1Routes } from "../v1/routes";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../v1/transparent-series";
 import { PostgresAnalyticsData } from "../v1/windowed/data";
 import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../v1/windowed/routes";
@@ -38,6 +38,8 @@ import type { LivePrice, LiveStats24h } from "./live";
 export interface V1AppDeps {
   store: CrossChainStorePort;
   publicChainSource: NodeChainSource | undefined;
+  /** Without a node: the index's answers for the chain routes (`IndexChainSource`). */
+  publicIndexSource?: V1ChainPort | undefined;
   publicChainIndex: ChainIndexStore | undefined;
   price: LivePrice | undefined;
   stats24h: LiveStats24h | undefined;
@@ -191,7 +193,11 @@ export function createV1App(deps: V1AppDeps): Hono | undefined {
     : undefined;
   const { publicChainSource, publicChainIndex, price, stats24h } = deps;
   return v1Routes({
-    ...(publicChainSource ? { chain: publicChainSource } : {}),
+    ...(publicChainSource
+      ? { chain: publicChainSource }
+      : deps.publicIndexSource
+        ? { chain: deps.publicIndexSource }
+        : {}),
     network: NETWORK,
     store: deps.store,
     ...(v1Pool ? { pool: v1Pool } : {}),

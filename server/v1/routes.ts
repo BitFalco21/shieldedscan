@@ -24,6 +24,7 @@ import {
   type AddressInfo,
   type LabelledBalances,
   type Block,
+  type BlockDetail,
   type MempoolStats,
   type SupplyBreakdown,
   type Transaction,
@@ -121,7 +122,8 @@ export interface V1ChainPort {
   getTip(): Promise<{ height: number; hash: string }>;
   /** The node's half of the block list: `top` down, one `getblock` each (`block-list.ts`). */
   blocksDescending(top: number, count: number): Promise<Block[]>;
-  getBlock(idOrHeight: string): Promise<Block | undefined>;
+  /** The whole block, or its list row where the header was not read (`IndexChainSource`). */
+  getBlock(idOrHeight: string): Promise<BlockDetail | undefined>;
   getBlockTransactions(height: number): Promise<Transaction[]>;
   getAddress(address: string): Promise<AddressInfo | undefined>;
   /**

@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import { log, requirePostgres } from "./entrypoint";
 import { createPool } from "./pg-pool";
 import { runImport } from "./selfhost/import";
+import { READER_ROLE, ensureReader } from "./selfhost/reader";
 import { DEFAULT_ENDPOINT, DEFAULT_REPO, huggingFaceSource } from "./selfhost/source";
 
 /**
@@ -18,7 +19,9 @@ import { DEFAULT_ENDPOINT, DEFAULT_REPO, huggingFaceSource } from "./selfhost/so
  * default the Hub); SELFHOST_REPO, SELFHOST_REVISION, SELFHOST_DATA_DIR, SELFHOST_JOBS,
  * SELFHOST_KEEP_FILES=1, SELFHOST_MAINTENANCE_WORK_MEM, SCHEMA_DIR. No token: the dataset is
  * public. `--allow-missing-coinbase` (SELFHOST_ALLOW_MISSING_COINBASE=1) accepts a release from
- * before miner addresses were published.
+ * before miner addresses were published. SELFHOST_READER_PASSWORD, once the import has passed,
+ * enables a read-only login for your own apps (`selfhost/reader.ts`); unset, an existing one is
+ * locked.
  */
 
 const { values: args } = parseArgs({
@@ -69,6 +72,8 @@ try {
       `done in ${minutes} min: block ${result.height} (${result.hash}), ` +
         `release ${result.commit}`,
     );
+    const reader = await ensureReader(pool, { password: env.SELFHOST_READER_PASSWORD });
+    if (reader !== "absent") log(`read-only role ${READER_ROLE}: login ${reader}`);
   }
 } catch (e) {
   log(`FAILED: ${e instanceof Error ? e.message : String(e)}`);

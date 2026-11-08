@@ -4,8 +4,9 @@ How to run the whole stack: a Zcash node, Postgres, the services in `server/`, a
 frontend. The frontend alone needs none of this; `npm run dev` serves fixtures.
 
 The quickest start skips indexing the chain from 2016: [`selfhost/`](../selfhost/README.md)
-imports the open dataset into Postgres with one command, then a node keeps it current. This page
-is the full path: every service, built and indexed from the node.
+imports the open dataset into Postgres and runs the API and this website on it with one command,
+then a node keeps it current. This page is the full path: every service, built and indexed from
+the node.
 
 Every variable mentioned here is listed, with its default, in [`.env.example`](../.env.example).
 
@@ -19,14 +20,14 @@ Browser ──► Next.js frontend ──► reverse proxy ──► API service
                                        network crawler ──────────────┘
 ```
 
-| Service  | Entry point               | Image (`server/`)     | Needs                       |
-| -------- | ------------------------- | --------------------- | --------------------------- |
-| API      | `server/index.ts`         | `Dockerfile`          | Postgres, node RPC, a token |
-| Follower | `server/follow-main.ts`   | `Dockerfile.follower` | Postgres, node RPC          |
-| Backfill | `server/backfill-main.ts` | `Dockerfile.follower` | Postgres, node RPC          |
-| Crawler  | `server/crawler-main.ts`  | `Dockerfile.crawler`  | Postgres, outbound P2P      |
-| Proxy    | `server/Caddyfile`        | `Dockerfile.caddy`    | the API                     |
-| Frontend | `src/` (Next.js)          | none                  | the API's URL and token     |
+| Service  | Entry point               | Image (`server/`)         | Needs                       |
+| -------- | ------------------------- | ------------------------- | --------------------------- |
+| API      | `server/index.ts`         | `Dockerfile`              | Postgres, node RPC, a token |
+| Follower | `server/follow-main.ts`   | `Dockerfile.follower`     | Postgres, node RPC          |
+| Backfill | `server/backfill-main.ts` | `Dockerfile.follower`     | Postgres, node RPC          |
+| Crawler  | `server/crawler-main.ts`  | `Dockerfile.crawler`      | Postgres, outbound P2P      |
+| Proxy    | `server/Caddyfile`        | `Dockerfile.caddy`        | the API                     |
+| Frontend | `src/` (Next.js)          | `selfhost/Dockerfile.web` | the API's URL and token     |
 
 The follower image also carries the one-shot maintenance jobs (`bootstrap-rich-list.mjs` and the
 `repair-*.mjs` jobs); each one's header in `server/` says what it does and which variables it
@@ -88,9 +89,10 @@ because a first fill scans the whole chain and must not run inside a service's s
    replace its site addresses with your own. Publish only the proxy: Postgres and the node's RPC
    port should never be reachable from outside.
 9. **Point the frontend at the API:** set `CROSSCHAIN_API_URL` and `EXPLORER_API_TOKEN`, then
-   `npm run build && npm start`, or deploy to any host that runs Next.js. Set
-   `NEXT_PUBLIC_SITE_URL` to your public origin and `NEXT_PUBLIC_STAGE=public` when it should be
-   indexed; a public build refuses to build on fixtures.
+   `npm run build && npm start`, build the image `selfhost/Dockerfile.web`, or deploy to any
+   host that runs Next.js. Set `NEXT_PUBLIC_SITE_URL` to your public origin and
+   `NEXT_PUBLIC_STAGE=public` when it should be indexed; a public build refuses to build on
+   fixtures.
 
 ## Configuration per service
 
@@ -103,8 +105,9 @@ because a first fill scans the whole chain and must not run inside a service's s
 | Frontend | none (fixtures)            | `CROSSCHAIN_API_URL`, `EXPLORER_API_TOKEN`, `NEXT_PUBLIC_*`                                                                |
 
 Without a database the API keeps cross-chain transfers in memory and serves no index-backed
-route; without `NODE_RPC_URL` it mounts no node-backed route. Pages that need a missing route
-render "unavailable" rather than failing.
+route. Without `NODE_RPC_URL` it answers from the database as of its newest block, and every read
+that needs the node answers 503; with neither, it mounts no chain route. Pages that need a missing
+route render "unavailable" rather than failing.
 
 A second API container can share the database as a replica: set `API_ROLE=replica` and
 `PRIMARY_API_URL` to the primary. Only the primary runs the background pollers; a replica reads

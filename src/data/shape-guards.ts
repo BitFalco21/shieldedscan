@@ -72,7 +72,7 @@ export function isBlock(value: unknown): value is Block {
  * A block list row: what `/chain/blocks` sends, without the header fields only a detail
  * page shows. `txCount` is the field an API predating summaries does not send.
  */
-function isBlockSummary(value: unknown): value is BlockSummary {
+export function isBlockSummary(value: unknown): value is BlockSummary {
   if (typeof value !== "object" || value === null) return false;
   const b = value as Record<string, unknown>;
   return (

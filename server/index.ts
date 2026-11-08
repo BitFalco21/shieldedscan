@@ -45,7 +45,8 @@ import {
 } from "./app/config";
 import { startChainTrackers } from "./app/jobs";
 import { createLiveSources } from "./app/live";
-import { mountNodeRoutes } from "./app/node-routes";
+import { mountIndexOnlyRoutes, mountNodeRoutes, notConfigured } from "./app/node-routes";
+import { IndexChainSource } from "./index-chain-source";
 import { createChainIndexStores, createCrossChainStore } from "./app/stores";
 import { createV1App } from "./app/v1";
 
@@ -252,9 +253,32 @@ if (!EXTERNAL_SOURCES) {
   log("EXTERNAL_SOURCES=0 — no prices, market caps, venues, ZIP index or names are polled");
 }
 
-// Chain reads from the node. Without NODE_RPC_URL these routes are not mounted at all.
+/**
+ * Without a node but with a database (a self-hosted copy of the open dataset), the index answers
+ * the chain reads it holds, as of its newest block. Production always has a node.
+ */
+const indexOnly =
+  !live && chainIndex && publicChainIndex
+    ? {
+        chainIndex,
+        site: new IndexChainSource(chainIndex, NETWORK),
+        public: new IndexChainSource(publicChainIndex, NETWORK),
+      }
+    : undefined;
+
+// Chain reads from the node.
 if (live) {
   mountNodeRoutes(app, { live, chainIndex, store, netmapReader, log });
+} else if (indexOnly) {
+  // Read once: without a node nothing is added, so the newest stored block stays the newest.
+  const tip = await indexOnly.chainIndex.tipHeight();
+  const tipRow = tip === null ? undefined : await indexOnly.chainIndex.blockAt(tip);
+  mountIndexOnlyRoutes(app, {
+    source: indexOnly.site,
+    chainIndex: indexOnly.chainIndex,
+    log,
+    tipTimeMs: tipRow ? tipRow.pools.timestamp * 1000 : null,
+  });
 } else {
   log("NODE_RPC_URL unset — chain routes not mounted, those pages stay on fixtures");
 }
@@ -272,6 +296,7 @@ if (IS_PRIMARY && USE_POSTGRES && NODE_RPC_URL && !IS_TESTNET) {
 const v1App = createV1App({
   store,
   publicChainSource: live?.publicChainSource,
+  publicIndexSource: indexOnly?.public,
   publicChainIndex,
   price: live?.price,
   stats24h: live?.stats24h,
@@ -333,9 +358,22 @@ app.get("/health", async (c) => {
 
 /*
  * The /crosschain surface is mainnet-only: no venue bridges testnet ZEC, so there is nothing it
- * could honestly answer on testnet.
+ * could honestly answer on testnet. Nor without the off-chain sources: no venue is polled, and an
+ * empty store would read as "no transfers" for a source that is not collected here.
  */
-if (!IS_TESTNET) app.route("/", crosschainRoutes(store));
+if (!IS_TESTNET && EXTERNAL_SOURCES) app.route("/", crosschainRoutes(store));
+
+/**
+ * Registered last, so it answers only what no group above did. A deployment without a node or the
+ * off-chain sources leaves some private groups unmounted; their paths answer "not configured" (503)
+ * rather than 404, which the site would read as "does not exist". With every source configured, as
+ * in production, it is not registered and an unknown path stays a loud 404.
+ */
+if (!NODE_RPC_URL || !EXTERNAL_SOURCES) {
+  for (const prefix of ["/chain/*", "/crosschain/*"]) {
+    app.all(prefix, (c) => notConfigured(c, "this source"));
+  }
+}
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
   log(`api listening on :${info.port}`);

@@ -20,6 +20,8 @@ export async function serveRelease(opts: {
   repo: string;
   commit: string;
   tamper?: string;
+  /** Where to listen: loopback unless a container must reach it (`0.0.0.0`). */
+  host?: string;
 }): Promise<Hub> {
   const requests: string[] = [];
   const revisionPath = `/api/datasets/${opts.repo}/revision/main`;
@@ -53,7 +55,7 @@ export async function serveRelease(opts: {
     }
     createReadStream(file).pipe(res);
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(0, opts.host ?? "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
   return {
     endpoint: `http://127.0.0.1:${port}`,

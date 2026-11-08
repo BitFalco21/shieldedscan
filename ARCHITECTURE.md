@@ -120,7 +120,8 @@ brand/          Reproducible generators for the site's brand assets.
 - A page with a section that did not load is an ordinary 200 and may be shared for its fresh
   window. It states no figure, and stale-while-revalidate replaces it on the next good render.
 - An outage must be cheap: a shared circuit breaker fails fast after repeated upstream failures,
-  and live pollers back off.
+  and live pollers back off. A 503 the API marks as a source this deployment does not have (a
+  self-hosted copy without a node) still renders "unavailable" but is not a failure of the API.
 
 ## Interface rules
 

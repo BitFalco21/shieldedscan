@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { Block, Transaction } from "@/domain";
+import { blockSummaryOf, type Block, type Transaction } from "@/domain";
 import { BlockDetailPage } from "../BlockDetailPage";
 
 const block: Block = {
@@ -199,5 +199,23 @@ describe("named addresses on a block", () => {
   it("leaves an unattributed address as an address", () => {
     renderPage({ miner: { kind: "transparent", address: "t1TheMiner" } });
     expect(screen.getByRole("link", { name: /t1TheMiner/ })).toBeDefined();
+  });
+});
+
+describe("a block whose header could not be read", () => {
+  it("states its row and says the header fields are unavailable, never blank", () => {
+    render(
+      <BlockDetailPage
+        block={blockSummaryOf({ ...block, txids: ["c0".repeat(32), "c1".repeat(32)] })}
+        txs={[]}
+        tipHeight={block.height}
+        oldestHeight={0}
+      />,
+    );
+    expect(screen.getByText("2")).toBeDefined();
+    expect(screen.getByText("VERSION, BITS, NONCE, ROOTS")).toBeDefined();
+    expect(screen.getByText("unavailable")).toBeDefined();
+    expect(screen.queryByText("MERKLE ROOT")).toBeNull();
+    expect(screen.queryByText("FINAL SAPLING ROOT")).toBeNull();
   });
 });

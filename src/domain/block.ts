@@ -118,8 +118,24 @@ export type BlockSummary = Omit<
   "txids" | "version" | "bits" | "nonce" | "merkleRoot" | "finalSaplingRoot" | "finalOrchardRoot"
 > & { txCount: number };
 
-/** A full block, as its list row. Spelled out so a field added to `Block` must be decided here. */
-export function blockSummaryOf(b: Block): BlockSummary {
+/**
+ * A block as its detail page reads it: whole, or as its list row where the header was not read
+ * (an API answering from its index alone, which does not store the header). The header fields
+ * and the txid list are then unknown, never empty.
+ */
+export type BlockDetail = Block | BlockSummary;
+
+/** Whether the header fields and the txid list were read. */
+export function hasBlockHeader(b: BlockDetail): b is Block {
+  return "txids" in b;
+}
+
+/**
+ * A block as its list row; a row is already one. Spelled out so a field added to `Block` must be
+ * decided here.
+ */
+export function blockSummaryOf(b: BlockDetail): BlockSummary {
+  if (!hasBlockHeader(b)) return b;
   return {
     height: b.height,
     hash: b.hash,

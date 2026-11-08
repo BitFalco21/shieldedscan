@@ -2,6 +2,7 @@
 #
 #   docker compose --profile db up -d     Postgres, filled from the dataset (+ the follower with a node)
 #   docker compose --profile api up -d    the same, plus the API on 127.0.0.1:8080
+#   docker compose --profile full up -d   the same, plus the website on 127.0.0.1:3000
 #
 # Settings come from `.env` beside this file (copy `env.example`). See README.md.
 name: shieldedscan
@@ -16,7 +17,7 @@ x-database: &database
 services:
   postgres:
     image: postgres:17
-    profiles: [db, api]
+    profiles: [db, api, full]
     environment:
       POSTGRES_USER: shieldedscan
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -49,7 +50,7 @@ services:
     build:
       context: ..
       dockerfile: server/Dockerfile.selfhost-import
-    profiles: [db, api]
+    profiles: [db, api, full]
     environment:
       <<: *database
       SELFHOST_REVISION: ${SELFHOST_REVISION:-main}
@@ -58,6 +59,8 @@ services:
       SELFHOST_JOBS: ${SELFHOST_JOBS:-2}
       SELFHOST_ALLOW_MISSING_COINBASE: ${SELFHOST_ALLOW_MISSING_COINBASE:-0}
       SELFHOST_MAINTENANCE_WORK_MEM: ${SELFHOST_MAINTENANCE_WORK_MEM:-1GB}
+      # Set: a read-only login for your own apps once the import has passed. Unset: none.
+      SELFHOST_READER_PASSWORD: ${POSTGRES_READONLY_PASSWORD:-}
     volumes:
       - downloads:/data
     # For an HF_ENDPOINT mirror on this machine.
@@ -74,7 +77,7 @@ services:
     build:
       context: ..
       dockerfile: server/Dockerfile.follower
-    profiles: [db, api]
+    profiles: [db, api, full]
     environment:
       <<: *database
       NODE_RPC_URL: ${NODE_RPC_URL:-}
@@ -96,7 +99,7 @@ services:
     build:
       context: ..
       dockerfile: server/Dockerfile
-    profiles: [api]
+    profiles: [api, full]
     environment:
       <<: *database
       # Not `:?`: Compose interpolates every service before it applies profiles, so a required
@@ -104,9 +107,10 @@ services:
       EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:-}
       PUBLIC_API_ENABLED: "1"
       NODE_RPC_URL: ${NODE_RPC_URL:-}
-      # Prices, market caps, swap venues, the ZIP index and names are polled from the internet
-      # only when this is 1.
-      EXTERNAL_SOURCES: ${EXTERNAL_SOURCES:-0}
+      # On by default: the daily ZEC/USD history back to 2016 and currency rates load on first
+      # start (no key, no node), so every USD figure and price chart fills in; also market caps,
+      # swap venues, the ZIP index and names. 0: after the import, the box calls no third party.
+      EXTERNAL_SOURCES: ${EXTERNAL_SOURCES:-1}
     ports:
       - 127.0.0.1:${API_PORT:-8080}:8080
     extra_hosts:
@@ -114,6 +118,34 @@ services:
     depends_on:
       importer:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  # The website, reading the API above over the compose network. No assistant: it needs a model
+  # host's key, and NEXT_PUBLIC_AGENT_ENABLED is not set.
+  web:
+    build:
+      context: ..
+      dockerfile: selfhost/Dockerfile.web
+      args:
+        # Inlined at build: the address you open the site at, and the API's for the docs page.
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:${WEB_PORT:-3000}}
+        NEXT_PUBLIC_API_BASE_URL: ${API_URL:-http://127.0.0.1:${API_PORT:-8080}}
+    profiles: [full]
+    environment:
+      CROSSCHAIN_API_URL: http://api:8080
+      EXPLORER_API_TOKEN: ${EXPLORER_API_TOKEN:-}
+    # Without the token the site would render its built-in sample data as if it were the chain.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        if [ -z "$$EXPLORER_API_TOKEN" ]; then echo "EXPLORER_API_TOKEN is not set in .env"; exit 1;
+        fi; exec node server.js
+    ports:
+      - 127.0.0.1:${WEB_PORT:-3000}:3000
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

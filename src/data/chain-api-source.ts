@@ -1,7 +1,7 @@
 import type {
   ActivityPoint,
   AddressInfo,
-  Block,
+  BlockDetail,
   BlockSummary,
   ChainMonthPoint,
   FeeDistribution,
@@ -96,6 +96,7 @@ import {
   assertNoAddressLiterals,
   blockListRow,
   isBlock,
+  isBlockSummary,
   isNetCrawlHistory,
   isNetHealth,
   isNetMap,
@@ -853,7 +854,7 @@ export function createChainApiSource(config: ChainApiConfig) {
       }
     },
 
-    async getBlock(idOrHeight: string): Promise<Block | undefined> {
+    async getBlock(idOrHeight: string): Promise<BlockDetail | undefined> {
       const res = await request(
         config,
         `/chain/blocks/${encodeURIComponent(idOrHeight)}`,
@@ -861,15 +862,18 @@ export function createChainApiSource(config: ChainApiConfig) {
       );
       if (res.status === 404) return undefined;
       const body = await json<unknown>(res, "block");
-      if (!isBlock(body)) throw new Error("chain API returned an unrecognised block shape");
+      // A list row is an API without a node: the block, its header not read.
+      if (!isBlock(body) && !isBlockSummary(body)) {
+        throw new Error("chain API returned an unrecognised block shape");
+      }
       return body;
     },
 
     /**
-     * Takes the whole `Block` rather than a height, matching `ExplorerDataSource` — the block
+     * Takes the block rather than a height, matching `ExplorerDataSource` — the block
      * already carries its txids, so an adapter is free to batch rather than re-fetch.
      */
-    async getBlockTransactions(block: Block): Promise<Transaction[]> {
+    async getBlockTransactions(block: BlockDetail): Promise<Transaction[]> {
       /*
        * The route is keyset-paginated; the block page wants one bounded page rather than a paging
        * control, so this asks for one page at the API's maximum (`limit=100`). A block with more

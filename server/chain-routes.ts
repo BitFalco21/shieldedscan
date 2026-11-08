@@ -1,16 +1,39 @@
 import { Hono } from "hono";
 import { blockRowsReader, type BlockRowsReader } from "./block-list";
 import type { ChainIndexStore } from "./chain-index-store";
+import { NoNodeError } from "./index-chain-source";
 import {
   classifySearchQuery,
   classifyZcashAddress,
   parseTxKindFilter,
+  type BlockDetail,
   type PoolName,
 } from "@/domain";
 import type { NodeChainSource } from "./chain-source";
 import type { PriceTracker, Stats24hTracker } from "./chain-stats";
 import { clampPageSize } from "./page-size";
 import { ParamError, parseTxListPool } from "./v1/params";
+
+/**
+ * What the routes read from a chain source: `NodeChainSource`, or `IndexChainSource` on an API with
+ * a database and no node, whose block is its list row (`BlockDetail`).
+ */
+export type ChainRouteSource = Pick<
+  NodeChainSource,
+  | "getChainFacts"
+  | "getPools"
+  | "getOldestHeight"
+  | "getSupplyBreakdown"
+  | "getTip"
+  | "blocksDescending"
+  | "getBlockTransactions"
+  | "listTransactions"
+  | "listLatestTransactions"
+  | "getTransaction"
+  | "getAddress"
+  | "getMempoolStats"
+  | "listMempool"
+> & { getBlock(idOrHeight: string): Promise<BlockDetail | undefined> };
 
 export interface ChainRouteExtras {
   // Structural, so a replica's readers of the primary's state (`live-state.ts`) fit as well.
@@ -60,7 +83,7 @@ const pageParam = (raw: string | undefined): number => Math.max(1, finiteInt(raw
  * Error contract, matching `src/data/source.ts`: a missing thing is 404, and a transient failure
  * is a rejection that surfaces as 500. An outage is never dressed up as missing data.
  */
-export function chainRoutes(source: NodeChainSource, extras: ChainRouteExtras = {}): Hono {
+export function chainRoutes(source: ChainRouteSource, extras: ChainRouteExtras = {}): Hono {
   /**
    * The block list, from the chain index with the node topping up what the follower has not stored
    * yet (`block-list.ts`), behind a single-flight cache keyed on both the node's tip and the
@@ -264,9 +287,14 @@ export function chainRoutes(source: NodeChainSource, extras: ChainRouteExtras = 
         // A 64-hex string is ambiguous on Zcash: block hash and txid share the shape. Both are
         // tried concurrently, block first in the result because a pasted block hash is the commoner
         // case.
+        // Without a node the source answers only for blocks: a stored txid is then read from the
+        // index. With a node the node answers, exactly as before.
         const [block, tx] = await Promise.all([
           source.getBlock(query.hash),
-          source.getTransaction(query.hash),
+          source.getTransaction(query.hash).catch(async (error: unknown) => {
+            if (!(error instanceof NoNodeError) || !extras.chainIndex) throw error;
+            return extras.chainIndex.getTransaction(query.hash);
+          }),
         ]);
         if (block) return c.json({ type: "block", block });
         if (tx) return c.json({ type: "transaction", transaction: tx });

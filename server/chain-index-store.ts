@@ -18,6 +18,7 @@ import {
   INT8_SORT_KEY_MAX,
   seekFromCursors,
 } from "@/data/cursor";
+import { ADDRESS_TXID_ROWS_PER_TX, newestDistinctTxids } from "./address-txids";
 import { keysetSlice } from "./keyset-page";
 import { clampPageSize } from "./page-size";
 import { POOL_USED_SQL } from "./pool-sql";
@@ -564,6 +565,89 @@ export class ChainIndexStore {
         ? null
         : { height: h, timestamp: Number(ts) };
     return { first: point(r?.first, r?.first_ts), last: point(r?.last, r?.last_ts) };
+  }
+
+  /** A stored block's height by its hash (the `block.hash` unique index), or null. */
+  async blockHeightByHash(hash: string): Promise<number | null> {
+    const { rows } = await this.pool.query<{ height: number }>(
+      "SELECT height FROM block WHERE hash = $1",
+      [hash],
+    );
+    return rows[0]?.height ?? null;
+  }
+
+  /**
+   * An address's row in `chain_address_balance` (null when it holds nothing), beside the height
+   * those balances cover. One primary-key read and the one-row meta table.
+   */
+  async addressBalance(address: string): Promise<{
+    computedHeight: number | null;
+    held: { balanceZat: number; receivedZat: number } | null;
+  }> {
+    const { rows } = await this.pool.query<{
+      computed_height: number | null;
+      balance_zat: string | null;
+      received_zat: string | null;
+    }>(
+      `SELECT (SELECT computed_height FROM chain_rich_list_meta WHERE id) AS computed_height,
+              b.balance_zat::text AS balance_zat, b.received_zat::text AS received_zat
+         FROM (SELECT 1) one
+         LEFT JOIN chain_address_balance b ON b.address = $1`,
+      [address],
+    );
+    const r = rows[0];
+    return {
+      computedHeight: r?.computed_height ?? null,
+      held:
+        r?.balance_zat == null || r.received_zat == null
+          ? null
+          : { balanceZat: Number(r.balance_zat), receivedZat: Number(r.received_zat) },
+    };
+  }
+
+  /**
+   * Received and sent over an address's rows at or below `atHeight`, read through
+   * `io_address_idx` and bounded to `maxRows` rows: `rows` above `maxRows` means the walk stopped
+   * and the sums are partial. A NULL value counts nothing, as in `recomputeAddresses`.
+   */
+  async addressIoTotals(
+    address: string,
+    atHeight: number,
+    maxRows: number,
+  ): Promise<{ rows: number; receivedZat: number; sentZat: number }> {
+    const { rows } = await this.pool.query<{ n: number; received: string; sent: string }>(
+      `SELECT count(*)::int AS n,
+              COALESCE(SUM(value_zat) FILTER (WHERE io = 'out'), 0)::text AS received,
+              COALESCE(SUM(value_zat) FILTER (WHERE io = 'in'), 0)::text AS sent
+         FROM (SELECT io, value_zat FROM tx_transparent_io
+                WHERE address = $1 AND block_height <= $2
+                LIMIT $3) s`,
+      [address, atHeight, maxRows + 1],
+    );
+    const r = rows[0];
+    return {
+      rows: r?.n ?? 0,
+      receivedZat: Number(r?.received ?? 0),
+      sentZat: Number(r?.sent ?? 0),
+    };
+  }
+
+  /**
+   * An address's newest txids, newest block first and at most `limit`, read from at most
+   * `limit * ADDRESS_TXID_ROWS_PER_TX` of its rows. The walk follows `io_address_idx` (address,
+   * block_height DESC) and stops at the row cap: grouping in SQL instead would make the planner
+   * aggregate the whole history of a payout address with millions of rows before the LIMIT.
+   * The list is already a capped, newest-first view, so a shorter one is still truthful.
+   */
+  async addressTxids(address: string, limit: number): Promise<string[]> {
+    const { rows } = await this.pool.query<{ txid: string; block_height: number }>(
+      `SELECT txid, block_height FROM tx_transparent_io
+        WHERE address = $1 AND block_height IS NOT NULL
+        ORDER BY block_height DESC
+        LIMIT $2`,
+      [address, limit * ADDRESS_TXID_ROWS_PER_TX],
+    );
+    return newestDistinctTxids(rows, limit);
   }
 
   /** Our indexed tip — the newest block row — or null on an empty index. */
