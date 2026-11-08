@@ -75,8 +75,10 @@ export function minersRoutes(deps: MinersRoutesDeps): Hono {
     try {
       const prefix = await nsmPrefix.get(() => loadNsmPrefix(deps.pool));
       // The index trails the node by a block for a few seconds after each one; the figure needs
-      // both at the same block, so a short wait lets the index catch up before giving up.
-      for (let attempt = 0; attempt <= CARRIED_IN_RETRIES; attempt += 1) {
+      // both at the same block, so a short wait lets the index catch up before giving up. An
+      // unknown balance or a known gap in the prefix cannot heal by waiting: no retry then.
+      const retries = zat === null || prefix.nsmZat === null ? 0 : CARRIED_IN_RETRIES;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
         if (attempt > 0) await sleep(CARRIED_IN_RETRY_MS);
         carriedInZat = await nsmCarriedInZat(deps.pool, prefix, { ...tip, nsmZat: zat });
         if (carriedInZat !== null) break;

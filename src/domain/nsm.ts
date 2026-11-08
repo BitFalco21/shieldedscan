@@ -34,8 +34,8 @@ export interface NsmBalance {
   zat: number | null;
   /**
    * What the balance held beyond fees: the balance less every block's fee share from NU7 to
-   * `height`. ZIP 234 opened the NSM with the subsidy miners never claimed since genesis, and no
-   * ZIP 237 reissuance has left it yet. Null unless the index holds every one of those blocks,
+   * `height`. The node opened the NSM at NU7 with the subsidy miners never claimed since
+   * genesis, and no reissuance has left it yet. Null unless the index holds every one of those blocks,
    * with its fee, up to the very block the balance was read at.
    */
   carriedInZat: number | null;
