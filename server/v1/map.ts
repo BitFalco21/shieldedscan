@@ -36,6 +36,25 @@ import {
   circulatingZat,
   type HalvingEvent,
   type UpgradeNetwork,
+  MINERS_HISTORY_FROM_DAY,
+  MINING_POOL_LABELS,
+  NO_ADDRESS_GROUP,
+  NSM_FEE_SHARE_PCT,
+  SHIELDED_GROUP,
+  UNATTRIBUTED_GROUP,
+  groupMinersByPool,
+  minerValueUsd,
+  nsmWindow,
+  type MinerAddressRow,
+  type MinerSeries,
+  type MinersOverview,
+  type MinersWindowKey,
+  type MinerUsdParts,
+  type MiningPool,
+  type MiningPoolBlock,
+  type MiningPoolGroup,
+  type MiningPoolId,
+  type NsmOverview,
 } from "@/domain";
 import { unspendablePools } from "@/domain/consensus";
 import type { AddressKindBucket, VenueHealth } from "@/data/crosschain/store";
@@ -66,6 +85,22 @@ import type {
   V1TxSide,
   V1RichListEntry,
   V1RichListDistribution,
+  V1Amount,
+  V1BlockCount,
+  V1MinerRow,
+  V1MiningPool,
+  V1MiningPoolAddress,
+  V1MiningPoolBlock,
+  V1MiningPools,
+  V1MiningPoolSeries,
+  V1MiningPoolSummary,
+  V1MiningSeriesCell,
+  V1MiningSeriesGroup,
+  V1MiningWindow,
+  V1MiningWindowKey,
+  V1Nsm,
+  V1NsmDay,
+  V1ValueUsd,
 } from "./dto";
 import type { RpcBlockSubsidy, RpcSubsidyStream } from "../node-rpc";
 import { zec } from "./format";
@@ -831,5 +866,436 @@ export function toRichListDistribution(summary: RichListSummary): V1RichListDist
       share: share(top.totalZat, summary.totalZat),
     })),
     asOf: summary.asOf,
+  };
+}
+
+// ---------------------------------------------------------------- mining pools and the NSM
+
+/** The first day any `/miners` figure may include, as the page holds it. */
+const MINING_HISTORY_FROM = MINERS_HISTORY_FROM_DAY ?? "2016-10-28";
+
+const amountOrNull = (zat: number | null): V1Amount | null =>
+  zat === null ? null : { zat, zec: zec(zat) };
+
+/**
+ * A reward's dollars as `/miners` states them: closed days at their own close, today at the live
+ * price. Null, with its reason, when the reward is unknown or today has one and no price is live.
+ */
+function valueUsd(
+  rewardZat: number | null,
+  parts: MinerUsdParts,
+  livePriceUsd: number | null,
+  path: string,
+  unknowns: V1Unknowns,
+): V1ValueUsd | null {
+  const v = minerValueUsd(rewardZat, parts, livePriceUsd);
+  if (v === null) {
+    unknowns[path] = "unmeasured";
+    return null;
+  }
+  return { usd: Math.round(v.usd * 100) / 100, floor: v.floor };
+}
+
+function minerRow(r: MinerAddressRow, of: number, path: string, unknowns: V1Unknowns): V1MinerRow {
+  const s = share(r.blocks, of);
+  if (s === null) unknowns[`${path}.share`] = "nonexistent";
+  if (r.rewardZat === null) unknowns[`${path}.reward`] = "unmeasured";
+  if (r.feeZat === null) unknowns[`${path}.fees`] = "unmeasured";
+  return {
+    address: r.address,
+    blocks: r.blocks,
+    share: s,
+    reward: amountOrNull(r.rewardZat),
+    fees: amountOrNull(r.feeZat),
+    firstHeight: r.firstHeight,
+    lastHeight: r.lastHeight,
+  };
+}
+
+function miningWindow(o: MinersOverview): V1MiningWindow {
+  return {
+    key: o.window as V1MiningWindowKey,
+    fromDay: o.fromDay,
+    toDay: o.toDay,
+    fromHeight: o.fromHeight,
+    toHeight: o.toHeight,
+    daysComputed: o.daysComputed,
+    daysExpected: o.daysExpected,
+  };
+}
+
+/** What a window does not cover yet, in words; `partial` when there is anything to say. */
+function miningCoverage(o: MinersOverview): V1MiningPools["coverage"] {
+  const notes: string[] = [];
+  if (o.daysComputed < o.daysExpected) {
+    notes.push(
+      `${o.daysExpected - o.daysComputed} of the window's ${o.daysExpected} days are not computed yet; their blocks are not counted.`,
+    );
+  }
+  if (o.unrecordedBlocks > 0) {
+    notes.push(
+      `${o.unrecordedBlocks.toLocaleString("en-US")} block(s) have no recorded miner yet; they count in every share's denominator, so every share is a lower bound until they are filled.`,
+    );
+  }
+  return { status: notes.length === 0 ? "complete" : "partial", notes };
+}
+
+/** Said on every mining-pool answer: what a pool is here, and what the figures are. */
+export const MINING_POOLS_BASIS =
+  "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30 or 90 UTC days, today unfinished; nothing before `historyFrom` is read, and longer windows are not served until one stored block's miner is repaired.";
+
+/**
+ * How a pool's payout address was reviewed. Every address grouped into a pool has a label, so a
+ * missing one is a programming error: it throws rather than claim the strongest evidence.
+ */
+function reviewedBasis(address: string): V1MiningPoolAddress["basis"] {
+  const label = MINING_POOL_LABELS[address];
+  if (label === undefined) throw new Error(`no reviewed label for pool address ${address}`);
+  return label.basis;
+}
+
+/** One pool's figures over the window, from the overview's labelled rows. */
+function poolSummary(
+  g: MiningPoolGroup,
+  o: MinersOverview,
+  livePriceUsd: number | null,
+  path: string,
+  unknowns: V1Unknowns,
+): V1MiningPoolSummary {
+  const s = share(g.blocks, o.blocks);
+  if (s === null) unknowns[`${path}.share`] = "nonexistent";
+  if (g.rewardZat === null) unknowns[`${path}.reward`] = "unmeasured";
+  if (g.feeZat === null) unknowns[`${path}.fees`] = "unmeasured";
+  return {
+    id: g.pool.id,
+    name: g.pool.name,
+    blocks: g.blocks,
+    share: s,
+    reward: amountOrNull(g.rewardZat),
+    fees: amountOrNull(g.feeZat),
+    valueUsd: valueUsd(g.rewardZat, g.usd, livePriceUsd, `${path}.valueUsd`, unknowns),
+    addresses: g.addresses.map((r, i) => ({
+      ...minerRow(r, o.blocks, `${path}.addresses.${i}`, unknowns),
+      basis: reviewedBasis(r.address),
+    })),
+  };
+}
+
+/** `/v1/analytics/mining-pools`: every reviewed pool over the window, beside what no label names. */
+export function toMiningPools(
+  o: MinersOverview,
+  livePriceUsd: number | null,
+  siteUrl: string,
+  asOf: number,
+): V1MiningPools {
+  const unknowns: V1Unknowns = {};
+  const count = (blocks: number, path: string): V1BlockCount => {
+    const s = share(blocks, o.blocks);
+    if (s === null) unknowns[`${path}.share`] = "nonexistent";
+    return { blocks, share: s };
+  };
+  const { pools } = groupMinersByPool(o.labelled);
+  const u = o.unattributed;
+  if (u.rewardZat === null) unknowns["data.unattributed.reward"] = "unmeasured";
+  if (u.feeZat === null) unknowns["data.unattributed.fees"] = "unmeasured";
+  const unattributedShare = share(u.blocks, o.blocks);
+  if (unattributedShare === null) unknowns["data.unattributed.share"] = "nonexistent";
+  return {
+    query: { window: o.window as V1MiningWindowKey },
+    coverage: miningCoverage(o),
+    source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
+    basis: MINING_POOLS_BASIS,
+    data: {
+      window: miningWindow(o),
+      historyFrom: MINING_HISTORY_FROM,
+      blocks: o.blocks,
+      byKind: {
+        transparent: {
+          ...count(o.transparent.blocks, "data.byKind.transparent"),
+          addresses: o.transparent.addresses,
+        },
+        shieldedCoinbase: count(o.shieldedBlocks, "data.byKind.shieldedCoinbase"),
+        noAddress: count(o.noAddressBlocks, "data.byKind.noAddress"),
+        unrecorded: count(o.unrecordedBlocks, "data.byKind.unrecorded"),
+      },
+      pools: pools.map((g, i) => poolSummary(g, o, livePriceUsd, `data.pools.${i}`, unknowns)),
+      unattributed: {
+        blocks: u.blocks,
+        addresses: u.addresses,
+        share: unattributedShare,
+        reward: amountOrNull(u.rewardZat),
+        fees: amountOrNull(u.feeZat),
+        valueUsd: valueUsd(
+          u.rewardZat,
+          u.usd,
+          livePriceUsd,
+          "data.unattributed.valueUsd",
+          unknowns,
+        ),
+        largest: u.largest.map((r, i) =>
+          minerRow(r, o.blocks, `data.unattributed.largest.${i}`, unknowns),
+        ),
+      },
+    },
+    unknowns,
+    asOf,
+  };
+}
+
+/** `/v1/analytics/mining-pools/{id}`: one pool's reviewed addresses, window and newest blocks. */
+export function toMiningPool(
+  pool: MiningPool,
+  o: MinersOverview,
+  blocks: readonly MiningPoolBlock[],
+  page: { limit: number; cursor: string | null; nextCursor: string | null },
+  livePriceUsd: number | null,
+  siteUrl: string,
+  asOf: number,
+): V1MiningPool {
+  const unknowns: V1Unknowns = {};
+  const group = groupMinersByPool(o.labelled).pools.find((g) => g.pool.id === pool.id);
+  const empty: MiningPoolGroup = {
+    pool,
+    blocks: 0,
+    rewardZat: 0,
+    feeZat: 0,
+    usd: { closedUsd: 0, unpricedZat: 0, todayZat: 0 },
+    addresses: [],
+  };
+  const {
+    id: _id,
+    name: _name,
+    ...totals
+  } = poolSummary(group ?? empty, o, livePriceUsd, "data.totals", unknowns);
+  const items = blocks.map((b, i): V1MiningPoolBlock => {
+    if (b.rewardZat === null) unknowns[`data.blocks.items.${i}.reward`] = "unmeasured";
+    return {
+      height: b.height,
+      timestamp: b.timestamp,
+      time: new Date(b.timestamp * 1000).toISOString(),
+      address: b.address,
+      reward: amountOrNull(b.rewardZat),
+    };
+  });
+  return {
+    query: { window: o.window as V1MiningWindowKey, limit: page.limit, cursor: page.cursor },
+    coverage: miningCoverage(o),
+    source: { name: "ShieldedScan", url: `${siteUrl}/miners/${pool.id}` },
+    basis: MINING_POOLS_BASIS,
+    data: {
+      pool: { id: pool.id, name: pool.name },
+      reviewedAddresses: Object.entries(MINING_POOL_LABELS)
+        .filter(([, l]) => l.miningPool === pool.id)
+        .map(([address, l]) => ({ address, basis: l.basis })),
+      window: miningWindow(o),
+      historyFrom: MINING_HISTORY_FROM,
+      totals,
+      blocks: { items, nextCursor: page.nextCursor },
+    },
+    unknowns,
+    asOf,
+  };
+}
+
+const SERIES_GROUP_KIND: Record<string, V1MiningSeriesGroup["kind"]> = {
+  [UNATTRIBUTED_GROUP]: "unattributed",
+  [SHIELDED_GROUP]: "shielded-coinbase",
+  [NO_ADDRESS_GROUP]: "no-address",
+};
+const SERIES_GROUP_NAME: Record<string, string> = {
+  [UNATTRIBUTED_GROUP]: "Unattributed",
+  [SHIELDED_GROUP]: "Shielded coinbase",
+  [NO_ADDRESS_GROUP]: "No address",
+};
+
+/** The groups a series may name: every reviewed pool, then the three that are not pools. */
+export const MINING_SERIES_GROUP_IDS: readonly string[] = [
+  ...Object.keys(MINING_POOLS),
+  UNATTRIBUTED_GROUP,
+  SHIELDED_GROUP,
+  NO_ADDRESS_GROUP,
+];
+
+/** `/v1/analytics/mining-pools/series`: each group's blocks and share per day or month. */
+export function toMiningPoolSeries(
+  s: MinerSeries,
+  group: string | null,
+  siteUrl: string,
+  asOf: number,
+): V1MiningPoolSeries {
+  const unknowns: V1Unknowns = {};
+  const wanted = (g: string) => group === null || g === group;
+  const present = [...new Set(s.points.map((p) => p.group))].filter(wanted);
+  const ids = MINING_SERIES_GROUP_IDS.filter((g) => present.includes(g) || g === group);
+  const groups = ids.map((id): V1MiningSeriesGroup =>
+    Object.hasOwn(MINING_POOLS, id)
+      ? { id, name: MINING_POOLS[id as MiningPoolId].name, kind: "mining-pool" }
+      : { id, name: SERIES_GROUP_NAME[id]!, kind: SERIES_GROUP_KIND[id]! },
+  );
+  const byCell = new Map(s.points.map((x) => [`${x.period}|${x.group}`, x]));
+  const periods = s.periods.map((p, i) => ({
+    period: p.period,
+    partial: p.partial,
+    blocks: p.blocks,
+    firstHeight: p.firstHeight,
+    lastHeight: p.lastHeight,
+    groups: ids.map((id, j): V1MiningSeriesCell => {
+      const point = byCell.get(`${p.period}|${id}`);
+      const blocks = point?.blocks ?? 0;
+      const path = `data.periods.${i}.groups.${j}`;
+      const sh = share(blocks, p.blocks);
+      if (sh === null) unknowns[`${path}.share`] = "nonexistent";
+      // A shielded coinbase pays into an encrypted note: its amounts are never numbers here.
+      if (id === SHIELDED_GROUP) {
+        unknowns[`${path}.reward`] = "shielded";
+        unknowns[`${path}.fees`] = "shielded";
+        return { group: id, blocks, share: sh, reward: null, fees: null };
+      }
+      const reward = point === undefined ? 0 : point.rewardZat;
+      const fees = point === undefined ? 0 : point.feeZat;
+      if (reward === null) unknowns[`${path}.reward`] = "unmeasured";
+      if (fees === null) unknowns[`${path}.fees`] = "unmeasured";
+      return {
+        group: id,
+        blocks,
+        share: sh,
+        reward: amountOrNull(reward),
+        fees: amountOrNull(fees),
+      };
+    }),
+  }));
+  const running = s.periods.find((p) => p.partial);
+  return {
+    query: { interval: s.interval, pool: group },
+    coverage: {
+      status: "complete",
+      notes: running
+        ? [`The period starting ${running.period} holds today and is still running.`]
+        : [],
+    },
+    source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
+    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year from it.`,
+    data: { interval: s.interval, fromDay: s.fromDay, toDay: s.toDay, groups, periods },
+    unknowns,
+    asOf,
+  };
+}
+
+/** `/v1/analytics/nsm`: what ZIP 235 moved into the NSM over the window, and the balance now. */
+export function toNsm(
+  o: NsmOverview,
+  window: MinersWindowKey,
+  days: { fromDay: string; toDay: string },
+  livePriceUsd: number | null,
+  siteUrl: string,
+  asOf: number,
+): V1Nsm {
+  const unknowns: V1Unknowns = {};
+  const notes: string[] = [];
+  let partial = false;
+  const w = nsmWindow(o, days.fromDay, days.toDay);
+  if (o.activationDay === null) {
+    partial = true;
+    notes.push("The index does not hold NU7's activation block yet.");
+  } else if (w?.sinceActivation) {
+    notes.push(`The window opens before NU7; it is summed from ${o.activationDay}.`);
+  }
+  if (w !== null && (w.feeZat === null || w.nsmZat === null)) {
+    partial = true;
+    notes.push(
+      "A block's fees in the window are not known yet, so the window's sums are withheld.",
+    );
+  }
+  const b = o.balance;
+  if (b === null) {
+    partial = true;
+    unknowns["data.balance"] = "unmeasured";
+    notes.push("The node could not be read just now, so the balance is withheld.");
+  } else {
+    if (b.zat === null) unknowns["data.balance.amount"] = "unmeasured";
+    if (b.carriedInZat === null) unknowns["data.balance.carriedIn"] = "unmeasured";
+    if (b.zat === null || b.carriedInZat === null) unknowns["data.balance.fromFees"] = "unmeasured";
+  }
+  if (w === null) unknowns["data.window"] = "nonexistent";
+  else {
+    for (const k of ["fees", "toNsm", "toMiners"] as const) {
+      const zat = k === "fees" ? w.feeZat : k === "toNsm" ? w.nsmZat : w.minerZat;
+      if (zat === null) unknowns[`data.window.${k}`] = "unmeasured";
+    }
+  }
+  const start = w?.fromDay ?? days.fromDay;
+  const inWindow = o.days.filter((d) => d.day >= start && d.day <= days.toDay);
+  return {
+    query: { window: window as V1MiningWindowKey },
+    coverage: { status: partial ? "partial" : "complete", notes },
+    source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
+    basis:
+      "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at `balance.height`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (`carriedIn`); `fromFees` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. `toNsmValueUsd` and `toMinersValueUsd` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30 or 90 UTC days, today unfinished.",
+    data: {
+      activationHeight: o.activationHeight,
+      activationDay: o.activationDay,
+      feeSplitPct: { nsm: NSM_FEE_SHARE_PCT, miners: 100 - NSM_FEE_SHARE_PCT },
+      balance:
+        b === null
+          ? null
+          : {
+              height: b.height,
+              amount: amountOrNull(b.zat),
+              carriedIn: amountOrNull(b.carriedInZat),
+              fromFees:
+                b.zat === null || b.carriedInZat === null
+                  ? null
+                  : amountOrNull(b.zat - b.carriedInZat),
+            },
+      window:
+        w === null
+          ? null
+          : {
+              key: window as V1MiningWindowKey,
+              fromDay: w.fromDay,
+              toDay: days.toDay,
+              sinceActivation: w.sinceActivation,
+              blocks: w.blocks,
+              fees: amountOrNull(w.feeZat),
+              toNsm: amountOrNull(w.nsmZat),
+              toMiners: amountOrNull(w.minerZat),
+              toNsmValueUsd: valueUsd(
+                w.nsmZat,
+                w.nsmUsd,
+                livePriceUsd,
+                "data.window.toNsmValueUsd",
+                unknowns,
+              ),
+              toMinersValueUsd: valueUsd(
+                w.minerZat,
+                w.minerUsd,
+                livePriceUsd,
+                "data.window.toMinersValueUsd",
+                unknowns,
+              ),
+            },
+      days: inWindow.map((d, i): V1NsmDay => {
+        if (d.feeZat === null) unknowns[`data.days.${i}.fees`] = "unmeasured";
+        if (d.nsmZat === null) unknowns[`data.days.${i}.toNsm`] = "unmeasured";
+        if (d.feeZat === null || d.nsmZat === null) {
+          unknowns[`data.days.${i}.toMiners`] = "unmeasured";
+        }
+        if (d.closeUsd === null) {
+          unknowns[`data.days.${i}.usdClose`] = d.partial ? "nonexistent" : "unmeasured";
+        }
+        return {
+          day: d.day,
+          partial: d.partial,
+          blocks: d.blocks,
+          fees: amountOrNull(d.feeZat),
+          toNsm: amountOrNull(d.nsmZat),
+          toMiners:
+            d.feeZat === null || d.nsmZat === null ? null : amountOrNull(d.feeZat - d.nsmZat),
+          usdClose: d.closeUsd,
+        };
+      }),
+    },
+    unknowns,
+    asOf,
   };
 }

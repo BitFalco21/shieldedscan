@@ -32,7 +32,7 @@ export const NETWORK_GROUP: ApiGroup = {
       path: "/v1/prices/daily",
       title: "Daily ZEC/USD closes since launch",
       description:
-        "Every day from 2016-10-29 to yesterday, with **no gaps**. Each row names the aggregator it came from, because there is no canonical daily ZEC price: two reputable free sources disagree by a median 2.2% on the same day. Publishing a number without saying whose it is would be an unattributed claim about a market price.",
+        "Every day from 2016-10-29 to yesterday, with **no gaps**. Each row names the aggregator it came from, because there is no canonical daily ZEC price: two reputable free sources disagree by a median 2.2% on the same day.",
       params: [
         {
           name: "from",

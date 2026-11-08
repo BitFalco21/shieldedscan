@@ -15,7 +15,9 @@ import {
   v1AddressExportRoutes,
 } from "../v1/export/address-route";
 import { V1_SERIES_PATHS, v1SeriesRoutes } from "../v1/analytics-series";
+import { createMinersReader } from "../miners-routes";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../v1/miners";
+import { V1_MINING_POOL_PATHS, v1MiningPoolRoutes } from "../v1/mining-pools";
 import { V1_MINING_PATH, v1MiningRoutes } from "../v1/mining";
 import { V1_NODES_PATHS, v1NodesRoutes } from "../v1/network-nodes";
 import { type V1ChainPort, type V1Extension, v1Routes } from "../v1/routes";
@@ -174,6 +176,25 @@ function v1Extensions(
         }),
       }),
       endpoints: [V1_MINERS_PATH],
+    });
+    // The `/miners` page by reviewed pool, and the NSM: the page's own memoised reads over a closed
+    // set of windows, plus a pool's older blocks by cursor, each a bounded walk. Two connections of
+    // their own, so a public crowd cannot take one the page needs.
+    const chain = deps.publicChainSource;
+    out.push({
+      routes: v1MiningPoolRoutes({
+        reader: createMinersReader({
+          pool: createPool(DATABASE_URL, {
+            max: 2,
+            statement_timeout: 15_000,
+            connectionTimeoutMillis: 5_000,
+          }),
+          ...(chain ? { nsmAtTip: () => chain.getNsmAtTip() } : {}),
+          log: deps.log,
+        }),
+        price: deps.price ?? null,
+      }),
+      endpoints: V1_MINING_POOL_PATHS,
     });
   }
   return out;

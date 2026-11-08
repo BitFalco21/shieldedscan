@@ -221,6 +221,10 @@ export const ANALYTICS_GROUP: ApiGroup = {
         "`byKind` partitions `total`; `byPool` does NOT — one transaction can use two pools. `transparentOnly` is null with reason `unmeasured` for windows longer than about 200 days, which are counted from daily totals that cannot express it. A pool count is null with reason `unmeasured` where those daily totals do not reach yet, such as a bucket for a day not yet counted.",
         "`coverage.status` is `partial` when the window includes today's unfinished day, and `floor` when some blocks had no derivable fee total; `notes` say which.",
       ],
+      toolNotes: [
+        "`byKind` partitions `total`; `byPool` does NOT (a transaction can use two pools). A null `transparentOnly` (windows over ~200 days) or pool count is `unmeasured`.",
+        "`coverage.status` is `partial` with today in the window, `floor` when some blocks lack a fee total.",
+      ],
     },
     {
       id: "shielding-flow",
@@ -751,6 +755,9 @@ export const ANALYTICS_GROUP: ApiGroup = {
         "`notes.created` is the change in the tree size from the previous period's close. It equals the period's Orchard or Ironwood actions, or Sapling outputs — two independent counts — except where miner timestamps run backwards across midnight, which moves a note between days: two Sapling days so far, by one note each.",
         "The node reports no Sprout tree size, so Sprout's `notes` are null with reason `unmeasured`.",
       ],
+      toolNotes: [
+        "Kinds partition `transactions.total`; pools do not add up (a migration uses two). `notes.created` is the tree's growth over the period. Sprout's `notes` are null (`unmeasured`).",
+      ],
     },
     {
       id: "analytics-transparent",
@@ -1018,7 +1025,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
       path: "/v1/analytics/miners",
       title: "Who mined a window, by payout address",
       description:
-        "Blocks, share, reward and fees per payout address over any window of UTC days (all of history by default), the concentration of the largest one, three and ten addresses, and the blocks no address can be named for.",
+        "Blocks, share, reward and fees per payout address over any window of UTC days, all of history by default, the share of the top one, three and ten addresses, and the blocks no address can be named for.",
       params: [
         {
           name: "from",
@@ -1124,7 +1131,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
         "`noAddress` counts blocks whose miner was paid to a bare public key, which some miners used until 2018 — most blocks of the first two weeks; it has no address form, so those blocks are counted but not grouped.",
       ],
       toolNotes: [
-        "A payout address is not an operator: shares are lower bounds and no operator is named. `reward` includes `fees`; never add them. `coinbaseTag` is miner-written text that proves nothing.",
+        "By payout address, never named: shares are lower bounds. reward includes fees. coinbaseTag proves nothing.",
       ],
     },
     {

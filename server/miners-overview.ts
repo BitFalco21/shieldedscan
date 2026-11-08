@@ -241,32 +241,39 @@ export async function loadMinerSeries(
   };
 }
 
-/** Blocks the pool-blocks read lists, and the payout days it walks at most to find them. */
-const POOL_BLOCKS = 20;
+/** Blocks the pool-blocks read lists by default, and at most. */
+export const POOL_BLOCKS = 20;
+/** The payout days it walks at most to find them. */
 const POOL_BLOCK_DAYS = 31;
 
 /**
- * A pool's newest blocks. The rollup names the newest days its addresses were paid and each
- * day's height span; `block` is then read by those primary-key ranges only, never scanned.
+ * A pool's newest blocks, below `beforeHeight` when given (a keyset page: heights are unique). The
+ * rollup names the newest days its addresses were paid and each day's height span; `block` is then
+ * read by those primary-key ranges only, never scanned. A day whose span reaches `beforeHeight` is
+ * read but not counted toward the page, since the rollup cannot say how many of its blocks lie
+ * below the cut. Nothing before `MINERS_HISTORY_FROM_DAY` is read, so paging ends there.
  */
 export async function loadMiningPoolBlocks(
   pool: Pool,
   addresses: readonly string[],
+  page: { beforeHeight?: number; limit?: number } = {},
 ): Promise<MiningPoolBlock[]> {
   const floor = MINERS_HISTORY_FROM_DAY ?? "1970-01-01";
+  const limit = Math.min(Math.max(1, page.limit ?? POOL_BLOCKS), POOL_BLOCKS);
+  const before = page.beforeHeight ?? 2_147_483_647;
   const days = await pool.query<{ lo: number; hi: number; blocks: number }>(
     `SELECT min(first_height) AS lo, max(last_height) AS hi, sum(blocks)::int AS blocks
        FROM mining_day_payout
       WHERE day >= $2::date AND kind = 'transparent' AND address = ANY($1::text[])
-      GROUP BY day ORDER BY day DESC LIMIT ${POOL_BLOCK_DAYS}`,
-    [addresses, floor],
+      GROUP BY day HAVING min(first_height) < $3 ORDER BY day DESC LIMIT ${POOL_BLOCK_DAYS}`,
+    [addresses, floor, before],
   );
   const ranges: { lo: number; hi: number }[] = [];
   let found = 0;
   for (const d of days.rows) {
-    ranges.push({ lo: d.lo, hi: d.hi });
-    found += d.blocks;
-    if (found >= POOL_BLOCKS) break;
+    ranges.push({ lo: d.lo, hi: Math.min(d.hi, before - 1) });
+    if (d.hi < before) found += d.blocks;
+    if (found >= limit) break;
   }
   if (ranges.length === 0) return [];
   const { rows } = await pool.query<{
@@ -287,8 +294,8 @@ export async function loadMiningPoolBlocks(
            AND miner_kind = 'transparent' AND miner_address = ANY($1::text[])
          ORDER BY height DESC LIMIT ${POOL_BLOCKS}
       ) b
-      ORDER BY b.height DESC LIMIT ${POOL_BLOCKS}`,
-    [addresses, ranges.map((r) => r.lo), ranges.map((r) => r.hi)],
+      ORDER BY b.height DESC LIMIT $4`,
+    [addresses, ranges.map((r) => r.lo), ranges.map((r) => r.hi), limit],
   );
   return rows.map((r) => ({
     height: r.height,

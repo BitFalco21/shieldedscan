@@ -332,6 +332,9 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
         "`firstAt` and `lastAt` are the first and last transfer counted, which can sit well inside the window; both are null when none matched.",
         "For a single transfer or the largest ones, use `/v1/crosschain/transfers` and `/v1/crosschain/transfers/top`.",
       ],
+      toolNotes: [
+        "`coverage.status` is always `floor`: public swap protocols, completed transfers only. `firstAt`/`lastAt` are the first and last transfer counted. Single transfers: `/v1/crosschain/transfers/top`.",
+      ],
     },
     {
       id: "flows",

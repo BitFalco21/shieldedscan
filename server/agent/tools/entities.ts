@@ -1,6 +1,12 @@
 import { marketCapFromTermsUsd } from "@/domain";
 import { formatUsdExact } from "@/lib/format";
-import { labelFor, priceInCurrency, withPoolValues } from "./enrich";
+import {
+  labelFor,
+  miningPoolFor,
+  priceInCurrency,
+  withMinerMiningPools,
+  withPoolValues,
+} from "./enrich";
 import { asRecord, NOT_JSON, parseJson, reshapeJson } from "./json";
 import { HALVING_NOTE, LAST_24H_NOTE, NETWORK_FEES_NOTE, REORG_NOTE, SUPPLY_NOTE } from "./notes";
 import { dataBlock, withFormattedZec } from "./payload";
@@ -64,7 +70,7 @@ If this address is SHIELDED there is no history to list — that is the protocol
   },
   {
     prefix: /^\/v1\/addresses\/[^/]+$/,
-    note: `A \`label\` is the name this site prints on this address's page — give it as this explorer's label, and \`labelSource\` says whose attribution it is if asked. No \`label\` means this explorer names none.
+    note: `A \`label\` is the name this site prints on this address's page — give it as this explorer's label, and \`labelSource\` says whose attribution it is if asked. \`miningPool\` means this is a mining pool's PAYOUT ADDRESS, by this explorer's review (\`basis\`): name the pool, never the miners it pays. No \`label\` and no \`miningPool\` means this explorer names none.
 
 EVERY FIGURE HERE COVERS TRANSPARENT ADDRESSES ONLY. \`rank\` is this address's place on the transparent rich list, so it is never a rank among Zcash holders and never evidence that anyone is among the largest — most of the chain's value can be shielded, and shielded holdings are not enumerable by design. Say "the Nth largest TRANSPARENT address" or do not say largest at all.
 
@@ -127,6 +133,9 @@ export function transactionJson(body: string): string {
 /** The address summary's path: exactly `/v1/addresses/<a>`, never its drill-downs. */
 const ADDRESS_SUMMARY_PATH_RE = /^\/v1\/addresses\/[^/]+$/;
 
+/** A block's own path, `/v1/blocks/<id>`, never its transactions. */
+const BLOCK_DETAIL_PATH_RE = /^\/v1\/blocks\/[^/?]+$/;
+
 /**
  * The address summary with the name this site prints on the address's page.
  *
@@ -137,7 +146,9 @@ const ADDRESS_SUMMARY_PATH_RE = /^\/v1\/addresses\/[^/]+$/;
 function addressJson(body: string): string {
   return reshapeJson(body, (parsed) => {
     const out = asRecord(parsed);
-    return withFormattedZec(out === null ? parsed : { ...out, ...labelFor(out.address) });
+    return withFormattedZec(
+      out === null ? parsed : { ...out, ...labelFor(out.address), ...miningPoolFor(out.address) },
+    );
   });
 }
 
@@ -165,7 +176,9 @@ export function entityBlock(
             ? transactionJson(body)
             : ADDRESS_SUMMARY_PATH_RE.test(path)
               ? addressJson(body)
-              : reshapeJson(body, withFormattedZec);
+              : BLOCK_DETAIL_PATH_RE.test(path)
+                ? reshapeJson(body, (parsed) => withFormattedZec(withMinerMiningPools(parsed)))
+                : reshapeJson(body, withFormattedZec);
   const note = ENTITY_NOTES[path] ?? PATTERN_NOTES.find((l) => l.prefix.test(path))?.note;
   const block = dataBlock(path, retrievedAt, payload);
   if (note === undefined || notesEmitted.has(note)) return block;

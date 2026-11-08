@@ -9,6 +9,7 @@ import {
   MCP_PROTOCOL_VERSIONS,
   MAX_TOOL_TEXT_BYTES,
   MCP_RATE_LIMITS,
+  MCP_TOOL_ALIASES,
   THIRD_PARTY_TEXT_NOTICE,
   mcpRoutes,
   requestPath,
@@ -16,6 +17,9 @@ import {
 import { Hono } from "hono";
 import { MemoryStorePort } from "../crosschain-store";
 import { REFERENCE_TOPIC_LIST } from "../v1/reference";
+import { V1_MINERS_PATH, v1MinersRoutes } from "../v1/miners";
+import { MINER_WINDOW } from "../agent/testing/fixture-world";
+import type { Pool } from "pg";
 import { v1Routes } from "../v1/routes";
 
 /**
@@ -71,7 +75,21 @@ describe("the MCP tools are the /api-docs catalogue", () => {
     for (const { tool, spec } of tools) {
       for (const v of spec.views) {
         for (const p of v.endpoint.params.filter((p) => p.kind === "path")) {
-          expect(tool.inputSchema.required, `${tool.name}.${p.name}`).toContain(p.name);
+          // Required in the schema when every view needs it; otherwise the description says which
+          // view does, and a call to that view without it is refused naming the view.
+          const everyView = spec.views.every((w) =>
+            w.endpoint.params.some((q) => q.name === p.name && q.required),
+          );
+          if (everyView) {
+            expect(tool.inputSchema.required, `${tool.name}.${p.name}`).toContain(p.name);
+          } else {
+            expect(tool.inputSchema.properties[p.name]?.description).toContain(
+              `Required for view=${v.view}`,
+            );
+            expect(requestPath(spec, { view: v.view })).toEqual({
+              error: `${p.name} is required for view=${v.view}`,
+            });
+          }
         }
       }
       if (spec.views.length > 1) {
@@ -155,8 +173,9 @@ describe("the MCP tools are the /api-docs catalogue", () => {
   });
 
   it("costs an assistant at most 45 KB of tool definitions", () => {
-    // The tool list is paid for in every conversation that connects (~44.2 KB for 35 tools since
-    // rich_list gained view=labels; that view was cut to ~180 bytes before the guard moved). A
+    // The tool list is paid for in every conversation that connects (~44.7 KB for 35 tools since
+    // analytics_miners became the five-view `miners` tool, paid for by shorter tool notes on
+    // nodes, activity, pool usage, address windows and cross-chain totals). A
     // regression guard set just above the measured size, not a target: a new tool must be paid
     // for by trimming another.
     const bytes = new TextEncoder().encode(
@@ -263,6 +282,60 @@ describe("the protocol", () => {
 });
 
 describe("tools/call", () => {
+  it("still answers a renamed tool's old name, unlisted, exactly as its new home does", async () => {
+    // analytics_miners became the `miners` tool's `addresses` view; a partner that hard-coded the
+    // old name must get the same answer, and the name must cost nothing in tools/list.
+    const app = mcpRoutes({
+      v1: v1Routes({
+        store: new MemoryStorePort(),
+        enabledProtocols: {},
+        extensions: [
+          {
+            routes: v1MinersRoutes({
+              pool: {} as Pool,
+              now: () => Date.UTC(2026, 7, 3),
+              load: async () => MINER_WINDOW,
+            }),
+            endpoints: [V1_MINERS_PATH],
+          },
+        ],
+      }),
+      version: "test",
+    });
+    const send = async (body: unknown) =>
+      (
+        await (
+          await app.request(MCP_PATH, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              accept: "application/json, text/event-stream",
+            },
+            body: JSON.stringify(body),
+          })
+        ).json()
+      ).result;
+    const args = { from: "2026-07-01", to: "2026-08-01", limit: 3 };
+    const old = await send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "analytics_miners", arguments: args },
+    });
+    const now = await send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "miners", arguments: { ...args, view: "addresses" } },
+    });
+    expect(old.isError).toBeUndefined();
+    expect(old).toEqual(now);
+    const listed = await send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    const names = listed.tools.map((t: { name: string }) => t.name);
+    for (const alias of Object.keys(MCP_TOOL_ALIASES)) expect(names).not.toContain(alias);
+    for (const { tool } of Object.values(MCP_TOOL_ALIASES)) expect(names).toContain(tool);
+  });
+
   it("returns the /v1 response itself, as text and as structured content", async () => {
     const res = await call("descriptor");
     expect(res.body.result.isError).toBeUndefined();

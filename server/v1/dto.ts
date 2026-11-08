@@ -843,3 +843,226 @@ export interface V1Monthly {
   points: V1MonthPoint[];
   asOf: number;
 }
+
+// ---------------------------------------------------------------- mining pools and the NSM
+
+/** A ZEC amount: integer zatoshi beside its exact decimal. */
+export interface V1Amount {
+  zat: number;
+  zec: string;
+}
+
+/**
+ * A reward's worth in US dollars, as `/miners` values it: each closed UTC day at that day's stored
+ * close, today's unfinished day at the live price. `floor` is true when a closed day had no stored
+ * close: its ZEC is left out of `usd`, never priced at 0.
+ */
+export interface V1ValueUsd {
+  usd: number;
+  floor: boolean;
+}
+
+/** The trailing windows of whole UTC days served, today (unfinished) included. */
+export type V1MiningWindowKey = "7d" | "30d" | "90d";
+
+export interface V1MiningWindow {
+  key: V1MiningWindowKey;
+  /** First UTC day, inclusive. */
+  fromDay: string;
+  /** Today, inclusive and unfinished. */
+  toDay: string;
+  fromHeight: number | null;
+  toHeight: number | null;
+  daysComputed: number;
+  daysExpected: number;
+}
+
+/** Blocks of one kind of payout, as a share of every block in the window. */
+export interface V1BlockCount {
+  blocks: number;
+  share: V1Share | null;
+}
+
+/** One payout address over the window. */
+export interface V1MinerRow {
+  address: string;
+  blocks: number;
+  share: V1Share | null;
+  /** What the coinbase paid it: subsidy share plus fee share. Already contains `fees`. */
+  reward: V1Amount | null;
+  /** The part of `reward` that came from fees. Never add it to `reward`. */
+  fees: V1Amount | null;
+  firstHeight: number;
+  lastHeight: number;
+}
+
+/** A reviewed payout address of a pool, with how it was reviewed. */
+export interface V1MiningPoolAddress extends V1MinerRow {
+  basis: "pool-published" | "coinbase-tag";
+}
+
+export interface V1MiningPoolSummary {
+  id: string;
+  name: string;
+  blocks: number;
+  /** Of every block in the window, unattributed and unrecorded ones included. */
+  share: V1Share | null;
+  reward: V1Amount | null;
+  fees: V1Amount | null;
+  valueUsd: V1ValueUsd | null;
+  /** Its reviewed addresses with a block in the window, largest first. */
+  addresses: V1MiningPoolAddress[];
+}
+
+export interface V1MiningPools {
+  query: { window: V1MiningWindowKey };
+  coverage: { status: "complete" | "partial"; notes: string[] };
+  source: { name: string; url: string };
+  basis: string;
+  data: {
+    window: V1MiningWindow;
+    /** The first day any figure here may include; 1y and all-of-history windows are not served. */
+    historyFrom: string;
+    blocks: number;
+    byKind: {
+      transparent: V1BlockCount & { addresses: number };
+      shieldedCoinbase: V1BlockCount;
+      noAddress: V1BlockCount;
+      unrecorded: V1BlockCount;
+    };
+    /** Every reviewed pool with a block in the window, most blocks first. */
+    pools: V1MiningPoolSummary[];
+    /** Every transparent payout address no reviewed label names, together; never a pool. */
+    unattributed: {
+      blocks: number;
+      addresses: number;
+      share: V1Share | null;
+      reward: V1Amount | null;
+      fees: V1Amount | null;
+      valueUsd: V1ValueUsd | null;
+      /** Its largest addresses, each its own row: two are never merged. */
+      largest: V1MinerRow[];
+    };
+  };
+  unknowns: V1Unknowns;
+  asOf: number;
+}
+
+export interface V1MiningPoolBlock {
+  height: number;
+  timestamp: number;
+  time: string;
+  address: string;
+  reward: V1Amount | null;
+}
+
+export interface V1MiningPool {
+  query: { window: V1MiningWindowKey; limit: number; cursor: string | null };
+  coverage: { status: "complete" | "partial"; notes: string[] };
+  source: { name: string; url: string };
+  basis: string;
+  data: {
+    pool: { id: string; name: string };
+    /** Every payout address reviewed for this pool, whether or not it mined in the window. */
+    reviewedAddresses: { address: string; basis: "pool-published" | "coinbase-tag" }[];
+    window: V1MiningWindow;
+    historyFrom: string;
+    /** The pool over the window: zero blocks is a measurement, never an outage. */
+    totals: Omit<V1MiningPoolSummary, "id" | "name">;
+    /** Its newest blocks, newest first; `nextCursor` pages older, back to `historyFrom`. */
+    blocks: { items: V1MiningPoolBlock[]; nextCursor: string | null };
+  };
+  unknowns: V1Unknowns;
+  asOf: number;
+}
+
+/** A group in the per-period series: a reviewed pool, or one of the three that is not one. */
+export interface V1MiningSeriesGroup {
+  id: string;
+  name: string;
+  kind: "mining-pool" | "unattributed" | "shielded-coinbase" | "no-address";
+}
+
+export interface V1MiningSeriesCell {
+  group: string;
+  blocks: number;
+  /** Of every block in the period, unrecorded ones included. */
+  share: V1Share | null;
+  reward: V1Amount | null;
+  fees: V1Amount | null;
+}
+
+export interface V1MiningPoolSeries {
+  query: { interval: "day" | "month"; pool: string | null };
+  coverage: { status: "complete" | "partial"; notes: string[] };
+  source: { name: string; url: string };
+  basis: string;
+  data: {
+    interval: "day" | "month";
+    fromDay: string;
+    toDay: string;
+    groups: V1MiningSeriesGroup[];
+    periods: {
+      /** The period's first day. */
+      period: string;
+      /** It holds today and is still running. */
+      partial: boolean;
+      blocks: number;
+      firstHeight: number | null;
+      lastHeight: number | null;
+      groups: V1MiningSeriesCell[];
+    }[];
+  };
+  unknowns: V1Unknowns;
+  asOf: number;
+}
+
+export interface V1NsmDay {
+  day: string;
+  partial: boolean;
+  blocks: number;
+  fees: V1Amount | null;
+  /** 60% of each block's fees, floor-rounded per block (ZIP 235). */
+  toNsm: V1Amount | null;
+  toMiners: V1Amount | null;
+  /** The day's stored close; null for today, which has none yet. */
+  usdClose: number | null;
+}
+
+export interface V1Nsm {
+  query: { window: V1MiningWindowKey };
+  coverage: { status: "complete" | "partial"; notes: string[] };
+  source: { name: string; url: string };
+  basis: string;
+  data: {
+    activationHeight: number;
+    activationDay: string | null;
+    feeSplitPct: { nsm: number; miners: number };
+    /** The node's NSM balance now; null when the node could not be read. */
+    balance: {
+      height: number;
+      amount: V1Amount | null;
+      /** The unclaimed miner subsidy since genesis, carried into the NSM at NU7. */
+      carriedIn: V1Amount | null;
+      /** The balance less what it carried in: every block's fee share since NU7. */
+      fromFees: V1Amount | null;
+    } | null;
+    window: {
+      key: V1MiningWindowKey;
+      fromDay: string;
+      toDay: string;
+      /** The window opens before NU7: it is summed from activation. */
+      sinceActivation: boolean;
+      blocks: number;
+      fees: V1Amount | null;
+      toNsm: V1Amount | null;
+      toMiners: V1Amount | null;
+      toNsmValueUsd: V1ValueUsd | null;
+      toMinersValueUsd: V1ValueUsd | null;
+    } | null;
+    /** The window's days, oldest first, today last. */
+    days: V1NsmDay[];
+  };
+  unknowns: V1Unknowns;
+  asOf: number;
+}

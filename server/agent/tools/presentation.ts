@@ -2,6 +2,11 @@ import { printableOnly } from "@/lib/printable";
 import { classifySearchQuery, parseSeriesSpec, plottableSeries } from "@/domain";
 import { entityHrefIsRoutable } from "@/lib/entity-page";
 import { V1_MINERS_PATH } from "../../v1/miners";
+import {
+  V1_MINING_POOL_SERIES_PATH,
+  V1_MINING_POOLS_PATH,
+  V1_NSM_PATH,
+} from "../../v1/mining-pools";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { ZIP_INDEX_PATH } from "../../zips-routes";
 import { referenceSource } from "../reference";
@@ -93,6 +98,7 @@ export const SUBJECT_PARTS: Record<ToolName, readonly SubjectPart[]> = {
     { key: "groupBy", prefix: "by" },
     { key: "migrationFrom" },
     { key: "migrationTo", prefix: "into" },
+    { key: "miningPool" },
   ],
   // The one tool with no parameters; the empty array is an assertion, and the test that every tool with
   // arguments has a subject exempts exactly this one.
@@ -360,6 +366,18 @@ export function sourceLinkFor(endpoint: string): SourceLink | null {
   if (base === RECENT_TRANSACTIONS_PATH) return { label: "transactions", href: "/txs" };
   // Who mined a period cites the page that shows the same shares by payout address.
   if (base === V1_MINERS_PATH) return { label: "miners", href: "/miners" };
+  // The pools and the NSM are /miners' own figures; one pool cites its own page there.
+  if (
+    base === V1_MINING_POOLS_PATH ||
+    base === V1_MINING_POOL_SERIES_PATH ||
+    base === V1_NSM_PATH
+  ) {
+    return { label: "miners", href: "/miners" };
+  }
+  if (base.startsWith(`${V1_MINING_POOLS_PATH}/`)) {
+    const id = base.slice(V1_MINING_POOLS_PATH.length + 1);
+    return { label: "mining pool", href: `/miners/${encodeURIComponent(id)}` };
+  }
   // No page publishes the transparent series yet: the endpoint's own reference entry does.
   if (base === V1_TRANSPARENT_PATH) {
     return { label: "transparent activity", href: "/api-docs#analytics-transparent" };

@@ -1,14 +1,28 @@
 import {
   type ChainWindowMeasure,
+  MINING_POOLS,
   POOL_MIGRATION_DESTINATIONS,
   POOL_MIGRATION_SOURCES,
   POOL_NAMES,
 } from "@/domain";
 import { USD } from "../../fx-rates";
 import { MINERS_MAX_LIMIT, V1_MINERS_PATH } from "../../v1/miners";
+import {
+  V1_MINING_POOL_SERIES_PATH,
+  V1_MINING_POOLS_PATH,
+  V1_NSM_PATH,
+} from "../../v1/mining-pools";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { type ToolArgs, windowDays } from "./args";
-import { withoutPoints, withPoolCountReason, withRanking, withThroughput } from "./enrich";
+import {
+  compactMiningSeries,
+  withMinerMiningPools,
+  withoutBasis,
+  withoutPoints,
+  withPoolCountReason,
+  withRanking,
+  withThroughput,
+} from "./enrich";
 import { isOneOf, orList } from "./json";
 import {
   CHAIN_WINDOW_FLOOR_NOTE,
@@ -16,6 +30,8 @@ import {
   CHAIN_WINDOW_NOTE,
   CHAIN_WINDOW_RANKED_NOTE,
   MINERS_NOTE,
+  MINING_POOLS_NOTE,
+  NSM_NOTE,
   POOL_BALANCES_NOTE,
   POOL_USAGE_NOTE,
   RECENT_NOTE,
@@ -26,9 +42,12 @@ import {
   CHAIN_WINDOW_PATH,
   type ChainActivityMode,
   DEFAULT_MINER_ROWS,
+  DEFAULT_POOL_BLOCK_ROWS,
   DEFAULT_RECENT_ROWS,
   DEFAULT_WINDOW_TOP,
   MAX_MINER_ROWS,
+  MAX_POOL_BLOCK_ROWS,
+  MINING_WINDOW_DAYS,
   MAX_RECENT_ROWS,
   MAX_WINDOW_FLOOR,
   MAX_WINDOW_TOP,
@@ -43,6 +62,7 @@ import {
 import type { ToolCall } from "./types";
 import {
   verifyMinersEcho,
+  verifyMiningEcho,
   verifySeriesEcho,
   verifyTransparentEcho,
   verifyWindowEcho,
@@ -182,7 +202,7 @@ export function chainActivityCalls(
         {
           path: `${RECENT_BLOCKS_PATH}?limit=${limit}`,
           surface: "v1",
-          aggregate: { note: RECENT_NOTE, emptyIsAnAnswer: true },
+          aggregate: { note: RECENT_NOTE, emptyIsAnAnswer: true, enrich: withMinerMiningPools },
         },
       ];
     }
@@ -313,6 +333,89 @@ export function chainActivityCalls(
         },
       ];
     }
+    case "mining-pools": {
+      // The public `/v1/analytics/mining-pools` routes: the `/miners` page by reviewed pool. Their
+      // windows are the page's trailing 7, 30 or 90 days, so a from/to period is refused with the
+      // mode that answers it rather than silently narrowed.
+      const asked = miningWindow(args);
+      if (typeof asked === "string") return asked;
+      const { window } = asked;
+      const id = str("miningPool");
+      if (id !== null && !Object.hasOwn(MINING_POOLS, id)) {
+        return `miningPool must be one of ${Object.keys(MINING_POOLS).join(", ")}`;
+      }
+      const groupBy = str("groupBy") ?? "none";
+      if (!isOneOf(WINDOW_GROUP_BY, groupBy)) return `groupBy must be ${orList(WINDOW_GROUP_BY)}`;
+      if (groupBy !== "none") {
+        if (args.raw.lastDays !== undefined) {
+          return `the per-period series covers every month since 2025-12-01 (day: one pool's trailing year) — omit lastDays`;
+        }
+        if (groupBy === "day" && id === null) {
+          return `a daily series takes one pool: pass miningPool, and call again for another`;
+        }
+        const query = new URLSearchParams({ interval: groupBy });
+        if (id !== null) query.set("pool", id);
+        return [
+          {
+            path: `${V1_MINING_POOL_SERIES_PATH}?${query.toString()}`,
+            surface: "v1",
+            aggregate: {
+              note: MINING_POOLS_NOTE,
+              emptyIsAnAnswer: true,
+              enrich: compactMiningSeries,
+              verify: (payload) => verifyMiningEcho(payload, { interval: groupBy, pool: id }),
+            },
+          },
+        ];
+      }
+      if (id === null) {
+        return [
+          {
+            path: `${V1_MINING_POOLS_PATH}?window=${window}`,
+            surface: "v1",
+            aggregate: {
+              note: MINING_POOLS_NOTE,
+              emptyIsAnAnswer: true,
+              enrich: withoutBasis,
+              verify: (payload) => verifyMiningEcho(payload, { window }),
+            },
+          },
+        ];
+      }
+      const limit = int("limit") ?? DEFAULT_POOL_BLOCK_ROWS;
+      if (limit < 1 || limit > MAX_POOL_BLOCK_ROWS) {
+        return `limit must be between 1 and ${MAX_POOL_BLOCK_ROWS}`;
+      }
+      return [
+        {
+          path: `${V1_MINING_POOLS_PATH}/${encodeURIComponent(id)}?window=${window}&limit=${limit}`,
+          surface: "v1",
+          aggregate: {
+            note: MINING_POOLS_NOTE,
+            emptyIsAnAnswer: true,
+            enrich: withoutBasis,
+            verify: (payload) => verifyMiningEcho(payload, { window, limit }, id),
+          },
+        },
+      ];
+    }
+    case "nsm": {
+      const asked = miningWindow(args);
+      if (typeof asked === "string") return asked;
+      const { window } = asked;
+      return [
+        {
+          path: `${V1_NSM_PATH}?window=${window}`,
+          surface: "v1",
+          aggregate: {
+            note: NSM_NOTE,
+            emptyIsAnAnswer: true,
+            enrich: withoutBasis,
+            verify: (payload) => verifyMiningEcho(payload, { window }),
+          },
+        },
+      ];
+    }
     case "pool-balances": {
       // The public `/v1/analytics/pools`. A balance is a series by nature, so an ungrouped call reads
       // months; the window's closing balance alone is what mode 'window' already carries.
@@ -340,4 +443,20 @@ export function chainActivityCalls(
       ];
     }
   }
+}
+
+/**
+ * The `/miners` window a 'mining-pools' or 'nsm' call asks for: `lastDays` of 7, 30 or 90, 30 by
+ * default, as the page's own key. Anything else is an error naming the mode that answers it.
+ */
+function miningWindow(args: ToolArgs): { window: string } | string {
+  if (args.raw.from !== undefined || args.raw.to !== undefined) {
+    return `'mining-pools' and 'nsm' cover only the last 7, 30 or 90 days (pass lastDays); for miners over any other period use 'miners', which groups by payout address`;
+  }
+  if (args.raw.lastDays === undefined) return { window: "30d" };
+  const days = args.int("lastDays");
+  if (days === null || !(MINING_WINDOW_DAYS as readonly number[]).includes(days)) {
+    return `lastDays must be ${orList(MINING_WINDOW_DAYS.map(String))} here: longer windows are not served yet`;
+  }
+  return { window: `${days}d` };
 }

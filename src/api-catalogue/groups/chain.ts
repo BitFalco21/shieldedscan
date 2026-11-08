@@ -594,6 +594,7 @@ export const CHAIN_GROUP: ApiGroup = {
         "Transparent activity only: a shielded transaction has no address to file under.",
         "The walk is capped at 20,000 index rows; when the cap bites, `coverage` says which heights the figures cover.",
       ],
+      toolNotes: ["Transparent only. Past 20,000 index rows, `coverage` says which heights count."],
     },
     {
       id: "address-extremes",
@@ -662,6 +663,7 @@ export const CHAIN_GROUP: ApiGroup = {
         "Named only when unique: a tie has no single transaction to point at.",
         "For an address with more than 20,000 index rows only the newest are considered, and `coverage` says so.",
       ],
+      toolNotes: ["Named only when unique. Past 20,000 index rows, `coverage` says so."],
     },
     {
       id: "search",

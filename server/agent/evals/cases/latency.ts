@@ -204,6 +204,26 @@ export const LATENCY: readonly EvalCase[] = [
     maxToolRounds: 1,
     route: [{ name: "chain_activity", args: { mode: "miners", lastDays: 30 } }],
   },
+  {
+    id: "latency-mining-pool-share",
+    category: "latency",
+    world: "live",
+    question: "What share of blocks did ViaBTC mine over the last 30 days?",
+    mustCallAny: ["chain_activity"],
+    maxToolRounds: 1,
+    route: [{ name: "chain_activity", args: { mode: "mining-pools", lastDays: 30 } }],
+    routeCarries: ["pools"],
+  },
+  {
+    id: "latency-nsm",
+    category: "latency",
+    world: "live",
+    question: "How much ZEC went to the NSM this week, and what is its balance?",
+    mustCallAny: ["chain_activity"],
+    maxToolRounds: 1,
+    route: [{ name: "chain_activity", args: { mode: "nsm", lastDays: 7 } }],
+    routeCarries: ["balance", "toNsm"],
+  },
   // ── protocol figures ─────────────────────────────────────────────────────────────────────
   {
     id: "latency-halving",

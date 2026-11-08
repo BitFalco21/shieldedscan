@@ -1,3 +1,4 @@
+import { MINING_POOLS } from "@/domain/mining-pools";
 import { API_BASE_URL, API_GROUPS, type ApiEndpoint } from "./index";
 
 /**
@@ -103,6 +104,22 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
     title: "The transparent rich list, its distribution, or named addresses",
     summary: "Transparent balances only.",
     views: { list: "rich-list", distribution: "rich-list-distribution", labels: "labels" },
+  },
+  {
+    name: "miners",
+    title: "Who mined: by pool, one pool, over time, the NSM, by address",
+    summary: "Zcash mining.",
+    views: {
+      pools: "mining-pools",
+      pool: "mining-pool",
+      series: "mining-pools-series",
+      nsm: "nsm",
+      addresses: "analytics-miners",
+    },
+    params: {
+      pool: `A pool id: ${Object.keys(MINING_POOLS).join(", ")}. Required for view=pool; view=series also takes unattributed, shielded, no-address.`,
+      limit: "view=pool: blocks, 1-20 (20). view=addresses: addresses, 1-100 (25).",
+    },
   },
   {
     name: "nodes",

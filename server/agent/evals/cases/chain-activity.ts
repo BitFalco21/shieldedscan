@@ -301,4 +301,52 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     mustContain: [/t1MKn34K/, /29\.87/],
     mustNotContain: [/12,?901\.27/, /\bFoundry USA\b/],
   },
+  {
+    id: "activity-mining-pool-leader",
+    category: "insights",
+    world: "fixture",
+    /**
+     * A pool named: `chain_activity` 'mining-pools' groups the reviewed payout addresses. In the
+     * fixture's 30 days ViaBTC's two addresses together mined 32.8% of every block.
+     */
+    question:
+      "which mining pool mined the most Zcash blocks over the last 30 days, and what share?",
+    mustCall: ["chain_activity"],
+    mustContain: [/ViaBTC/, /32\.8/],
+  },
+  {
+    id: "activity-mining-pool-blocks",
+    category: "insights",
+    world: "fixture",
+    /** One pool over a window: Foundry's 3,729 blocks in the fixture's last 7 days. */
+    question: "how many blocks did Foundry mine in the last 7 days?",
+    mustCall: ["chain_activity"],
+    mustContain: [/3,?729/],
+  },
+  {
+    id: "activity-mining-pool-label",
+    category: "insights",
+    world: "fixture",
+    /**
+     * A payout address's pool is this site's reviewed label: the address page names it, and the
+     * site guide lists it. Either answers; neither may name anyone behind the pool.
+     */
+    question: "who is behind the Zcash payout address t1SqwRAAdSig6dE4EBPLonAait219VmkUjP?",
+    mustCallAny: ["lookup_address", "site_guide", "chain_activity"],
+    mustContain: [/Foundry/],
+  },
+  {
+    id: "activity-nsm-week",
+    category: "insights",
+    world: "fixture",
+    /**
+     * The NSM: 60% of fees since NU7, and a balance larger than those fees because it opened with
+     * the miner subsidy never claimed. In the fixture, 3.07252696 ZEC went in over the week and
+     * 368.5844552 ZEC was carried in.
+     */
+    question:
+      "how much ZEC went to the NSM in the last 7 days, and why is the NSM balance bigger than the fees?",
+    mustCall: ["chain_activity"],
+    mustContain: [/3\.07/, /368\.58/],
+  },
 ];
