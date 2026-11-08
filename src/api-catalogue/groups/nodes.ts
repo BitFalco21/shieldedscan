@@ -106,6 +106,7 @@ export const NODES_GROUP: ApiGroup = {
         "A crawler only reaches nodes that accept incoming connections, so every count is a lower bound (`coverage.status` is `floor`).",
         "A user agent is the node's own claim about its software and is not verified.",
       ],
+      toolNotes: ["Every count is a lower bound (`floor`); user agents are unverified."],
     },
     {
       id: "nodes-list",
@@ -213,6 +214,9 @@ export const NODES_GROUP: ApiGroup = {
         "`crawlsAnswered` mostly reflects whether the node accepted our crawler's connection; it is not a reliability score.",
         "`pingMs` is measured from our crawler in Vienna and describes that path, not the node.",
       ],
+      toolNotes: [
+        "`crawlsAnswered` is not a reliability score; `pingMs` describes our crawler's path.",
+      ],
     },
     {
       id: "nodes-geography",
@@ -289,6 +293,7 @@ export const NODES_GROUP: ApiGroup = {
       notes: [
         "A location is GeoIP's claim about an address, never a measurement. Nodes GeoIP could not place are counted in `unplaced` and drawn nowhere.",
       ],
+      toolNotes: ["A location is GeoIP's claim; unplaced nodes are counted in `unplaced`."],
     },
     {
       id: "nodes-concentration",
@@ -361,6 +366,7 @@ export const NODES_GROUP: ApiGroup = {
         "Grouped by autonomous system, never clustered into companies, so the real concentration can only be higher.",
         "A subnet is written a.b.c.x: the last octet is never published.",
       ],
+      toolNotes: ["By autonomous system, never by company, so concentration is a lower bound."],
     },
   ],
 };

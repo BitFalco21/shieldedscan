@@ -14,8 +14,9 @@ import { share } from "./map";
  * the miner's own reward and fees, and the coinbase tag of each address's newest block. Read from
  * `mining_day_payout`, so any window, all of history included, is a sum over ~51k stored rows.
  *
- * No names: `/v1` publishes no attribution, so a row is its address. The tag is the miner's own
- * bytes, served verbatim as `/v1/blocks/{id}` serves it; it is text a miner chose and verifies
+ * No names: a row is its address. Reviewed pool names are grouped at
+ * `/v1/analytics/mining-pools`, over the windows the `/miners` page serves. The tag is the miner's
+ * own bytes, served verbatim as `/v1/blocks/{id}` serves it; it is text a miner chose and verifies
  * nobody.
  *
  * Every share is of every block in the window, and two addresses are never merged, so a share or

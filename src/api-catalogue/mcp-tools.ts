@@ -105,6 +105,22 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
     views: { list: "rich-list", distribution: "rich-list-distribution", labels: "labels" },
   },
   {
+    name: "miners",
+    title: "Who mined: by pool, one pool, over time, the NSM, by address",
+    summary: "Zcash mining.",
+    views: {
+      pools: "mining-pools",
+      pool: "mining-pool",
+      series: "mining-pools-series",
+      nsm: "nsm",
+      addresses: "analytics-miners",
+    },
+    params: {
+      pool: "A pool id: viabtc, foundry, f2pool, luxor, 2miners, antpool, kupool, kryptex, nicehash, mining-dutch, zec-mining-pool. Required for view=pool; view=series also takes unattributed, shielded, no-address.",
+      limit: "view=pool: blocks, 1-20 (20). view=addresses: addresses, 1-100 (25).",
+    },
+  },
+  {
     name: "nodes",
     title: "Network nodes: summary, list, geography, concentration",
     summary: "The Zcash nodes this explorer's crawler reached in the last day.",

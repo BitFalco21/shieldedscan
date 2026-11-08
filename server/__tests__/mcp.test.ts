@@ -71,7 +71,21 @@ describe("the MCP tools are the /api-docs catalogue", () => {
     for (const { tool, spec } of tools) {
       for (const v of spec.views) {
         for (const p of v.endpoint.params.filter((p) => p.kind === "path")) {
-          expect(tool.inputSchema.required, `${tool.name}.${p.name}`).toContain(p.name);
+          // Required in the schema when every view needs it; otherwise the description says which
+          // view does, and a call to that view without it is refused naming the view.
+          const everyView = spec.views.every((w) =>
+            w.endpoint.params.some((q) => q.name === p.name && q.required),
+          );
+          if (everyView) {
+            expect(tool.inputSchema.required, `${tool.name}.${p.name}`).toContain(p.name);
+          } else {
+            expect(tool.inputSchema.properties[p.name]?.description).toContain(
+              `Required for view=${v.view}`,
+            );
+            expect(requestPath(spec, { view: v.view })).toEqual({
+              error: `${p.name} is required for view=${v.view}`,
+            });
+          }
         }
       }
       if (spec.views.length > 1) {
@@ -155,8 +169,9 @@ describe("the MCP tools are the /api-docs catalogue", () => {
   });
 
   it("costs an assistant at most 45 KB of tool definitions", () => {
-    // The tool list is paid for in every conversation that connects (~44.2 KB for 35 tools since
-    // rich_list gained view=labels; that view was cut to ~180 bytes before the guard moved). A
+    // The tool list is paid for in every conversation that connects (~44.7 KB for 35 tools since
+    // analytics_miners became the five-view `miners` tool, paid for by shorter tool notes on
+    // nodes, activity, pool usage, address windows and cross-chain totals). A
     // regression guard set just above the measured size, not a target: a new tool must be paid
     // for by trimming another.
     const bytes = new TextEncoder().encode(

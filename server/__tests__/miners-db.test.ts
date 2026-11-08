@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MINING_POOL_LABELS, type MinerSeries, type MinersOverview } from "@/domain";
 import { minersRoutes } from "../miners-routes";
+import { loadMiningPoolBlocks } from "../miners-overview";
 
 /**
  * The `/miners` routes on a real Postgres with the real schemas: rows written straight into the
@@ -271,5 +272,17 @@ describeDb("/chain/miners", () => {
     expect(body.miningPool).toBe("viabtc");
     expect(body.blocks.map((b) => b.height)).toEqual([130, 121, 120]);
     expect((await app.request("/chain/miners/pools/nobody/blocks")).status).toBe(404);
+  });
+
+  it("pages a pool's blocks by height, a day that straddles the cut read but not counted", async () => {
+    const viabtc = [VIABTC_A, VIABTC_B];
+    const heights = async (page: { beforeHeight?: number; limit?: number }) =>
+      (await loadMiningPoolBlocks(pool, viabtc, page)).map((b) => b.height);
+    expect(await heights({ limit: 2 })).toEqual([130, 121]);
+    // The 6th's span is 121..130: below 130 it still holds 121, and the 5th's 120 follows.
+    expect(await heights({ beforeHeight: 130, limit: 2 })).toEqual([121, 120]);
+    expect(await heights({ beforeHeight: 121 })).toEqual([120]);
+    // Nothing older is stored as a block, and nothing before the history floor is read.
+    expect(await heights({ beforeHeight: 120 })).toEqual([]);
   });
 });

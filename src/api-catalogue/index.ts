@@ -22,6 +22,7 @@ import { CROSSCHAIN_GROUP } from "./groups/crosschain";
 import { REORGS_GROUP } from "./groups/reorgs";
 import { MEMPOOL_GROUP } from "./groups/mempool";
 import { ANALYTICS_GROUP } from "./groups/analytics";
+import { MINING_GROUP } from "./groups/mining";
 import { withFormatParam } from "./exports";
 import type { ApiEndpoint, ApiGroup } from "./types";
 
@@ -40,6 +41,7 @@ export const API_GROUPS: ApiGroup[] = withFormatParam([
   REFERENCE_GROUP,
   SUPPLY_GROUP,
   NETWORK_GROUP,
+  MINING_GROUP,
   NODES_GROUP,
   PRIVACY_GROUP,
   CROSSCHAIN_GROUP,
