@@ -76,7 +76,7 @@ export function NsmSection({ nsm, fromDay, toDay, livePriceUsd }: NsmSectionProp
           }
           sub={
             balance === null
-              ? "the node did not answer"
+              ? "the node's figure could not be read"
               : `at block ${formatCount(balance.height)} · ${
                   balance.carriedInZat === null
                     ? "includes more than fees"

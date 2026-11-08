@@ -81,7 +81,7 @@ describe("NsmSection", () => {
       expect(text).not.toContain("$");
       expect(text).not.toMatch(/\d ZEC/);
     }
-    expect(tile("NSM BALANCE")).toContain("the node did not answer");
+    expect(tile("NSM BALANCE")).toContain("the node's figure could not be read");
   });
 
   it("draws the chart from activation, with the empty days before it named", () => {

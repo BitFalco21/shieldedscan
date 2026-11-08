@@ -185,6 +185,16 @@ export function mountIndexOnlyRoutes(
       pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 30_000 }),
       solpsOver: () => Promise.resolve(null),
     }),
+    // `/miners` from the payout rollups and the index. The NSM's balance is the node's, so it is
+    // unknown here; its days come from the stored blocks.
+    ...(IS_TESTNET
+      ? []
+      : [
+          minersRoutes({
+            pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }),
+            log,
+          }),
+        ]),
   ];
   for (const routes of groups) {
     // Hono's default for anything else: an HTTPException's own answer, otherwise a logged 500.

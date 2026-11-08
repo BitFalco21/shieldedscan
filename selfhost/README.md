@@ -71,17 +71,17 @@ front of it: the per-address rate limits live in `server/Caddyfile`, not in the 
 ## Requirements
 
 - Docker with Compose.
-- **Disk: plan for 250 GB free, on an SSD.** About 150 GB stays in use once the import is done:
-  the transparent ledger is about 130 GB with its indexes, transactions about 9 GB, blocks about
-  2 GB, everything else under 2 GB. Building the indexes needs about 40 GB more for a while. The
-  download is about 13.4 GB (the release of 2026-11-07); each file is deleted once its rows are in.
-  The space is needed where Docker keeps its volumes (`docker info --format '{{.DockerRootDir}}'`).
+- **Disk: plan for 250 GB free, on an SSD.** The database is about 155 GB once the import is
+  done; the import peaks about 45 GB higher while it builds indexes. The download is about 13.4 GB
+  and each file is deleted once its rows are in. The space is needed where Docker keeps its
+  volumes (`docker info --format '{{.DockerRootDir}}'`).
 - **RAM: 8 GB at least, 16 GB recommended.**
-- **Time:** a few hours on a machine with 8 cores and NVMe storage; longer on slower disks or a
-  slow connection.
+- **Time:** under 3 hours.
 
-These are estimates from row counts and the size per row measured on a synthetic import, not
-yet from a full one.
+Measured on a full import of the release at block 3,550,353 (16 threads, 16 GB RAM, an SSD under
+WSL 2): 2 h 47 min from start to the database checking out, a peak of about 200 GB of disk, and
+about 157 GB in use after it (the database and the images). Slower disks or a slow connection
+take longer.
 
 ## Keep it current with a node
 
@@ -102,7 +102,8 @@ are not in the data, so the block page shows them as unavailable. What only a no
   transparent activity up to it;
 - an emptied address with more than 20,000 transparent inputs and outputs;
 - `/v1/mempool/summary` and `/v1/network/halving`;
-- on the website: the mempool, pulse, the halving, mining cost, stats and the network map.
+- on the website: the mempool, pulse, the halving, mining cost, stats, the network map, and on
+  `/miners` the tip's mining terms and the NSM balance.
 
 The day-by-day tables stop at the release's final day, three days before the release block's day.
 `block.received_at` stays NULL: it is when our node first saw a block, not chain data.
@@ -112,7 +113,9 @@ The day-by-day tables stop at the release's final day, three days before the rel
 Prices are not chain data, so the dataset does not carry them (the price sources' terms do not allow
 republishing). Your API fetches them itself: on first start it loads the daily ZEC/USD close back
 to 2016 and the currency rates, in a few minutes, with no key and no node, and refreshes them daily.
-Every USD figure and price chart fills in from them. It also polls market caps, swap venues, the ZIP
+Every USD figure and price chart fills in from them. A total that includes the current day is
+priced at the live price, which needs a node, so without one it reads unavailable rather than
+estimated. It also polls market caps, swap venues, the ZIP
 index and names. The live price on the home page needs a node as well. `EXTERNAL_SOURCES=0` turns
 all of this off: after the import the box calls no third party, and USD figures stay empty.
 
