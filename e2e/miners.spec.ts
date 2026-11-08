@@ -98,6 +98,10 @@ for (const width of [390, 1280]) {
         await expect(tile).toContainText("$");
         await expect(tile.locator(".redact")).toHaveCount(0);
       }
+      // The balance is more than fees, and its tile says what else it holds.
+      await expect(section.locator(".stat-card", { hasText: "NSM BALANCE" })).toContainText(
+        /[\d.,]+ ZEC unclaimed rewards carried in at NU7/,
+      );
       // The fixture's 30D window opens before its activation: the sums say where they start.
       await expect(section.locator(".stat-card", { hasText: "FEES TO THE NSM" })).toContainText(
         /60% of [\d.,]+ ZEC in fees · since \d+ \w+/,

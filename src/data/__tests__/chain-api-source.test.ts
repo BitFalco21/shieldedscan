@@ -914,7 +914,7 @@ describe("getNsmOverview", () => {
   const nsm = {
     activationHeight: 3_543_405,
     activationDay: "2026-11-06",
-    balance: { height: 3_550_000, zat: 1_234_567 },
+    balance: { height: 3_550_000, zat: 1_234_567, carriedInZat: 1_000_000 },
     days: [
       {
         day: "2026-11-06",

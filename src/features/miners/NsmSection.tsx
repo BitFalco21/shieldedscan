@@ -33,6 +33,8 @@ function zecUsd(zat: number, usd: string | null): ReactNode {
  * ZIP 235 splits them, over every block (a fee total is public, whatever the coinbase). The balance
  * is valued at the live price; the window's fees at each day's close, today at the live price. A
  * window that opens before NU7 is summed from activation and says so: earlier days had no NSM.
+ * The balance is more than fees (ZIP 234 opened it with the subsidy never claimed), so its tile
+ * always says so, with the figure when the API could account for it block by block.
  */
 export function NsmSection({ nsm, fromDay, toDay, livePriceUsd }: NsmSectionProps) {
   const w = nsmWindow(nsm, fromDay, toDay);
@@ -73,7 +75,13 @@ export function NsmSection({ nsm, fromDay, toDay, livePriceUsd }: NsmSectionProp
             )
           }
           sub={
-            balance === null ? "the node did not answer" : `at block ${formatCount(balance.height)}`
+            balance === null
+              ? "the node did not answer"
+              : `at block ${formatCount(balance.height)} · ${
+                  balance.carriedInZat === null
+                    ? "includes more than fees"
+                    : `${formatZecSupply(balance.carriedInZat)} unclaimed rewards carried in at NU7`
+                }`
           }
         />
         <StatCard
@@ -110,7 +118,7 @@ export function NsmSection({ nsm, fromDay, toDay, livePriceUsd }: NsmSectionProp
         />
       </StatGrid>
       {nsm.days.length === 0 ? null : (
-        <Panel title="FEES PER DAY SINCE NU7" className="mt-3">
+        <Panel title={fromActivation ? "FEES PER DAY SINCE NU7" : "FEES PER DAY"} className="mt-3">
           <NsmFeesChart days={nsm.days} fromActivation={fromActivation} />
           <p className="mt-3 text-xs text-ink-faint">
             Every block from {formatCount(nsm.activationHeight)}, shielded coinbase included: fees

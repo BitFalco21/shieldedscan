@@ -315,7 +315,8 @@ export function isNsmOverview(b: unknown): b is NsmOverview {
       (typeof balance === "object" &&
         balance !== undefined &&
         isFiniteNumber(balance.height) &&
-        isFiniteOrNull(balance.zat))) &&
+        isFiniteOrNull(balance.zat) &&
+        isFiniteOrNull(balance.carriedInZat))) &&
     Array.isArray(o.days) &&
     o.days.every(isNsmDay)
   );

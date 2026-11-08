@@ -18,7 +18,7 @@ export interface NsmFeesChartProps {
 const UNKNOWN = -1;
 
 /** The slots the chart spans at least, so a young series draws days, not slabs. */
-const MIN_SLOTS = 30;
+const MIN_SLOTS = 10;
 
 const zecValue = (v: number) => (v < 0 ? "unknown" : formatZecSupply(v));
 

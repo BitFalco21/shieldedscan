@@ -21,7 +21,7 @@ const day = (d: string, over: Partial<NsmDay> = {}): NsmDay => ({
 const NSM: NsmOverview = {
   activationHeight: NU7_HEIGHT,
   activationDay: "2026-11-06",
-  balance: { height: NU7_HEIGHT + 7_000, zat: 900_000_000 },
+  balance: { height: NU7_HEIGHT + 7_000, zat: 900_000_000, carriedInZat: null },
   days: [
     day("2026-11-06"),
     day("2026-11-07"),
@@ -49,6 +49,17 @@ describe("NsmSection", () => {
     expect(screen.getByRole("link", { name: /ZIP 235/ }).getAttribute("href")).toBe(
       "https://zips.z.cash/zip-0235",
     );
+  });
+
+  it("says what the balance holds beyond fees, with the figure when it is known", () => {
+    const carried = { ...NSM, balance: { ...NSM.balance!, carriedInZat: 36_858_445_520 } };
+    render(<NsmSection nsm={carried} fromDay="2026-10-10" toDay="2026-11-08" livePriceUsd={600} />);
+    expect(tile("NSM BALANCE")).toContain("368.58 ZEC unclaimed rewards carried in at NU7");
+  });
+
+  it("says the balance includes more than fees when that part is not known", () => {
+    render(<NsmSection nsm={NSM} fromDay="2026-10-10" toDay="2026-11-08" livePriceUsd={600} />);
+    expect(tile("NSM BALANCE")).toContain("· includes more than fees");
   });
 
   it("does not say 'since' when the window opens after activation", () => {
