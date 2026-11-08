@@ -141,6 +141,29 @@ describe("a round's calls", () => {
     expect(toolMessages(params)).toHaveLength(7);
   });
 
+  it("starts no read and emits no further step once the visitor leaves mid-round", async () => {
+    const stub = stubTools(undefined, () => 20);
+    const calls = [0, 1, 2, 3, 4, 5, 6].map((i) => call(`c${i}`, "chain_status", { i }));
+    const { streamer } = script([[done({ toolCalls: calls })], ANSWER]);
+    const controller = new AbortController();
+    const after: AgentEvent[] = [];
+    let left = false;
+    for await (const e of runAgentTurn(
+      { streamer, tools: stub.tools, now: () => Date.UTC(2026, 10, 6) },
+      [{ role: "user", content: "question" }],
+      controller.signal,
+    )) {
+      if (left) after.push(e);
+      // Leave at the first step: its read would be created next, and the six behind it queued.
+      if (!left && e.event === "status" && e.data.state === "looking-up") {
+        controller.abort();
+        left = true;
+      }
+    }
+    expect(stub.dispatched).toEqual([]);
+    expect(after.filter((e) => e.event === "status")).toEqual([]);
+  });
+
   it("reads an identical call once and answers both ids", async () => {
     const stub = stubTools();
     const twice = [call("a", "chain_status", { include: ["chain"] })];

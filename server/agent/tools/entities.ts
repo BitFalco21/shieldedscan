@@ -151,6 +151,8 @@ export function entityBlock(
   retrievedAt: string,
   body: string,
   valuation: Valuation,
+  // The call's own set: two facets sharing one note (`/v1/chain` and `/v1/status`) print it once.
+  notesEmitted: Set<string> = new Set(),
 ): string {
   const payload =
     path === SUPPLY_PATH
@@ -166,7 +168,9 @@ export function entityBlock(
               : reshapeJson(body, withFormattedZec);
   const note = ENTITY_NOTES[path] ?? PATTERN_NOTES.find((l) => l.prefix.test(path))?.note;
   const block = dataBlock(path, retrievedAt, payload);
-  return note === undefined ? block : `<note source="GET ${path}">\n${note}\n</note>\n${block}`;
+  if (note === undefined || notesEmitted.has(note)) return block;
+  notesEmitted.add(note);
+  return `<note source="GET ${path}">\n${note}\n</note>\n${block}`;
 }
 
 /**

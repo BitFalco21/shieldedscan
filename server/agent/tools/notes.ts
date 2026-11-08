@@ -33,17 +33,17 @@ export const NETWORK_FEES_NOTE = `This is ZIP-317, protocol CONVENTION rather th
 export const REORG_NOTE = `This is ONE NODE'S OWN OBSERVED ROLLBACKS, never a census of the network's reorganisations. It counts only blocks this explorer had already stored and then rolled back, since the \`observingSince\` date in the payload — it is never backdated, and a reorg before that date is simply not in it. \`detectionLimit\` says the rest: a block orphaned and replaced between two polls is never observed at all, so the count is a FLOOR and must be described as one. Depth-1 reorgs are ROUTINE on proof of work and are not incidents; say so rather than implying every row is notable. Never present an absence of rows as evidence the chain has not reorganised.`;
 
 /**
- * Said of the supply payload, outside its `<data>` envelope because it is ours. A pool's total is
- * public; `shielded: true` is the field most likely to be misread as "not knowable", so the note
- * says what that flag means and what it does not.
- */
-/**
  * Above `/v1/chain` and `/v1/status`, which both carry the rolling 24-hour figures the homepage
  * prints. Without it a "last 24 hours" question went to the day totals and a sum, several rounds for
  * a figure this payload already held.
  */
 export const LAST_24H_NOTE = `\`txCount24h\` is how many transactions the blocks of the LAST 24 HOURS carried, rolling by block time and EXCLUDING coinbase; \`fullyShieldedPct24h\` is the share of them that were fully shielded, and \`txCount24h\` is its denominator — name it with the share. This is the answer to "how many transactions in the last 24 hours" and "what share of the last day's transactions were fully shielded" — never to how much of the SUPPLY is shielded, which is the supply facet's figure. Quote both as they are. A rolling 24 hours is not a calendar day, so never set it beside a day's total, reconcile the two, or compute anything from them. Null means this explorer has not measured it yet — unmeasured, never zero.`;
 
+/**
+ * Said of the supply payload, outside its `<data>` envelope because it is ours. A pool's total is
+ * public; `shielded: true` is the field most likely to be misread as "not knowable", so the note
+ * says what that flag means and what it does not.
+ */
 export const SUPPLY_NOTE = `All six of these pool balances are PUBLIC. The node publishes each one, this explorer renders them on /shielded, and together they account for every ZEC in existence. \`shielded: true\` describes the pool's CRYPTOGRAPHY, not the knowability of its total: a shielded pool's balance is public by construction and NO VIEWING KEY is involved in reading one — a viewing key reveals an individual holder's notes and says nothing about a total. What is encrypted is the inside of a pool: how the balance divides into notes, and who holds them. So state any total here freely, and never a note. \`balanceValue\` is that balance valued by this explorer, in the currency named in \`valuation.currency\` — quote the string and never multiply a balance by a price yourself, and never convert it into another currency yourself. Where it is null the money figure is unavailable right now, which says nothing about the ZEC balance beside it. When \`valuation.currency\` is not usd, the figures are in THAT currency: say so, and never call them dollars. The lockbox is mined but not circulating and no transaction can spend from it.`;
 
 /**

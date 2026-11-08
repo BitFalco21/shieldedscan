@@ -196,6 +196,16 @@ const TOOL_BUDGET_EXHAUSTED: ToolResult = {
   endpoints: [],
 };
 
+/**
+ * What a read that never ran answers with, once the visitor has left. Nothing reads it: the loop
+ * returns as soon as the round settles. It exists so a queued read waiting for a slot does not
+ * start a query for a turn nobody is waiting on.
+ */
+const TURN_ABANDONED: ToolResult = {
+  content: "the turn ended before this read ran",
+  endpoints: [],
+};
+
 /** Runs at most `max` of the functions it is given at once, the rest as slots free up. */
 function concurrencyLimit(max: number): <T>(run: () => Promise<T>) => Promise<T> {
   let active = 0;
@@ -698,6 +708,8 @@ async function* turn(
     const limit = concurrencyLimit(MAX_CONCURRENT_LOOKUPS);
     let lane: Promise<unknown> = Promise.resolve();
     for (const toolCall of final.toolCalls) {
+      // The visitor may leave at any status yielded below; stop emitting and starting reads then.
+      if (signal.aborted) return;
       if (toolBudget <= 0) {
         pending.push(Promise.resolve(TOOL_BUDGET_EXHAUSTED));
         continue;
@@ -716,10 +728,14 @@ async function* turn(
         },
       };
       if (toolCall.name === "site_guide") apiAnswer = true;
+      // Checked again when the slot frees: a read queued behind the cap must not start for a turn
+      // the visitor has already left.
       const read = () =>
-        timer.tool(toolCall.name, () =>
-          deps.tools.dispatch(toolCall.name, toolCall.arguments, userText),
-        );
+        signal.aborted
+          ? Promise.resolve(TURN_ABANDONED)
+          : timer.tool(toolCall.name, () =>
+              deps.tools.dispatch(toolCall.name, toolCall.arguments, userText),
+            );
       if (toolCall.name === "make_chart" || toolCall.name === "export_data") {
         const next = lane.then(async (): Promise<ToolResult> => {
           // An answer carries at most two charts; a third is refused before anything is read, and
