@@ -60,8 +60,8 @@ export const AGENT_ENABLED = process.env.AGENT_ENABLED === "1";
 export const AGENT_CHARTS_ENABLED = process.env.AGENT_CHARTS_ENABLED !== "0";
 /**
  * The agent's data-file tool. On unless `AGENT_EXPORTS_ENABLED=0`, which removes `export_data` from
- * the tool list and its section from the prompt (leaving the prompt v40 exactly): the switch to turn
- * files off without a deploy.
+ * the tool list and its section from the prompt (leaving the prompt `promptVersion(false)` names):
+ * the switch to turn files off without a deploy.
  */
 export const AGENT_EXPORTS_ENABLED = process.env.AGENT_EXPORTS_ENABLED !== "0";
 

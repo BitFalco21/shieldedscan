@@ -127,6 +127,9 @@ export const SUPPLY: SupplyBreakdown = {
  */
 export const PRICE = { usd: 60, change24hPct: 2.5 };
 
+/** The rolling last-24-hours counts `/v1/status` and `/v1/chain` publish. */
+export const STATS_24H = { txCount24h: 8_412, fullyShieldedPct24h: 21.4 };
+
 export const MEMPOOL: MempoolStats = {
   pendingCount: 12,
   totalSizeBytes: 34_000,
@@ -495,6 +498,7 @@ export function makeV1(
     enabledProtocols: { maya: true, "near-intents": true, thorchain: false },
     extras: {
       price: { current: () => (overrides.price === undefined ? PRICE : overrides.price) },
+      stats24h: { current: () => STATS_24H },
     },
     // The extension the agent's 'miners' mode reads, as the agent container mounts it.
     extensions: [

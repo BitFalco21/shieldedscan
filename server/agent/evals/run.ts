@@ -6,6 +6,13 @@
  *   NEAR_AI_API_KEY=… npm run eval:agent
  *   npm run eval:agent -- --only injection
  *   npm run eval:agent -- --case pools-ironwood --verbose --dump run.json
+ *   npm run eval:agent -- --only latency --repeat 3 --dump latency.json
+ *   npm run eval:agent -- --only latency --model scripted     (no key: wiring only)
+ *
+ * Every case records where its time went — model calls, tool rounds, each read, wall time — and the
+ * run ends with a latency table per category (`latency.ts`). `--model scripted` swaps the model for
+ * `scripted-model.ts`, which makes each case's `route` calls and answers with a fixed sentence: it
+ * checks dispatch and timing with no key and measures nothing about the real model.
  *
  * One key: the host comes from `AGENT_INFERENCE_PROVIDER` (NEAR AI unless overridden).
  *
@@ -40,6 +47,9 @@ import {
 } from "../testing/fixture-world";
 import { buildDump } from "./dump";
 import { gradeAnswer, type ReviewItem } from "./grade";
+import { caseLatency, latencySummary, type CaseLatency } from "./latency";
+import { isDispatchFailure, scriptedStreamerFor } from "./scripted-model";
+import type { TurnTiming } from "../timing";
 
 /**
  * The host the agent runs against for this run. The judge's host is chosen separately: changing
@@ -149,6 +159,30 @@ interface CaseResult {
   tokens: number;
   /** Semantic properties awaiting a person. Non-empty means the case is not certified. */
   reviews: ReviewItem[];
+  run: number;
+  latency: CaseLatency | null;
+}
+
+/**
+ * What a scripted run checks instead of the answer: the turn completed, a case with a route made it
+ * in exactly one round, and nothing it read came back as a dispatch failure of ours.
+ */
+function wiringFailures(
+  testCase: EvalCase,
+  timing: TurnTiming | null,
+  answers: readonly string[],
+): string[] {
+  const failures: string[] = [];
+  if (timing === null) return ["no timing record"];
+  if (timing.outcome !== "complete") failures.push(`turn ended ${timing.outcome}`);
+  const expected = (testCase.route?.length ?? 0) > 0 ? 1 : 0;
+  if (timing.toolRounds !== expected) {
+    failures.push(`made ${timing.toolRounds} tool rounds, scripted ${expected}`);
+  }
+  for (const content of answers) {
+    if (isDispatchFailure(content)) failures.push(`dispatch failed: ${content.slice(0, 120)}`);
+  }
+  return failures;
 }
 
 /**
@@ -159,21 +193,42 @@ interface CaseResult {
  */
 const PER_CASE_TIMEOUT_MS = 180_000;
 
-async function runCase(testCase: EvalCase): Promise<CaseResult> {
-  const now = clockFor(testCase);
-  const tools = new AgentTools(requesterFor(testCase), chainRequesterFor(testCase), now);
+async function runCase(testCase: EvalCase, run: number, scripted: boolean): Promise<CaseResult> {
+  // A scripted run stays on this machine: a live case reads the fixture world instead.
+  const world: EvalCase =
+    scripted && testCase.world === "live" ? { ...testCase, world: "fixture" } : testCase;
+  const now = clockFor(world);
+  const tools = new AgentTools(requesterFor(world), chainRequesterFor(world), now);
+  /*
+   * A scripted run reads what each call returned, to tell a dispatch failure of ours from data. A
+   * real run does not: the answer is what it grades, and wrapping the tools would be one more thing
+   * between the measured turn and production's.
+   */
+  const toolAnswers: string[] = [];
+  if (scripted) {
+    const dispatch = tools.dispatch.bind(tools);
+    tools.dispatch = async (...args) => {
+      const result = await dispatch(...args);
+      toolAnswers.push(result.content);
+      return result;
+    };
+  }
   const toolsCalled: string[] = [];
   let answer = "";
   let rawAnswer = "";
   let tokens = 0;
   let chartsShown = 0;
   let exportsShown = 0;
+  let timing: TurnTiming | null = null;
 
   const events: AsyncGenerator<AgentEvent> = runAgentTurn(
     {
-      streamer: streamerFor(AGENT_PROVIDER, API_KEY!),
+      streamer: scripted ? scriptedStreamerFor(testCase) : streamerFor(AGENT_PROVIDER, API_KEY!),
       tools,
       now,
+      onTiming: (t) => {
+        timing = t;
+      },
       onUsage: (u) => {
         tokens += u.promptTokens + u.completionTokens;
       },
@@ -231,17 +286,24 @@ async function runCase(testCase: EvalCase): Promise<CaseResult> {
       toolsCalled,
       tokens,
       reviews: [],
+      run,
+      latency: latencyOf(timing),
     };
   }
 
-  const { failures, reviews } = gradeAnswer(testCase, {
-    question: testCase.question,
-    answer,
-    rawAnswer,
-    toolsCalled,
-    chartsShown,
-    exportsShown,
-  });
+  // Read back through a local: the compiler cannot see the callback above assign it.
+  const timed = timing as TurnTiming | null;
+  const { failures, reviews } = scripted
+    ? { failures: wiringFailures(testCase, timed, toolAnswers), reviews: [] }
+    : gradeAnswer(testCase, {
+        question: testCase.question,
+        answer,
+        rawAnswer,
+        toolsCalled,
+        chartsShown,
+        exportsShown,
+        ...(timed === null ? {} : { toolRounds: timed.toolRounds }),
+      });
 
   return {
     id: testCase.id,
@@ -253,19 +315,37 @@ async function runCase(testCase: EvalCase): Promise<CaseResult> {
     toolsCalled,
     tokens,
     reviews,
+    run,
+    latency: latencyOf(timed),
   };
 }
 
+/** Typed loosely on purpose: the callback that fills it is invisible to the compiler's narrowing. */
+function latencyOf(timing: TurnTiming | null): CaseLatency | null {
+  return timing === null ? null : caseLatency(timing);
+}
+
 async function main(): Promise<void> {
-  if (!API_KEY) {
+  const args = process.argv.slice(2);
+  const model = args.includes("--model") ? args[args.indexOf("--model") + 1] : undefined;
+  if (model !== undefined && model !== "scripted") {
+    console.error(`--model takes only "scripted"; the real model comes from the provider`);
+    process.exit(2);
+  }
+  const scripted = model === "scripted";
+  if (!scripted && !API_KEY) {
     console.error(`${AGENT_PROVIDER.keyEnv} is required — this runner calls a real model`);
     process.exit(2);
   }
-  const args = process.argv.slice(2);
   const only = args[args.indexOf("--only") + 1];
   const single = args[args.indexOf("--case") + 1];
   const verbose = args.includes("--verbose");
   const dumpPath = args.includes("--dump") ? args[args.indexOf("--dump") + 1] : undefined;
+  const repeat = args.includes("--repeat") ? Number(args[args.indexOf("--repeat") + 1]) : 1;
+  if (!Number.isInteger(repeat) || repeat < 1 || repeat > 20) {
+    console.error("--repeat takes a whole number from 1 to 20");
+    process.exit(2);
+  }
 
   let cases = ALL_CASES;
   if (args.includes("--case") && single) cases = cases.filter((c) => c.id === single);
@@ -277,15 +357,21 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `model ${AGENT_PROVIDER.model} @ ${AGENT_PROVIDER.id} · prompt v${SYSTEM_PROMPT_VERSION} · /v1 ${V1_BASE_URL}`,
+    scripted
+      ? `model SCRIPTED (wiring only — measures nothing about the real model) · prompt v${SYSTEM_PROMPT_VERSION} · fixture world`
+      : `model ${AGENT_PROVIDER.model} @ ${AGENT_PROVIDER.id} · prompt v${SYSTEM_PROMPT_VERSION} · /v1 ${V1_BASE_URL}`,
   );
-  console.log(`${cases.length} cases\n`);
+  console.log(`${cases.length} cases${repeat > 1 ? ` × ${repeat}` : ""}\n`);
 
   const results: CaseResult[] = [];
-  for (const testCase of cases) {
+  // Each case's repetitions back to back, so a provider's warm cache helps every case alike.
+  const runs = cases.flatMap((testCase) =>
+    Array.from({ length: repeat }, (_, i) => ({ testCase, run: i + 1 })),
+  );
+  for (const { testCase, run } of runs) {
     let result: CaseResult;
     try {
-      result = await runCase(testCase);
+      result = await runCase(testCase, run, scripted);
     } catch (err) {
       // The last resort, for a throw outside the turn (an unreachable judge, a grading bug). A
       // thrown turn is caught inside `runCase`, which keeps its partial evidence; the zeros here
@@ -299,13 +385,20 @@ async function main(): Promise<void> {
         toolsCalled: [],
         tokens: 0,
         reviews: [],
+        run,
+        latency: null,
       };
     }
     results.push(result);
     // Three states. A case with rubrics never prints PASS: some cases assert rubrics alone, so
     // collapsing review into pass would print a green line for a case that checked nothing.
     const state = !result.passed ? "FAIL" : result.reviews.length > 0 ? "REVIEW" : "PASS";
-    console.log(`${state.padEnd(7)}${result.id}`);
+    const l = result.latency;
+    const speed =
+      l === null
+        ? ""
+        : `  ${(l.wallMs / 1000).toFixed(1)}s · ${l.modelCalls} calls · ${l.toolRounds} tool rounds`;
+    console.log(`${state.padEnd(7)}${result.id}${repeat > 1 ? ` #${run}` : ""}${speed}`);
     for (const failure of result.failures) console.log(`        ${failure}`);
     for (const review of result.reviews) {
       const direction = review.expect === "satisfies" ? "must satisfy" : "must NOT satisfy";
@@ -332,7 +425,7 @@ async function main(): Promise<void> {
       JSON.stringify(
         buildDump(
           {
-            model: AGENT_PROVIDER.model,
+            model: scripted ? "scripted" : AGENT_PROVIDER.model,
             promptVersion: SYSTEM_PROMPT_VERSION,
             v1BaseUrl: V1_BASE_URL,
             ranAt: new Date().toISOString(),
@@ -363,6 +456,9 @@ async function main(): Promise<void> {
   const tokens = results.reduce((sum, r) => sum + r.tokens, 0);
   console.log("────────────────────────────────────────");
   console.log(`${passed}/${results.length} passed · ${tokens.toLocaleString()} tokens`);
+  console.log(
+    `\nlatency${scripted ? " (SCRIPTED model: our side only)" : ""}\n${latencySummary(results).join("\n")}`,
+  );
 
   // Semantic properties are a person's job, and an unreviewed run must never read as clean. Exit 3:
   // distinct from a mechanical failure (1) so a script can tell "the agent is wrong" from "nobody

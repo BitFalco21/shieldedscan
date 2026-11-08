@@ -33,6 +33,13 @@ export const NETWORK_FEES_NOTE = `This is ZIP-317, protocol CONVENTION rather th
 export const REORG_NOTE = `This is ONE NODE'S OWN OBSERVED ROLLBACKS, never a census of the network's reorganisations. It counts only blocks this explorer had already stored and then rolled back, since the \`observingSince\` date in the payload — it is never backdated, and a reorg before that date is simply not in it. \`detectionLimit\` says the rest: a block orphaned and replaced between two polls is never observed at all, so the count is a FLOOR and must be described as one. Depth-1 reorgs are ROUTINE on proof of work and are not incidents; say so rather than implying every row is notable. Never present an absence of rows as evidence the chain has not reorganised.`;
 
 /**
+ * Above `/v1/chain` and `/v1/status`, which both carry the rolling 24-hour figures the homepage
+ * prints. Without it a "last 24 hours" question went to the day totals and a sum, several rounds for
+ * a figure this payload already held.
+ */
+export const LAST_24H_NOTE = `\`txCount24h\` is how many transactions the blocks of the LAST 24 HOURS carried, rolling by block time and EXCLUDING coinbase; \`fullyShieldedPct24h\` is the share of them that were fully shielded, and \`txCount24h\` is its denominator — name it with the share. This is the answer to "how many transactions in the last 24 hours" and "what share of the last day's transactions were fully shielded" — never to how much of the SUPPLY is shielded, which is the supply facet's figure. Quote both as they are. A rolling 24 hours is not a calendar day, so never set it beside a day's total, reconcile the two, or compute anything from them. Null means this explorer has not measured it yet — unmeasured, never zero.`;
+
+/**
  * Said of the supply payload, outside its `<data>` envelope because it is ours. A pool's total is
  * public; `shielded: true` is the field most likely to be misread as "not knowable", so the note
  * says what that flag means and what it does not.

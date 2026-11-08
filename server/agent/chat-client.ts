@@ -41,8 +41,23 @@ export type StreamEvent =
       type: "done";
       finishReason: string | null;
       toolCalls: AssembledToolCall[];
-      usage: { promptTokens: number; completionTokens: number } | null;
+      usage: Usage | null;
+      /**
+       * Milliseconds from the request to the first SSE data line, when the caller measured it. Only
+       * `streamChat` does; it is timing for `timing.ts`, never part of the answer.
+       */
+      firstDataMs?: number;
     };
+
+export interface Usage {
+  promptTokens: number;
+  completionTokens: number;
+  /**
+   * Prompt tokens served from the provider's prefix cache, present only when the provider reports
+   * it. Absent is "not reported", never zero.
+   */
+  cachedTokens?: number;
+}
 
 export interface CompletionParams {
   model: string;
@@ -132,6 +147,7 @@ export async function* streamChat(
   params: CompletionParams,
   signal: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
+  const startedAt = performance.now();
   const res = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
@@ -145,7 +161,7 @@ export async function* streamChat(
     const detail = await res.text().catch(() => "");
     throw new Error(`${config.provider} answered ${res.status}: ${detail.slice(0, 300)}`);
   }
-  yield* parseSseStream(res.body);
+  yield* parseSseStream(res.body, startedAt);
 }
 
 interface SseChunk {
@@ -161,7 +177,22 @@ interface SseChunk {
     };
     finish_reason?: string | null;
   }[];
-  usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    /** The OpenAI spelling of the prefix-cache hit, which vLLM-based hosts also emit. */
+    prompt_tokens_details?: { cached_tokens?: number | null } | null;
+    /** DeepSeek's own API spelling of the same count. */
+    prompt_cache_hit_tokens?: number;
+  } | null;
+}
+
+/** The cached-prompt count under whichever spelling the host used, or null when it sent none. */
+function cachedTokensOf(usage: NonNullable<SseChunk["usage"]>): number | null {
+  for (const n of [usage.prompt_tokens_details?.cached_tokens, usage.prompt_cache_hit_tokens]) {
+    if (typeof n === "number" && Number.isFinite(n) && n >= 0) return n;
+  }
+  return null;
 }
 
 /**
@@ -172,11 +203,14 @@ interface SseChunk {
  */
 export async function* parseSseStream(
   body: ReadableStream<Uint8Array>,
+  /** `performance.now()` when the request was sent, to time the first data line against. */
+  startedAt?: number,
 ): AsyncGenerator<StreamEvent> {
   const decoder = new TextDecoder();
   let buffer = "";
   let finishReason: string | null = null;
-  let usage: { promptTokens: number; completionTokens: number } | null = null;
+  let usage: Usage | null = null;
+  let firstDataMs: number | undefined;
   const partials = new Map<number, AssembledToolCall>();
 
   const handleData = function* (payload: string): Generator<StreamEvent> {
@@ -187,9 +221,11 @@ export async function* parseSseStream(
       return; // a malformed keep-alive is not worth killing the stream over
     }
     if (parsed.usage != null) {
+      const cached = cachedTokensOf(parsed.usage);
       usage = {
         promptTokens: parsed.usage.prompt_tokens ?? 0,
         completionTokens: parsed.usage.completion_tokens ?? 0,
+        ...(cached === null ? {} : { cachedTokens: cached }),
       };
     }
     const choice = parsed.choices?.[0];
@@ -225,6 +261,9 @@ export async function* parseSseStream(
         buffer = buffer.slice(boundary + 2);
         for (const line of event.split("\n")) {
           if (!line.startsWith("data: ")) continue; // comments and blank lines
+          if (firstDataMs === undefined && startedAt !== undefined) {
+            firstDataMs = performance.now() - startedAt;
+          }
           const payload = line.slice("data: ".length).trim();
           if (payload === "[DONE]") continue; // the terminal marker; loop exits on EOF
           yield* handleData(payload);
@@ -240,5 +279,6 @@ export async function* parseSseStream(
     finishReason,
     toolCalls: [...partials.entries()].sort(([a], [b]) => a - b).map(([, call]) => call),
     usage,
+    ...(firstDataMs === undefined ? {} : { firstDataMs }),
   };
 }

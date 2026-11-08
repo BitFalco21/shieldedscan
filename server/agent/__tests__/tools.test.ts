@@ -252,6 +252,16 @@ describe("AgentTools.dispatch", () => {
     expect(result.endpoints).toEqual(["GET /v1/chain"]);
   });
 
+  it("prints the rolling-24-hour note once when the chain and status facets are read together", async () => {
+    // Both payloads carry it; a call is one turn's context, and the note twice is tokens for nothing.
+    const result = await tools().dispatch(
+      "chain_status",
+      JSON.stringify({ include: ["chain", "status"] }),
+    );
+    expect(result.endpoints).toEqual(["GET /v1/chain", "GET /v1/status"]);
+    expect(result.content.match(/`txCount24h` is how many transactions/g)).toHaveLength(1);
+  });
+
   it("chain_status fetches exactly the requested facets", async () => {
     const result = await tools().dispatch(
       "chain_status",

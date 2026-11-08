@@ -215,7 +215,8 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
 // `usdAtSwapText`, `changePctText`) so a caveat like "≥" cannot be paraphrased away. They are
 // quantities for routing purposes, and without the suffix the most carefully formatted figures
 // would be invisible to this check.
-const QUANTITY_SUFFIX = /(?:Zat|Zec|Usd|Pct|Share|Count|Text)$/;
+// A trailing window tag (`txCount24h`, `fullyShieldedPct24h`) still names a quantity.
+const QUANTITY_SUFFIX = /(?:Zat|Zec|Usd|Pct|Share|Count|Text)(?:24h)?$/;
 
 /**
  * Heads that carry no routing information, so requiring them would assert nothing: `totalZat`

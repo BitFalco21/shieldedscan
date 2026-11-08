@@ -15,7 +15,14 @@ import type { AskPage } from "./ask-pages";
 import { pageContext } from "./page-context";
 import { systemPromptFor, turnContext } from "./prompt";
 import { resolveProvider } from "./provider";
-import { describeToolCall, sourceLinkFor, type AgentTools, type SourceLink } from "./tools";
+import { TurnTimer, type TurnOutcome, type TurnTiming } from "./timing";
+import {
+  describeToolCall,
+  sourceLinkFor,
+  type AgentTools,
+  type SourceLink,
+  type ToolResult,
+} from "./tools";
 import { refusalResult } from "./tools/chart-refusal";
 import { exportRefusalResult } from "./tools/export-refusal";
 import {
@@ -166,6 +173,53 @@ export interface AgentLoopDeps {
    * case about "last week" has no fixed expected answer unless the run can pin the date.
    */
   now?: () => number;
+  /**
+   * Called once when the turn ends, however it ends, with where its time went (`timing.ts`). The
+   * record holds durations and counts, never text. Production passes nothing; the eval runner
+   * measures latency with it.
+   */
+  onTiming?: (timing: TurnTiming) => void;
+  /** Monotonic milliseconds for `onTiming`; `performance.now()` unless a test pins it. */
+  clock?: () => number;
+}
+
+/**
+ * Reads in flight at once within one round. A round rarely asks for more than three, and some reads
+ * are uncached database queries, so a model that asks for ten waits rather than piling them on.
+ */
+export const MAX_CONCURRENT_LOOKUPS = 3;
+
+/** The answer to a call past the turn's tool budget. */
+const TOOL_BUDGET_EXHAUSTED: ToolResult = {
+  content:
+    "tool budget for this turn is exhausted — answer from what you already have, and say plainly what you could not look up",
+  endpoints: [],
+};
+
+/**
+ * What a read that never ran answers with, once the visitor has left. Nothing reads it: the loop
+ * returns as soon as the round settles. It exists so a queued read waiting for a slot does not
+ * start a query for a turn nobody is waiting on.
+ */
+const TURN_ABANDONED: ToolResult = {
+  content: "the turn ended before this read ran",
+  endpoints: [],
+};
+
+/** Runs at most `max` of the functions it is given at once, the rest as slots free up. */
+function concurrencyLimit(max: number): <T>(run: () => Promise<T>) => Promise<T> {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async <T>(run: () => Promise<T>): Promise<T> => {
+    if (active >= max) await new Promise<void>((resolve) => waiting.push(resolve));
+    active++;
+    try {
+      return await run();
+    } finally {
+      active--;
+      waiting.shift()?.();
+    }
+  };
 }
 
 /**
@@ -232,6 +286,8 @@ async function* callModelOnce(
     const attempt = new AbortController();
     const onAbort = () => attempt.abort();
     outerSignal.addEventListener("abort", onAbort, { once: true });
+    // A listener added after the abort never fires, so a turn already over must say so here.
+    if (outerSignal.aborted) attempt.abort();
     let sawEvent = false;
     try {
       const iterator = deps.streamer(params, attempt.signal)[Symbol.asyncIterator]();
@@ -296,6 +352,36 @@ export async function* runAgentTurn(
   signal: AbortSignal,
   /** The page the question was asked from, when the request names one (`page-context.ts`). */
   page: AskPage | null = null,
+): AsyncGenerator<AgentEvent> {
+  const timer = new TurnTimer(deps.clock);
+  // Until a `done` says otherwise, a turn that stops was stopped: the visitor left or the clock ran out.
+  let outcome: TurnOutcome = "aborted";
+  try {
+    for await (const event of turn(deps, history, signal, page, timer)) {
+      if (event.event === "done") {
+        outcome = event.data.unanswered === true ? "unanswered" : event.data.stopReason;
+      }
+      yield event;
+    }
+  } catch (error) {
+    outcome = "error";
+    throw error;
+  } finally {
+    // An observer, never part of the turn: a consumer that throws must not turn an answer into an error.
+    try {
+      deps.onTiming?.(timer.finish(outcome));
+    } catch {
+      // Deliberately ignored; see above.
+    }
+  }
+}
+
+async function* turn(
+  deps: AgentLoopDeps,
+  history: AskMessage[],
+  signal: AbortSignal,
+  page: AskPage | null,
+  timer: TurnTimer,
 ): AsyncGenerator<AgentEvent> {
   const leading: ChatMessage[] = [
     // System prompt first: fixed content leads the array so prompt caching covers it.
@@ -391,8 +477,10 @@ export async function* runAgentTurn(
       emittedText = false;
       roundText = "";
       deliberating = false;
+      const timed = timer.startCall();
       try {
         for await (const event of callModelOnce(deps, params, signal, retryState)) {
+          timed.firstEvent();
           if (event.type === "content") {
             // Before the sanitiser, and never as an event — see `onRawText`.
             deps.onRawText?.(event.text);
@@ -415,8 +503,10 @@ export async function* runAgentTurn(
             final = event;
           }
         }
+        timed.end(final);
         break;
       } catch (error) {
+        timed.end(null);
         /*
          * A call that went silent mid-stream is re-run once, on the stall retry's terms: nothing of
          * it is committed, because the answer renders only at `done`. The trail's live line is taken
@@ -593,15 +683,35 @@ export async function* runAgentTurn(
       })),
     });
 
+    if (signal.aborted) return;
+    /*
+     * The round's calls, answered together.
+     *
+     * A model that needs several independent figures asks for them in one round, and each answer is
+     * an in-process read, so they are dispatched at once rather than one after another. Everything a
+     * reader or the model can observe keeps the order the calls were made in: the statuses are
+     * emitted first, in order, and the tool messages are appended in order once all have answered.
+     *
+     * Three things stay sequential, because each depends on what came before it:
+     *  - the per-turn budget, decided in order before anything runs, so the 16th call of a turn is
+     *    refused exactly as it was;
+     *  - `make_chart` and `export_data`, run one after another in their own lane, because their caps
+     *    count what was actually drawn and a refused chart draws nothing;
+     *  - and an identical call repeated in the same round is read once and its answer given to both
+     *    ids (each still spends its share of the budget, as before).
+     *
+     * At most `MAX_CONCURRENT_LOOKUPS` reads run at once, the lane's included, because some answer
+     * from uncached queries on the database the explorer itself depends on.
+     */
+    const pending: Promise<ToolResult>[] = [];
+    const readOnce = new Map<string, Promise<ToolResult>>();
+    const limit = concurrencyLimit(MAX_CONCURRENT_LOOKUPS);
+    let lane: Promise<unknown> = Promise.resolve();
     for (const toolCall of final.toolCalls) {
+      // The visitor may leave at any status yielded below; stop emitting and starting reads then.
       if (signal.aborted) return;
       if (toolBudget <= 0) {
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content:
-            "tool budget for this turn is exhausted — answer from what you already have, and say plainly what you could not look up",
-        });
+        pending.push(Promise.resolve(TOOL_BUDGET_EXHAUSTED));
         continue;
       }
       toolBudget--;
@@ -618,45 +728,67 @@ export async function* runAgentTurn(
         },
       };
       if (toolCall.name === "site_guide") apiAnswer = true;
-      // An answer carries at most two charts; a third is refused before anything is read, and said
-      // so, rather than drawn and silently dropped.
-      if (toolCall.name === "make_chart" && charts.length >= MAX_CHARTS_PER_ANSWER) {
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: refusalResult({
-            reason: "chart-limit",
-            message: `this answer already shows ${MAX_CHARTS_PER_ANSWER} charts, the most one answer carries — answer with them`,
-          }).content,
+      // Checked again when the slot frees: a read queued behind the cap must not start for a turn
+      // the visitor has already left.
+      const read = () =>
+        signal.aborted
+          ? Promise.resolve(TURN_ABANDONED)
+          : timer.tool(toolCall.name, () =>
+              deps.tools.dispatch(toolCall.name, toolCall.arguments, userText),
+            );
+      if (toolCall.name === "make_chart" || toolCall.name === "export_data") {
+        const next = lane.then(async (): Promise<ToolResult> => {
+          // An answer carries at most two charts; a third is refused before anything is read, and
+          // said so, rather than drawn and silently dropped.
+          if (toolCall.name === "make_chart" && charts.length >= MAX_CHARTS_PER_ANSWER) {
+            return refusalResult({
+              reason: "chart-limit",
+              message: `this answer already shows ${MAX_CHARTS_PER_ANSWER} charts, the most one answer carries — answer with them`,
+            });
+          }
+          // The same for files: two per answer, the third refused before anything is read.
+          if (toolCall.name === "export_data" && exports.length >= MAX_EXPORTS_PER_ANSWER) {
+            return exportRefusalResult({
+              reason: "export-limit",
+              message: `this answer already offers ${MAX_EXPORTS_PER_ANSWER} files, the most one answer carries — answer with them`,
+            });
+          }
+          const result = await limit(read);
+          // The same chart asked twice, however it was spelled, is shown once.
+          const drawn = result.chart;
+          if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
+            charts.push(drawn);
+          }
+          // And the same file: one card per call it names.
+          const offered = result.export;
+          if (offered !== undefined && !exports.some((e) => exportKey(e) === exportKey(offered))) {
+            exports.push(offered);
+          }
+          return result;
         });
+        lane = next.catch(() => {});
+        pending.push(next);
         continue;
       }
-      // The same for files: two per answer, the third refused before anything is read.
-      if (toolCall.name === "export_data" && exports.length >= MAX_EXPORTS_PER_ANSWER) {
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: exportRefusalResult({
-            reason: "export-limit",
-            message: `this answer already offers ${MAX_EXPORTS_PER_ANSWER} files, the most one answer carries — answer with them`,
-          }).content,
-        });
-        continue;
-      }
-      const result = await deps.tools.dispatch(toolCall.name, toolCall.arguments, userText);
-      endpoints.push(...result.endpoints);
-      // The same chart asked twice, however it was spelled, is shown once.
-      const drawn = result.chart;
-      if (drawn !== undefined && !charts.some((c) => chartKey(c) === chartKey(drawn))) {
-        charts.push(drawn);
-      }
-      // And the same file: one card per call it names.
-      const offered = result.export;
-      if (offered !== undefined && !exports.some((e) => exportKey(e) === exportKey(offered))) {
-        exports.push(offered);
-      }
-      messages.push({ role: "tool", tool_call_id: toolCall.id, content: result.content });
+      const key = `${toolCall.name}\u0000${toolCall.arguments}`;
+      const known = readOnce.get(key);
+      const result = known ?? limit(read);
+      // Marked handled at once: if the visitor leaves at one of the statuses above, `Promise.all`
+      // below is never reached, and a read that then rejects must not become an unhandled rejection.
+      result.catch(() => {});
+      readOnce.set(key, result);
+      pending.push(result);
     }
+    // A read that throws fails the turn, as one did when they ran in turn; the others are left to
+    // settle unobserved.
+    const results = await Promise.all(pending);
+    // The turn's clock may have run out while the round was being read.
+    if (signal.aborted) return;
+    final.toolCalls.forEach((toolCall, i) => {
+      const result = results[i]!;
+      endpoints.push(...result.endpoints);
+      messages.push({ role: "tool", tool_call_id: toolCall.id, content: result.content });
+    });
 
     /*
      * The round is over and the model is about to read what came back, so say so.

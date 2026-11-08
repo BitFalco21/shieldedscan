@@ -19,6 +19,7 @@ import { ROADMAP } from "./roadmap";
 import { PUBLISHED_SERIES } from "./published-series";
 import { CHARTS } from "./charts";
 import { EXPORTS_CASES } from "./exports";
+import { LATENCY } from "./latency";
 
 /**
  * The eval corpus. Nothing is logged, so there are no user transcripts to learn from: the corpus is
@@ -55,6 +56,7 @@ export const ALL_CASES: readonly EvalCase[] = [
   ...PUBLISHED_SERIES,
   ...CHARTS,
   ...EXPORTS_CASES,
+  ...LATENCY,
 ];
 
 export type { EvalCase } from "./types";

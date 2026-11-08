@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { agentRoutes } from "../index";
+import { formatTurnTiming } from "../timing";
 import { demoStreamer } from "./demo-streamer";
 import { FIXTURE_NOW_MS, makeChain, makeV1 } from "./fixture-world";
 
@@ -21,6 +22,8 @@ const app = agentRoutes({
   streamer: demoStreamer,
   now: () => FIXTURE_NOW_MS,
   budget: { check: async () => ({ allowed: true, tokensUsed: 0 }), record: async () => {} },
+  // Local only: where each turn's time went, as one line.
+  onTiming: (timing) => console.log(formatTurnTiming(timing)),
 });
 
 serve({ fetch: app.fetch, port: PORT, hostname: "127.0.0.1" }, () => {

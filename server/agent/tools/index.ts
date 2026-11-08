@@ -368,7 +368,7 @@ export class AgentTools {
     for (const { call, status, body } of fetched) {
       const spec = call.aggregate;
       if (spec === undefined) {
-        blocks.push(entityBlock(call.path, retrievedAt, body, valuation));
+        blocks.push(entityBlock(call.path, retrievedAt, body, valuation, notesEmitted));
         continue;
       }
       // A failed aggregate read is an error the model is told about, never an empty series: `[]` would
