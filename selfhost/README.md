@@ -76,7 +76,7 @@ front of it: the per-address rate limits live in `server/Caddyfile`, not in the 
   and each file is deleted once its rows are in. The space is needed where Docker keeps its
   volumes (`docker info --format '{{.DockerRootDir}}'`).
 - **RAM: 8 GB at least, 16 GB recommended.**
-- **Time:** under 3 hours.
+- **Time:** about 3 hours on the machine below.
 
 Measured on a full import of the release at block 3,550,353 (16 threads, 16 GB RAM, an SSD under
 WSL 2): 2 h 47 min from start to the database checking out, a peak of about 200 GB of disk, and

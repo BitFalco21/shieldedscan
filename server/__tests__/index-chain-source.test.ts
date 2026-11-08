@@ -145,6 +145,7 @@ describe("the index-only chain routes", () => {
       source: new IndexChainSource(r),
       chainIndex: index as never,
       log: () => undefined,
+      tipTimeMs: null,
     });
     return hono;
   }

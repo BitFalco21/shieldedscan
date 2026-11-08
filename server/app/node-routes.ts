@@ -173,9 +173,18 @@ export function notConfigured(c: Context, what: string): Response {
  */
 export function mountIndexOnlyRoutes(
   app: Hono,
-  deps: { source: IndexChainSource; chainIndex: ChainIndexStore; log: (message: string) => void },
+  deps: {
+    source: IndexChainSource;
+    chainIndex: ChainIndexStore;
+    log: (message: string) => void;
+    /**
+     * The newest stored block's time, in ms. The database stops at its release block, so "today"
+     * and "this month" are that block's, not the calendar's: its last day is the partial one.
+     */
+    tipTimeMs: number | null;
+  },
 ): void {
-  const { source, chainIndex, log } = deps;
+  const { source, chainIndex, log, tipTimeMs } = deps;
   const groups = [
     chainRoutes(source, { chainIndex }),
     // The rich list, address activity and the halving page; the subsidy schedule needs the node.
@@ -193,6 +202,7 @@ export function mountIndexOnlyRoutes(
           minersRoutes({
             pool: createPool(DATABASE_URL, { max: 2, statement_timeout: 15_000 }),
             log,
+            ...(tipTimeMs === null ? {} : { now: () => tipTimeMs }),
           }),
         ]),
   ];

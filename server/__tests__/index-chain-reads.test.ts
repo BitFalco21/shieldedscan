@@ -212,6 +212,7 @@ describe("the site's chain routes without a node", () => {
       source: new IndexChainSource(r),
       chainIndex: index as unknown as ChainIndexStore,
       log: () => undefined,
+      tipTimeMs: null,
     });
     return { hono, index };
   }

@@ -270,7 +270,15 @@ const indexOnly =
 if (live) {
   mountNodeRoutes(app, { live, chainIndex, store, netmapReader, log });
 } else if (indexOnly) {
-  mountIndexOnlyRoutes(app, { source: indexOnly.site, chainIndex: indexOnly.chainIndex, log });
+  // Read once: without a node nothing is added, so the newest stored block stays the newest.
+  const tip = await indexOnly.chainIndex.tipHeight();
+  const tipRow = tip === null ? undefined : await indexOnly.chainIndex.blockAt(tip);
+  mountIndexOnlyRoutes(app, {
+    source: indexOnly.site,
+    chainIndex: indexOnly.chainIndex,
+    log,
+    tipTimeMs: tipRow ? tipRow.pools.timestamp * 1000 : null,
+  });
 } else {
   log("NODE_RPC_URL unset — chain routes not mounted, those pages stay on fixtures");
 }
