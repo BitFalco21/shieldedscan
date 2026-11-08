@@ -114,7 +114,7 @@ republishing). Your API fetches them itself: on first start it loads the daily Z
 to 2016 and the currency rates, in a few minutes, with no key and no node, and refreshes them daily.
 Every USD figure and price chart fills in from them. It also polls market caps, swap venues, the ZIP
 index and names. The live price on the home page needs a node as well. `EXTERNAL_SOURCES=0` turns
-all of this off: the box then calls no third party, and USD figures stay empty.
+all of this off: after the import the box calls no third party, and USD figures stay empty.
 
 Empty unless you run their collectors: cross-chain swap history, the network map, social posts.
 The assistant is off: it needs a model host's key.

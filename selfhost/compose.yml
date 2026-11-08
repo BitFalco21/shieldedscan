@@ -109,7 +109,7 @@ services:
       NODE_RPC_URL: ${NODE_RPC_URL:-}
       # On by default: the daily ZEC/USD history back to 2016 and currency rates load on first
       # start (no key, no node), so every USD figure and price chart fills in; also market caps,
-      # swap venues, the ZIP index and names. 0 keeps the box from calling any third party.
+      # swap venues, the ZIP index and names. 0: after the import, the box calls no third party.
       EXTERNAL_SOURCES: ${EXTERNAL_SOURCES:-1}
     ports:
       - 127.0.0.1:${API_PORT:-8080}:8080

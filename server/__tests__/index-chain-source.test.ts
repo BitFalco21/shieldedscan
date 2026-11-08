@@ -115,15 +115,30 @@ describe("IndexChainSource", () => {
 });
 
 describe("the index-only chain routes", () => {
+  /** A txid the index holds: search must find it without a node. */
+  const STORED_TXID = "a1".repeat(32);
+
   async function app(): Promise<Hono> {
     vi.stubEnv("EXPLORER_API_TOKEN", "x".repeat(40));
     const { mountIndexOnlyRoutes } = await import("../app/node-routes");
-    const r = reader();
+    const r = {
+      ...reader(),
+      // The index holds STORED_TXID as a transaction, so it is not a block hash.
+      txBlocks: (txids: readonly string[]) =>
+        Promise.resolve(
+          new Map(
+            txids
+              .filter((t) => t === STORED_TXID)
+              .map((t) => [t, { height: 1, timestamp: 1_760_000_000 }]),
+          ),
+        ),
+    };
     const index = {
       ...r,
       blockSummaries: () => Promise.resolve(null),
       blockFees: () => Promise.resolve(new Map()),
-      getTransaction: () => Promise.resolve(undefined),
+      getTransaction: (txid: string) =>
+        Promise.resolve(txid === STORED_TXID ? { txid, blockHeight: 1 } : undefined),
     };
     const hono = new Hono();
     mountIndexOnlyRoutes(hono, {
@@ -138,6 +153,15 @@ describe("the index-only chain routes", () => {
     const res = await (await app()).request("/chain/info");
     expect(res.status).toBe(200);
     expect(((await res.json()) as { height: number }).height).toBe(HEIGHT);
+  });
+
+  it("finds a stored txid by search", async () => {
+    const res = await (await app()).request(`/chain/search?q=${STORED_TXID}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      type: "transaction",
+      transaction: { txid: STORED_TXID },
+    });
   });
 
   it("answers a node-only read 503, marked not configured", async () => {

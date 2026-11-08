@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { blockRowsReader, type BlockRowsReader } from "./block-list";
 import type { ChainIndexStore } from "./chain-index-store";
+import { NoNodeError } from "./index-chain-source";
 import {
   classifySearchQuery,
   classifyZcashAddress,
@@ -286,9 +287,14 @@ export function chainRoutes(source: ChainRouteSource, extras: ChainRouteExtras =
         // A 64-hex string is ambiguous on Zcash: block hash and txid share the shape. Both are
         // tried concurrently, block first in the result because a pasted block hash is the commoner
         // case.
+        // Without a node the source answers only for blocks: a stored txid is then read from the
+        // index. With a node the node answers, exactly as before.
         const [block, tx] = await Promise.all([
           source.getBlock(query.hash),
-          source.getTransaction(query.hash),
+          source.getTransaction(query.hash).catch(async (error: unknown) => {
+            if (!(error instanceof NoNodeError) || !extras.chainIndex) throw error;
+            return extras.chainIndex.getTransaction(query.hash);
+          }),
         ]);
         if (block) return c.json({ type: "block", block });
         if (tx) return c.json({ type: "transaction", transaction: tx });

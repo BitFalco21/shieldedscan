@@ -18,6 +18,7 @@ import {
   INT8_SORT_KEY_MAX,
   seekFromCursors,
 } from "@/data/cursor";
+import { ADDRESS_TXID_ROWS_PER_TX, newestDistinctTxids } from "./address-txids";
 import { keysetSlice } from "./keyset-page";
 import { clampPageSize } from "./page-size";
 import { POOL_USED_SQL } from "./pool-sql";
@@ -631,17 +632,22 @@ export class ChainIndexStore {
     };
   }
 
-  /** An address's newest `limit` txids, newest block first, as `listTransactions` orders them. */
+  /**
+   * An address's newest txids, newest block first and at most `limit`, read from at most
+   * `limit * ADDRESS_TXID_ROWS_PER_TX` of its rows. The walk follows `io_address_idx` (address,
+   * block_height DESC) and stops at the row cap: grouping in SQL instead would make the planner
+   * aggregate the whole history of a payout address with millions of rows before the LIMIT.
+   * The list is already a capped, newest-first view, so a shorter one is still truthful.
+   */
   async addressTxids(address: string, limit: number): Promise<string[]> {
-    const { rows } = await this.pool.query<{ txid: string }>(
-      `SELECT txid FROM tx_transparent_io
+    const { rows } = await this.pool.query<{ txid: string; block_height: number }>(
+      `SELECT txid, block_height FROM tx_transparent_io
         WHERE address = $1 AND block_height IS NOT NULL
-        GROUP BY block_height, txid
-        ORDER BY block_height DESC, txid DESC
+        ORDER BY block_height DESC
         LIMIT $2`,
-      [address, limit],
+      [address, limit * ADDRESS_TXID_ROWS_PER_TX],
     );
-    return rows.map((r) => r.txid);
+    return newestDistinctTxids(rows, limit);
   }
 
   /** Our indexed tip — the newest block row — or null on an empty index. */
