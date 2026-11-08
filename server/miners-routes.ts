@@ -42,6 +42,11 @@ export interface MinersRoutesDeps {
   log?: (message: string) => void;
 }
 
+/** Waits for the index to reach the node's block before `carriedInZat` reads null. */
+const CARRIED_IN_RETRIES = 2;
+const CARRIED_IN_RETRY_MS = 1_500;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export function minersRoutes(deps: MinersRoutesDeps): Hono {
   const app = new Hono();
   const nowSec = () => Math.floor((deps.now ?? Date.now)() / 1000);
@@ -69,7 +74,13 @@ export function minersRoutes(deps: MinersRoutesDeps): Hono {
     let carriedInZat: number | null = null;
     try {
       const prefix = await nsmPrefix.get(() => loadNsmPrefix(deps.pool));
-      carriedInZat = await nsmCarriedInZat(deps.pool, prefix, { ...tip, nsmZat: zat });
+      // The index trails the node by a block for a few seconds after each one; the figure needs
+      // both at the same block, so a short wait lets the index catch up before giving up.
+      for (let attempt = 0; attempt <= CARRIED_IN_RETRIES; attempt += 1) {
+        if (attempt > 0) await sleep(CARRIED_IN_RETRY_MS);
+        carriedInZat = await nsmCarriedInZat(deps.pool, prefix, { ...tip, nsmZat: zat });
+        if (carriedInZat !== null) break;
+      }
     } catch (error) {
       deps.log?.(`miners nsm: carried-in unavailable (${(error as Error).message})`);
     }
