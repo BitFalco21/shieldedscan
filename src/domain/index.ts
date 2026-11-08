@@ -49,4 +49,5 @@ export * from "./plot-resample";
 export * from "./plot-chart";
 export * from "./mining-pools";
 export * from "./miners";
+export * from "./nsm";
 export * from "./data-export";
