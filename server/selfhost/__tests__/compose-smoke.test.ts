@@ -184,8 +184,9 @@ describe.skipIf(!ENABLED)("self-host compose, full profile", () => {
     expect(items[0]).toMatchObject({ height: manifest.height, hash: manifest.hash });
 
     expect(JSON.stringify(await (await api("/v1/rich-list")).json())).toContain(MINER);
-    // A block's header is the node's alone: an outage, never a 404 or a guess.
-    expect((await api("/v1/blocks/1")).status).toBe(503);
+    // A stored block is answered from the index; one after the release is an outage, never a 404.
+    expect((await api("/v1/blocks/1")).status).toBe(200);
+    expect((await api(`/v1/blocks/${manifest.height + 1}`)).status).toBe(503);
 
     const mcp = await api("/mcp", {
       method: "POST",
@@ -224,8 +225,17 @@ describe.skipIf(!ENABLED)("self-host compose, full profile", () => {
     expect(richList.text).toContain(MINER.slice(0, 8));
   }, 120_000);
 
+  it("renders a block and an address from the release, without a node", async () => {
+    const block = await rendered(`/block/${manifest.height}`);
+    expect(block.status).toBe(200);
+    expect(block.text).toContain(manifest.hash);
+    const address = await rendered(`/address/${MINER}`);
+    expect(address.status).toBe(200);
+    expect(address.text).not.toMatch(/could not be read/i);
+  }, 120_000);
+
   it("says what needs a node or a collector is unavailable, never a figure", async () => {
-    for (const path of [`/block/${manifest.height}`, `/address/${MINER}`, "/cross-chain"]) {
+    for (const path of ["/mempool", "/cross-chain"]) {
       const page = await rendered(path);
       expect(page.text, path).toMatch(/unavailable|didn.t load|could not be read/i);
     }

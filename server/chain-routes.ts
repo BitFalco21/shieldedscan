@@ -5,6 +5,7 @@ import {
   classifySearchQuery,
   classifyZcashAddress,
   parseTxKindFilter,
+  type BlockDetail,
   type PoolName,
 } from "@/domain";
 import type { NodeChainSource } from "./chain-source";
@@ -14,7 +15,7 @@ import { ParamError, parseTxListPool } from "./v1/params";
 
 /**
  * What the routes read from a chain source: `NodeChainSource`, or `IndexChainSource` on an API with
- * a database and no node.
+ * a database and no node, whose block is its list row (`BlockDetail`).
  */
 export type ChainRouteSource = Pick<
   NodeChainSource,
@@ -24,7 +25,6 @@ export type ChainRouteSource = Pick<
   | "getSupplyBreakdown"
   | "getTip"
   | "blocksDescending"
-  | "getBlock"
   | "getBlockTransactions"
   | "listTransactions"
   | "listLatestTransactions"
@@ -32,7 +32,7 @@ export type ChainRouteSource = Pick<
   | "getAddress"
   | "getMempoolStats"
   | "listMempool"
->;
+> & { getBlock(idOrHeight: string): Promise<BlockDetail | undefined> };
 
 export interface ChainRouteExtras {
   // Structural, so a replica's readers of the primary's state (`live-state.ts`) fit as well.

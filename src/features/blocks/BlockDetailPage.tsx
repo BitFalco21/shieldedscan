@@ -1,8 +1,16 @@
 import { isTestnet, network } from "@/lib/network";
-import type { Block, BlockMiner, BlockSummary, Transaction, TransparentOutput } from "@/domain";
+import type { ReactNode } from "react";
+import type {
+  BlockDetail,
+  BlockMiner,
+  BlockSummary,
+  Transaction,
+  TransparentOutput,
+} from "@/domain";
 import {
   blockFeesZat,
   blockSummaryOf,
+  hasBlockHeader,
   publicValueZat,
   feeDestinationSentence,
   targetSpacingSeconds,
@@ -26,7 +34,8 @@ import { Nu7ActivatedBanner } from "./nu7/Nu7ActivatedBanner";
 import { Nu7FirstBlocks } from "./nu7/Nu7FirstBlocks";
 
 export interface BlockDetailPageProps {
-  block: Block;
+  /** Without its header fields and txid list when they could not be read. */
+  block: BlockDetail;
   /** The block's transactions; null when they could not be read. */
   txs: Transaction[] | null;
   /** The chain tip; null when it could not be read (no confirmations, no "next" link). */
@@ -102,20 +111,36 @@ function FundingStreamValue({ streams }: { streams: TransparentOutput[] }) {
  * Collapsed by default because nobody arrives at a block wanting its nonce — but the
  * people who do want it want it exactly, so nothing here is abbreviated or rounded away.
  * A commitment root that does not exist at this height is omitted rather than shown empty:
- * a pre-Sapling block has no final Sapling root, and a blank row would imply it does.
+ * a pre-Sapling block has no final Sapling root, and a blank row would imply it does. Header
+ * fields that could not be read are one "unavailable" row, so no root is implied either way.
  */
-function HeaderDetails({ block }: { block: Block }) {
+function HeaderDetails({ block }: { block: BlockDetail }) {
+  const difficulty = {
+    label: "DIFFICULTY",
+    value: block.difficulty.toLocaleString("en-US", { maximumFractionDigits: 2 }),
+    hint: `How hard it was to mine this block, relative to the easiest possible one. It adjusts every block so that blocks keep arriving about every ${targetSpacingSeconds(network, block.height)} seconds however much mining power is pointed at the chain.`,
+  };
+  if (!hasBlockHeader(block)) {
+    return (
+      <HeaderFacts
+        facts={[
+          difficulty,
+          {
+            label: "VERSION, BITS, NONCE, ROOTS",
+            value: <Unmeasured />,
+            hint: "The header fields could not be read.",
+          },
+        ]}
+      />
+    );
+  }
   const facts = [
     {
       label: "VERSION",
       value: String(block.version),
       hint: "The block header format. It changes only at a network upgrade.",
     },
-    {
-      label: "DIFFICULTY",
-      value: block.difficulty.toLocaleString("en-US", { maximumFractionDigits: 2 }),
-      hint: `How hard it was to mine this block, relative to the easiest possible one. It adjusts every block so that blocks keep arriving about every ${targetSpacingSeconds(network, block.height)} seconds however much mining power is pointed at the chain.`,
-    },
+    difficulty,
     {
       label: "BITS",
       value: block.bits,
@@ -150,7 +175,10 @@ function HeaderDetails({ block }: { block: Block }) {
           },
         ]),
   ];
+  return <HeaderFacts facts={facts} />;
+}
 
+function HeaderFacts({ facts }: { facts: { label: string; value: ReactNode; hint: string }[] }) {
   return (
     <details className="panel mt-3 p-5">
       <summary className="disclosure microlabel text-green">MORE DETAILS</summary>
@@ -267,7 +295,7 @@ export function BlockDetailPage({
           { label: "SIZE", value: formatBytes(block.sizeBytes) },
           {
             label: "TRANSACTIONS",
-            value: String(block.txids.length),
+            value: String(blockSummaryOf(block).txCount),
             hint: "How many transactions this block contains, including the coinbase that pays the miner.",
           },
         ]}

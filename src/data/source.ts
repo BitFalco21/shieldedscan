@@ -13,7 +13,7 @@ import type {
   ShieldingFlowPoint,
   FeeDistribution,
   AddressInfo,
-  Block,
+  BlockDetail,
   ChainInfo,
   CrossChainTransfer,
   ZcashTxCrossings,
@@ -172,12 +172,13 @@ export interface ExplorerDataSource {
    */
   listLatestBlocks(count: number): Promise<BlockSummary[]>;
   listBlocks(query: CursorQuery): Promise<CursorPage<BlockSummary>>;
-  getBlock(idOrHeight: string): Promise<Block | undefined>;
+  /** The whole block, or its list row where the header could not be read (`BlockDetail`). */
+  getBlock(idOrHeight: string): Promise<BlockDetail | undefined>;
   /**
-   * Takes the whole `Block` because it already carries its `txids`, so an adapter can
-   * batch-fetch them without re-fetching the block.
+   * Takes the block as `getBlock` returned it: a whole `Block` carries its `txids`, so an adapter
+   * can batch-fetch them without re-fetching the block.
    */
-  getBlockTransactions(block: Block): Promise<Transaction[]>;
+  getBlockTransactions(block: BlockDetail): Promise<Transaction[]>;
   /** Lowest height this source can serve — bounds the block-detail prev link. */
   getOldestHeight(): Promise<number>;
 

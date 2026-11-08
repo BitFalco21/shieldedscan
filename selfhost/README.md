@@ -92,15 +92,17 @@ Syncing a node from scratch takes a day or more.
 
 ## Without a node
 
-The API and the website state the chain as of the release block: block and transaction lists,
-transaction detail, the rich list, analytics and charts, and in the API each address's history.
-What only a node can answer is "unavailable" (HTTP 503), never a guess:
+The API and the website state the chain as of the release block: blocks, transactions and
+transparent addresses (balance and history), search by height, block hash or txid, the rich list,
+analytics and charts. A block's header fields (version, bits, nonce, Merkle and commitment roots)
+are not in the data, so the block page shows them as unavailable. What only a node can answer is
+"unavailable" (HTTP 503), never a guess:
 
-- `/v1/blocks/{heightOrHash}` and its `/transactions`, `/v1/addresses/{address}`, `/v1/search`
-  for a height or hash, `/v1/mempool/summary`, `/v1/network/halving`, and
-  `/v1/transactions/{txid}` for a transaction after the release;
-- on the website: block pages, address balances, the mempool, pulse, the halving, mining cost,
-  stats, the network map and search.
+- anything the release does not hold: a block or transaction after it, or an address with no
+  transparent activity up to it;
+- an emptied address with more than 20,000 transparent inputs and outputs;
+- `/v1/mempool/summary` and `/v1/network/halving`;
+- on the website: the mempool, pulse, the halving, mining cost, stats and the network map.
 
 The day-by-day tables stop at the release's final day, three days before the release block's day.
 `block.received_at` stays NULL: it is when our node first saw a block, not chain data.

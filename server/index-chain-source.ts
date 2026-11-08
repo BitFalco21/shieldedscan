@@ -1,20 +1,26 @@
-import type {
-  AddressInfo,
-  Block,
-  MempoolEntry,
-  MempoolStats,
-  PoolName,
-  ShieldedPool,
-  SupplyBreakdown,
-  Transaction,
-  TxKindFilter,
-  UpgradeNetwork,
-  ValuePoolName,
+import {
+  classifySearchQuery,
+  classifyZcashAddress,
+  type AddressInfo,
+  type Block,
+  type BlockSummary,
+  type MempoolEntry,
+  type MempoolStats,
+  type PoolName,
+  type ShieldedPool,
+  type SupplyBreakdown,
+  type Transaction,
+  type TransparentAddress,
+  type TxKindFilter,
+  type UpgradeNetwork,
+  type ValuePoolName,
 } from "@/domain";
 import { unspendablePools } from "@/domain/consensus";
 import { POOL_NAMES, VALUE_POOL_NAMES } from "@/domain/pool";
 import type { CursorPage, CursorQuery, Paginated } from "@/data/source";
 import type { ChainIndexStore } from "./chain-index-store";
+import { WINDOW_IO_ROWS } from "./address-extremes";
+import { ADDRESS_TXIDS_CAP } from "./chain-source";
 import { NodeRpcError, type RpcBlockSubsidy } from "./node-rpc";
 import { clampPageSize } from "./page-size";
 
@@ -23,10 +29,11 @@ import { clampPageSize } from "./page-size";
  *
  * Every figure here is one the node reported when the block was stored, read back from the index
  * at the newest stored block, so the site and `/v1` state the chain as of that block, as they
- * would with a node that stopped there. What only a node can say (block headers, an address's
- * balance and history from the node, the mempool, the subsidy schedule) rejects with
- * `NoNodeError`: an outage, never "not found", because the index cannot prove that something it
- * does not hold does not exist.
+ * would with a node that stopped there. What only a node can say (block headers, the mempool, the
+ * subsidy schedule) rejects with `NoNodeError`: an outage, never "not found", because the index
+ * cannot prove that something it does not hold does not exist. A block, transaction or address
+ * the index does not hold is therefore an outage too, except where the index itself proves the
+ * absence: a string that is no id at all, or an id the index holds as the other kind.
  */
 
 /** The answer for a read that needs a node, on an API that has none. */
@@ -40,7 +47,15 @@ export class NoNodeError extends NodeRpcError {
 /** What the source reads from the index. `ChainIndexStore` in production. */
 export type IndexChainReader = Pick<
   ChainIndexStore,
-  "tipHeight" | "blockAt" | "listChainTransactions"
+  | "tipHeight"
+  | "blockAt"
+  | "listChainTransactions"
+  | "blockSummaries"
+  | "blockHeightByHash"
+  | "txBlocks"
+  | "addressBalance"
+  | "addressIoTotals"
+  | "addressTxids"
 >;
 
 /**
@@ -131,26 +146,105 @@ export class IndexChainSource {
     return this.index.listChainTransactions(kind, query);
   }
 
-  // Header fields, coinbase details and raw bytes are not in the index.
-  getBlock(_idOrHeight: string): Promise<Block | undefined> {
-    return Promise.reject(new NoNodeError("getblock"));
+  /**
+   * A stored block as its list row: everything the node reported for it but the header fields
+   * and the txid list, which the index does not store (`hasBlockHeader`). A height above the
+   * newest stored block, or a hash the index holds as neither a block nor a transaction, may be a
+   * block after it, so either is an outage.
+   */
+  async getBlock(idOrHeight: string): Promise<BlockSummary | undefined> {
+    const id = classifySearchQuery(idOrHeight);
+    let height: number | null;
+    if (id.type === "height") {
+      height = id.height;
+    } else if (id.type === "hash64") {
+      const hash = id.hash.toLowerCase();
+      height = await this.index.blockHeightByHash(hash);
+      // A transaction's id: a block hash equal to it would be a SHA-256d collision.
+      if (height === null && (await this.index.txBlocks([hash])).has(hash)) return undefined;
+    } else {
+      // As the node: anything but a height or a hash names no block.
+      return undefined;
+    }
+    const tip = await this.index.tipHeight();
+    if (height === null || tip === null || height > tip) throw new NoNodeError("getblock");
+    // Null when the stored rows cannot state the block exactly; never a partly filled row.
+    const [row] = (await this.index.blockSummaries(height, height)) ?? [];
+    if (row === undefined) throw new NoNodeError("getblock");
+    return row;
   }
 
+  // The block list pages from the index (`block-list.ts`); this is only its node top-up.
   blocksDescending(_top: number, _count: number): Promise<Block[]> {
     return Promise.reject(new NoNodeError("getblock"));
   }
 
+  // The routes page a block's transactions from the index; this is the no-index fallback.
   getBlockTransactions(_height: number): Promise<Transaction[]> {
     return Promise.reject(new NoNodeError("getblock"));
   }
 
-  /** Callers ask the index first; reaching here means the index does not hold it. */
-  getTransaction(_txid: string): Promise<Transaction | undefined> {
-    return Promise.reject(new NoNodeError("getrawtransaction"));
+  /**
+   * Callers ask the index first; reaching here means the index does not hold it. Not a
+   * transaction: anything but a 64-hex id, and a stored block's hash (see `getBlock`).
+   */
+  async getTransaction(txid: string): Promise<Transaction | undefined> {
+    const id = classifySearchQuery(txid);
+    if (id.type !== "hash64") return undefined;
+    if ((await this.index.blockHeightByHash(id.hash.toLowerCase())) !== null) return undefined;
+    throw new NoNodeError("getrawtransaction");
   }
 
-  getAddress(_address: string): Promise<AddressInfo | undefined> {
-    return Promise.reject(new NoNodeError("getaddressbalance"));
+  /**
+   * Balance, received and sent as of the newest stored block, which must be the height the stored
+   * balances cover. A funded address is its `chain_address_balance` row. One the table does not
+   * hold but that has rows up to the tip was emptied: balance zero, received and sent summed from
+   * its rows, unless it has more rows than one read may walk. An address with no rows may have
+   * been paid after the tip, so it is an outage, never "no such address".
+   */
+  async getAddressBalance(address: string): Promise<Omit<TransparentAddress, "txids"> | undefined> {
+    // As the node: a string that is no transparent address has no balance.
+    if (classifyZcashAddress(address) !== "transparent") return undefined;
+    const [tip, stored] = await Promise.all([
+      this.index.tipHeight(),
+      this.index.addressBalance(address),
+    ]);
+    if (tip === null || stored.computedHeight !== tip) {
+      throw new NoNodeError("getaddressbalance");
+    }
+    if (stored.held) {
+      const { balanceZat, receivedZat } = stored.held;
+      const sentZat = receivedZat - balanceZat;
+      return {
+        kind: "transparent",
+        address,
+        balanceZat,
+        totalReceivedZat: receivedZat,
+        totalSentZat: sentZat,
+      };
+    }
+    const io = await this.index.addressIoTotals(address, tip, WINDOW_IO_ROWS);
+    if (io.rows === 0 || io.rows > WINDOW_IO_ROWS) throw new NoNodeError("getaddressbalance");
+    // Absent from the balances means spent to zero; rows that say otherwise are a broken index.
+    if (io.receivedZat !== io.sentZat) {
+      throw new Error(
+        `index disagrees on ${address}: no balance row, rows net ${io.receivedZat - io.sentZat}`,
+      );
+    }
+    return {
+      kind: "transparent",
+      address,
+      balanceZat: 0,
+      totalReceivedZat: io.receivedZat,
+      totalSentZat: io.sentZat,
+    };
+  }
+
+  /** `getAddressBalance` with the newest txids, capped as `NodeChainSource.getAddress` caps them. */
+  async getAddress(address: string): Promise<AddressInfo | undefined> {
+    const balance = await this.getAddressBalance(address);
+    if (balance === undefined) return undefined;
+    return { ...balance, txids: await this.index.addressTxids(address, ADDRESS_TXIDS_CAP) };
   }
 
   getMempoolStats(): Promise<MempoolStats> {

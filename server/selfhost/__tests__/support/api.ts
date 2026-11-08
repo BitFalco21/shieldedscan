@@ -6,7 +6,7 @@ import { build } from "esbuild";
 /**
  * The API as a self-hosted copy runs it: the production bundle, built from `server/index.ts` as
  * the image builds it, started against the imported database with no node and the external
- * sources off, then asked a few `/v1` questions.
+ * sources off, then asked a few `/v1` questions, and the caller's own (`extra`, by name).
  */
 
 const ROOT = join(__dirname, "../../../..");
@@ -17,12 +17,13 @@ export interface Answer {
   body: unknown;
 }
 
-export async function smokeApi(
+type Core = "status" | "richList" | "transactions" | "reorgs" | "health" | "blocks" | "block";
+
+export async function smokeApi<K extends string>(
   databaseUrl: string,
   dir: string,
-): Promise<
-  Record<"status" | "richList" | "transactions" | "reorgs" | "health" | "blocks" | "block", Answer>
-> {
+  extra: Record<K, string> = {} as Record<K, string>,
+): Promise<Record<Core | K, Answer>> {
   mkdirSync(dir, { recursive: true });
   const bundle = join(dir, "server.mjs");
   await build({
@@ -80,7 +81,12 @@ export async function smokeApi(
       }
       return { code: res.status, body };
     };
+    const asked = {} as Record<K, Answer>;
+    for (const [name, path] of Object.entries(extra) as [K, string][]) {
+      asked[name] = await get(path);
+    }
     return {
+      ...asked,
       status: await get("/v1/status"),
       richList: await get("/v1/rich-list"),
       transactions: await get("/v1/transactions"),

@@ -43,6 +43,13 @@ function reader(tip: number | null = HEIGHT): IndexChainReader & {
     tipHeight: () => Promise.resolve(tip),
     blockAt: (h: number) => Promise.resolve(h === HEIGHT ? row : undefined),
     listChainTransactions: vi.fn().mockResolvedValue(page),
+    // The block and address reads (`index-chain-reads.test.ts`): an index that holds nothing.
+    blockSummaries: () => Promise.resolve(null),
+    blockHeightByHash: () => Promise.resolve(null),
+    txBlocks: () => Promise.resolve(new Map()),
+    addressBalance: () => Promise.resolve({ computedHeight: tip, held: null }),
+    addressIoTotals: () => Promise.resolve({ rows: 0, receivedZat: 0, sentZat: 0 }),
+    addressTxids: () => Promise.resolve([]),
   };
 }
 
@@ -89,11 +96,12 @@ describe("IndexChainSource", () => {
   it("every node-only read is an outage with no node code, so nothing reads it as not found", async () => {
     const source = new IndexChainSource(reader());
     const reads = [
+      // What the index does not hold: a block, a transaction, an address with no rows.
       source.getBlock("1"),
+      source.getTransaction("ef".repeat(32)),
+      source.getAddress(`t1${"a".repeat(33)}`),
       source.blocksDescending(10, 5),
       source.getBlockTransactions(1),
-      source.getTransaction("ef".repeat(32)),
-      source.getAddress("t1abc"),
       source.getMempoolStats(),
       source.listMempool(1, 25),
       source.getBlockSubsidy(1),

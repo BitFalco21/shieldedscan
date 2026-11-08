@@ -85,7 +85,7 @@ const WALK_CAP_BLOCKS = 60;
  * hold hundreds of thousands, a multi-megabyte payload per view. Nothing renders the raw list
  * whole, so the cap truncates nothing user-visible.
  */
-const ADDRESS_TXIDS_CAP = 2_000;
+export const ADDRESS_TXIDS_CAP = 2_000;
 const ADDRESS_CACHE_MS = 60_000;
 const ADDRESS_FAILURE_MEMORY_MS = 60_000;
 /** Most distinct source transactions one transaction may need resolved on the node. */

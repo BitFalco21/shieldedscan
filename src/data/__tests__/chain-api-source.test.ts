@@ -130,6 +130,12 @@ describe("error contract", () => {
     expect(await source.getAddress("t1x")).toBeUndefined();
   });
 
+  it("takes a block's list row as the block, its header not read (an API without a node)", async () => {
+    const row = blockSummaryOf(block as Block);
+    vi.stubGlobal("fetch", stub(200, row, { "/chain/info": facts }));
+    expect(await createChainApiSource(config).getBlock("100")).toEqual(row);
+  });
+
   it("rejects on 5xx rather than masquerading as missing data", async () => {
     // The core of the contract: a rebooting box must reach the error boundary, not render as
     // "this block does not exist".
