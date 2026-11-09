@@ -1139,30 +1139,34 @@ export function toMiningPoolSeries(
     blocks: p.blocks,
     firstHeight: p.firstHeight,
     lastHeight: p.lastHeight,
-    groups: ids.map((id, j): V1MiningSeriesCell => {
-      const point = byCell.get(`${p.period}|${id}`);
-      const blocks = point?.blocks ?? 0;
-      const path = `data.periods.${i}.groups.${j}`;
-      const sh = share(blocks, p.blocks);
-      if (sh === null) unknowns[`${path}.share`] = "nonexistent";
-      // A shielded coinbase pays into an encrypted note: its amounts are never numbers here.
-      if (id === SHIELDED_GROUP) {
-        unknowns[`${path}.reward`] = "shielded";
-        unknowns[`${path}.fees`] = "shielded";
-        return { group: id, blocks, share: sh, reward: null, fees: null };
-      }
-      const reward = point === undefined ? 0 : point.rewardZat;
-      const fees = point === undefined ? 0 : point.feeZat;
-      if (reward === null) unknowns[`${path}.reward`] = "unmeasured";
-      if (fees === null) unknowns[`${path}.fees`] = "unmeasured";
-      return {
-        group: id,
-        blocks,
-        share: sh,
-        reward: amountOrNull(reward),
-        fees: amountOrNull(fees),
-      };
-    }),
+    // Only the groups that mined in the period: a group absent from it mined no block there. Listing
+    // every group in every month of all history put the series past what an MCP answer may carry.
+    groups: ids
+      .filter((id) => (byCell.get(`${p.period}|${id}`)?.blocks ?? 0) > 0)
+      .map((id, j): V1MiningSeriesCell => {
+        const point = byCell.get(`${p.period}|${id}`);
+        const blocks = point?.blocks ?? 0;
+        const path = `data.periods.${i}.groups.${j}`;
+        const sh = share(blocks, p.blocks);
+        if (sh === null) unknowns[`${path}.share`] = "nonexistent";
+        // A shielded coinbase pays into an encrypted note: its amounts are never numbers here.
+        if (id === SHIELDED_GROUP) {
+          unknowns[`${path}.reward`] = "shielded";
+          unknowns[`${path}.fees`] = "shielded";
+          return { group: id, blocks, share: sh, reward: null, fees: null };
+        }
+        const reward = point === undefined ? 0 : point.rewardZat;
+        const fees = point === undefined ? 0 : point.feeZat;
+        if (reward === null) unknowns[`${path}.reward`] = "unmeasured";
+        if (fees === null) unknowns[`${path}.fees`] = "unmeasured";
+        return {
+          group: id,
+          blocks,
+          share: sh,
+          reward: amountOrNull(reward),
+          fees: amountOrNull(fees),
+        };
+      }),
   }));
   const running = s.periods.find((p) => p.partial);
   return {
@@ -1174,7 +1178,7 @@ export function toMiningPoolSeries(
         : [],
     },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
-    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
+    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period, and a period lists only the groups that mined in it. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
     data: { interval: s.interval, fromDay: s.fromDay, toDay: s.toDay, groups, periods },
     unknowns,
     asOf,

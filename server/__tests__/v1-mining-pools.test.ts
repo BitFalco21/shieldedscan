@@ -133,10 +133,24 @@ describe("/v1/analytics/mining-pools/series", () => {
     expect(body.data.interval).toBe("month");
     const p = body.data.periods[0]!;
     expect(p.groups.reduce((s, g) => s + g.blocks, 0)).toBe(p.blocks);
-    const i = body.data.groups.findIndex((g) => g.id === "shielded");
-    expect(body.data.groups[i]!.kind).toBe("shielded-coinbase");
+    expect(body.data.groups.find((g) => g.id === "shielded")!.kind).toBe("shielded-coinbase");
+    // Cells name their group: a period lists only the groups that mined in it, so position is
+    // not a group's index in `groups`.
+    const i = p.groups.findIndex((g) => g.group === "shielded");
     expect(p.groups[i]).toMatchObject({ reward: null, fees: null });
     expect(body.unknowns[`data.periods.0.groups.${i}.reward`]).toBe("shielded");
+  });
+
+  it("lists only the groups that mined in each period, never a zero-block cell", async () => {
+    const { body } = await get<V1MiningPoolSeries>("/v1/analytics/mining-pools/series");
+    const cells = body.data.periods.flatMap((p) => p.groups);
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.every((c) => c.blocks > 0)).toBe(true);
+    for (const p of body.data.periods) {
+      const listed = p.groups.reduce((sum, c) => sum + c.blocks, 0);
+      expect(listed).toBeLessThanOrEqual(p.blocks);
+    }
+    expect(body.basis).toMatch(/only the groups that mined in it/);
   });
 
   it("narrows to one group, and needs one for a daily series", async () => {
