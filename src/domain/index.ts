@@ -21,6 +21,7 @@ export * from "./classify";
 export * from "./list";
 export * from "./address-label";
 export * from "./halving";
+export * from "./issuance";
 export * from "./market";
 export * from "./mempool";
 export * from "./stats";

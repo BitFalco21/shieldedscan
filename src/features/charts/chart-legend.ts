@@ -88,6 +88,8 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "transparent-activity":
     case "reorgs":
     case "shielded-share":
+    // The issuance panel draws its own key beside its figures.
+    case "supply-issuance":
     // A ranked key beside the bars is the legend.
     case "inflow-by-chain":
     case "outflow-by-chain":

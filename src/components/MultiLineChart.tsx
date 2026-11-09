@@ -1,13 +1,11 @@
 import { ChartHover, type ChartHoverRow } from "@/components/ChartHover";
 import {
-  CHART_H,
   CHART_W,
-  PHONE_CHART_H,
-  PHONE_TICK_FONT,
   TICK_FONT,
   XAxis,
   YAxis,
   axisFrame,
+  chartSize,
   logAxisFrame,
 } from "@/components/chart-axes";
 
@@ -103,21 +101,6 @@ export interface MultiLineChartProps {
    * axes only, since a log axis has no zero.
    */
   fill?: boolean;
-}
-
-/**
- * Tick size and frame height in SVG units. A measured width sizes the ticks to render at
- * `TICK_FONT` px (never below the base size), and the frame grows with them up to the phone's
- * height; otherwise `phone` picks one of the two fixed sizes.
- */
-function chartSize(phone: boolean, renderedWidth?: number): { tickFont: number; height: number } {
-  if (renderedWidth !== undefined && renderedWidth > 0) {
-    const tickFont = Math.max(TICK_FONT, (TICK_FONT * CHART_W) / renderedWidth);
-    return { tickFont, height: Math.min(PHONE_CHART_H, (CHART_H * tickFont) / TICK_FONT) };
-  }
-  return phone
-    ? { tickFont: PHONE_TICK_FONT, height: PHONE_CHART_H }
-    : { tickFont: TICK_FONT, height: CHART_H };
 }
 
 /**

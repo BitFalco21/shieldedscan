@@ -20,6 +20,8 @@ import { MultiLineChart } from "@/components/MultiLineChart";
 import { PoolAreaChart } from "@/components/PoolAreaChart";
 import { RangeToggle } from "@/components/RangeToggle";
 import { StackedAreaChart } from "@/components/StackedAreaChart";
+import { IssuancePanel } from "@/features/issuance/IssuancePanel";
+import { issuanceSnapshot } from "@/features/issuance/issuance-snapshot";
 import { readinessChart } from "@/features/network/upgrade/readiness-chart";
 import { chainName } from "@/lib/chains";
 import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
@@ -685,6 +687,14 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           formatValue={(v) => formatSharePct(v)}
           formatTick={formatShareTick}
           ariaLabel="Share of swaps into ZEC each month sent to a shielded-capable address, by swaps and by ZEC"
+        />
+      );
+    }
+    case "supply-issuance": {
+      if (!data.supply || !data.halving) return unavailable("The issuance series");
+      return (
+        <IssuancePanel
+          snapshot={issuanceSnapshot(data.supply, data.halving, data.supplyNow, data.asOf)}
         />
       );
     }

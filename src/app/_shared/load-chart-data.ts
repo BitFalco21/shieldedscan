@@ -31,6 +31,7 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "volume-by-venue": ["venueMonths"],
   "shielded-capable-swaps": ["inflowKinds"],
   "shielded-share": ["supplyDays"],
+  "supply-issuance": ["supply", "halving", "supplyNow"],
 };
 
 /**
@@ -83,6 +84,8 @@ export async function loadChartData(
     supplyDays,
     blocksDaily,
     releases,
+    halving,
+    supplyNow,
   ] = await Promise.all([
     wanted.has("months") ? guard(() => data.getMonthlySeries()) : null,
     wanted.has("flow") ? guard(() => data.getShieldingFlow()) : null,
@@ -109,6 +112,8 @@ export async function loadChartData(
     wanted.has("supplyDays") ? guard(() => data.getSupplyDays()) : null,
     wanted.has("blocksDaily") ? guard(() => data.getBlocksDaily()) : null,
     wanted.has("releases") ? guard(() => data.getNetworkReleases()) : null,
+    wanted.has("halving") ? guard(() => data.getHalvingSchedule()) : null,
+    wanted.has("supplyNow") ? guard(() => data.getSupplyBreakdown()) : null,
   ]);
   return {
     months,
@@ -136,6 +141,8 @@ export async function loadChartData(
     supplyDays,
     blocksDaily,
     releases,
+    halving,
+    supplyNow,
     asOf: nowSeconds(),
   };
 }

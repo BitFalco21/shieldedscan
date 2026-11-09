@@ -1,4 +1,12 @@
-import { feeTotalIsComplete, utcDayFromSeconds, type CrossChainProtocol } from "@/domain";
+import {
+  MAX_SUPPLY_ZAT,
+  allPoolsSupply,
+  feeTotalIsComplete,
+  issuanceAt,
+  issuanceOutlook,
+  utcDayFromSeconds,
+  type CrossChainProtocol,
+} from "@/domain";
 import type { ChartThumb, ThumbSeries } from "@/components/ChartThumbnail";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
@@ -8,6 +16,7 @@ import {
   formatUsd,
   formatZec,
   formatZecTwo,
+  formatZecWhole,
   monthLong,
 } from "@/lib/format";
 import type { ChartSlug } from "./catalog";
@@ -45,7 +54,7 @@ export function sampleEvenly<T>(rows: readonly T[], max: number): T[] {
  * the classes its full renderer gives them. Rows are picked evenly, never averaged, so every
  * point drawn is a point the chart draws.
  */
-function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
+function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
   const flow = slug === "shielding-flow" || slug === "crosschain-volume";
   const rows = sampleEvenly(t.rows, flow ? FLOW_BARS : SPARK_POINTS);
   const col = (i: number) => rows.map((r) => r[i] ?? null);
@@ -173,7 +182,43 @@ function thumbOf(slug: ChartSlug, t: ChartTable): ChartThumb {
       };
     case "shielded-share":
       return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.shielded }] };
+    case "supply-issuance":
+      return issuanceThumb(data) ?? { kind: "lines", series: green(1) };
   }
+}
+
+/**
+ * The issuance curve in miniature, read on an even grid of instants so the projection keeps its
+ * share of the width: its rows are a few breakpoints, which index spacing would squeeze into the
+ * right edge. Observed solid, projected faint, joined at the newest close; against the cap.
+ */
+function issuanceThumb(data: ChartData): ChartThumb | null {
+  if (!data.supply || !data.halving) return null;
+  const outlook = issuanceOutlook(data.supply, data.halving, data.asOf);
+  const first = outlook.observed[0] ?? outlook.projected[0];
+  const last = outlook.projected.at(-1);
+  if (!first || !last || last.at <= first.at) return null;
+  const readings = Array.from({ length: SPARK_POINTS }, (_, i) =>
+    issuanceAt(outlook, first.at + (i * (last.at - first.at)) / (SPARK_POINTS - 1)),
+  );
+  const split = readings.findIndex((r) => r?.projected);
+  return {
+    kind: "lines",
+    max: MAX_SUPPLY_ZAT,
+    series: [
+      {
+        values: readings.map((r) => (r && !r.projected ? r.issuedZat : null)),
+        className: "text-series",
+      },
+      {
+        values: readings.map((r, i) =>
+          r && (r.projected || i === split - 1) ? r.issuedZat : null,
+        ),
+        className: "text-series",
+        opacity: 0.45,
+      },
+    ],
+  };
 }
 
 const withoutLastRow = (t: ChartTable): ChartTable => ({
@@ -376,6 +421,14 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
     case "outflow-by-chain":
     case "volume-by-venue":
       return null;
+    case "supply-issuance": {
+      const issued = data.supplyNow ? allPoolsSupply(data.supplyNow, "mainnet") : null;
+      if (!issued || issued.issuedZat === null) return null;
+      return {
+        value: formatZecWhole(issued.issuedZat),
+        caption: `issued, block ${formatCount(issued.height)}`,
+      };
+    }
     case "shielded-share": {
       // Daily rows, so the caption names the day the share was read at.
       const t = chartTable(slug, data, "30d");
@@ -404,6 +457,6 @@ export function chartPreview(slug: ChartSlug, data: ChartData, nowSec: number): 
   // A month still running would end the miniature in a collapse; the full chart hatches it, and
   // a sketch too small to carry the hatching leaves it out.
   const shown = t && runningMonth(t, data.asOf) ? withoutLastRow(t) : t;
-  const thumb = shown && shown.rows.length >= 2 ? thumbOf(slug, shown) : null;
+  const thumb = shown && shown.rows.length >= 2 ? thumbOf(slug, shown, data) : null;
   return { thumb, headline: headline(slug, data, nowSec) };
 }

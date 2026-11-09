@@ -13,6 +13,7 @@ import {
   subsidyTail,
   targetSpacingAt,
 } from "@/domain";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { FlushEnd } from "@/components/FlushEnd";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
@@ -23,6 +24,8 @@ import {
   formatZecAmount,
   formatZecWhole,
 } from "@/lib/format";
+import { IssuancePanel } from "@/features/issuance/IssuancePanel";
+import type { IssuanceSnapshot } from "@/features/issuance/issuance-snapshot";
 import { HalvingHero } from "./HalvingHero";
 import { HalvingHistoryTable } from "./HalvingHistoryTable";
 import { Height } from "./Height";
@@ -34,9 +37,11 @@ export interface HalvingPageProps {
   dailyUsd: Record<string, number>;
   /** Wall clock at render, so the estimate is anchored once and the countdown agrees with it. */
   now: number;
+  /** Issued supply and its curve, dated from the same `now`. Null when the closes were unread. */
+  issuance?: IssuanceSnapshot | null;
 }
 
-export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
+export function HalvingPage({ schedule, dailyUsd, now, issuance = null }: HalvingPageProps) {
   const next = schedule.events[schedule.events.length - 1]!;
   const past = schedule.events.slice(0, -1);
   const delta = subsidyDelta(next.before, next.after);
@@ -156,6 +161,14 @@ export function HalvingPage({ schedule, dailyUsd, now }: HalvingPageProps) {
             </p>
           </Panel>
         ) : null}
+
+        <Panel title="ISSUANCE">
+          {issuance ? (
+            <IssuancePanel snapshot={issuance} />
+          ) : (
+            <DataUnavailable what="The issuance series" inset />
+          )}
+        </Panel>
 
         <Panel title="EVERY HALVING SO FAR">
           <HalvingHistoryTable events={past} next={next} dailyUsd={dailyUsd} />
