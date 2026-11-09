@@ -18,10 +18,16 @@ const split = (total: number, miner: number, streams = 0, lockbox = 0): SubsidyS
   lockboxZat: lockbox,
 });
 
+/**
+ * The tip the schedule was read at. Before NU7, so the countdown crosses it and the "before that"
+ * panel renders. The daily supply series closes on it too, so the issuance chart's observed line
+ * meets its projection.
+ */
+export const HALVING_TIP_HEIGHT = 3_533_753;
+
 export function getHalvingSchedule(): HalvingSchedule {
   return {
-    // Before NU7, so the countdown crosses it and the "before that" panel renders.
-    height: 3_533_753,
+    height: HALVING_TIP_HEIGHT,
     observedIntervalSeconds: 75.35,
     events: [
       {

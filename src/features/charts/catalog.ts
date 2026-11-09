@@ -13,7 +13,8 @@
  * explicitly because that IS the product.
  */
 
-import { NU7 } from "@/domain";
+import { NU7, REISSUANCE_START_HEIGHT } from "@/domain";
+import { formatCount } from "@/lib/format";
 import { isTestnet } from "@/lib/network";
 
 export type ChartSlug =
@@ -41,7 +42,8 @@ export type ChartSlug =
   | "outflow-by-chain"
   | "volume-by-venue"
   | "shielded-capable-swaps"
-  | "shielded-share";
+  | "shielded-share"
+  | "supply-issuance";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -83,6 +85,17 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Every ZEC sitting inside Sprout, Sapling, Orchard or Ironwood, read from the chain's own value-pool accounting at each day's final block. This is the closest thing Zcash has to a headline privacy metric: value inside a pool is encrypted on-chain, so this line is the size of the crowd everything shielded hides in.",
       "The total is public even though the contents are not — every transaction crossing a pool boundary declares a net value, and the pools' totals are consensus data. Nothing here estimates what moves inside a pool.",
+    ],
+  },
+  {
+    slug: "supply-issuance",
+    title: "Supply issuance",
+    category: "Supply",
+    api: null,
+    blurb: "ZEC issued so far, and the schedule's path toward the 21M cap.",
+    description: [
+      "Issued ZEC at each day's closing block, then the issuance schedule projected to the sixth halving. Issued is what the schedule has paid out through a block: the six value pools plus the NSM balance add up to it to the zatoshi.",
+      `Heights in the projection are consensus; their dates are estimates at the observed block rate. From block ${formatCount(REISSUANCE_START_HEIGHT)} blocks also pay out part of the NSM balance (ZIP 237); that ZEC is already counted here, so the total is unchanged.`,
     ],
   },
   {
@@ -373,6 +386,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "volume-by-venue",
   "shielded-capable-swaps",
   "upgrade-readiness",
+  // Dated from /halving's schedule, whose heights are mainnet consensus constants.
+  "supply-issuance",
 ]);
 
 /** The charts this deployment may honestly show. */

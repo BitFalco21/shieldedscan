@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import type { HalvingSchedule } from "@/domain";
 import { FUNDING_EXPIRY_BEFORE_NU61, NU7_HEIGHT, subsidyTail } from "@/domain";
 import { getHalvingSchedule } from "@/fixtures/halving";
+import { getSupplyBreakdown, getSupplySeries } from "@/fixtures";
+import { issuanceSnapshot } from "@/features/issuance/issuance-snapshot";
 import { HalvingPage } from "../HalvingPage";
 
 /**
@@ -243,7 +245,10 @@ describe("the schedule tail", () => {
     // ZIP 237, which NU7 deploys; ZIP 259 says NU7 does not deploy ZIP 234.
     expect(container.textContent).toMatch(/\(ZIP 237\)/);
     expect(container.textContent).not.toMatch(/ZIP 234/);
-    expect(container.textContent).toMatch(/scheduled part only, a floor/);
+    expect(container.textContent).toMatch(
+      /scheduled part only; the bonus comes on top of it, paid out of ZEC already issued/,
+    );
+    expect(container.textContent).not.toMatch(/\bfloor\b/);
     expect(screen.getByRole("columnheader", { name: "SCHEDULED SUBSIDY (ZEC)" })).toBeDefined();
     expect(container.textContent).not.toMatch(/the subsidy is zero/);
   });
@@ -308,5 +313,51 @@ describe("claims that must not outlive the event they describe", () => {
     expect(container.textContent).not.toMatch(/ZIP[-\s]?1015/);
     expect(container.textContent).toContain(FUNDING_EXPIRY_BEFORE_NU61.toLocaleString("en-US"));
     expect(container.textContent).toMatch(/could move them again/);
+  });
+});
+
+describe("issuance", () => {
+  const section = (container: HTMLElement) =>
+    [...container.querySelectorAll("section, div.panel")].find((el) =>
+      el.textContent?.startsWith("ISSUANCE"),
+    );
+
+  it("states issued supply at the block it was read, with the curve beneath", () => {
+    const supply = getSupplyBreakdown();
+    const issuance = issuanceSnapshot(getSupplySeries(), schedule, supply, NOW);
+    const { container } = render(
+      <HalvingPage schedule={schedule} dailyUsd={{}} now={NOW} issuance={issuance} />,
+    );
+    const text = container.textContent ?? "";
+    expect(text).toContain("Issued supply");
+    // The daily rate is stated once on this page, in "what changes", not again here.
+    expect(screen.getAllByText(/^Issued per day/).map((el) => el.textContent)).toEqual([
+      "Issued per day now",
+      "Issued per day after",
+    ]);
+    expect(text).toContain(`block ${supply.height.toLocaleString("en-US")}`);
+    expect(text).toMatch(
+      /From block 8,939,664 blocks also pay out part of the NSM balance; that ZEC is already counted here, so the total is unchanged/,
+    );
+    expect(
+      container.querySelector("svg[aria-label^='ZEC issued over time']")?.textContent,
+    ).not.toMatch(/reissuance/i);
+    expect(container.querySelector("svg[aria-label^='ZEC issued over time']")).not.toBeNull();
+  });
+
+  it("says the section did not load, rather than draw a curve from nothing", () => {
+    const { container } = renderAt();
+    expect(section(container)?.textContent ?? container.textContent).toMatch(
+      /The issuance series could not be read/,
+    );
+  });
+
+  it("leaves issued unmeasured when the supply was unread, and still draws the schedule", () => {
+    const issuance = issuanceSnapshot(getSupplySeries(), schedule, null, NOW);
+    const { container } = render(
+      <HalvingPage schedule={schedule} dailyUsd={{}} now={NOW} issuance={issuance} />,
+    );
+    expect(container.textContent).toContain("unavailable");
+    expect(container.querySelector("svg[aria-label^='ZEC issued over time']")).not.toBeNull();
   });
 });

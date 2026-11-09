@@ -93,6 +93,42 @@ export function logAxisFrame(
   );
 }
 
+/**
+ * Gutter + scales for an axis whose ticks the caller chose, running from the first tick to the
+ * last: for a quantity with a natural ceiling that should be the top gridline (the 21M cap).
+ * `extraTop` reserves room above the plot, for labels drawn over it.
+ */
+export function ticksAxisFrame(
+  n: number,
+  ticks: number[],
+  formatValue: (v: number) => string,
+  tickFont = TICK_FONT,
+  height = CHART_H,
+  extraTop = 0,
+): AxisFrame & { ticks: number[] } {
+  const min = ticks[0] ?? 0;
+  const span = (ticks[ticks.length - 1] ?? 1) - min || 1;
+  return frameFor(n, ticks, formatValue, tickFont, height, (v) => (v - min) / span, extraTop);
+}
+
+/**
+ * Tick size and frame height in SVG units. A measured width sizes the ticks to render at
+ * `TICK_FONT` px (never below the base size), and the frame grows with them up to the phone's
+ * height; otherwise `phone` picks one of the two fixed sizes.
+ */
+export function chartSize(
+  phone: boolean,
+  renderedWidth?: number,
+): { tickFont: number; height: number } {
+  if (renderedWidth !== undefined && renderedWidth > 0) {
+    const tickFont = Math.max(TICK_FONT, (TICK_FONT * CHART_W) / renderedWidth);
+    return { tickFont, height: Math.min(PHONE_CHART_H, (CHART_H * tickFont) / TICK_FONT) };
+  }
+  return phone
+    ? { tickFont: PHONE_TICK_FONT, height: PHONE_CHART_H }
+    : { tickFont: TICK_FONT, height: CHART_H };
+}
+
 /** The shared geometry: a gutter sized to the ticks, and `y` from a value's fraction of the axis. */
 function frameFor(
   n: number,
@@ -101,6 +137,7 @@ function frameFor(
   tickFont: number,
   height: number,
   fraction: (v: number) => number,
+  extraTop = 0,
 ): AxisFrame & { ticks: number[] } {
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
@@ -109,7 +146,7 @@ function frameFor(
   // with the first x label, where "0 ZEC" and "2026-07-01" read as one run. At the base size
   // this is exactly `CHART_PAD_B`.
   const padB = Math.max(CHART_PAD_B, 2 * tickFont + 8);
-  const padT = Math.max(CHART_PAD_T, tickFont * 0.7);
+  const padT = Math.max(CHART_PAD_T, tickFont * 0.7) + extraTop;
   return {
     padL,
     ticks,

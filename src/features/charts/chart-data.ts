@@ -17,10 +17,12 @@ import type {
   ChainMonthPoint,
   FeeDistribution,
   FeeKindMonthPoint,
+  HalvingSchedule,
   IronwoodInflow,
   NetworkDayPoint,
   ShieldedSupplyPoint,
   ShieldingFlowPoint,
+  SupplyBreakdown,
 } from "@/domain";
 
 /**
@@ -64,6 +66,10 @@ export interface ChartData {
   blocksDaily: BlocksDayPoint[] | null;
   /** The crawler's daily release record, for the upgrade readiness trend. */
   releases: NetReleases | null;
+  /** The tip and observed block rate the issuance projection is dated from. */
+  halving: HalvingSchedule | null;
+  /** The live supply at the tip, for the issuance chart's headline. */
+  supplyNow: SupplyBreakdown | null;
   /**
    * When these series were read, Unix seconds: what a period still running is measured against.
    * Stamped with the data rather than read in the browser, so a cached page never calls a month
@@ -100,6 +106,8 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     supplyDays: null,
     blocksDaily: null,
     releases: null,
+    halving: null,
+    supplyNow: null,
     asOf: 0,
     ...partial,
   };

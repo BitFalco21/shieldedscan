@@ -120,9 +120,9 @@ describe("the catalogue", () => {
   it("points every chart at a documented public endpoint serving it, or says it has none", () => {
     for (const c of CHARTS) {
       if (c.api === null) {
-        // The series the public API does not carry yet: no endpoint serves the release record, or
-        // the transparent balance by day. Each page says so.
-        expect(["upgrade-readiness", "shielded-share"]).toContain(c.slug);
+        // The series the public API does not carry yet: no endpoint serves the release record, the
+        // transparent balance by day, or the issuance curve. Each page says so.
+        expect(["upgrade-readiness", "shielded-share", "supply-issuance"]).toContain(c.slug);
         continue;
       }
       expect(documented.get(c.api.docsId), c.slug).toBe(c.api.path);
@@ -306,5 +306,33 @@ describe("the newer charts' tables", () => {
     // January closes on the 31st, February (the 32nd of January) on its only day.
     expect(t.timestamps).toEqual([Date.UTC(2026, 0, 1) / 1000, Date.UTC(2026, 1, 1) / 1000]);
     expect(t.rows.map((r) => r[1])).toEqual([400, 1_000]);
+  });
+});
+
+describe("supply issuance", async () => {
+  const data = await loadChartData(fixtureDataSource, ["supply-issuance"]);
+
+  it("lists every point drawn, observed closes first, the projection flagged after them", () => {
+    const t = chartTable("supply-issuance", data, "all")!;
+    expect(t.columns).toEqual(["height", "issued_zat", "projected"]);
+    const flags = t.rows.map((r) => r[2]);
+    const firstProjected = flags.indexOf(1);
+    expect(firstProjected).toBeGreaterThan(0);
+    expect(flags.slice(firstProjected).every((f) => f === 1)).toBe(true);
+    // The projection starts at the tip the schedule was read at.
+    expect(t.rows[firstProjected]![0]).toBe(data.halving!.height);
+  });
+
+  it("headlines the live issued supply at its block, and draws against the cap", () => {
+    const preview = chartPreview("supply-issuance", data, data.asOf);
+    expect(preview.headline?.caption).toBe(
+      `issued, block ${data.supplyNow!.height.toLocaleString("en-US")}`,
+    );
+    expect(preview.thumb).toMatchObject({ kind: "lines", max: 2_100_000_000_000_000 });
+  });
+
+  it("has no headline when the supply was unread, and no table without the schedule", () => {
+    expect(chartPreview("supply-issuance", { ...data, supplyNow: null }, 0).headline).toBeNull();
+    expect(chartTable("supply-issuance", { ...data, halving: null }, "all")).toBeNull();
   });
 });

@@ -34,6 +34,9 @@ const CHART_ROUTES = [
   "/charts/shielded-share",
   "/charts/upgrade-readiness",
   "/charts/anonymity-set",
+  // A time axis with a projection, cap and event rules: drawn on its own page and on /halving.
+  "/charts/supply-issuance",
+  "/halving",
   "/charts",
   // The stage is SVG end to end — boxes, ribbons and the heartbeat — and it is drawn from
   // runtime geometry rather than from a chart component, so the well-formedness invariant is

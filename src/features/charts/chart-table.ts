@@ -1,6 +1,7 @@
 import type { ChartRange } from "@/domain";
 import {
   blocksTargetForDay,
+  issuanceOutlook,
   shieldedSplits,
   NU7,
   NU7_RELEASES,
@@ -78,6 +79,8 @@ export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   "outflow-by-chain",
   "volume-by-venue",
   "shielded-capable-swaps",
+  // A projection to 2040: a 30-day window of it would be a flat line.
+  "supply-issuance",
 ]);
 
 /** Chains drawn on their own in the inflow and outflow charts; the rest fold into one band. */
@@ -460,6 +463,22 @@ export function chartTable(
         { name: "capable_zat", value: (p) => p.capableZat ?? null },
         { name: "classified_zat", value: (p) => p.zat ?? null },
       ]);
+    }
+    case "supply-issuance": {
+      if (!data.supply || !data.halving) return null;
+      // Every point drawn: the observed closes, then the schedule's breakpoints, flagged as
+      // projected because their dates are estimates.
+      const { observed, projected } = issuanceOutlook(data.supply, data.halving, data.asOf);
+      const points = [
+        ...observed.map((p) => ({ ...p, projected: 0 })),
+        ...projected.map((p) => ({ ...p, projected: 1 })),
+      ];
+      return {
+        period: "day",
+        columns: ["height", "issued_zat", "projected"],
+        timestamps: points.map((p) => p.at),
+        rows: points.map((p) => [p.height, p.issuedZat, p.projected]),
+      };
     }
     case "shielded-share": {
       const supply = data.supplyDays;

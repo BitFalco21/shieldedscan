@@ -6,7 +6,8 @@ import { isTestnet } from "@/lib/network";
 import { HalvingPage } from "@/features/halving/HalvingPage";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { nullIfTransient } from "@/lib/transient-upstream";
-import type { HalvingSchedule } from "@/domain";
+import type { HalvingSchedule, ShieldedSupplyPoint, SupplyBreakdown } from "@/domain";
+import { issuanceSnapshot } from "@/features/issuance/issuance-snapshot";
 
 /**
  * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
@@ -36,12 +37,19 @@ export default async function Page() {
   const data = getCachedDataSource();
   // A transient upstream failure degrades the page to "unavailable" rather than an error page.
   // Only transient failures are caught; a shape error still throws.
-  // The price map is optional: an empty map drops the price column.
-  const [schedule, dailyUsd]: [HalvingSchedule | null, Record<string, number> | null] =
-    await Promise.all([
-      nullIfTransient(() => data.getHalvingSchedule()),
-      nullIfTransient(() => data.getDailyPriceMap()),
-    ]);
+  // The price map is optional: an empty map drops the price column. The supply reads are optional
+  // too: without the daily closes the issuance section says it did not load.
+  const [schedule, dailyUsd, closes, supply]: [
+    HalvingSchedule | null,
+    Record<string, number> | null,
+    ShieldedSupplyPoint[] | null,
+    SupplyBreakdown | null,
+  ] = await Promise.all([
+    nullIfTransient(() => data.getHalvingSchedule()),
+    nullIfTransient(() => data.getDailyPriceMap()),
+    nullIfTransient(() => data.getSupplySeries()),
+    nullIfTransient(() => data.getSupplyBreakdown()),
+  ]);
 
   // Nothing is estimated in its place: a countdown from a fallback would be a confident wrong
   // date. The next good render replaces this.
@@ -49,5 +57,13 @@ export default async function Page() {
     return <DataUnavailable what="The halving schedule" />;
   }
 
-  return <HalvingPage schedule={schedule} dailyUsd={dailyUsd ?? {}} now={nowSeconds()} />;
+  const now = nowSeconds();
+  return (
+    <HalvingPage
+      schedule={schedule}
+      dailyUsd={dailyUsd ?? {}}
+      now={now}
+      issuance={closes ? issuanceSnapshot(closes, schedule, supply, now) : null}
+    />
+  );
 }

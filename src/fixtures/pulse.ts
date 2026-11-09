@@ -25,7 +25,7 @@ import {
 import { blocks } from "./blocks";
 import { crossChainTransfers } from "./crosschain";
 import { mempoolTransactions } from "./mempool";
-import { pools } from "./pools";
+import { LOCKBOX_ZAT, pools, TRANSPARENT_ZAT } from "./pools";
 import { transactions } from "./transactions";
 import { TIP_HEIGHT, TIP_TIME, hex64 } from "./ids";
 
@@ -113,8 +113,8 @@ function poolDelta(height: number, pool: ValuePoolName): number {
 }
 
 const POOL_TOTALS: Record<ValuePoolName, number> = {
-  transparent: 1_250_845_176_000_000,
-  lockbox: 5_299_350_000_000,
+  transparent: TRANSPARENT_ZAT,
+  lockbox: LOCKBOX_ZAT,
   sprout: pools.find((p) => p.pool === "sprout")?.balanceZat ?? 0,
   sapling: pools.find((p) => p.pool === "sapling")?.balanceZat ?? 0,
   orchard: pools.find((p) => p.pool === "orchard")?.balanceZat ?? 0,
