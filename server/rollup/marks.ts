@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 /**
  * Writing the dirty-period log, `chain_rollup_dirty`.
  *
@@ -47,4 +48,21 @@ export function markingUpdate(update: string): string {
       SELECT min(timestamp), max(timestamp) FROM changed GROUP BY timestamp / 86400
     )
     SELECT count(*)::int AS changed FROM changed`;
+}
+
+/**
+ * Marked days a single in-transaction catch-up may apply: the swap and the live check each run one
+ * unpaced under the rollup lock. More is a backlog (a repair that rewrote history) for the
+ * follower's budgeted passes to drain first.
+ */
+export const MAX_CATCH_UP_DAYS = 7;
+
+/** Distinct UTC days the pending marks cover. */
+export async function markedDays(client: { query: Pool["query"] }): Promise<number> {
+  const { rows } = await client.query<{ days: string }>(
+    `SELECT count(DISTINCT d) AS days
+       FROM chain_rollup_dirty,
+            generate_series(ts_lo / 86400, ts_hi / 86400) AS d`,
+  );
+  return Number(rows[0]?.days ?? 0);
 }

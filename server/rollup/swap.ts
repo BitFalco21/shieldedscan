@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { rollbackQuietly } from "../pg-pool";
 import { ROLLUP_VIEW_NAMES } from "./definitions";
 import { MATVIEW_REFRESH_LOCK, ROLLUP_PASS_LOCK, withSessionLock } from "./lock";
+import { markedDays, MAX_CATCH_UP_DAYS } from "./marks";
 import { applyMarks, beginRollupTransaction } from "./pass";
 import { nextName, resolveTargets } from "./targets";
 
@@ -65,13 +66,6 @@ function plan(revert: boolean) {
 }
 
 /**
- * Marked days the swap may catch up inside its own transaction. More is a backlog (a repair that
- * rewrote history) for the follower's budgeted passes to drain first: caught up here, it would
- * hold both locks for as long as it took.
- */
-const MAX_CATCH_UP_DAYS = 7;
-
-/**
  * Refuse before taking any lock: wrong state, a relation this role does not own, a reader the
  * rename would leave without access, an odd dependent view, a backlog too large to catch up.
  */
@@ -118,12 +112,7 @@ async function preflight(pool: Pool, revert: boolean): Promise<void> {
   );
   for (const g of grants) problems.push(`${g.grantee} can read ${g.rel} but not its successor`);
   if (!revert) {
-    const { rows: backlog } = await pool.query<{ days: string }>(
-      `SELECT count(DISTINCT d) AS days
-         FROM chain_rollup_dirty,
-              generate_series(ts_lo / 86400, ts_hi / 86400) AS d`,
-    );
-    const days = Number(backlog[0]?.days ?? 0);
+    const days = await markedDays(pool);
     if (days > MAX_CATCH_UP_DAYS) {
       problems.push(`${days} marked days wait; let the follower's passes drain them first`);
     }
