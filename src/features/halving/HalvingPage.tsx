@@ -164,7 +164,7 @@ export function HalvingPage({ schedule, dailyUsd, now, issuance = null }: Halvin
 
         <Panel title="ISSUANCE">
           {issuance ? (
-            <IssuancePanel snapshot={issuance} />
+            <IssuancePanel snapshot={issuance} perDay={false} />
           ) : (
             <DataUnavailable what="The issuance series" inset />
           )}
@@ -196,10 +196,11 @@ export function HalvingPage({ schedule, dailyUsd, now, issuance = null }: Halvin
         <Panel title="THE REST OF THE SCHEDULE">
           {/*
            * Counts steps rather than "halvings" of an amount: each is rounded down to the zatoshi
-           * and the terminal step takes 1 zatoshi to 0, a truncation. No claim about total
-           * issuance, which reissuance makes depend on how much ZEC is removed from circulation.
-           * The node cannot confirm these heights: from the start of reissuance it needs the
-           * parent block, so they are `scheduledSubsidyZat`, pinned in tests to the node.
+           * and the terminal step takes 1 zatoshi to 0, a truncation. Reissuance does not change
+           * total issuance: its bonus is paid out of the NSM balance, ZEC already issued, so only a
+           * block's reward depends on how much is removed from circulation. The node cannot
+           * confirm these heights: from the start of reissuance it needs the parent block, so they
+           * are `scheduledSubsidyZat`, pinned in tests to the node.
            */}
           <p className="text-sm leading-relaxed text-ink-dim">
             After block {formatCount(next.height)} the scheduled subsidy steps down{" "}
@@ -211,7 +212,8 @@ export function HalvingPage({ schedule, dailyUsd, now, issuance = null }: Halvin
           <p className="mt-3 text-sm leading-relaxed text-ink-dim">
             From block {formatCount(REISSUANCE_START_HEIGHT)} every block also pays a reissuance
             bonus: a small share of the ZEC removed from circulation since NU7 (ZIP 237). It cannot
-            be known in advance, so the figures below are the scheduled part only, a floor.
+            be known in advance, so the table shows the scheduled part only; the bonus comes on top
+            of it, paid out of ZEC already issued.
           </p>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
             That height is consensus and exact. The year it falls in is not — dating it means

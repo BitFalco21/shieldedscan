@@ -10,6 +10,11 @@ import type { IssuanceSnapshot } from "./issuance-snapshot";
 
 export interface IssuancePanelProps {
   snapshot: IssuanceSnapshot;
+  /**
+   * Whether to state the daily rate. Off on `/halving`, which states it already beside the next
+   * halving's rate, so one figure has one place on the page.
+   */
+  perDay?: boolean;
 }
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
@@ -29,24 +34,25 @@ function Figure({ label, children }: { label: string; children: React.ReactNode 
  * Issued is the live supply (pools plus the NSM) at the block it was read at. The daily figure is
  * an estimate and says so; the chart's projected half carries estimated dates, never heights.
  */
-export function IssuancePanel({ snapshot }: IssuancePanelProps) {
+export function IssuancePanel({ snapshot, perDay = true }: IssuancePanelProps) {
   const [chartRef, chartWidth] = useElementWidth<HTMLDivElement>();
   const { issued, remainingZat, perDayZat, measured, outlook, now } = snapshot;
   return (
     <div>
-      <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-3">
+      <dl className={`grid gap-x-8 gap-y-3 ${perDay ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <Figure label="Issued supply">
           {issued ? formatZecWhole(issued.zat) : <Unmeasured />}
         </Figure>
         <Figure label="Left to the 21M cap">
           {remainingZat !== null ? formatZecWhole(remainingZat) : <Unmeasured />}
         </Figure>
-        <Figure label="Issued per day">≈ {formatZecWhole(perDayZat)}</Figure>
+        {perDay ? <Figure label="Issued per day">≈ {formatZecWhole(perDayZat)}</Figure> : null}
       </dl>
       <p className="mt-2 text-xs text-ink-faint">
         {issued ? `Issued as of block ${formatCount(issued.height)}. ` : null}
-        Per day is an estimate at the {measured ? "observed" : "target"} block rate; fees are not
-        issuance.
+        {perDay
+          ? `Per day is an estimate at the ${measured ? "observed" : "target"} block rate; fees are not issuance.`
+          : null}
       </p>
       <div ref={chartRef} className="mt-4">
         <IssuanceChart

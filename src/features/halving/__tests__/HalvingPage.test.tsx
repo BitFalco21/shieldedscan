@@ -245,7 +245,10 @@ describe("the schedule tail", () => {
     // ZIP 237, which NU7 deploys; ZIP 259 says NU7 does not deploy ZIP 234.
     expect(container.textContent).toMatch(/\(ZIP 237\)/);
     expect(container.textContent).not.toMatch(/ZIP 234/);
-    expect(container.textContent).toMatch(/scheduled part only, a floor/);
+    expect(container.textContent).toMatch(
+      /scheduled part only; the bonus comes on top of it, paid out of ZEC already issued/,
+    );
+    expect(container.textContent).not.toMatch(/\bfloor\b/);
     expect(screen.getByRole("columnheader", { name: "SCHEDULED SUBSIDY (ZEC)" })).toBeDefined();
     expect(container.textContent).not.toMatch(/the subsidy is zero/);
   });
@@ -327,6 +330,11 @@ describe("issuance", () => {
     );
     const text = container.textContent ?? "";
     expect(text).toContain("Issued supply");
+    // The daily rate is stated once on this page, in "what changes", not again here.
+    expect(screen.getAllByText(/^Issued per day/).map((el) => el.textContent)).toEqual([
+      "Issued per day now",
+      "Issued per day after",
+    ]);
     expect(text).toContain(`block ${supply.height.toLocaleString("en-US")}`);
     expect(text).toMatch(
       /From block 8,939,664 blocks also pay out part of the NSM balance; that ZEC is already counted here, so the total is unchanged/,

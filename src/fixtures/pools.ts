@@ -1,3 +1,4 @@
+import { scheduledIssuanceThroughZat } from "@/domain";
 import type {
   PoolMigrationDayPoint,
   PoolUsageDayPoint,
@@ -31,6 +32,17 @@ const SUPPLY_DAYS = 400;
  */
 const SUPPLY_END_ZAT = pools.reduce((sum, p) => sum + p.balanceZat, 0);
 const SUPPLY_START_ZAT = Math.round(SUPPLY_END_ZAT / 16);
+
+/** The NU6 lockbox in the supply breakdown. */
+export const LOCKBOX_ZAT = 5_299_350_000_000;
+
+/**
+ * The transparent pool in the supply breakdown: whatever the schedule has issued through the tip
+ * that no other pool holds. The pools plus the NSM (zero before NU7) then equal the schedule to the
+ * zatoshi, as they do on the chain, so the issuance headline and its curve agree.
+ */
+export const TRANSPARENT_ZAT =
+  scheduledIssuanceThroughZat(HALVING_TIP_HEIGHT) - LOCKBOX_ZAT - SUPPLY_END_ZAT;
 
 /**
  * The supply series' last day: today, like the halving schedule's `asOf`, and closing on the

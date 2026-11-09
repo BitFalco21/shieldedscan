@@ -56,7 +56,15 @@ import { activitySeries } from "./analytics";
 import { addresses } from "./addresses";
 import { blocks } from "./blocks";
 import { chainInfo } from "./chain";
-import { poolMigrationSeries, pools, poolUsageSeries, supplySeries } from "./pools";
+import { HALVING_TIP_HEIGHT } from "./halving";
+import {
+  LOCKBOX_ZAT,
+  poolMigrationSeries,
+  pools,
+  poolUsageSeries,
+  supplySeries,
+  TRANSPARENT_ZAT,
+} from "./pools";
 import { crossChainById, crossChainTransfers } from "./crosschain";
 import { mempoolEntries, mempoolStats, mempoolTransactions } from "./mempool";
 import { reorgEvents, reorgSummary } from "./reorgs";
@@ -85,15 +93,18 @@ export function getPools(): ShieldedPool[] {
   return pools;
 }
 
-/** Derived from the shielded pool fixtures, plus a plausible transparent side. */
+/**
+ * The shielded pool fixtures plus a transparent side that makes the total the schedule's, read at
+ * the halving schedule's tip, where the supply series closes too.
+ */
 export function getSupplyBreakdown(): SupplyBreakdown {
   return {
-    height: TIP_HEIGHT,
+    height: HALVING_TIP_HEIGHT,
     // A pre-NU7 chain, where the node reports a balance of zero.
     nsmZat: 0,
     pools: [
-      { pool: "transparent", balanceZat: 1_250_845_176_000_000 },
-      { pool: "lockbox", balanceZat: 5_299_350_000_000 },
+      { pool: "transparent", balanceZat: TRANSPARENT_ZAT },
+      { pool: "lockbox", balanceZat: LOCKBOX_ZAT },
       ...pools.map((p) => ({ pool: p.pool as ValuePoolName, balanceZat: p.balanceZat })),
     ],
   };
