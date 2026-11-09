@@ -1010,6 +1010,7 @@ export interface V1MiningPoolSeries {
       blocks: number;
       firstHeight: number | null;
       lastHeight: number | null;
+      /** Only the groups that mined in the period; a group absent here mined no block in it. */
       groups: V1MiningSeriesCell[];
     }[];
   };

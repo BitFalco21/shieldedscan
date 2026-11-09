@@ -501,7 +501,7 @@ export const MINING_GROUP: ApiGroup = {
       exampleResponse: `{
   "query": {
     "interval": "month",
-    "pool": "foundry"
+    "pool": null
   },
   "coverage": {
     "status": "complete",
@@ -516,101 +516,728 @@ export const MINING_GROUP: ApiGroup = {
   "basis": "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its \`basis\`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in \`unattributed\`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. \`reward\` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains \`fees\`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. \`valueUsd\` values each closed UTC day at that day's stored close and today at the live price; \`floor\` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history from \`historyFrom\`; blocks that paid a bare public key have no address and are counted apart. Each period's share is of every block in that period, and a period lists only the groups that mined in it. Months run from 2016-10-28; days cover the trailing year.",
   "data": {
     "interval": "month",
-    "fromDay": "2025-12-01",
-    "toDay": "2026-11-08",
+    "fromDay": "2016-10-28",
+    "toDay": "2026-11-09",
     "groups": [
+      {
+        "id": "viabtc",
+        "name": "ViaBTC",
+        "kind": "mining-pool"
+      },
       {
         "id": "foundry",
         "name": "Foundry USA",
         "kind": "mining-pool"
+      },
+      {
+        "id": "f2pool",
+        "name": "F2Pool",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "luxor",
+        "name": "Luxor",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "2miners",
+        "name": "2Miners",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "antpool",
+        "name": "AntPool",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "kupool",
+        "name": "KuPool",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "kryptex",
+        "name": "Kryptex",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "nicehash",
+        "name": "NiceHash",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "mining-dutch",
+        "name": "Mining-Dutch",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "zec-mining-pool",
+        "name": "ZEC Mining Pool",
+        "kind": "mining-pool"
+      },
+      {
+        "id": "unattributed",
+        "name": "Unattributed",
+        "kind": "unattributed"
+      },
+      {
+        "id": "shielded",
+        "name": "Shielded coinbase",
+        "kind": "shielded-coinbase"
       }
     ],
     "periods": [
       {
-        "period": "2025-12-01",
+        "period": "2026-09-01",
         "partial": false,
-        "blocks": 35534,
-        "firstHeight": 3153474,
-        "lastHeight": 3189007,
+        "blocks": 34405,
+        "firstHeight": 3467591,
+        "lastHeight": 3501995,
         "groups": [
           {
-            "group": "foundry",
-            "blocks": 0,
+            "group": "viabtc",
+            "blocks": 12650,
             "share": {
-              "pct": 0,
-              "numerator": 0,
-              "denominator": 35534
+              "pct": 36.77,
+              "numerator": 12650,
+              "denominator": 34405
             },
             "reward": {
-              "zat": 0,
-              "zec": "0.00000000"
+              "zat": 1584620818860,
+              "zec": "15846.20818860"
             },
             "fees": {
-              "zat": 0,
-              "zec": "0.00000000"
+              "zat": 3370818860,
+              "zec": "33.70818860"
             }
+          },
+          {
+            "group": "foundry",
+            "blocks": 4858,
+            "share": {
+              "pct": 14.12,
+              "numerator": 4858,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 608850277380,
+              "zec": "6088.50277380"
+            },
+            "fees": {
+              "zat": 1600277380,
+              "zec": "16.00277380"
+            }
+          },
+          {
+            "group": "f2pool",
+            "blocks": 5368,
+            "share": {
+              "pct": 15.6,
+              "numerator": 5368,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 672921562078,
+              "zec": "6729.21562078"
+            },
+            "fees": {
+              "zat": 1921562078,
+              "zec": "19.21562078"
+            }
+          },
+          {
+            "group": "luxor",
+            "blocks": 4744,
+            "share": {
+              "pct": 13.79,
+              "numerator": 4744,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 594899000820,
+              "zec": "5948.99000820"
+            },
+            "fees": {
+              "zat": 1899000820,
+              "zec": "18.99000820"
+            }
+          },
+          {
+            "group": "2miners",
+            "blocks": 2038,
+            "share": {
+              "pct": 5.92,
+              "numerator": 2038,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 255146027602,
+              "zec": "2551.46027602"
+            },
+            "fees": {
+              "zat": 396027602,
+              "zec": "3.96027602"
+            }
+          },
+          {
+            "group": "antpool",
+            "blocks": 1247,
+            "share": {
+              "pct": 3.62,
+              "numerator": 1247,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 156389408768,
+              "zec": "1563.89408768"
+            },
+            "fees": {
+              "zat": 514408768,
+              "zec": "5.14408768"
+            }
+          },
+          {
+            "group": "kupool",
+            "blocks": 606,
+            "share": {
+              "pct": 1.76,
+              "numerator": 606,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 75979577009,
+              "zec": "759.79577009"
+            },
+            "fees": {
+              "zat": 229577009,
+              "zec": "2.29577009"
+            }
+          },
+          {
+            "group": "kryptex",
+            "blocks": 320,
+            "share": {
+              "pct": 0.93,
+              "numerator": 320,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 40126769342,
+              "zec": "401.26769342"
+            },
+            "fees": {
+              "zat": 126769342,
+              "zec": "1.26769342"
+            }
+          },
+          {
+            "group": "nicehash",
+            "blocks": 153,
+            "share": {
+              "pct": 0.44,
+              "numerator": 153,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 18841177218,
+              "zec": "188.41177218"
+            },
+            "fees": {
+              "zat": 73965384,
+              "zec": "0.73965384"
+            }
+          },
+          {
+            "group": "mining-dutch",
+            "blocks": 87,
+            "share": {
+              "pct": 0.25,
+              "numerator": 87,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 10907172863,
+              "zec": "109.07172863"
+            },
+            "fees": {
+              "zat": 32172863,
+              "zec": "0.32172863"
+            }
+          },
+          {
+            "group": "zec-mining-pool",
+            "blocks": 19,
+            "share": {
+              "pct": 0.06,
+              "numerator": 19,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 2383126539,
+              "zec": "23.83126539"
+            },
+            "fees": {
+              "zat": 8126539,
+              "zec": "0.08126539"
+            }
+          },
+          {
+            "group": "unattributed",
+            "blocks": 752,
+            "share": {
+              "pct": 2.19,
+              "numerator": 752,
+              "denominator": 34405
+            },
+            "reward": {
+              "zat": 94238928609,
+              "zec": "942.38928609"
+            },
+            "fees": {
+              "zat": 256461857,
+              "zec": "2.56461857"
+            }
+          },
+          {
+            "group": "shielded",
+            "blocks": 1563,
+            "share": {
+              "pct": 4.54,
+              "numerator": 1563,
+              "denominator": 34405
+            },
+            "reward": null,
+            "fees": null
           }
         ]
       },
       {
-        "period": "2026-01-01",
+        "period": "2026-10-01",
         "partial": false,
-        "blocks": 35533,
-        "firstHeight": 3189008,
-        "lastHeight": 3224540,
+        "blocks": 35551,
+        "firstHeight": 3501996,
+        "lastHeight": 3537546,
         "groups": [
           {
-            "group": "foundry",
-            "blocks": 4,
+            "group": "viabtc",
+            "blocks": 11826,
             "share": {
-              "pct": 0.01,
-              "numerator": 4,
-              "denominator": 35533
+              "pct": 33.26,
+              "numerator": 11826,
+              "denominator": 35551
             },
             "reward": {
-              "zat": 510661694,
-              "zec": "5.10661694"
+              "zat": 1479804187847,
+              "zec": "14798.04187847"
             },
             "fees": {
-              "zat": 10661694,
-              "zec": "0.10661694"
+              "zat": 1554187847,
+              "zec": "15.54187847"
             }
+          },
+          {
+            "group": "foundry",
+            "blocks": 5939,
+            "share": {
+              "pct": 16.71,
+              "numerator": 5939,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 743722491813,
+              "zec": "7437.22491813"
+            },
+            "fees": {
+              "zat": 1347491813,
+              "zec": "13.47491813"
+            }
+          },
+          {
+            "group": "f2pool",
+            "blocks": 5473,
+            "share": {
+              "pct": 15.39,
+              "numerator": 5473,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 685182497615,
+              "zec": "6851.82497615"
+            },
+            "fees": {
+              "zat": 1057497615,
+              "zec": "10.57497615"
+            }
+          },
+          {
+            "group": "luxor",
+            "blocks": 4555,
+            "share": {
+              "pct": 12.81,
+              "numerator": 4555,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 570296654436,
+              "zec": "5702.96654436"
+            },
+            "fees": {
+              "zat": 921654436,
+              "zec": "9.21654436"
+            }
+          },
+          {
+            "group": "2miners",
+            "blocks": 2105,
+            "share": {
+              "pct": 5.92,
+              "numerator": 2105,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 263365989603,
+              "zec": "2633.65989603"
+            },
+            "fees": {
+              "zat": 240989603,
+              "zec": "2.40989603"
+            }
+          },
+          {
+            "group": "antpool",
+            "blocks": 1937,
+            "share": {
+              "pct": 5.45,
+              "numerator": 1937,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 242457966953,
+              "zec": "2424.57966953"
+            },
+            "fees": {
+              "zat": 332966953,
+              "zec": "3.32966953"
+            }
+          },
+          {
+            "group": "kupool",
+            "blocks": 574,
+            "share": {
+              "pct": 1.61,
+              "numerator": 574,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 71853490303,
+              "zec": "718.53490303"
+            },
+            "fees": {
+              "zat": 103490303,
+              "zec": "1.03490303"
+            }
+          },
+          {
+            "group": "kryptex",
+            "blocks": 344,
+            "share": {
+              "pct": 0.97,
+              "numerator": 344,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 43098845795,
+              "zec": "430.98845795"
+            },
+            "fees": {
+              "zat": 98845795,
+              "zec": "0.98845795"
+            }
+          },
+          {
+            "group": "nicehash",
+            "blocks": 129,
+            "share": {
+              "pct": 0.36,
+              "numerator": 129,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 15690319242,
+              "zec": "156.90319242"
+            },
+            "fees": {
+              "zat": 50586738,
+              "zec": "0.50586738"
+            }
+          },
+          {
+            "group": "mining-dutch",
+            "blocks": 99,
+            "share": {
+              "pct": 0.28,
+              "numerator": 99,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 12386465109,
+              "zec": "123.86465109"
+            },
+            "fees": {
+              "zat": 11465109,
+              "zec": "0.11465109"
+            }
+          },
+          {
+            "group": "unattributed",
+            "blocks": 878,
+            "share": {
+              "pct": 2.47,
+              "numerator": 878,
+              "denominator": 35551
+            },
+            "reward": {
+              "zat": 109853356182,
+              "zec": "1098.53356182"
+            },
+            "fees": {
+              "zat": 160048024,
+              "zec": "1.60048024"
+            }
+          },
+          {
+            "group": "shielded",
+            "blocks": 1692,
+            "share": {
+              "pct": 4.76,
+              "numerator": 1692,
+              "denominator": 35551
+            },
+            "reward": null,
+            "fees": null
           }
         ]
       },
       {
-        "period": "2026-02-01",
-        "partial": false,
-        "blocks": 32111,
-        "firstHeight": 3224541,
-        "lastHeight": 3256651,
+        "period": "2026-11-01",
+        "partial": true,
+        "blocks": 17937,
+        "firstHeight": 3537547,
+        "lastHeight": 3555483,
         "groups": [
           {
-            "group": "foundry",
-            "blocks": 428,
+            "group": "viabtc",
+            "blocks": 5878,
             "share": {
-              "pct": 1.33,
-              "numerator": 428,
-              "denominator": 32111
+              "pct": 32.77,
+              "numerator": 5878,
+              "denominator": 17937
             },
             "reward": {
-              "zat": 53581123914,
-              "zec": "535.81123914"
+              "zat": 405902735130,
+              "zec": "4059.02735130"
             },
             "fees": {
-              "zat": 81123914,
-              "zec": "0.81123914"
+              "zat": 319396530,
+              "zec": "3.19396530"
             }
+          },
+          {
+            "group": "foundry",
+            "blocks": 3030,
+            "share": {
+              "pct": 16.89,
+              "numerator": 3030,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 206523823187,
+              "zec": "2065.23823187"
+            },
+            "fees": {
+              "zat": 190487095,
+              "zec": "1.90487095"
+            }
+          },
+          {
+            "group": "f2pool",
+            "blocks": 2650,
+            "share": {
+              "pct": 14.77,
+              "numerator": 2650,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 186046810707,
+              "zec": "1860.46810707"
+            },
+            "fees": {
+              "zat": 213475047,
+              "zec": "2.13475047"
+            }
+          },
+          {
+            "group": "luxor",
+            "blocks": 2537,
+            "share": {
+              "pct": 14.14,
+              "numerator": 2537,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 174485872148,
+              "zec": "1744.85872148"
+            },
+            "fees": {
+              "zat": 194203196,
+              "zec": "1.94203196"
+            }
+          },
+          {
+            "group": "2miners",
+            "blocks": 993,
+            "share": {
+              "pct": 5.54,
+              "numerator": 993,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 67360208058,
+              "zec": "673.60208058"
+            },
+            "fees": {
+              "zat": 68540482,
+              "zec": "0.68540482"
+            }
+          },
+          {
+            "group": "antpool",
+            "blocks": 1015,
+            "share": {
+              "pct": 5.66,
+              "numerator": 1015,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 70353737388,
+              "zec": "703.53737388"
+            },
+            "fees": {
+              "zat": 62069816,
+              "zec": "0.62069816"
+            }
+          },
+          {
+            "group": "kupool",
+            "blocks": 268,
+            "share": {
+              "pct": 1.49,
+              "numerator": 268,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 17771698132,
+              "zec": "177.71698132"
+            },
+            "fees": {
+              "zat": 21697880,
+              "zec": "0.21697880"
+            }
+          },
+          {
+            "group": "kryptex",
+            "blocks": 151,
+            "share": {
+              "pct": 0.84,
+              "numerator": 151,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 10469710503,
+              "zec": "104.69710503"
+            },
+            "fees": {
+              "zat": 11377035,
+              "zec": "0.11377035"
+            }
+          },
+          {
+            "group": "nicehash",
+            "blocks": 12,
+            "share": {
+              "pct": 0.07,
+              "numerator": 12,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 1456664028,
+              "zec": "14.56664028"
+            },
+            "fees": {
+              "zat": 1715482,
+              "zec": "0.01715482"
+            }
+          },
+          {
+            "group": "mining-dutch",
+            "blocks": 62,
+            "share": {
+              "pct": 0.35,
+              "numerator": 62,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 4419686238,
+              "zec": "44.19686238"
+            },
+            "fees": {
+              "zat": 3019518,
+              "zec": "0.03019518"
+            }
+          },
+          {
+            "group": "unattributed",
+            "blocks": 399,
+            "share": {
+              "pct": 2.22,
+              "numerator": 399,
+              "denominator": 17937
+            },
+            "reward": {
+              "zat": 26310465153,
+              "zec": "263.10465153"
+            },
+            "fees": {
+              "zat": 21840469,
+              "zec": "0.21840469"
+            }
+          },
+          {
+            "group": "shielded",
+            "blocks": 942,
+            "share": {
+              "pct": 5.25,
+              "numerator": 942,
+              "denominator": 17937
+            },
+            "reward": null,
+            "fees": null
           }
         ]
       }
     ]
   },
-  "unknowns": {},
-  "asOf": 1794173058
+  "unknowns": {
+    "data.periods.0.groups.12.reward": "shielded",
+    "data.periods.0.groups.12.fees": "shielded",
+    "data.periods.1.groups.11.reward": "shielded",
+    "data.periods.1.groups.11.fees": "shielded",
+    "data.periods.2.groups.11.reward": "shielded",
+    "data.periods.2.groups.11.fees": "shielded"
+  },
+  "asOf": 1794238453
 }`,
       notes: [
-        "The example response is abridged to its first three months.",
+        "The example response is abridged to its last three months and the groups that mined in them.",
         "Each share is of every block in that period. The running period holds today and says so with `partial`.",
         "A shielded coinbase's reward and fees are null with reason `shielded`: its amounts are encrypted.",
       ],
