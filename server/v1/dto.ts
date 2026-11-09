@@ -1151,6 +1151,8 @@ export interface V1BlockArrival {
       key: V1BlockArrivalWindowKey;
       fromDay: string;
       toDay: string;
+      /** Unix seconds the window was computed; when `toDay` is not today it has gone stale. */
+      computedAt: number;
       groups: V1BlockArrivalCell[];
     } | null;
     /** Each UTC day of the window, oldest first; the running day says `partial`. */

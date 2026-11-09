@@ -53,7 +53,8 @@ FROM net_release_day;
 -- per-pool rows rest on the site's reviewed pool labels, and the dataset carries no label.
 CREATE OR REPLACE VIEW opendata.block_arrival_daily AS
 SELECT day, grp, blocks, measured, late, p50_seconds, p90_seconds
-FROM block_arrival_day;
+FROM block_arrival_day
+WHERE grp = 'all';
 
 CREATE OR REPLACE VIEW opendata.reorgs AS
 SELECT height, depth, orphaned_hash, replaced_by

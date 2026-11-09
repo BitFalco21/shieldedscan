@@ -748,6 +748,7 @@ export function createChainApiSource(config: ChainApiConfig) {
             typeof w.window === "string" &&
             typeof w.fromDay === "string" &&
             typeof w.toDay === "string" &&
+            typeof w.computedAt === "number" &&
             cells(w.groups),
         )
       ) {

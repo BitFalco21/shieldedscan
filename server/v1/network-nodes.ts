@@ -243,6 +243,8 @@ export function toNodeHistory(software: readonly NodeSoftwareDay[], hosting: Nod
       answeringWindowSeconds: hosting.windowSeconds,
       maxDays: NODE_HISTORY_DAYS,
       software: {
+        // Both records reach the API through the snapshot, which carries at most
+        // RELEASE_HISTORY_DAYS (400): past that age these describe the days it carries.
         recordingSince: software[0]?.day ?? null,
         daysRecorded: software.length,
         days: tail(software).map((d) => ({

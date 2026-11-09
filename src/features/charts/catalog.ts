@@ -281,7 +281,7 @@ export const CHARTS: ChartEntry[] = [
     blurb: "How old each pool's blocks are, by their own timestamp, when our node stores them.",
     description: [
       "Each UTC day's median and 90th percentile of the time from a block's header timestamp to the moment this explorer's node first stored it, for every block and per mining pool. Measured by our own follower since it began stamping blocks.",
-      "Not clock skew: it adds up the miner's timestamp lag (a pool stamps a block template and keeps mining on it), propagation to our node and our own 5 to 10 seconds, so only the first differs by pool. A negative age is a pool's clock ahead of ours. Blocks we stored more than ten minutes late, during our own outages, are left out and counted.",
+      "Not clock skew: it adds up the miner's timestamp lag (a pool stamps a block template and keeps mining on it), propagation to our node and our own 5 to 10 seconds; mostly the first differs by pool, though propagation can too. A negative age is a pool's clock ahead of ours. Blocks stored more than ten minutes late, almost always during our own outages, are left out and counted.",
     ],
   },
   {

@@ -30,7 +30,7 @@ export function parseArrivalWindow(raw: string | undefined): BlockArrivalWindowK
 }
 
 const BASIS =
-  "A block's age on arrival is the time from its own header timestamp to the moment this explorer's follower first stored it. It adds up the miner's timestamp lag (a miner stamps a template and keeps mining on it without moving the time forward), the network's propagation to our node, and our own poll and store latency (about 5 to 10 seconds), less any error between the two clocks; only the first differs by pool. A negative age is a miner's clock ahead of ours and is kept as measured. A block stored more than `lateSeconds` after its header time is our outage (a node swap, a restart) and is left out of the percentiles, counted in `late`. Percentiles are nearest-rank whole seconds over a group's measured blocks, null below `minBlocks`; they do not add or average across days. A pool is this explorer's reviewed label on payout addresses; every other block is `unattributed`. Days are UTC by header timestamp.";
+  "A block's age on arrival is the time from its own header timestamp to the moment this explorer's follower first stored it. It adds up the miner's timestamp lag (a miner stamps a template and keeps mining on it without moving the time forward), the network's propagation to our node, and our own poll and store latency (about 5 to 10 seconds), less any error between the two clocks. Mostly the first differs by pool, though propagation can too, and the figure cannot separate them. A negative age is a miner's clock ahead of ours and is kept as measured. A block stored more than `lateSeconds` after its header time, almost always our own outage (a node swap, a restart), is left out of the percentiles, counted in `late`. Percentiles are nearest-rank whole seconds over a group's measured blocks, null below `minBlocks`; they do not add or average across days. A pool is this explorer's reviewed label on payout addresses; every other block is `unattributed`. Days are UTC by header timestamp.";
 
 function cell(c: BlockArrivalCell, path: string, unknowns: V1Unknowns): V1BlockArrivalCell {
   if (c.p50Seconds === null) unknowns[`${path}.p50Seconds`] = "unmeasured";
@@ -55,6 +55,9 @@ export function toBlockArrival(
 ): V1BlockArrival {
   const unknowns: V1Unknowns = {};
   const notes: string[] = [];
+  // One clock for every day this answer names: the window's start, which day is today, and so
+  // which day is still running. The memo the series came from may be minutes older.
+  const today = utcDayFromSeconds(asOf);
   const fromDay = utcDayFromSeconds(
     Math.floor(asOf / DAY_SECONDS) * DAY_SECONDS -
       (BLOCK_ARRIVAL_WINDOW_DAYS[window] - 1) * DAY_SECONDS,
@@ -63,16 +66,23 @@ export function toBlockArrival(
   if (w === null) {
     unknowns["data.window"] = "unmeasured";
     notes.push("The window has not been computed yet; retry in a few minutes.");
+  } else if (w.toDay < today) {
+    notes.push(
+      `The window was last computed at ${new Date(w.computedAt * 1000).toISOString()} and ends ${w.toDay}, not today: its figures are stale.`,
+    );
   }
   if (s.recordingSince === null) notes.push("No block carries an arrival stamp yet.");
   else if (s.recordingSince > fromDay) {
     notes.push(`Recording began on ${s.recordingSince}; the window holds nothing earlier.`);
   }
-  const days = s.days.filter((d) => d.day >= fromDay);
+  const days = s.days
+    .filter((d) => d.day >= fromDay)
+    .map((d) => ({ ...d, partial: d.day >= today }));
   if (days.some((d) => d.partial)) notes.push("The newest day holds today and is still running.");
   return {
     query: { window },
-    coverage: { status: w === null || s.recordingSince === null ? "partial" : "complete", notes },
+    // The weakest property names the status: any note is a reason the answer is not whole.
+    coverage: { status: notes.length > 0 ? "partial" : "complete", notes },
     source: { name: "ShieldedScan", url: `${siteUrl}/charts/block-arrival-age` },
     basis: BASIS,
     data: {
@@ -86,6 +96,7 @@ export function toBlockArrival(
               key: window,
               fromDay: w.fromDay,
               toDay: w.toDay,
+              computedAt: w.computedAt,
               groups: w.groups.map((g, i) => cell(g, `data.window.groups.${i}`, unknowns)),
             },
       days: days.map((d, i) => ({

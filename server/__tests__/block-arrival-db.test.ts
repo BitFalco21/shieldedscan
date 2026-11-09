@@ -4,8 +4,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { arrivalCell, ARRIVAL_ALL_GROUP, UNATTRIBUTED_GROUP } from "@/domain";
 import type { Pacer } from "../job-pacer";
 import {
+  ARRIVAL_START_RETRY_MS,
   BlockArrivalTracker,
   arrivalDaysToCompute,
+  arrivalRecordingStart,
   computeArrivalSpan,
   loadBlockArrival,
   storeArrivalDay,
@@ -145,7 +147,9 @@ describeDb("block arrival", () => {
 
   it("fills days from the first stamped one, then the windows", async () => {
     const now = (D0 + DAY + 50_000) * 1000;
-    expect(await arrivalDaysToCompute(pool, now / 1000)).toEqual([D0, D0 + DAY]);
+    // The walk skips day -1, whose blocks the backfiller wrote unstamped.
+    expect(await arrivalRecordingStart(pool, now / 1000)).toBe(D0);
+    expect(await arrivalDaysToCompute(pool, now / 1000, D0)).toEqual([D0, D0 + DAY]);
     const tracker = new BlockArrivalTracker({ pool, pacer, log: () => {}, now: () => now });
     expect(await tracker.refresh()).toEqual({ computed: 5, aborted: false });
     const series = await loadBlockArrival(pool, now / 1000);
@@ -183,5 +187,83 @@ describeDb("block arrival", () => {
     } finally {
       await honolulu.end();
     }
+  });
+});
+
+describeDb("block arrival on a database whose follower never stamped a block", () => {
+  const DB = "explorer_block_arrival_nostamp_test";
+  let pool: Pool;
+  /** Every statement that read `block`, and whether the pacer had cleared it to run. */
+  const blockReads: { sql: string; paced: boolean }[] = [];
+  let paced = false;
+
+  beforeAll(async () => {
+    const admin = new Pool({ connectionString: withDatabase(DATABASE_URL!, "postgres"), max: 1 });
+    try {
+      await admin.query(`DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`);
+      await admin.query(`CREATE DATABASE ${DB}`);
+    } finally {
+      await admin.end();
+    }
+    pool = new Pool({ connectionString: withDatabase(DATABASE_URL!, DB) });
+    await pool.query(readFileSync("server/schema-chain.sql", "utf8"));
+    await pool.query(readFileSync("server/schema.sql", "utf8"));
+    // Three-digit heights: padded hashes of 1 and 10 would collide.
+    for (let h = 101; h <= 120; h += 1) {
+      await pool.query(
+        `INSERT INTO block (height, hash, prev_hash, timestamp, size_bytes, tx_count)
+         VALUES ($1, $2, $3, $4, 1000, 1)`,
+        [h, `h${h}`.padEnd(64, "0"), `p${h}`.padEnd(64, "0"), D0 + (h - 100) * 600],
+      );
+    }
+  });
+
+  afterAll(async () => {
+    await pool?.end();
+  });
+
+  it("walks a bounded range once, after the pacer, then waits hours before looking again", async () => {
+    let clock = (D0 + DAY) * 1000;
+    const counting = new Proxy(pool, {
+      get(target, key, receiver) {
+        if (key !== "query") return Reflect.get(target, key, receiver);
+        return (sql: string, params?: unknown[]) => {
+          if (/\bFROM block\b/.test(sql)) blockReads.push({ sql, paced });
+          return target.query(sql, params);
+        };
+      },
+    }) as Pool;
+    const tracker = new BlockArrivalTracker({
+      pool: counting,
+      pacer: () => ({
+        preflight: async () => {
+          paced = true;
+        },
+        afterUnit: async () => "continue",
+        stats: { sleptMs: 0, stallSamples: 0, maxBlocksBehind: 0 },
+      }),
+      log: () => {},
+      now: () => clock,
+    });
+    expect(await tracker.refresh()).toEqual({ computed: 0, aborted: false });
+    // One bounded read per day from the floor to today, every one after the pacer: never the
+    // unbounded `min(timestamp) WHERE received_at IS NOT NULL` scan.
+    expect(blockReads.length).toBeGreaterThan(0);
+    for (const r of blockReads) {
+      expect(r.paced).toBe(true);
+      expect(r.sql).toMatch(/timestamp >= \$1::bigint AND timestamp < \$2::bigint/);
+    }
+    const walked = blockReads.length;
+    expect(walked).toBeLessThanOrEqual((D0 + DAY - Date.UTC(2026, 7, 17) / 1000) / DAY + 1);
+
+    // Ten minutes later: nothing is read at all.
+    clock += 10 * 60 * 1000;
+    expect(await tracker.refresh()).toEqual({ computed: 0, aborted: false });
+    expect(blockReads.length).toBe(walked);
+
+    // Past the wait it looks again.
+    clock += ARRIVAL_START_RETRY_MS;
+    await tracker.refresh();
+    expect(blockReads.length).toBeGreaterThan(walked);
   });
 });

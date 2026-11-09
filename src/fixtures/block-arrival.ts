@@ -106,6 +106,7 @@ function build(): BlockArrivalSeries {
         window: w,
         fromDay: utcDayFromSeconds(from),
         toDay: utcDayFromSeconds(today),
+        computedAt: TIP_TIME,
         groups: cellsOver(from, today),
       };
     }),

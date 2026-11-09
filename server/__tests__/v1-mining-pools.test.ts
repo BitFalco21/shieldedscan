@@ -3,6 +3,8 @@ import { MINING_POOL_LABELS } from "@/domain";
 import type { MinersReader } from "../miners-routes";
 import { decodeCursor, encodeCursor } from "@/data/cursor";
 import { getNsmOverview } from "@/fixtures/nsm";
+import { getBlockArrival } from "@/fixtures/block-arrival";
+import { toBlockArrival } from "../v1/block-arrival";
 import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "../agent/testing/miners-reader";
 import { v1MiningPoolRoutes } from "../v1/mining-pools";
 import type {
@@ -260,6 +262,28 @@ describe("/v1/analytics/mining-pools/arrival", () => {
     expect(day).toBeGreaterThanOrEqual(0);
     const j = body.data.days[day]!.groups.findIndex((g) => g.group === "nicehash");
     expect(body.unknowns![`data.days.${day}.groups.${j}.p50Seconds`]).toBe("unmeasured");
+  });
+
+  it("is partial whenever a note applies, today running included", async () => {
+    const { body } = await get<V1BlockArrival>("/v1/analytics/mining-pools/arrival?window=7d");
+    expect(body.coverage.notes).toContain("The newest day holds today and is still running.");
+    expect(body.coverage.status).toBe("partial");
+  });
+
+  it("reads every day off one clock, and calls a window the tracker left behind stale", async () => {
+    // A day past the fixture's tip: the memo's "today" is now yesterday, and the stored windows
+    // end before today.
+    const tomorrow = toBlockArrival(
+      getBlockArrival(),
+      "7d",
+      "https://shieldedscan.xyz",
+      MINERS_FIXTURE_NOW_MS / 1000 + 86_400,
+    );
+    expect(tomorrow.data.days.every((d) => !d.partial)).toBe(true);
+    expect(tomorrow.data.days[0]!.day > getBlockArrival().days.at(-7)!.day).toBe(true);
+    expect(tomorrow.coverage.status).toBe("partial");
+    expect(tomorrow.coverage.notes.join(" ")).toMatch(/stale/);
+    expect(tomorrow.data.window!.computedAt).toBe(getBlockArrival().windows[0]!.computedAt);
   });
 
   it("refuses a window it does not compute, and an unknown parameter", async () => {

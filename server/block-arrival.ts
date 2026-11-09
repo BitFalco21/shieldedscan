@@ -188,30 +188,49 @@ export async function storeArrivalWindow(
 const midnight = (sec: number) => Math.floor(sec / DAY_SECONDS) * DAY_SECONDS;
 
 /**
- * The first UTC day with a stamped block, or null before any. Read from the table once it holds a
- * measured day; the very first pass scans `block` for it (no index on `received_at`), once.
+ * The earliest UTC day a stamp can exist on: the live follower began writing `received_at` on
+ * 2026-08-17, and the backfiller never writes it. A floor for the walk below, never a claim that
+ * recording began then: the walk finds the first day that actually holds a stamp.
  */
-export async function arrivalRecordingStart(pool: Pick<Pool, "query">): Promise<number | null> {
+export const ARRIVAL_STAMP_FLOOR = Date.UTC(2026, 7, 17) / 1000;
+
+/** One day holds a stamped block: a range read of `block_timestamp_idx`, a day's blocks at most. */
+const STAMPED_DAY_SQL = `
+  SELECT EXISTS (
+    SELECT 1 FROM block
+     WHERE timestamp >= $1::bigint AND timestamp < $2::bigint AND received_at IS NOT NULL
+  ) AS stamped`;
+
+/**
+ * The first UTC day with a stamped block, or null before any. Read from the table once it holds a
+ * measured day. Before that, walked forward a day at a time from `floor` to today: each step is one
+ * bounded index read, never a scan of `block` (there is no index on `received_at`). A database
+ * whose follower never stamped (a backfilled self-host) costs one walk and answers null.
+ */
+export async function arrivalRecordingStart(
+  pool: Pick<Pool, "query">,
+  nowSec: number,
+  floor = ARRIVAL_STAMP_FLOOR,
+): Promise<number | null> {
   const stored = await pool.query<{ day: string | null }>(
     `SELECT EXTRACT(EPOCH FROM min(day))::bigint::text AS day FROM block_arrival_day
       WHERE grp = '${ARRIVAL_ALL_GROUP}' AND measured + late > 0`,
   );
   const known = stored.rows[0]?.day;
   if (known != null) return Number(known);
-  const scanned = await pool.query<{ ts: string | null }>(
-    `SELECT min(timestamp)::text AS ts FROM block WHERE received_at IS NOT NULL`,
-  );
-  const ts = scanned.rows[0]?.ts;
-  return ts == null ? null : midnight(Number(ts));
+  for (let d = midnight(floor); d <= midnight(nowSec); d += DAY_SECONDS) {
+    const { rows } = await pool.query<{ stamped: boolean }>(STAMPED_DAY_SQL, [d, d + DAY_SECONDS]);
+    if (rows[0]?.stamped) return d;
+  }
+  return null;
 }
 
 /** The days to (re)compute: every recorded day missing, plus today and yesterday. */
 export async function arrivalDaysToCompute(
   pool: Pick<Pool, "query">,
   nowSec: number,
+  start: number,
 ): Promise<number[]> {
-  const start = await arrivalRecordingStart(pool);
-  if (start === null) return [];
   const today = midnight(nowSec);
   const done = await pool.query<{ day: string }>(
     `SELECT EXTRACT(EPOCH FROM day)::bigint::text AS day FROM block_arrival_day
@@ -237,6 +256,7 @@ interface StoredCell {
   late: number;
   p50_seconds: number | null;
   p90_seconds: number | null;
+  computed_at?: string;
 }
 
 const cellOf = (r: StoredCell): BlockArrivalCell => ({
@@ -262,7 +282,7 @@ export async function loadBlockArrival(
     pool.query<StoredCell>(
       `SELECT window_key, to_char(from_day, 'YYYY-MM-DD') AS from_day,
               to_char(to_day, 'YYYY-MM-DD') AS to_day, grp, blocks, measured, late, p50_seconds,
-              p90_seconds
+              p90_seconds, computed_at::text AS computed_at
          FROM block_arrival_window`,
     ),
   ]);
@@ -291,6 +311,7 @@ export async function loadBlockArrival(
         window: w,
         fromDay: rows[0]!.from_day!,
         toDay: rows[0]!.to_day!,
+        computedAt: Number(rows[0]!.computed_at),
         groups: sortArrivalCells(rows.map(cellOf)),
       },
     ];
@@ -311,7 +332,12 @@ export interface BlockArrivalTrackerDeps {
   pacer: () => Pacer;
   log: (m: string) => void;
   now?: () => number;
+  /** The earliest day the recording-start walk reads; tests move it. */
+  stampFloor?: number;
 }
+
+/** After a pass finds no stamped block, or fails to look, the next look waits this long. */
+export const ARRIVAL_START_RETRY_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Keeps `block_arrival_day` and `block_arrival_window` current: on start, then every ten minutes.
@@ -322,6 +348,8 @@ export interface BlockArrivalTrackerDeps {
  */
 export class BlockArrivalTracker {
   #running = false;
+  /** When the recording start may next be looked for, after none was found or the look failed. */
+  #lookAgainAt = 0;
   constructor(private readonly deps: BlockArrivalTrackerDeps) {}
 
   async refresh(): Promise<{ computed: number; aborted: boolean }> {
@@ -330,10 +358,25 @@ export class BlockArrivalTracker {
     const now = this.deps.now ?? Date.now;
     const sec = () => Math.floor(now() / 1000);
     try {
-      const days = await arrivalDaysToCompute(this.deps.pool, sec());
-      if (days.length === 0) return { computed: 0, aborted: false };
+      if (now() < this.#lookAgainAt) return { computed: 0, aborted: false };
+      // Every read waits for the pacer, the recording-start walk included.
       const pacer = this.deps.pacer();
       await pacer.preflight();
+      let start: number | null;
+      try {
+        start = await arrivalRecordingStart(this.deps.pool, sec(), this.deps.stampFloor);
+      } catch (error) {
+        this.#lookAgainAt = now() + ARRIVAL_START_RETRY_MS;
+        throw error;
+      }
+      if (start === null) {
+        // No stamped block yet: look again in hours, not on every ten-minute pass.
+        this.#lookAgainAt = now() + ARRIVAL_START_RETRY_MS;
+        this.deps.log("block arrival: no stamped block yet, looking again in 6 hours");
+        return { computed: 0, aborted: false };
+      }
+      const days = await arrivalDaysToCompute(this.deps.pool, sec(), start);
+      if (days.length === 0) return { computed: 0, aborted: false };
       let computed = 0;
       const units: Array<() => Promise<void>> = [
         ...days.map((d) => async () => {

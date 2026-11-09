@@ -208,7 +208,7 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     blocks: "Blocks with a header timestamp that UTC day.",
     measured:
       "Of those, stored by this project's follower within 600 seconds of their header timestamp: the blocks the percentiles are over.",
-    late: "Of those, stored more than 600 seconds after: an outage of ours (a restart, a node swap), left out of the percentiles.",
+    late: "Of those, stored more than 600 seconds after: almost always an outage of ours (a restart, a node swap), left out of the percentiles.",
     p50_seconds:
       "Median seconds from header timestamp to storage, nearest rank. Negative when a miner's clock ran ahead. NULL below 10 measured blocks.",
     p90_seconds: "90th percentile of the same, nearest rank. NULL below 10 measured blocks.",
@@ -347,7 +347,7 @@ const TABLE_INTROS: Record<string, string> = {
   nsm_daily:
     "Fees removed from circulation into the Network Sustainability Mechanism per UTC day: from NU7 (height 3,543,405), floor(6 × fees / 10) of each block (ZIP 235). Empty before NU7 activates. Equal to `supply_daily`'s NSM columns.",
   block_arrival_daily:
-    "How old each UTC day's blocks were, by their own header timestamp, when this project's follower first stored them. Recording began 2026-08-17: blocks indexed before then, or written by the backfiller, carry no stamp and are counted in `blocks` only. The age adds the miner's timestamp lag, propagation and about 5 to 10 seconds of our own latency; it is not a clock-skew measurement. Percentiles do not add up across days.",
+    "How old each UTC day's blocks were, by their own header timestamp, when this project's follower first stored them. Recording began 2026-08-17: blocks indexed before then, or written by the backfiller, carry no stamp and are counted in `blocks` only. The age adds the miner's timestamp lag, propagation and about 5 to 10 seconds of our own latency; it is not a clock-skew measurement, and it cannot separate a miner's lag from its propagation. Percentiles do not add up across days.",
   nu7_capable_releases:
     "The first stable release of each node client that activates NU7 on mainnet. Join with `node_releases_daily` on `client`; a release is capable when its `version` is at least `min_version`, compared number by number. Release candidates are not covered. The protocol version alone is not enough: Zakura 1.5.0 to 1.6.0 also declare 170190.",
   hashrate_daily: "Estimated network solution rate per UTC day, from difficulty.",

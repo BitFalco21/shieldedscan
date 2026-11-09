@@ -1286,7 +1286,7 @@ export const MINING_GROUP: ApiGroup = {
     "window": "7d"
   },
   "coverage": {
-    "status": "complete",
+    "status": "partial",
     "notes": [
       "The newest day holds today and is still running."
     ]
@@ -1295,7 +1295,7 @@ export const MINING_GROUP: ApiGroup = {
     "name": "ShieldedScan",
     "url": "https://shieldedscan.xyz/charts/block-arrival-age"
   },
-  "basis": "A block's age on arrival is the time from its own header timestamp to the moment this explorer's follower first stored it. It adds up the miner's timestamp lag (a miner stamps a template and keeps mining on it without moving the time forward), the network's propagation to our node, and our own poll and store latency (about 5 to 10 seconds), less any error between the two clocks; only the first differs by pool. A negative age is a miner's clock ahead of ours and is kept as measured. A block stored more than \`lateSeconds\` after its header time is our outage (a node swap, a restart) and is left out of the percentiles, counted in \`late\`. Percentiles are nearest-rank whole seconds over a group's measured blocks, null below \`minBlocks\`; they do not add or average across days. A pool is this explorer's reviewed label on payout addresses; every other block is \`unattributed\`. Days are UTC by header timestamp.",
+  "basis": "A block's age on arrival is the time from its own header timestamp to the moment this explorer's follower first stored it. It adds up the miner's timestamp lag (a miner stamps a template and keeps mining on it without moving the time forward), the network's propagation to our node, and our own poll and store latency (about 5 to 10 seconds), less any error between the two clocks. Mostly the first differs by pool, though propagation can too, and the figure cannot separate them. A negative age is a miner's clock ahead of ours and is kept as measured. A block stored more than \`lateSeconds\` after its header time, almost always our own outage (a node swap, a restart), is left out of the percentiles, counted in \`late\`. Percentiles are nearest-rank whole seconds over a group's measured blocks, null below \`minBlocks\`; they do not add or average across days. A pool is this explorer's reviewed label on payout addresses; every other block is \`unattributed\`. Days are UTC by header timestamp.",
   "data": {
     "recordingSince": "2026-05-04",
     "lateSeconds": 600,
@@ -1304,6 +1304,7 @@ export const MINING_GROUP: ApiGroup = {
       "key": "7d",
       "fromDay": "2026-07-06",
       "toDay": "2026-07-12",
+      "computedAt": 1783875480,
       "groups": [
         {
           "group": "all",
@@ -1404,8 +1405,8 @@ export const MINING_GROUP: ApiGroup = {
 }`,
       notes: [
         "The example response is abridged to four groups and the newest day.",
-        "An age adds up the miner's timestamp lag, propagation to our node and our own 5 to 10 seconds of poll and store latency, less any error between the clocks. It is not a clock-skew measurement; only the miner's lag differs by pool.",
-        "A negative age is a miner's clock ahead of ours, kept as measured. A block stored more than `lateSeconds` after its header time is our outage: left out of the percentiles and counted in `late`.",
+        "An age adds up the miner's timestamp lag, propagation to our node and our own 5 to 10 seconds of poll and store latency, less any error between the clocks. It is not a clock-skew measurement; mostly the miner's lag differs by pool, though propagation can too, and the figure cannot separate them.",
+        "A negative age is a miner's clock ahead of ours, kept as measured. A block stored more than `lateSeconds` after its header time, almost always our outage, is left out of the percentiles and counted in `late`.",
         "Percentiles are nearest-rank whole seconds, null with reason `unmeasured` below `minBlocks` measured blocks. They do not add or average: a window's figures are computed over its own blocks.",
         "Recording began on `recordingSince`: the follower stamps blocks as it stores them, and blocks written by the backfiller carry no stamp (`unstamped`).",
       ],

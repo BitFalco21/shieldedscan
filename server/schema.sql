@@ -385,7 +385,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS address_tx_count_log_state (
 -- stored it (`block.received_at − block.timestamp`), per UTC day and reviewed mining pool. Kept by
 -- the API's `BlockArrivalTracker` (`server/block-arrival.ts`); recording begins with the follower's
 -- first stamp, and nothing earlier exists. `grp` is `all`, a mining pool id, or `unattributed`.
--- `measured` excludes blocks stored past 600 s (`late`: our outage, not the miner's); the rest of
+-- `measured` excludes blocks stored past 600 s (`late`: almost always our outage); the rest of
 -- `blocks` carries no stamp. Percentiles are nearest-rank whole seconds, NULL below 10 measured.
 CREATE TABLE IF NOT EXISTS block_arrival_day (
   day         DATE    NOT NULL,

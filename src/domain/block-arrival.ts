@@ -8,11 +8,12 @@ import { MINING_POOLS } from "./mining-pools";
  * Not a clock-skew measurement. The figure adds up the miner's timestamp lag (a miner stamps a
  * template and grinds on it without rolling the time forward), the network's propagation to our
  * node, and our own 5-second poll and store latency, minus any error between the two clocks. Only
- * the first term differs by pool, which is why the comparison is by pool.
+ * the first term is meant to differ by pool, which is why the comparison is by pool; propagation
+ * can differ by pool too, and the figure cannot separate the two.
  *
  * A negative age is a miner's clock ahead of ours and is kept as measured, never clamped. A block
- * stored more than `ARRIVAL_LATE_SECONDS` after its header time is our own outage (a node swap, a
- * follower restart): it is left out of every percentile and counted in `late`. A block with no
+ * stored more than `ARRIVAL_LATE_SECONDS` after its header time is almost always our own outage (a
+ * node swap, a follower restart): it is left out of every percentile and counted in `late`. A block with no
  * stamp (written by the backfiller, or before recording began) is in `blocks` only.
  */
 
@@ -43,7 +44,7 @@ export interface BlockArrivalCell {
   blocks: number;
   /** Stamped and stored within `ARRIVAL_LATE_SECONDS`: the blocks the percentiles are over. */
   measured: number;
-  /** Stamped, but stored past `ARRIVAL_LATE_SECONDS`: our outage, left out. */
+  /** Stamped, but stored past `ARRIVAL_LATE_SECONDS`: almost always our outage; left out. */
   late: number;
   /** Nearest-rank median age in whole seconds; null below `ARRIVAL_MIN_BLOCKS` measured. */
   p50Seconds: number | null;
@@ -65,6 +66,8 @@ export interface BlockArrivalWindow {
   /** First and last UTC day covered, inclusive; the last is today. */
   fromDay: string;
   toDay: string;
+  /** Unix seconds the tracker computed it: a window whose `toDay` is not today has gone stale. */
+  computedAt: number;
   groups: BlockArrivalCell[];
 }
 
