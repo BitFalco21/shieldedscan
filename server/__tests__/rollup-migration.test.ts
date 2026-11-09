@@ -174,20 +174,19 @@ run("migrating from the views to the rollup tables", () => {
     // new block landed in included.
     expect(await pendingMarks(pool)).toBe(marked);
     expect(await snapshot()).toEqual(before);
-    // A wrong all-time total is caught although the catch-up would rewrite it from scratch.
+    // With the marks still pending: a wrong all-time total is caught although the catch-up would
+    // rewrite it from scratch, and a wrong row in a period no mark touches is not masked by it.
     await pool.query(
       "UPDATE chain_tx_kind_count_next SET txs = txs + 1 WHERE kind = (SELECT min(kind) FROM chain_tx_kind_count_next)",
     );
-    const totals = await checkRollups(pool, { live: true });
-    const kindCount = totals.find((r) => r.table === "chain_tx_kind_count_next");
-    expect(kindCount?.verdict).toBe("FAIL");
-    expect(kindCount?.detail).toMatch(/before any catch-up/);
-    await store.refreshRollups();
-    // A wrong row in a period no mark touches still fails.
     await pool.query(
       "UPDATE chain_day_pool_tx_next SET txs = txs + 1 WHERE day = (SELECT min(day) FROM chain_day_pool_tx_next)",
     );
+    expect(await pendingMarks(pool)).toBe(marked);
     const wrong = await checkRollups(pool, { live: true });
+    const kindCount = wrong.find((r) => r.table === "chain_tx_kind_count_next");
+    expect(kindCount?.verdict).toBe("FAIL");
+    expect(kindCount?.detail).toMatch(/before any catch-up/);
     expect(wrong.find((r) => r.table === "chain_day_pool_tx_next")?.verdict).toBe("FAIL");
     await fill();
     await store.refreshRollups();
