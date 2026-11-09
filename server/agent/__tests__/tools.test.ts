@@ -2647,6 +2647,18 @@ describe("chain_activity", () => {
   });
 
   describe("pool-balances", () => {
+    it("fetches one period earlier and hands over each point's change from the one before", async () => {
+      const res = await call({
+        mode: "pool-balances",
+        from: "2026-03-01",
+        to: "2026-06-01",
+        groupBy: "month",
+      });
+      expect(res.endpoints[0]).toContain("from=2026-02-01");
+      expect(res.content).not.toMatch(/THIS READ CANNOT BE USED/);
+      expect(res.content).toMatch(/baselineOnly/);
+    });
+
     it("lists months for groupBy none, and its error names every value it accepts", async () => {
       const none = await call({ mode: "pool-balances", groupBy: "none" });
       expect(none.endpoints[0]).toContain("interval=month");

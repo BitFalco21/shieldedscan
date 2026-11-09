@@ -16,9 +16,11 @@ import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { type ToolArgs, windowDays } from "./args";
 import {
   compactMiningSeries,
+  priorPeriodStart,
   withMinerMiningPools,
   withoutBasis,
   withoutPoints,
+  withPoolBalanceChanges,
   withPoolCountReason,
   withRanking,
   withThroughput,
@@ -426,9 +428,15 @@ export function chainActivityCalls(
         return `groupBy must be ${orList(WINDOW_GROUP_BY)} — for pool balances none lists months`;
       }
       const interval = groupBy === "day" ? "day" : "month";
+      // One period earlier than asked, so the first asked period has a change to report too; the
+      // extra point is marked as the baseline. The echo is checked against what was fetched.
+      const fetched = {
+        from: days.from === null ? null : priorPeriodStart(days.from, interval),
+        to: days.to,
+      };
       const query = new URLSearchParams();
-      if (days.from !== null) query.set("from", days.from);
-      if (days.to !== null) query.set("to", days.to);
+      if (fetched.from !== null) query.set("from", fetched.from);
+      if (fetched.to !== null) query.set("to", fetched.to);
       query.set("interval", interval);
       return [
         {
@@ -437,7 +445,8 @@ export function chainActivityCalls(
           aggregate: {
             note: POOL_BALANCES_NOTE,
             emptyIsAnAnswer: true,
-            verify: (payload) => verifySeriesEcho(payload, days, interval, null),
+            enrich: (payload) => withPoolBalanceChanges(payload, fetched.from !== null),
+            verify: (payload) => verifySeriesEcho(payload, fetched, interval, null),
           },
         },
       ];
