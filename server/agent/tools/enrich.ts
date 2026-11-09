@@ -362,8 +362,13 @@ export function withThroughput(payload: unknown, nowMs: number): unknown {
       typeof b[k] === "number" ? (b[k] as number) : null,
     );
     const days = typeof b.daysCovered === "number" ? b.daysCovered : null;
+    // The bucket's total, handed over so a "how many transactions" answer quotes it rather than
+    // adding the three kinds in a calculator round. Same sum as the `transactions` ranking.
+    const totalTxs = counts.some((c) => c === null)
+      ? {}
+      : { totalTxs: counts.reduce<number>((sum, c) => sum + (c ?? 0), 0) };
     if (counts.some((c) => c === null) || days === null || days <= 0) {
-      return { ...b, transactionsPerSecond: null };
+      return { ...b, ...totalTxs, transactionsPerSecond: null };
     }
     // A bucket is sound only if every day in it has finished. Its timestamp is its first day, so the
     // last day it covers is `timestamp + (days - 1)`.
@@ -372,6 +377,7 @@ export function withThroughput(payload: unknown, nowMs: number): unknown {
     if (lastDayStart === null || lastDayStart >= todayStart) {
       return {
         ...b,
+        ...totalTxs,
         transactionsPerSecond: null,
         transactionsPerSecondUnknown:
           "this period includes today, which is still in progress — a partial day divided by a whole one would understate the rate",
@@ -380,6 +386,7 @@ export function withThroughput(payload: unknown, nowMs: number): unknown {
     const total = counts.reduce<number>((sum, c) => sum + (c ?? 0), 0);
     return {
       ...b,
+      ...totalTxs,
       // Six decimals: with 75-second blocks the figure is small, and two decimals would print 0.04 for
       // every day of the chain's history.
       transactionsPerSecond: Number((total / (days * DAY_SECONDS)).toFixed(6)),
@@ -854,4 +861,70 @@ export function compactMiningSeries(payload: unknown): unknown {
       };
     }),
   };
+}
+
+/**
+ * The first day of the period before the one holding `day`: the baseline a pool-balance series
+ * needs so its first asked period carries a change too.
+ */
+export function priorPeriodStart(day: string, interval: "day" | "month"): string {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  if (interval === "day") return utcDayFromMs(t - DAY_MS);
+  const d = new Date(t);
+  return utcDayFromMs(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
+}
+
+/**
+ * Each pool-balance point's change from the point before it, per pool and in total, so "how did the
+ * balance change month by month" is quoted rather than subtracted in calculator rounds. A balance
+ * is a level, so the difference of two closes is exact; it is still NET, as the note says.
+ *
+ * A point dated before `askedFrom` is the period before the window, fetched only to give the first
+ * asked period its change: it is marked, so it is never reported as part of the window.
+ */
+export function withPoolBalanceChanges(
+  payload: unknown,
+  askedFrom: string | null,
+  interval: "day" | "month",
+): unknown {
+  const body = asRecord(payload);
+  const p = asRecord(body?.data);
+  if (body === null || p === null || !Array.isArray(p.points)) return payload;
+  const zatOf = (v: unknown): number | null => {
+    const r = asRecord(v);
+    return r !== null && typeof r.zat === "number" ? r.zat : null;
+  };
+  const askedStart =
+    askedFrom === null ? null : interval === "month" ? `${askedFrom.slice(0, 7)}-01` : askedFrom;
+  const points = p.points.map((point, i, all) => {
+    const cur = asRecord(point);
+    if (cur === null) return point;
+    // Only a point dated before the asked period is the baseline: where the series starts at or
+    // after `askedFrom` (a window reaching back to launch), its first point is part of the answer.
+    const marked =
+      askedStart !== null && typeof cur.periodStart === "string" && cur.periodStart < askedStart
+        ? { baselineOnly: true }
+        : {};
+    const prev = i > 0 ? asRecord(all[i - 1]) : null;
+    if (prev === null) return { ...cur, ...marked };
+    const curPools = asRecord(cur.pools) ?? {};
+    const prevPools = asRecord(prev.pools) ?? {};
+    const pools: Record<string, { changeZat: number } | null> = {};
+    for (const name of Object.keys(curPools)) {
+      const a = zatOf(curPools[name]);
+      const b = zatOf(prevPools[name]);
+      pools[name] = a === null || b === null ? null : { changeZat: a - b };
+    }
+    const t = zatOf(cur.totalShielded);
+    const u = zatOf(prev.totalShielded);
+    return {
+      ...cur,
+      ...marked,
+      changeFromPrevious: {
+        pools,
+        totalShielded: t === null || u === null ? null : { changeZat: t - u },
+      },
+    };
+  });
+  return { ...body, data: { ...p, points } };
 }
