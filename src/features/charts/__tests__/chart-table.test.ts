@@ -121,8 +121,11 @@ describe("the catalogue", () => {
     for (const c of CHARTS) {
       if (c.api === null) {
         // The series the public API does not carry yet: no endpoint serves the release record, the
-        // transparent balance by day, or the issuance curve. Each page says so.
-        expect(["upgrade-readiness", "shielded-share", "supply-issuance"]).toContain(c.slug);
+        // transparent balance by day, the issuance curve, or the observed orphan rate. Each page says
+        // so.
+        expect(["upgrade-readiness", "shielded-share", "supply-issuance", "orphan-rate"]).toContain(
+          c.slug,
+        );
         continue;
       }
       expect(documented.get(c.api.docsId), c.slug).toBe(c.api.path);

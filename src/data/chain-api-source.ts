@@ -35,6 +35,7 @@ import type {
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
+  OrphanRateSeries,
   TransparentDayPoint,
   NetworkDayPoint,
   PoolMigrationDayPoint,
@@ -669,6 +670,42 @@ export function createChainApiSource(config: ChainApiConfig) {
         )
       ) {
         throw new Error("chain API returned an unrecognised reorg weeks shape");
+      }
+      return series;
+    },
+
+    async getOrphanRate(): Promise<OrphanRateSeries> {
+      const body = await json<unknown>(
+        await request(config, "/chain/reorgs/orphan-rate", CACHE_MINUTE),
+        "orphan rate",
+      );
+      const series = body as OrphanRateSeries;
+      const isSpan = (s: { orphans?: unknown; blocks?: unknown }) =>
+        typeof s?.orphans === "number" && typeof s?.blocks === "number";
+      const timeOrNull = (v: unknown) => v === null || typeof v === "number";
+      if (
+        typeof series?.observingSince !== "number" ||
+        typeof series.asOf !== "number" ||
+        !(
+          series.upgrade === null ||
+          (typeof series.upgrade?.name === "string" &&
+            typeof series.upgrade.height === "number" &&
+            timeOrNull(series.upgrade.activatedAt))
+        ) ||
+        !Array.isArray(series.days) ||
+        !series.days.every(
+          (d) => isSpan(d) && typeof d.timestamp === "number" && typeof d.partial === "boolean",
+        ) ||
+        !Array.isArray(series.windows) ||
+        !series.windows.every(
+          (w) =>
+            isSpan(w) &&
+            typeof w.key === "string" &&
+            timeOrNull(w.firstBlockAt) &&
+            timeOrNull(w.lastBlockAt),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised orphan rate shape");
       }
       return series;
     },

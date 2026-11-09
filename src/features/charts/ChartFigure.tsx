@@ -56,6 +56,7 @@ import {
   type ChartCell,
   type ChartTable,
 } from "./chart-table";
+import { OrphanRateChart } from "./OrphanRateChart";
 import { RankedBarsChart } from "./RankedBarsChart";
 import { poolBands, poolLines } from "./pool-series";
 
@@ -628,6 +629,12 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ariaLabel="Reorganisations this explorer's node observed per week"
         />
       );
+    }
+    case "orphan-rate": {
+      if (!data.orphanRate || data.orphanRate.days.length === 0) {
+        return unavailable("The orphan rate");
+      }
+      return <OrphanRateChart series={data.orphanRate} />;
     }
     case "inflow-by-chain":
     case "outflow-by-chain":

@@ -170,6 +170,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getReorgWeeks() {
     return chartSeries.getReorgWeeks();
   },
+  async getOrphanRate() {
+    return chartSeries.getOrphanRate();
+  },
   async listMempool(page, pageSize) {
     const { entries, totalPages } = fixtures.listMempool(page, pageSize);
     return { items: entries, totalPages };

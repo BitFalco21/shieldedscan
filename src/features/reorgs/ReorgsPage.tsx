@@ -1,4 +1,4 @@
-import type { ReorgEvent, ReorgSummary } from "@/domain";
+import type { OrphanRateSeries, ReorgEvent, ReorgSummary } from "@/domain";
 import { utcDayFromSeconds } from "@/domain";
 import { CopyButton } from "@/components/CopyButton";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -10,6 +10,8 @@ import { StatGrid } from "@/components/StatGrid";
 import { formatCount, formatUtc, shortHash, timeAgo } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { ChartFigure } from "@/features/charts/ChartFigure";
+import { chartData } from "@/features/charts/chart-data";
 
 const COLUMNS: TableColumn[] = [
   { label: "HEIGHT" },
@@ -56,6 +58,8 @@ function EmptyReorgs({ since }: { since: number }) {
 export interface ReorgsPageProps {
   events: ReorgEvent[];
   summary: ReorgSummary;
+  /** Null when it could not be read: the panel says so and the log still renders. */
+  orphanRate: OrphanRateSeries | null;
   now: number;
   /** Href for the previous (newer) page; null when already at the head. */
   newerHref: string | null;
@@ -70,6 +74,7 @@ export interface ReorgsPageProps {
 export function ReorgsPage({
   events,
   summary,
+  orphanRate,
   now,
   newerHref,
   olderHref,
@@ -83,6 +88,13 @@ export function ReorgsPage({
         title="Reorgs"
         lede={`Chain reorganisations our own node observed and rolled back — one node's view of tip churn since ${formatUtc(summary.observingSince)}, not a census of the network.`}
       />
+
+      <Panel title="OBSERVED ORPHAN RATE" className="mb-3">
+        <ChartFigure
+          slug="orphan-rate"
+          data={chartData({ orphanRate, asOf: orphanRate?.asOf ?? 0 })}
+        />
+      </Panel>
 
       <StatGrid columns={3}>
         <StatCard

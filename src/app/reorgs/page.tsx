@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getDataSource } from "@/data";
 import { cursorNavHrefs } from "@/app/_shared/cursor-nav";
 import { nowSeconds } from "@/lib/clock";
+import { nullIfTransient } from "@/lib/transient-upstream";
 import { ReorgsPage } from "@/features/reorgs/ReorgsPage";
 
 // Tip-sensitive: skip Next's fetch Data Cache (ARCHITECTURE.md, "Caching and freshness").
@@ -21,15 +22,18 @@ export default async function Page({
 }) {
   const { before, after } = await searchParams;
   const data = getDataSource();
-  const [{ items: events, nextCursor, prevCursor }, summary] = await Promise.all([
+  const [{ items: events, nextCursor, prevCursor }, summary, orphanRate] = await Promise.all([
     data.listReorgEvents({ before, after, limit: PAGE_SIZE }),
     data.getReorgSummary(),
+    // Optional: a failed read costs the chart, never the log.
+    nullIfTransient(() => data.getOrphanRate()),
   ]);
   // Wall clock: `detectedAt` is the follower's clock, an off-chain event like a swap.
   return (
     <ReorgsPage
       events={events}
       summary={summary}
+      orphanRate={orphanRate}
       now={nowSeconds()}
       {...cursorNavHrefs({ nextCursor, prevCursor }, (step) =>
         step ? `/reorgs?${step.name}=${encodeURIComponent(step.value)}` : "/reorgs",

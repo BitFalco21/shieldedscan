@@ -38,6 +38,7 @@ export type ChartSlug =
   | "upgrade-readiness"
   | "miner-concentration"
   | "reorgs"
+  | "orphan-rate"
   | "inflow-by-chain"
   | "outflow-by-chain"
   | "volume-by-venue"
@@ -318,6 +319,17 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "How many reorganisations this explorer's own node observed each week, with the deepest of the week. Depth-1 reorgs are routine on proof of work.",
       "One node's record from the day it began watching, not a census of the network: a block orphaned and replaced between two polls is never seen, and no week before observation began is drawn.",
+    ],
+  },
+  {
+    slug: "orphan-rate",
+    title: "Observed orphan rate",
+    category: "Network & nodes",
+    api: null,
+    blurb: "Blocks this explorer's node saw orphaned, per canonical block, daily.",
+    description: [
+      "Each UTC day's orphaned blocks as a share of its canonical blocks, over the last sixty days, with the rate over standing windows and on either side of NU7. A depth-2 reorg is two orphans. Each orphan is counted on the day of the block it competed with, by header time, so both counts share one clock.",
+      "One node's view, so the network's rate can only be higher: a competing block our node never received is not counted. The same node and the same polling since recording began is what makes the before-and-after comparison like with like. NU7 cut the block time from 75 to 25 seconds, which is why the canonical count per day tripled.",
     ],
   },
   {

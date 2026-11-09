@@ -150,7 +150,7 @@ if (USE_POSTGRES) {
   log("analytics routes mounted against the rollup table");
   // The observed-reorg log the follower writes. Postgres, not the node: Zakura has no getchaintips,
   // and only the follower witnessed what it rolled back.
-  app.route("/", reorgRoutes(DATABASE_URL));
+  app.route("/", reorgRoutes(DATABASE_URL, { network: NETWORK }));
   log("reorg routes mounted against the audit log");
   // The chart library's newer series: note trees, transparent days, miner shares, blocks per day.
   app.route("/", chartSeriesRoutes(DATABASE_URL));

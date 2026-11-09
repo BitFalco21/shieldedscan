@@ -47,6 +47,13 @@ export interface StackedBarChartProps {
   before?: { slots: number; note: string } | null;
   /** Readout rows: every series, or the total alone when a companion states the breakdown. */
   readout?: "series" | "total";
+  /** The readout's name for the total; a one-series chart names its measure. */
+  totalLabel?: string;
+  /**
+   * Readout rows stated beside the bars, pre-formatted per period, above the total: the counts a
+   * rate is made of, which belong in the readout and not on the axis.
+   */
+  contextRows?: { name: string; values: string[] }[];
   onActiveChange?: (index: number | null) => void;
 }
 
@@ -70,6 +77,8 @@ export function StackedBarChart({
   marker = null,
   before = null,
   readout = "series",
+  totalLabel = "Total",
+  contextRows = [],
   onActiveChange,
 }: StackedBarChartProps) {
   // React's ids carry punctuation a `url(#…)` reference may not survive.
@@ -101,20 +110,22 @@ export function StackedBarChart({
     height: CHART_H,
   };
 
-  const rows =
-    readout === "series"
+  const rows = [
+    ...(readout === "series"
       ? series.map((s) => ({
           name: s.label,
           colorClass: s.colorClass,
           values: labels.map((_, i) => formatValue(s.values[i] ?? 0)),
         }))
-      : [];
+      : []),
+    ...contextRows,
+  ];
 
   return (
     <ChartHover
       labels={readoutLabels ?? labels}
       rows={rows}
-      total={{ name: "Total", values: totals.map(formatValue) }}
+      total={{ name: totalLabel, values: totals.map(formatValue) }}
       mode="bands"
       plotStart={frame.plotStart}
       plotEnd={frame.plotEnd}
