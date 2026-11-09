@@ -42,14 +42,7 @@ describe("IssuanceChart", () => {
     const labels = [...container.querySelectorAll("text.chart-marker-label")].map(
       (t) => t.textContent,
     );
-    expect(labels).toEqual([
-      "now",
-      "halving 3",
-      "reissuance",
-      "halving 4",
-      "halving 5",
-      "halving 6",
-    ]);
+    expect(labels).toEqual(["now", "halving 3", "halving 4", "halving 5", "halving 6"]);
     // A rule per marker, plus the cap.
     expect(container.querySelectorAll(".chart-marker line")).toHaveLength(labels.length + 1);
     const ruleX = [...container.querySelectorAll(".chart-marker line")]
@@ -70,8 +63,8 @@ describe("IssuanceChart", () => {
     );
     const labels = container.querySelectorAll("text.chart-marker-label");
     const rules = container.querySelectorAll(".chart-marker line");
-    expect(rules).toHaveLength(7);
-    expect(labels.length).toBeLessThan(6);
+    expect(rules).toHaveLength(6);
+    expect(labels.length).toBeLessThan(5);
     expect(labels.length).toBeGreaterThan(0);
   });
 

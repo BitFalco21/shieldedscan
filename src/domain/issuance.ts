@@ -1,7 +1,6 @@
 import {
   BLOSSOM_HEIGHT,
   NU7_HEIGHT,
-  REISSUANCE_START_HEIGHT,
   estimateSecondsBetween,
   halvingHeight,
   nextHalvingHeight,
@@ -18,8 +17,9 @@ import { DAY_SECONDS } from "./time";
  * NSM balance equal it to the zatoshi (checked against the node at 3,555,246). What is estimated
  * is only when a future height arrives, which `estimateSecondsBetween` answers for the whole site.
  *
- * The scheduled part only. From `REISSUANCE_START_HEIGHT` each block also reissues a share of the
- * ZEC removed from circulation (ZIP 237), which depends on removals nobody can know in advance.
+ * Reissuance changes nothing here. From `REISSUANCE_START_HEIGHT` each block also pays out part of
+ * the NSM balance (ZIP 237), but that moves ZEC from the NSM into the pools: their sum, which is
+ * this total, does not move.
  */
 
 /** `SlowStartInterval`: the first 20,000 blocks ramped the subsidy up (§7.8). */
@@ -77,11 +77,11 @@ export interface IssuancePoint {
   issuedZat: number;
 }
 
-/** A scheduled change ahead of the tip, marked on the chart. */
+/** A halving ahead of the tip, marked on the chart. */
 export interface IssuanceEvent {
-  kind: "halving" | "reissuance";
-  /** The halving's number (1 is Canopy's); absent for reissuance. */
-  index?: number;
+  kind: "halving";
+  /** The halving's number: 1 is Canopy's. */
+  index: number;
   height: number;
   /** Estimated. */
   at: number;
@@ -96,7 +96,7 @@ export interface IssuanceOutlook {
    * subsidy or the block time changes. Issuance is linear in time between two of them.
    */
   projected: IssuancePoint[];
-  /** Future halvings and the start of reissuance, within the projection. */
+  /** Future halvings, within the projection. */
   events: IssuanceEvent[];
 }
 
@@ -160,9 +160,6 @@ export function issuanceOutlook(
   const breaks = new Set<number>();
   for (let h = tip.height; h < end; h = nextHalvingHeight(h)) breaks.add(nextHalvingHeight(h));
   if (NU7_HEIGHT > tip.height) breaks.add(NU7_HEIGHT);
-  if (REISSUANCE_START_HEIGHT > tip.height && REISSUANCE_START_HEIGHT < end) {
-    breaks.add(REISSUANCE_START_HEIGHT);
-  }
   const projected = [tip.height, ...[...breaks].filter((h) => h <= end).sort((a, b) => a - b)].map(
     point,
   );
@@ -172,14 +169,6 @@ export function issuanceOutlook(
     const height = halvingHeight(i);
     if (height > tip.height) events.push({ kind: "halving", index: i, height, at: at(height) });
   }
-  if (REISSUANCE_START_HEIGHT > tip.height && REISSUANCE_START_HEIGHT < end) {
-    events.push({
-      kind: "reissuance",
-      height: REISSUANCE_START_HEIGHT,
-      at: at(REISSUANCE_START_HEIGHT),
-    });
-  }
-  events.sort((a, b) => a.height - b.height);
 
   return { observed, projected, events };
 }

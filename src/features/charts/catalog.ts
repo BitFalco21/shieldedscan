@@ -94,7 +94,7 @@ export const CHARTS: ChartEntry[] = [
     blurb: "ZEC issued so far, and the schedule's path toward the 21M cap.",
     description: [
       "Issued ZEC at each day's closing block, then the issuance schedule projected to the sixth halving. Issued is what the schedule has paid out through a block: the six value pools plus the NSM balance add up to it to the zatoshi.",
-      "Heights in the projection are consensus; their dates are estimates at the observed block rate. Reissuance (ZIP 237) starts at block 8,939,664 and depends on how much ZEC is removed from circulation, so it is left out: past that block the dashed line is a floor.",
+      "Heights in the projection are consensus; their dates are estimates at the observed block rate. From block 8,939,664 blocks also pay out part of the NSM balance (ZIP 237); that ZEC is already counted here, so the total is unchanged.",
     ],
   },
   {

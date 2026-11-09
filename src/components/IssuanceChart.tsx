@@ -28,9 +28,7 @@ const MONTH_SECONDS = 30.4375 * 86_400;
 const LABEL_ROWS = 2;
 
 /** A marker's label, as the chart prints it. */
-function markerLabel(event: IssuanceEvent): string {
-  return event.kind === "halving" ? `halving ${event.index}` : "reissuance";
-}
+const markerLabel = (event: IssuanceEvent) => `halving ${event.index}`;
 
 /**
  * Issued ZEC over time: observed and filled up to now, then the schedule dashed to its end, against

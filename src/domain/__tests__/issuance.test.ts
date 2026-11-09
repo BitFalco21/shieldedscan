@@ -110,7 +110,6 @@ describe("issuanceOutlook", () => {
       tip.height,
       NU7_HEIGHT,
       halvingHeight(3),
-      REISSUANCE_START_HEIGHT,
       halvingHeight(4),
       halvingHeight(5),
       halvingHeight(6),
@@ -122,10 +121,10 @@ describe("issuanceOutlook", () => {
     }
   });
 
-  it("marks the halvings ahead and the start of reissuance, with /halving's dates", () => {
-    expect(outlook.events.map((e) => [e.kind, e.index ?? null, e.height])).toEqual([
+  it("marks the halvings ahead with /halving's dates, and nothing at reissuance", () => {
+    // Reissuance pays out of the NSM balance, which this total already counts: no change to mark.
+    expect(outlook.events.map((e) => [e.kind, e.index, e.height])).toEqual([
       ["halving", 3, halvingHeight(3)],
-      ["reissuance", null, REISSUANCE_START_HEIGHT],
       ["halving", 4, halvingHeight(4)],
       ["halving", 5, halvingHeight(5)],
       ["halving", PROJECTED_THROUGH_HALVING, halvingHeight(PROJECTED_THROUGH_HALVING)],

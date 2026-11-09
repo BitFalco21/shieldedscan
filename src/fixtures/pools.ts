@@ -4,7 +4,8 @@ import type {
   ShieldedPool,
   ShieldedSupplyPoint,
 } from "@/domain";
-import { TIP_HEIGHT, TIP_TIME } from "./ids";
+import { HALVING_TIP_HEIGHT } from "./halving";
+import { TIP_TIME } from "./ids";
 
 export const pools: ShieldedPool[] = [
   { pool: "orchard", balanceZat: 194_000_000_000_000 },
@@ -31,6 +32,13 @@ const SUPPLY_DAYS = 400;
 const SUPPLY_END_ZAT = pools.reduce((sum, p) => sum + p.balanceZat, 0);
 const SUPPLY_START_ZAT = Math.round(SUPPLY_END_ZAT / 16);
 
+/**
+ * The supply series' last day: today, like the halving schedule's `asOf`, and closing on the
+ * schedule's tip. Both are what the issuance chart reads, and a series ending months before the
+ * tip would draw a jump to "now" that no chain makes. The other fixture charts keep `TIP_TIME`.
+ */
+const SUPPLY_LAST_DAY = Math.floor(Date.now() / 86_400_000) * 86_400;
+
 /** ~13 months of total shielded supply, one point per day, rising with a little texture. */
 export const supplySeries: ShieldedSupplyPoint[] = Array.from({ length: SUPPLY_DAYS }, (_, i) => {
   const age = SUPPLY_DAYS - 1 - i;
@@ -40,8 +48,8 @@ export const supplySeries: ShieldedSupplyPoint[] = Array.from({ length: SUPPLY_D
   return {
     // One point per day, matching the live series' grain, so the chart's time axis has
     // something real to label.
-    timestamp: TIP_TIME - age * 86_400,
-    height: TIP_HEIGHT - age * BLOCKS_PER_DAY,
+    timestamp: SUPPLY_LAST_DAY - age * 86_400,
+    height: HALVING_TIP_HEIGHT - age * BLOCKS_PER_DAY,
     totalZat:
       Math.round(SUPPLY_START_ZAT + ((SUPPLY_END_ZAT - SUPPLY_START_ZAT) * i) / (SUPPLY_DAYS - 1)) +
       wobble,

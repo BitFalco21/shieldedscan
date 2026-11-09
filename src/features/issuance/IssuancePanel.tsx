@@ -64,8 +64,9 @@ export function IssuancePanel({ snapshot }: IssuancePanelProps) {
       />
       <p className="mt-2 text-xs leading-relaxed text-ink-faint">
         Solid: issued at each day&apos;s closing block. Dashed: the schedule ahead, dated at the
-        observed block rate, so every date is an estimate. Reissuance from block{" "}
-        {formatCount(REISSUANCE_START_HEIGHT)} is not included.
+        observed block rate, so every date is an estimate. From block{" "}
+        {formatCount(REISSUANCE_START_HEIGHT)} blocks also pay out part of the NSM balance; that ZEC
+        is already counted here, so the total is unchanged.
       </p>
     </div>
   );

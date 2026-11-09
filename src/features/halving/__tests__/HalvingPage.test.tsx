@@ -328,7 +328,12 @@ describe("issuance", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("Issued supply");
     expect(text).toContain(`block ${supply.height.toLocaleString("en-US")}`);
-    expect(text).toMatch(/Reissuance from block 8,939,664 is not included/);
+    expect(text).toMatch(
+      /From block 8,939,664 blocks also pay out part of the NSM balance; that ZEC is already counted here, so the total is unchanged/,
+    );
+    expect(
+      container.querySelector("svg[aria-label^='ZEC issued over time']")?.textContent,
+    ).not.toMatch(/reissuance/i);
     expect(container.querySelector("svg[aria-label^='ZEC issued over time']")).not.toBeNull();
   });
 
