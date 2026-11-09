@@ -10,8 +10,8 @@ import { bindSelect, nextName, resolveTargets } from "./targets";
  * Proof that each rollup table equals the materialized view it replaces; it never writes.
  *
  * Before the swap it compares `<name>_next` with the view `<name>`; after it, the table `<name>`
- * with the retired view `<name>_old`. Each table is read in its own REPEATABLE READ, READ ONLY
- * transaction, under UTC like the pass.
+ * with the retired view `<name>_old`. Without `live`, each table is read in its own REPEATABLE READ,
+ * READ ONLY transaction, under UTC like the pass.
  *
  * A view is only as fresh as its last refresh, so its newest periods may differ because it is
  * behind. Such a period passes only if it ends within `BEHIND_SECONDS` of the newest period the
@@ -107,19 +107,39 @@ async function checkLive(
   table: RollupTable,
   pair: Pair,
 ): Promise<{ verdict: Verdict; detail: string }> {
-  const days = await markedDays(pool);
-  if (days > MAX_CATCH_UP_DAYS) {
-    return {
-      verdict: "UNVERIFIED",
-      detail: `${days} marked days wait; let the follower's passes drain them before a live check`,
-    };
-  }
+  const backlog = (days: number) => ({
+    verdict: "UNVERIFIED" as const,
+    detail: `${days} marked days wait; let the follower's passes drain them before a live check`,
+  });
+  // Read once before waiting for the lock, and again inside the transaction: a repair can mark a
+  // backlog while this waits, and the catch-up must never recompute one unpaced under the lock.
+  const before = await markedDays(pool);
+  if (before > MAX_CATCH_UP_DAYS) return backlog(before);
   const outcome = await withSessionLock(pool, ROLLUP_PASS_LOCK, { wait: true }, async (client) => {
     await beginRollupTransaction(client);
     try {
+      const days = await markedDays(client);
+      if (days > MAX_CATCH_UP_DAYS) return backlog(days);
       const resolution = await resolveTargets(client);
       if (!resolution.ok) {
         return { verdict: "FAIL" as const, detail: "the rollup tables could not be resolved" };
+      }
+      // The catch-up rewrites an all-time table whole, so comparing after it would prove the
+      // SELECT, never the stored rows. Every writer rewrites it with its day helpers in one
+      // transaction, so before the catch-up it must equal its SELECT over the stored helpers.
+      if (table.key === null) {
+        const stored = await diffRows(
+          client,
+          table,
+          pair.table,
+          `(${bindSelect(table.select, resolution.targets)})`,
+        );
+        if (!identical(stored)) {
+          return {
+            verdict: "FAIL" as const,
+            detail: `the stored totals differ from their own definition before any catch-up: ${describe(stored)}`,
+          };
+        }
       }
       await applyMarks(client, resolution.targets, Number.POSITIVE_INFINITY);
       const { rows } = await client.query<{ def: string }>(
@@ -131,7 +151,13 @@ async function checkLive(
       return identical(d)
         ? {
             verdict: "PASS" as const,
-            detail: `equal to the view's definition evaluated now, pending marks applied and rolled back (${describe(d)})`,
+            detail:
+              `equal to the view's definition evaluated now (${describe(d)}); ` +
+              (days === 0
+                ? "no marks were pending"
+                : `${days} marked day(s) recomputed first and rolled back, so rows in those days ` +
+                  "prove the definition, not what was stored") +
+              (table.key === null ? "; the stored totals equalled their definition before it" : ""),
           }
         : {
             verdict: "FAIL" as const,
@@ -141,7 +167,8 @@ async function checkLive(
       await client.query("ROLLBACK").catch(() => undefined);
     }
   });
-  return outcome ?? { verdict: "FAIL", detail: "could not take the rollup lock" };
+  // A waiting lock always returns the callback's value; null would mean it was never taken.
+  return outcome ?? { verdict: "UNVERIFIED", detail: "could not take the rollup lock" };
 }
 
 export async function checkTable(

@@ -165,13 +165,24 @@ run("migrating from the views to the rollup tables", () => {
     await refreshViews();
     const marked = await pendingMarks(pool);
     expect(marked).toBeGreaterThan(0);
-    const before = await pool.query("SELECT count(*)::int AS n FROM chain_day_rollup_next");
+    const snapshot = () =>
+      pool.query("SELECT * FROM chain_day_rollup_next ORDER BY 1").then((r) => r.rows);
+    const before = await snapshot();
     const live = await checkRollups(pool, { live: true });
     for (const r of live) expect(r.verdict, `${r.table}: ${r.detail}`).toBe("PASS");
-    // Rolled back: the marks still wait for the follower and the table is as it was.
+    // Rolled back: the marks still wait for the follower and every row is as it was, the day the
+    // new block landed in included.
     expect(await pendingMarks(pool)).toBe(marked);
-    const after = await pool.query("SELECT count(*)::int AS n FROM chain_day_rollup_next");
-    expect(after.rows[0].n).toBe(before.rows[0].n);
+    expect(await snapshot()).toEqual(before);
+    // A wrong all-time total is caught although the catch-up would rewrite it from scratch.
+    await pool.query(
+      "UPDATE chain_tx_kind_count_next SET txs = txs + 1 WHERE kind = (SELECT min(kind) FROM chain_tx_kind_count_next)",
+    );
+    const totals = await checkRollups(pool, { live: true });
+    const kindCount = totals.find((r) => r.table === "chain_tx_kind_count_next");
+    expect(kindCount?.verdict).toBe("FAIL");
+    expect(kindCount?.detail).toMatch(/before any catch-up/);
+    await store.refreshRollups();
     // A wrong row in a period no mark touches still fails.
     await pool.query(
       "UPDATE chain_day_pool_tx_next SET txs = txs + 1 WHERE day = (SELECT min(day) FROM chain_day_pool_tx_next)",

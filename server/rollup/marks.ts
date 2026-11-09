@@ -1,4 +1,3 @@
-import type { Pool } from "pg";
 /**
  * Writing the dirty-period log, `chain_rollup_dirty`.
  *
@@ -8,6 +7,8 @@ import type { Pool } from "pg";
  * to height, and a row being deleted or moved must mark the period it LEAVES as well as the one it
  * joins.
  */
+
+import type { Pool } from "pg";
 
 /**
  * Before `ingestBlock`'s upserts: the new block's timestamp, plus the old timestamp of a block row

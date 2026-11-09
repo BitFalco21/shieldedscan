@@ -7,7 +7,9 @@
  *                                    pending marks are applied in the same rolled-back
  *                                    transaction (a full scan per view under the rollup lock,
  *                                    so the follower's pass skips meanwhile; paced, preflighted;
- *                                    refused above MAX_CATCH_UP_DAYS of backlog)
+ *                                    refused above MAX_CATCH_UP_DAYS of backlog). Each table
+ *                                    redoes the catch-up, so a run costs one pass per table plus
+ *                                    a scan per view: tens of minutes on production.
  *
  * Exit status 0 only when every table passes.
  *
