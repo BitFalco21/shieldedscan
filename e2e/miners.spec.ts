@@ -26,9 +26,9 @@ for (const width of [390, 1280]) {
       await page.goto("/miners");
       await expect(page.getByRole("heading", { level: 1, name: "Miners" })).toBeVisible();
       await expect(page.getByRole("link", { name: "30D" })).toHaveAttribute("aria-current", "page");
-      // Closed windows are not offered while the NU6.1 row waits for its repair.
-      await expect(page.getByRole("link", { name: "1Y", exact: true })).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "ALL", exact: true })).toHaveCount(0);
+      // Every window is offered, 1Y and all of history included.
+      await expect(page.getByRole("link", { name: "1Y", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("link", { name: "ALL", exact: true })).toHaveCount(1);
 
       const table = page.getByRole("table", { name: /Mining pools/ });
       const shielded = table.getByRole("row").filter({ hasText: "shielded coinbase" });

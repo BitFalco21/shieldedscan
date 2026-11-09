@@ -20,7 +20,7 @@ export const MINING_GROUP: ApiGroup = {
         {
           name: "window",
           kind: "query",
-          type: "7d | 30d | 90d",
+          type: "7d | 30d | 90d | 1y | all",
           required: false,
           description:
             "The last 7, 30, 90 or 365 UTC days (`7d`, `30d`, `90d`, `1y`), today included, or `all` of history. Default 30d.",
@@ -338,7 +338,7 @@ export const MINING_GROUP: ApiGroup = {
         {
           name: "window",
           kind: "query",
-          type: "7d | 30d | 90d",
+          type: "7d | 30d | 90d | 1y | all",
           required: false,
           description:
             "The last 7, 30, 90 or 365 UTC days (`7d`, `30d`, `90d`, `1y`), today included, or `all` of history. Default 30d.",
@@ -627,7 +627,7 @@ export const MINING_GROUP: ApiGroup = {
         {
           name: "window",
           kind: "query",
-          type: "7d | 30d | 90d",
+          type: "7d | 30d | 90d | 1y | all",
           required: false,
           description:
             "The last 7, 30, 90 or 365 UTC days (`7d`, `30d`, `90d`, `1y`), today included, or `all` of history. Default 30d.",
@@ -648,7 +648,7 @@ export const MINING_GROUP: ApiGroup = {
     "name": "ShieldedScan",
     "url": "https://shieldedscan.xyz/miners"
   },
-  "basis": "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at \`balance.height\`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (\`carriedIn\`); \`fromFees\` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. \`toNsmValueUsd\` and \`toMinersValueUsd\` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30 or 90 UTC days, today unfinished.",
+  "basis": "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at \`balance.height\`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (\`carriedIn\`); \`fromFees\` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. \`toNsmValueUsd\` and \`toMinersValueUsd\` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
   "data": {
     "activationHeight": 3543405,
     "activationDay": "2026-11-06",

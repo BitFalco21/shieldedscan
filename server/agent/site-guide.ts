@@ -69,7 +69,7 @@ export const SITE_PAGES: Readonly<Record<string, PageEntry>> = {
   },
   "/blocks": { what: "The most recent blocks, newest first, with miner, size and privacy mix." },
   "/miners": {
-    what: "Who mined Zcash over the last 7, 30 or 90 days, by reviewed mining pool: blocks, share, ZEC paid and its USD value at each day's close, each pool's payout addresses, and monthly pool shares.",
+    what: "Who mined Zcash over the last 7, 30, 90 or 365 days, or all of history, by reviewed mining pool: blocks, share, ZEC paid and its USD value at each day's close, each pool's payout addresses, and monthly pool shares.",
   },
   "/txs": {
     what: "The most recent transactions, newest first, filterable by privacy kind — transparent, shielded, shielding, unshielding, coinbase.",

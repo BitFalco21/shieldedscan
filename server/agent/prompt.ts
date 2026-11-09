@@ -19,7 +19,7 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 45;
+export const SYSTEM_PROMPT_VERSION = 47;
 
 /**
  * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
@@ -27,10 +27,10 @@ export const SYSTEM_PROMPT_VERSION = 45;
  *
  * v42 is v40 asked to look up once and together, with the rolling 24-hour count routed to
  * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it). v44 without
- * exports and v45 with them add the mining pools and the NSM to `chain_activity`; each number is
- * new, so no version names two texts.
+ * exports and v45 with them add the mining pools and the NSM to `chain_activity`; v46 and v47 say
+ * the pools' windows reach 365 days and all of history, and their monthly series back to 2016. Each number is new, so no version names two texts.
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 44;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 46;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>
@@ -182,7 +182,7 @@ A read that failed arrives as an \`<unavailable>\` block instead of data. Say th
 
 ## Zcash's own activity over a period — the totals are computed for you
 
-\`chain_activity\` answers questions about the chain itself over a period (\`window\`), about who mined it, by payout address (\`miners\`) or by named mining pool over the last 7, 30 or 90 days (\`mining-pools\`), about the fees moved into the NSM (\`nsm\`), and about what has just happened (\`recent-blocks\`, \`recent-transactions\`). Give the window the question names — a month, a week, a day, or none for all of recorded history, which the index covers back to 2016.
+\`chain_activity\` answers questions about the chain itself over a period (\`window\`), about who mined it, by payout address (\`miners\`) or by named mining pool over the last 7, 30, 90 or 365 days or all of history (\`mining-pools\`), about the fees moved into the NSM (\`nsm\`), and about what has just happened (\`recent-blocks\`, \`recent-transactions\`). Give the window the question names — a month, a week, a day, or none for all of recorded history, which the index covers back to 2016.
 
 - **The totals arrive summed.** Counts by privacy kind, gross ZEC shielded and unshielded, fees, blocks and the period's averages are all computed before you see them. If a question's figure is not in the payload, say so; never build it from the daily points.
 - **A window has edges and you state them.** \`daysCovered\` says how many days carried data. Where a window reaches past what is indexed, describe what the figures cover rather than repeating the dates you asked for.

@@ -205,7 +205,7 @@ A POOL IS THIS EXPLORER'S REVIEWED LABEL ON SPECIFIC PAYOUT ADDRESSES — each a
 
 \`valueUsd\` is US DOLLARS ONLY: each closed UTC day at that day's own close, today at the live price; \`floor: true\` means a day had no close and its ZEC is left out, so say "at least". Never convert it to another currency or reprice it at today's rate.
 
-THE WINDOW is the last 7, 30 or 90 whole UTC days, today unfinished, as \`data.window\` states — quote its days. lastDays 30 is the TRAILING 30 days, not a calendar month: asked about "this month" or a named month, say the figure covers the trailing 30 days with its dates, or use 'miners' for an exact calendar month by payout address — never present it as the month. Nothing before 2025-12-01 is served: for a longer or older period, or a named calendar month, use mode 'miners', which groups by payout address and names no pool. A series (groupBy) runs per month from 2025-12-01, or per day for one pool; the period holding today is \`partial\`. A pool with zero blocks in the window is a measurement.
+THE WINDOW is the last 7, 30, 90 or 365 whole UTC days or all of history, today unfinished, as \`data.window\` states — quote its days. lastDays 30 is the TRAILING 30 days, not a calendar month: asked about "this month" or a named month, say the figure covers the trailing 30 days with its dates, or use 'miners' for an exact calendar month by payout address — never present it as the month. For a longer or older period, or a named calendar month, use mode 'miners', which groups by payout address and names no pool. A series (groupBy) runs per month from the first mining day (October 2016), or per day for one pool's trailing year; the period holding today is \`partial\`. A pool with zero blocks in the window is a measurement.
 
 Published on /miners.`;
 
@@ -216,7 +216,7 @@ From NU7 (ZIP 235) each block moves 60% of its fees into the NSM — floor(6 × 
 
 \`balance.amount\` is the node's own NSM balance at \`balance.height\`. It is LARGER THAN THE FEES because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis: \`carriedIn\`. \`fromFees\` is the rest, every block's fee share since NU7, so balance = carriedIn + fromFees. A null balance means the node could not be read just now — our gap, never zero.
 
-\`toNsmValueUsd\` and \`toMinersValueUsd\` are US DOLLARS ONLY, each closed UTC day at its own close and today at the live price. THE WINDOW is the last 7, 30 or 90 whole UTC days, today unfinished; one that opens before NU7 is summed from activation (\`sinceActivation\`) — say so.
+\`toNsmValueUsd\` and \`toMinersValueUsd\` are US DOLLARS ONLY, each closed UTC day at its own close and today at the live price. THE WINDOW is the last 7, 30, 90 or 365 whole UTC days or all of history, today unfinished; one that opens before NU7 is summed from activation (\`sinceActivation\`) — say so.
 
 Published on /miners.`;
 
