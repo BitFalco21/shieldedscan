@@ -128,6 +128,7 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "hashrate_daily.parquet",
       "supply_daily.parquet",
       "nsm_daily.parquet",
+      "block_arrival_daily.parquet",
       "nu7_capable_releases.parquet",
       "transactions/0000000-0099999.parquet",
       "tx_versions_daily.parquet",
@@ -283,6 +284,29 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
   it("writes the same bytes twice", async () => {
     const [a, b] = [await run(), await run()];
     expect(a.files.map((f) => f.sha256)).toEqual(b.files.map((f) => f.sha256));
+  });
+
+  it("publishes every block's age on arrival, never a pool's, and no unrecorded day", async () => {
+    const { rows: firstDay } = await db.query<{ day: string }>(
+      `SELECT to_char((to_timestamp(min(timestamp)) AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day
+         FROM block`,
+    );
+    const day = firstDay[0]!.day;
+    await db.query(
+      `INSERT INTO block_arrival_day (day, grp, blocks, measured, late, p50_seconds, p90_seconds,
+                                      computed_at)
+       VALUES ($1::date, 'all', 4, 3, 1, -2, 30, 0), ($1::date, 'foundry', 4, 3, 1, NULL, NULL, 0),
+              ($1::date + 1, 'all', 4, 0, 0, NULL, NULL, 0)`,
+      [day],
+    );
+    try {
+      const rows = read(await run(), "block_arrival_daily.parquet").toArray();
+      expect(rows.map((r) => [r.blocks, r.measured, r.late, r.p50_seconds, r.p90_seconds])).toEqual(
+        [[4, 3, 1, -2, 30]],
+      );
+    } finally {
+      await db.query("DELETE FROM block_arrival_day");
+    }
   });
 
   it("publishes only known clients and well-formed versions", async () => {

@@ -281,6 +281,20 @@ export const SUPPLY_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("nsm_total_zat", "int64", true),
 ];
 
+/**
+ * How old the day's blocks were, by header timestamp, when this project's follower stored them.
+ * Every block only: the per-pool split rests on the site's reviewed pool labels, and the dataset
+ * carries no label on an address.
+ */
+export const BLOCK_ARRIVAL_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("day", "date"),
+  c("blocks", "int32"),
+  c("measured", "int32"),
+  c("late", "int32"),
+  c("p50_seconds", "int32", true),
+  c("p90_seconds", "int32", true),
+];
+
 /** ZIP 235's fee removal per UTC day, from NU7; no rows before it. */
 export const NSM_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("day", "date"),
@@ -454,6 +468,7 @@ export const SMALL_TABLES = {
   hashrate_daily: HASHRATE_DAILY_COLUMNS,
   supply_daily: SUPPLY_DAILY_COLUMNS,
   nsm_daily: NSM_DAILY_COLUMNS,
+  block_arrival_daily: BLOCK_ARRIVAL_DAILY_COLUMNS,
   tx_versions_daily: TX_VERSIONS_DAILY_COLUMNS,
   pool_flows_daily: POOL_FLOWS_DAILY_COLUMNS,
   coinbase_shielded_daily: COINBASE_SHIELDED_DAILY_COLUMNS,

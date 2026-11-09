@@ -23,6 +23,9 @@ import {
   type NetSummary,
   type NetTopology,
   type NetTopologyScope,
+  type NodeHosting,
+  HOSTING_MIN_NODES,
+  foldHosting,
 } from "@/domain";
 import { cursorSlice, encodeCursor } from "@/data/cursor";
 import { classifyUserAgent } from "../p2p/user-agent";
@@ -477,6 +480,23 @@ export function deriveReleases(snap: NetmapSnapshot): NetReleases {
     behindTipBlocks: behindTipBlocks(snap.recentBlocks.at(-1)?.height ?? 0),
     groups,
     history,
+    asOf: snap.at,
+  };
+}
+
+/**
+ * Which networks hosted the answering nodes, day by day, from the crawler's record. Folded here,
+ * before anything leaves the API: a network with fewer than `HOSTING_MIN_NODES` nodes on a day is
+ * counted in that day's `other`, never named. No address is involved: the record holds counts.
+ */
+export function deriveHosting(snap: NetmapSnapshot): NodeHosting {
+  const days = foldHosting(snap.hostingDays);
+  return {
+    basis: "floor",
+    windowSeconds: REACHABLE_WINDOW_SEC,
+    minNodes: HOSTING_MIN_NODES,
+    recordingSince: days[0]?.day ?? null,
+    days,
     asOf: snap.at,
   };
 }

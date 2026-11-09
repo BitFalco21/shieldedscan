@@ -180,6 +180,7 @@ describe("crawlOnce", () => {
           state.probes.push({ crawlId, node, outcome });
         },
         enrichPending: async () => 0,
+        recordHostingDay: async () => 0,
         recordReleaseDay: async () => {
           state.releaseDays += 1;
           return 0;
@@ -249,6 +250,7 @@ describe("crawlOnce", () => {
     const totals = await crawlOnce({
       store: {
         ...fake.store,
+        recordHostingDay: async () => 0,
         recordReleaseDay: async () => {
           throw new Error("relation net_release_day is gone");
         },

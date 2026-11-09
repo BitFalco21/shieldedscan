@@ -29,6 +29,7 @@ export type ChartSlug =
   | "orchard-migration"
   | "price"
   | "difficulty"
+  | "block-arrival-age"
   | "block-size"
   | "fee-totals"
   | "crosschain-volume"
@@ -39,6 +40,8 @@ export type ChartSlug =
   | "transparent-activity"
   | "upgrade-readiness"
   | "miner-concentration"
+  | "node-hosting"
+  | "node-releases"
   | "reorgs"
   | "orphan-rate"
   | "inflow-by-chain"
@@ -271,6 +274,17 @@ export const CHARTS: ChartEntry[] = [
     ],
   },
   {
+    slug: "block-arrival-age",
+    title: "Block age on arrival, by mining pool",
+    category: "Mining",
+    api: { docsId: "mining-pools-arrival", path: "/v1/analytics/mining-pools/arrival" },
+    blurb: "How old each pool's blocks are, by their own timestamp, when our node stores them.",
+    description: [
+      "Each UTC day's median and 90th percentile of the time from a block's header timestamp to the moment this explorer's node first stored it, for every block and per mining pool. Measured by our own follower since it began stamping blocks.",
+      "Not clock skew: it adds up the miner's timestamp lag (a pool stamps a block template and keeps mining on it), propagation to our node and our own 5 to 10 seconds, so only the first differs by pool. A negative age is a pool's clock ahead of ours. Blocks we stored more than ten minutes late, during our own outages, are left out and counted.",
+    ],
+  },
+  {
     slug: "privacy-share",
     title: "Share of transactions by privacy kind",
     category: "Privacy",
@@ -334,6 +348,28 @@ export const CHARTS: ChartEntry[] = [
     description: [
       `The share of the nodes the crawler reached each day that run a release able to follow ${NU7.name}, the share declaring its protocol version, and the share behind this explorer's tip.`,
       "Counts are floors: the crawler reaches only nodes that accept incoming connections, so the network is larger. Each day is the network as it stood at that day's last crawl.",
+    ],
+  },
+  {
+    slug: "node-releases",
+    title: "Node software over time",
+    category: "Network & nodes",
+    api: { docsId: "nodes-history", path: "/v1/nodes/history" },
+    blurb: "Answering nodes by client and release line, day by day.",
+    description: [
+      "Each day's answering nodes as a share, by the client and major.minor release they declared, from the crawler's daily record: the network as it stood at that day's last crawl. The largest release lines are named and the rest folded.",
+      "A user agent is a node's own claim and is not verified. Only nodes that accept incoming connections can be counted, so the network is larger.",
+    ],
+  },
+  {
+    slug: "node-hosting",
+    title: "Node hosting concentration",
+    category: "Network & nodes",
+    api: { docsId: "nodes-history", path: "/v1/nodes/history" },
+    blurb: "Answering nodes by the network that hosts them, day by day.",
+    description: [
+      "Each day's answering nodes as a share, by the autonomous system that hosts them as GeoIP names it, recorded by the crawler from the day this chart began. The largest networks are named; a network holding fewer than three nodes that day is folded into the rest, never named.",
+      "Grouped by network, never by company: two networks one company runs count apart, so real concentration can only be higher. No node address is published.",
     ],
   },
   {
@@ -467,6 +503,11 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   // Reviewed pool labels are mainnet payout addresses, and /miners is absent on testnet.
   "pools-to-majority",
   "shielded-capable-by-chain",
+  // Its pools are mainnet payout addresses; testnet's blocks would all be unattributed.
+  "block-arrival-age",
+  // The crawler is mainnet-only.
+  "node-releases",
+  "node-hosting",
 ]);
 
 /** The charts this deployment may honestly show. */

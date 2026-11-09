@@ -10,7 +10,7 @@ export const NODES_GROUP: ApiGroup = {
       path: "/v1/nodes",
       title: "The network's listening nodes, counted",
       description:
-        "How many Zcash nodes answered our crawler in the last day, how many addresses the network has ever advertised, IPv6 and Tor counts, countries and network operators, and the client, version and protocol-version mix — the figures behind /network.",
+        "How many Zcash nodes answered our crawler in the last day, how many addresses the network has ever advertised, IPv6 and Tor counts, countries and network operators, and the client, version and protocol-version mix.",
       params: [],
       exampleResponse: `{
   "coverage": {
@@ -114,7 +114,7 @@ export const NODES_GROUP: ApiGroup = {
       path: "/v1/nodes/list",
       title: "Every answering node",
       description:
-        "One row per node that answered in the last day: client, version, protocol version, network, GeoIP location and operator, a crawler-relative ping, and how many of our crawls it answered. No address is published; `id` is a one-way hash.",
+        "One row per node that answered in the last day: client, version, protocol version, network, GeoIP location and operator, a crawler-relative ping, and how many of our crawls it answered. `id` is a one-way hash.",
       params: [
         {
           name: "client",
@@ -367,6 +367,111 @@ export const NODES_GROUP: ApiGroup = {
         "A subnet is written a.b.c.x: the last octet is never published.",
       ],
       toolNotes: ["By autonomous system, never by company, so concentration is a lower bound."],
+    },
+    {
+      id: "nodes-history",
+      method: "GET",
+      path: "/v1/nodes/history",
+      title: "Node software and hosting, day by day",
+      description:
+        "Answering nodes per UTC day by client release line and by hosting network, last 90 recorded days.",
+      params: [],
+      exampleResponse: `{
+  "coverage": {
+    "status": "floor",
+    "notes": [
+      "Counts only nodes that accept incoming connections; nodes behind a router cannot be crawled, so the real network is larger."
+    ]
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/network/software"
+  },
+  "data": {
+    "answeringWindowSeconds": 86400,
+    "maxDays": 90,
+    "software": {
+      "recordingSince": "2026-06-29",
+      "daysRecorded": 14,
+      "days": [
+        {
+          "day": "2026-07-12",
+          "answering": 40,
+          "releases": [
+            {
+              "client": "Zebra",
+              "release": "6.2",
+              "nodes": 10
+            },
+            {
+              "client": "Zebra",
+              "release": "6.3",
+              "nodes": 7
+            },
+            {
+              "client": "Zakura",
+              "release": "1.5",
+              "nodes": 5
+            },
+            {
+              "client": "Zakura",
+              "release": "1.6",
+              "nodes": 5
+            }
+          ]
+        }
+      ]
+    },
+    "hosting": {
+      "recordingSince": "2026-06-29",
+      "daysRecorded": 14,
+      "minNodes": 3,
+      "days": [
+        {
+          "day": "2026-07-12",
+          "answering": 40,
+          "networkOperators": [
+            {
+              "asn": 14061,
+              "networkOperator": "DigitalOcean, LLC",
+              "nodes": 14
+            },
+            {
+              "asn": 24940,
+              "networkOperator": "Hetzner Online GmbH",
+              "nodes": 7
+            },
+            {
+              "asn": 2516,
+              "networkOperator": "KDDI CORPORATION",
+              "nodes": 3
+            }
+          ],
+          "other": {
+            "nodes": 8,
+            "networkOperators": 5
+          },
+          "unknownOperator": 8
+        }
+      ]
+    }
+  },
+  "notes": [
+    "Each day is the network as it stood at that day's last crawl: nodes that answered in the 24 hours before it.",
+    "release is the major.minor of the version a node declared; a user agent is the node's own claim and is not verified.",
+    "A network operator hosting fewer than minNodes nodes that day is counted in other, never named. Grouped by autonomous system as GeoIP names it, never clustered into companies; unknownOperator counts nodes with no network found.",
+    "At most maxDays trailing days; daysRecorded counts every recorded day."
+  ],
+  "asOf": 1783875480
+}`,
+      notes: [
+        "The example response is abridged to the newest day and four release lines.",
+        "Each day is the network at that day's last crawl: nodes that answered in the 24 hours before it. Every count is a lower bound.",
+        "`release` is the major.minor of the version a node declared; a user agent is not verified.",
+        "A network operator hosting fewer than `minNodes` nodes that day is counted in `other`, never named. Grouped by autonomous system as GeoIP names it, never by company.",
+        "At most `maxDays` trailing days; `daysRecorded` counts every recorded day. The hosting record began later than the software record, on its own `recordingSince`.",
+      ],
+      toolNotes: ["Networks under minNodes that day are folded into other."],
     },
   ],
 };

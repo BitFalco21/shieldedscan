@@ -37,6 +37,7 @@ import type {
   NetNodePage,
   NetPeers,
   NetReleases,
+  NodeHosting,
   NetSummary,
   NetTopology,
   NetTopologyScope,
@@ -74,6 +75,7 @@ import type {
   ReorgWeekSeries,
   OrphanRateSeries,
   TransparentDayPoint,
+  BlockArrivalSeries,
 } from "@/domain";
 // Not part of the `@/domain` barrel; every consumer imports it from its own module.
 import type { SocialPost, SocialSnapshot } from "@/domain/social";
@@ -337,6 +339,8 @@ export interface ExplorerDataSource {
   getReorgWeeks(): Promise<ReorgWeekSeries>;
   /** Orphaned blocks per canonical block this node observed, daily and over standing windows. */
   getOrphanRate(): Promise<OrphanRateSeries>;
+  /** How old each pool's blocks are on arrival at our node, per day and over trailing windows. */
+  getBlockArrival(): Promise<BlockArrivalSeries>;
   /** The mempool is unbounded on a busy chain — always paginated. */
   listMempool(page: number, pageSize: number): Promise<Paginated<MempoolEntry>>;
   /** Reorgs our own node observed, newest first — keyset over (detectedAt, id). */
@@ -465,6 +469,8 @@ export interface ExplorerDataSource {
    * (`domain/network-upgrade.ts`), so adding a release that ships support needs no API deploy.
    */
   getNetworkReleases(): Promise<NetReleases>;
+  /** Answering nodes by hosting network, day by day, small networks folded into "other". */
+  getNodeHosting(): Promise<NodeHosting>;
 
   /**
    * The transparent rich list — every address holding a positive balance, largest first.

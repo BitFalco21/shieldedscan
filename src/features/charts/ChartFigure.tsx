@@ -53,11 +53,14 @@ import { chartLegend } from "./chart-legend";
 import {
   chartTable,
   FOLDED_KEY,
+  nodeBands,
   runningMonth,
   UNRANGED,
   type ChartCell,
   type ChartTable,
 } from "./chart-table";
+import { BlockArrivalChart } from "./BlockArrivalChart";
+import { NodeBandsChart } from "./NodeBandsChart";
 import { OrphanRateChart } from "./OrphanRateChart";
 import { RankedBarsChart } from "./RankedBarsChart";
 import { poolBands, poolLines } from "./pool-series";
@@ -730,6 +733,31 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ariaLabel="Reorganisations this explorer's node observed per week"
         />
       );
+    }
+    case "node-releases":
+    case "node-hosting": {
+      const bands = nodeBands(slug, data, range);
+      if (!bands || bands.days.length === 0) {
+        return unavailable(slug === "node-releases" ? "The release record" : "The hosting record");
+      }
+      return (
+        <NodeBandsChart
+          bands={bands}
+          what={slug === "node-releases" ? "software release line" : "hosting network"}
+          recordingSince={
+            slug === "node-releases"
+              ? (data.releases?.history[0]?.day ?? null)
+              : (data.hosting?.recordingSince ?? null)
+          }
+        />
+      );
+    }
+    case "block-arrival-age": {
+      const t = chartTable(slug, data, range);
+      if (!data.blockArrival || !t || t.rows.filter((r) => r[0] !== null).length < 2) {
+        return unavailable("Block age on arrival");
+      }
+      return <BlockArrivalChart series={data.blockArrival} table={t} />;
     }
     case "orphan-rate": {
       if (!data.orphanRate || data.orphanRate.days.length === 0) {

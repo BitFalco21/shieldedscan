@@ -1,6 +1,7 @@
 import { blockSummaryOf } from "@/domain";
 import * as fixtures from "@/fixtures";
 import * as chartSeries from "@/fixtures/chart-series";
+import { getBlockArrival } from "@/fixtures/block-arrival";
 import type { ExplorerDataSource } from "./source";
 
 /** The fixture source: typed static data, resolved immediately. */
@@ -176,6 +177,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getOrphanRate() {
     return chartSeries.getOrphanRate();
   },
+  async getBlockArrival() {
+    return getBlockArrival();
+  },
   async listMempool(page, pageSize) {
     const { entries, totalPages } = fixtures.listMempool(page, pageSize);
     return { items: entries, totalPages };
@@ -245,6 +249,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   },
   async getNetworkReleases() {
     return fixtures.getNetworkReleases();
+  },
+  async getNodeHosting() {
+    return fixtures.getNodeHosting();
   },
   async readSocialPost(kind, key) {
     return fixtures.getSocialPost(kind, key);

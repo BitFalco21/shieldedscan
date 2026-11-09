@@ -1115,3 +1115,47 @@ export interface V1Nsm {
   unknowns: V1Unknowns;
   asOf: number;
 }
+
+/** One group's block ages over a day or a window: `/v1/analytics/mining-pools/arrival`. */
+export interface V1BlockArrivalCell {
+  /** `all`, a reviewed mining pool id, or `unattributed`. */
+  group: string;
+  name: string;
+  /** Every block the group mined in the span. */
+  blocks: number;
+  /** Stamped by our follower within `lateSeconds`: what the percentiles are over. */
+  measured: number;
+  /** Stored past `lateSeconds`: our outage, left out of the percentiles. */
+  late: number;
+  /** Blocks with no stamp of ours (before recording, or written by the backfiller). */
+  unstamped: number;
+  /** Nearest-rank, whole seconds; may be negative. Null below `minBlocks` measured. */
+  p50Seconds: number | null;
+  p90Seconds: number | null;
+}
+
+export type V1BlockArrivalWindowKey = "7d" | "30d" | "90d";
+
+export interface V1BlockArrival {
+  query: { window: V1BlockArrivalWindowKey };
+  coverage: { status: "complete" | "partial"; notes: string[] };
+  source: { name: string; url: string };
+  basis: string;
+  data: {
+    /** The first UTC day with a stamped block; nothing earlier exists. */
+    recordingSince: string | null;
+    lateSeconds: number;
+    minBlocks: number;
+    /** The window's blocks taken whole: a window's median is never derived from its days'. */
+    window: {
+      key: V1BlockArrivalWindowKey;
+      fromDay: string;
+      toDay: string;
+      groups: V1BlockArrivalCell[];
+    } | null;
+    /** Each UTC day of the window, oldest first; the running day says `partial`. */
+    days: { day: string; partial: boolean; groups: V1BlockArrivalCell[] }[];
+  };
+  unknowns?: V1Unknowns;
+  asOf: number;
+}

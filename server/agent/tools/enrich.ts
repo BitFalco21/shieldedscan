@@ -996,3 +996,61 @@ export function withPoolBalanceChanges(
   });
   return { ...body, data: { ...p, points } };
 }
+
+/**
+ * The block-arrival payload, sized for the model: the basis and display names dropped (the note
+ * carries both), and past a week each day keeps only its every-block row, since a month of every
+ * pool per day is thousands of cells and the window's own per-pool figures answer the period.
+ */
+export function compactBlockArrival(payload: unknown): unknown {
+  const body = withoutBasis(payload);
+  if (typeof body !== "object" || body === null) return body;
+  const b = body as { query?: { window?: unknown }; data?: Record<string, unknown> };
+  const data = b.data;
+  if (typeof data !== "object" || data === null) return body;
+  const strip = (g: unknown) => {
+    if (typeof g !== "object" || g === null) return g;
+    const { name: _name, ...rest } = g as Record<string, unknown>;
+    return rest;
+  };
+  const allOnly = b.query?.window !== "7d";
+  const window = data.window as { groups?: unknown[] } | null | undefined;
+  const days = Array.isArray(data.days) ? (data.days as { groups?: unknown[] }[]) : [];
+  return {
+    ...body,
+    data: {
+      ...data,
+      window: window ? { ...window, groups: (window.groups ?? []).map(strip) } : window,
+      days: days.map((d) => ({
+        ...d,
+        groups: (d.groups ?? [])
+          .filter((g) => !allOnly || (g as { group?: unknown }).group === "all")
+          .map(strip),
+      })),
+    },
+  };
+}
+
+/** How many of the newest days the 'node-history' facet hands the model, beside the first. */
+const NODE_HISTORY_RECENT_DAYS = 30;
+
+/**
+ * The node history, sized for the model: each record's first recorded day (so "since recording
+ * began" stays answerable) and its newest thirty, with the basis and coverage notes the note
+ * already carries.
+ */
+export function recentNodeHistory(payload: unknown): unknown {
+  if (typeof payload !== "object" || payload === null) return payload;
+  const p = payload as { data?: Record<string, unknown> };
+  if (typeof p.data !== "object" || p.data === null) return payload;
+  const trim = (record: unknown) => {
+    if (typeof record !== "object" || record === null) return record;
+    const r = record as { days?: unknown[] };
+    if (!Array.isArray(r.days) || r.days.length <= NODE_HISTORY_RECENT_DAYS + 1) return record;
+    return { ...r, days: [r.days[0], ...r.days.slice(-NODE_HISTORY_RECENT_DAYS)] };
+  };
+  return {
+    ...p,
+    data: { ...p.data, software: trim(p.data.software), hosting: trim(p.data.hosting) },
+  };
+}

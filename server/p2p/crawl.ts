@@ -245,6 +245,7 @@ export interface CrawlDeps {
     | "recordProbe"
     | "enrichPending"
     | "recordReleaseDay"
+    | "recordHostingDay"
   >;
   /** DNS seeder resolution, injected so tests never touch the resolver. */
   resolveSeeds: () => Promise<NodeIdentity[]>;
@@ -333,9 +334,15 @@ export async function crawlOnce(deps: CrawlDeps): Promise<CrawlTotals> {
   } catch (error) {
     deps.log(`release record FAILED ${errorText(error)}`);
   }
+  let hostingNetworks = 0;
+  try {
+    hostingNetworks = await deps.store.recordHostingDay(nowSec());
+  } catch (error) {
+    deps.log(`hosting record FAILED ${errorText(error)}`);
+  }
   deps.log(
     `crawl ${crawlId}: ${reachable}/${attempted} reachable, ${newNodes} new, ${enriched} enriched, ` +
-      `${releaseGroups} release groups recorded`,
+      `${releaseGroups} release groups and ${hostingNetworks} hosting networks recorded`,
   );
   return totals;
 }

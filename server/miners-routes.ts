@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
+  type BlockArrivalSeries,
   MINING_POOL_LABELS,
   MINING_POOLS,
   MINERS_OPEN_WINDOWS,
@@ -14,6 +15,7 @@ import {
   type NsmBalance,
   type NsmOverview,
 } from "@/domain";
+import { loadBlockArrival } from "./block-arrival";
 import { Cached } from "./cached";
 import { loadNsmDays, loadNsmPrefix, nsmCarriedInZat, type NsmPrefix } from "./miners-nsm";
 import {
@@ -42,6 +44,7 @@ export const MINERS_PATH = "/chain/miners";
 export const MINERS_SERIES_PATH = "/chain/miners/series";
 export const MINING_POOL_BLOCKS_PATH = "/chain/miners/pools/:id/blocks";
 export const MINERS_NSM_PATH = "/chain/miners/nsm";
+export const MINERS_ARRIVAL_PATH = "/chain/miners/arrival";
 const CACHE_MS = 10 * 60_000;
 
 export interface MinersRoutesDeps {
@@ -65,6 +68,8 @@ export interface MinersReader {
     page?: { beforeHeight?: number; limit?: number },
   ): Promise<MiningPoolBlock[]>;
   nsm(): Promise<NsmOverview>;
+  /** Block age on arrival per day and pool, and over the trailing windows (`block-arrival.ts`). */
+  arrival(): Promise<BlockArrivalSeries>;
 }
 
 /** Waits for the index to reach the node's block before `carriedInZat` reads null. */
@@ -89,6 +94,7 @@ export function createMinersReader(deps: MinersRoutesDeps): MinersReader {
   const poolBlocks = new Map<string, Cached<MiningPoolBlock[]>>();
   const nsmDays = new Cached<Omit<NsmOverview, "balance">>(CACHE_MS);
   const nsmPrefix = new Cached<NsmPrefix>(CACHE_MS);
+  const arrival = new Cached<BlockArrivalSeries>(CACHE_MS);
 
   const nsmBalance = async (): Promise<NsmBalance | null> => {
     if (deps.nsmAtTip === undefined) return null;
@@ -143,6 +149,7 @@ export function createMinersReader(deps: MinersRoutesDeps): MinersReader {
       ]);
       return { ...days, balance };
     },
+    arrival: () => arrival.get(() => loadBlockArrival(deps.pool, nowSec())),
   };
 }
 
@@ -164,6 +171,11 @@ export function minersRoutes(deps: MinersRoutesDeps, reader = createMinersReader
 
   app.get(MINERS_NSM_PATH, async (c) => {
     const body: NsmOverview = await reader.nsm();
+    return c.json(body);
+  });
+
+  app.get(MINERS_ARRIVAL_PATH, async (c) => {
+    const body: BlockArrivalSeries = await reader.arrival();
     return c.json(body);
   });
 

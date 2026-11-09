@@ -276,6 +276,28 @@ export class NetStore {
     return groups.length;
   }
 
+  /**
+   * The day's answering nodes by hosting network, replaced whole like the release record: the
+   * same 24-hour window, read at the same instant. Returns how many networks it recorded.
+   */
+  async recordHostingDay(now: number): Promise<number> {
+    const day = utcDayFromSeconds(now);
+    let recorded = 0;
+    await this.#inTransaction(async (client) => {
+      await client.query(`DELETE FROM net_asn_day WHERE day = $1::date`, [day]);
+      const inserted = await client.query(
+        `INSERT INTO net_asn_day (day, asn, asn_org, nodes)
+         SELECT $1::date, COALESCE(asn, 0), COALESCE(asn_org, ''), count(*)::int
+           FROM net_node
+          WHERE last_reachable IS NOT NULL AND last_reachable >= $2
+          GROUP BY 2, 3`,
+        [day, now - REACHABLE_WINDOW_SEC],
+      );
+      recorded = inserted.rowCount ?? 0;
+    });
+    return recorded;
+  }
+
   /** Replaces the Tor exit list whole and re-flags every node — stale exits must not linger. */
   async replaceTorExits(ips: string[], fetchedAt: number): Promise<void> {
     await retryOnDeadlock(() =>

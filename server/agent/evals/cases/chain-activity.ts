@@ -393,4 +393,30 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     mustCall: ["chain_activity"],
     mustContain: [/1,?799\.99/, /1,?798\.71/],
   },
+  {
+    id: "activity-block-arrival-pool",
+    category: "insights",
+    world: "fixture",
+    /**
+     * Block age on arrival by pool, `chain_activity` 'block-arrival'. In the fixture's last 7 days
+     * F2Pool's blocks are the oldest on arrival: median 35 s, 90th percentile 66 s, over 1,001
+     * measured blocks. It is the miner's timestamp lag plus propagation, never clock skew.
+     */
+    question:
+      "over the last 7 days, which mining pool's blocks are the oldest by their own timestamp when they reach this explorer, and by how many seconds?",
+    mustCall: ["chain_activity"],
+    mustContain: [/F2Pool/, /\b35\b/],
+  },
+  {
+    id: "activity-block-arrival-negative",
+    category: "insights",
+    world: "fixture",
+    /**
+     * A negative median is a miner's clock ahead of ours, kept as measured: KuPool's blocks in the
+     * fixture's last 7 days arrive with a median age of -1 s.
+     */
+    question: "what is KuPool's median block age on arrival over the last week?",
+    mustCall: ["chain_activity"],
+    mustContain: [/KuPool/, /(?:-|−|minus )1\b/],
+  },
 ];

@@ -6,6 +6,7 @@ import { isTestnet } from "@/lib/network";
 import { readNetworkShell } from "../shell-data";
 import { NetworkTabPage } from "../NetworkTabPage";
 import { networkShareMetadata } from "@/features/network/net-share";
+import { nullIfTransient } from "@/lib/transient-upstream";
 
 /**
  * Rendered on request, never at build, so a deploy cannot depend on the API; the edge cache
@@ -23,10 +24,14 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   if (isTestnet) notFound();
-  const shell = await readNetworkShell(getCachedDataSource());
+  const data = getCachedDataSource();
+  const [shell, releases] = await Promise.all([
+    readNetworkShell(data),
+    nullIfTransient(() => data.getNetworkReleases()),
+  ]);
   return (
     <NetworkTabPage shell={shell} tab="software">
-      {({ summary }) => <SoftwarePage summary={summary} />}
+      {({ summary }) => <SoftwarePage summary={summary} releases={releases} />}
     </NetworkTabPage>
   );
 }

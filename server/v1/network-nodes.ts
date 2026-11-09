@@ -1,6 +1,19 @@
 import { Hono } from "hono";
-import { parseAsnFilter, parseNetClientFilter } from "@/domain";
-import { deriveHealth, deriveMap, deriveNodesPage, deriveSummary } from "../netmap/derive";
+import {
+  parseAsnFilter,
+  parseNetClientFilter,
+  softwareHistory,
+  type NodeHosting,
+  type NodeSoftwareDay,
+} from "@/domain";
+import {
+  deriveHealth,
+  deriveHosting,
+  deriveMap,
+  deriveNodesPage,
+  deriveReleases,
+  deriveSummary,
+} from "../netmap/derive";
 import type { NetmapReader } from "../netmap/snapshot";
 import { MAINNET_SITE_URL as SITE } from "@/lib/network";
 import { ParamError, rejectUnknown } from "./params";
@@ -30,7 +43,11 @@ export const V1_NODES_PATHS = [
   "/v1/nodes/list",
   "/v1/nodes/geography",
   "/v1/nodes/concentration",
+  "/v1/nodes/history",
 ] as const;
+
+/** How many trailing days `/v1/nodes/history` carries; the full record is the open dataset's. */
+export const NODE_HISTORY_DAYS = 90;
 
 const COVERAGE = {
   status: "floor" as const,
@@ -201,5 +218,62 @@ export function v1NodesRoutes(reader: NetmapReader): Hono {
     });
   });
 
+  app.get("/v1/nodes/history", async (c) => {
+    rejectUnknown(c.req.query(), []);
+    const snap = await reader.read();
+    setCache(c, "nodes");
+    return c.json(
+      toNodeHistory(softwareHistory(deriveReleases(snap).history), deriveHosting(snap)),
+    );
+  });
+
   return app;
+}
+
+/**
+ * `/v1/nodes/history` from the two records: pure, so the agent's fixture world serves exactly the
+ * shape the route does.
+ */
+export function toNodeHistory(software: readonly NodeSoftwareDay[], hosting: NodeHosting) {
+  const tail = <T>(days: readonly T[]) => days.slice(-NODE_HISTORY_DAYS);
+  return {
+    coverage: COVERAGE,
+    source: { name: "ShieldedScan", url: `${SITE}/network/software` },
+    data: {
+      answeringWindowSeconds: hosting.windowSeconds,
+      maxDays: NODE_HISTORY_DAYS,
+      software: {
+        recordingSince: software[0]?.day ?? null,
+        daysRecorded: software.length,
+        days: tail(software).map((d) => ({
+          day: d.day,
+          answering: d.answering,
+          releases: d.groups.map((g) => ({ client: g.client, release: g.line, nodes: g.nodes })),
+        })),
+      },
+      hosting: {
+        recordingSince: hosting.recordingSince,
+        daysRecorded: hosting.days.length,
+        minNodes: hosting.minNodes,
+        days: tail(hosting.days).map((d) => ({
+          day: d.day,
+          answering: d.answering,
+          networkOperators: d.networks.map((n) => ({
+            asn: n.asn,
+            networkOperator: n.org,
+            nodes: n.nodes,
+          })),
+          other: { nodes: d.other, networkOperators: d.otherNetworks },
+          unknownOperator: d.unknown,
+        })),
+      },
+    },
+    notes: [
+      "Each day is the network as it stood at that day's last crawl: nodes that answered in the 24 hours before it.",
+      "release is the major.minor of the version a node declared; a user agent is the node's own claim and is not verified.",
+      "A network operator hosting fewer than minNodes nodes that day is counted in other, never named. Grouped by autonomous system as GeoIP names it, never clustered into companies; unknownOperator counts nodes with no network found.",
+      "At most maxDays trailing days; daysRecorded counts every recorded day.",
+    ],
+    asOf: hosting.asOf,
+  };
 }

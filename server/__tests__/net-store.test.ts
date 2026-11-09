@@ -55,7 +55,7 @@ describeDb("NetStore", () => {
     await pool.query(
       `DELETE FROM net_probe; DELETE FROM net_link; DELETE FROM net_crawl;
        DELETE FROM net_node; DELETE FROM net_geo_block; DELETE FROM net_geo_location;
-       DELETE FROM net_asn_block; DELETE FROM net_release_day;`,
+       DELETE FROM net_asn_block; DELETE FROM net_release_day; DELETE FROM net_asn_day;`,
     );
   });
 
@@ -278,5 +278,39 @@ describeDb("NetStore", () => {
       { day: "2026-09-20", user_agent: "/Zebra:6.2.3/" },
       { day: "2026-09-21", user_agent: "/Zebra:6.3.0/" },
     ]);
+  });
+  it("records a day's hosting networks, stores none of the addresses, and replaces the day", async () => {
+    const day = 1_790_000_000; // 2026-09-21 UTC
+    await store.recordSeen(day, [node("1.1.1.1"), node("1.1.1.2"), node("8.8.4.4")]);
+    const crawl = await store.beginCrawl(day);
+    for (const host of ["1.1.1.1", "1.1.1.2", "8.8.4.4"]) {
+      await store.recordProbe(crawl, node(host), day, { ok: true, pingMs: 5, version: version() });
+    }
+    await pool.query(
+      `UPDATE net_node SET asn = 24940, asn_org = 'Hetzner Online GmbH' WHERE host LIKE '1.1.1.%'`,
+    );
+    await pool.query(`INSERT INTO net_asn_day VALUES ('2026-09-20', 16276, 'OVH SAS', 5)`);
+    expect(await store.recordHostingDay(day)).toBe(2);
+    const first = await pool.query(
+      `SELECT to_char(day, 'YYYY-MM-DD') AS day, asn::int AS asn, asn_org, nodes
+         FROM net_asn_day ORDER BY day, asn`,
+    );
+    // The un-enriched node has no network: 0 and '' rather than a guess.
+    expect(first.rows).toEqual([
+      { day: "2026-09-20", asn: 16276, asn_org: "OVH SAS", nodes: 5 },
+      { day: "2026-09-21", asn: 0, asn_org: "", nodes: 1 },
+      { day: "2026-09-21", asn: 24940, asn_org: "Hetzner Online GmbH", nodes: 2 },
+    ]);
+    const columns = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'net_asn_day'`,
+    );
+    expect(columns.rows.map((r) => r.column_name).sort()).toEqual([
+      "asn",
+      "asn_org",
+      "day",
+      "nodes",
+    ]);
+    await pool.query(`UPDATE net_node SET last_reachable = 1 WHERE host = '8.8.4.4'`);
+    expect(await store.recordHostingDay(day + 600)).toBe(1);
   });
 });

@@ -12,6 +12,7 @@ import {
   enrichRichListSummary,
   enrichRichListTop,
   enrichShieldingFlow,
+  recentNodeHistory,
   withoutGeographyCells,
 } from "./enrich";
 import {
@@ -19,6 +20,7 @@ import {
   MARKET_NOTE,
   MINING_TERMS_NOTE,
   NODES_NOTE,
+  NODE_HISTORY_NOTE,
   PRICE_HISTORY_NOTE,
   RECORDS_NOTE,
 } from "./notes";
@@ -61,6 +63,8 @@ export const CHAIN_STATUS_FACETS = {
     surface: "v1",
     paths: ["/v1/nodes", "/v1/nodes/geography", "/v1/nodes/concentration"],
   },
+  // Its own facet, so a question about today's network does not pay for ninety days of history.
+  "node-history": { surface: "v1", paths: ["/v1/nodes/history"] },
   /*
    * All-time counts by privacy kind, and the two directions inside `mixed` — the totals the /txs
    * filter chips show. Private, like `market`, and safe for the same reason: a count has no shielded
@@ -195,6 +199,7 @@ export const CHAIN_ACTIVITY_MODES = [
   "pool-balances",
   "mining-pools",
   "nsm",
+  "block-arrival",
 ] as const;
 
 export type ChainActivityMode = (typeof CHAIN_ACTIVITY_MODES)[number];
@@ -519,6 +524,7 @@ export const FACET_AGGREGATES: Readonly<Record<string, AggregateSpec>> = {
   "/v1/nodes": { note: NODES_NOTE },
   "/v1/nodes/geography": { note: NODES_NOTE, enrich: withoutGeographyCells },
   "/v1/nodes/concentration": { note: NODES_NOTE },
+  "/v1/nodes/history": { note: NODE_HISTORY_NOTE, enrich: recentNodeHistory },
   [MARKET_PATH]: {
     note: MARKET_NOTE,
     enrich: enrichMarket,

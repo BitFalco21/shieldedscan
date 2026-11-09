@@ -380,3 +380,36 @@ CREATE UNLOGGED TABLE IF NOT EXISTS address_tx_count_log_state (
   id             BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
   applied_height INTEGER NOT NULL
 );
+
+-- Block age on arrival: how old a block was by its own header timestamp when our follower first
+-- stored it (`block.received_at − block.timestamp`), per UTC day and reviewed mining pool. Kept by
+-- the API's `BlockArrivalTracker` (`server/block-arrival.ts`); recording begins with the follower's
+-- first stamp, and nothing earlier exists. `grp` is `all`, a mining pool id, or `unattributed`.
+-- `measured` excludes blocks stored past 600 s (`late`: our outage, not the miner's); the rest of
+-- `blocks` carries no stamp. Percentiles are nearest-rank whole seconds, NULL below 10 measured.
+CREATE TABLE IF NOT EXISTS block_arrival_day (
+  day         DATE    NOT NULL,
+  grp         TEXT    NOT NULL,
+  blocks      INTEGER NOT NULL,
+  measured    INTEGER NOT NULL,
+  late        INTEGER NOT NULL,
+  p50_seconds INTEGER,
+  p90_seconds INTEGER,
+  computed_at BIGINT  NOT NULL,
+  PRIMARY KEY (day, grp)
+);
+-- The same over the last 7, 30 and 90 UTC days, today included, computed over the window's blocks:
+-- percentiles do not combine, so a window's median is never derived from its days'.
+CREATE TABLE IF NOT EXISTS block_arrival_window (
+  window_key  TEXT    NOT NULL CHECK (window_key IN ('7d', '30d', '90d')),
+  from_day    DATE    NOT NULL,
+  to_day      DATE    NOT NULL,
+  grp         TEXT    NOT NULL,
+  blocks      INTEGER NOT NULL,
+  measured    INTEGER NOT NULL,
+  late        INTEGER NOT NULL,
+  p50_seconds INTEGER,
+  p90_seconds INTEGER,
+  computed_at BIGINT  NOT NULL,
+  PRIMARY KEY (window_key, grp)
+);

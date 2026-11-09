@@ -12,6 +12,8 @@ import type {
   NoteTreeDayPoint,
   ReorgWeekSeries,
   OrphanRateSeries,
+  BlockArrivalSeries,
+  NodeHosting,
   TransparentDayPoint,
   CrossChainVolumeSeries,
   PoolMigrationDayPoint,
@@ -63,6 +65,8 @@ export interface ChartData {
   minerShares: MinerShareMonth[] | null;
   reorgWeeks: ReorgWeekSeries | null;
   orphanRate: OrphanRateSeries | null;
+  blockArrival: BlockArrivalSeries | null;
+  hosting: NodeHosting | null;
   chainInflow: ChainInflowPoint[] | null;
   chainOutflow: ChainOutflowPoint[] | null;
   venueMonths: VenueMonthPoint[] | null;
@@ -111,6 +115,8 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     minerShares: null,
     reorgWeeks: null,
     orphanRate: null,
+    blockArrival: null,
+    hosting: null,
     chainInflow: null,
     chainOutflow: null,
     venueMonths: null,

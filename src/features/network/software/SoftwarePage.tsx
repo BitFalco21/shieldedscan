@@ -1,4 +1,7 @@
-import type { NetSummary } from "@/domain";
+import type { NetReleases, NetSummary } from "@/domain";
+import { DataUnavailable } from "@/components/DataUnavailable";
+import { ChartFigure } from "@/features/charts/ChartFigure";
+import { chartData } from "@/features/charts/chart-data";
 import { compareVersionsDesc } from "@/domain";
 import { ClientMark } from "@/components/ClientMark";
 import { Panel } from "@/components/Panel";
@@ -12,6 +15,8 @@ import { formatCount } from "@/lib/format";
 
 export interface SoftwarePageProps {
   summary: NetSummary;
+  /** The daily release record; null when it did not load, and only its panel says so. */
+  releases: NetReleases | null;
 }
 
 /**
@@ -24,7 +29,7 @@ export interface SoftwarePageProps {
  * turns the crawler away. Everything here is what a node said about itself in its `version`
  * message, and the tab says so: a user agent is not verified.
  */
-export function SoftwarePage({ summary }: SoftwarePageProps) {
+export function SoftwarePage({ summary, releases }: SoftwarePageProps) {
   const total = summary.reachable;
   return (
     <div className="grid min-w-0 gap-4">
@@ -33,6 +38,16 @@ export function SoftwarePage({ summary }: SoftwarePageProps) {
         action={<span className="text-xs text-ink-faint">{formatCount(total)} nodes</span>}
       >
         <ClientStack summary={summary} />
+      </Panel>
+      <Panel
+        title="releases over time"
+        action={<span className="text-xs text-ink-faint">by client and release line</span>}
+      >
+        {releases === null ? (
+          <DataUnavailable what="The release record" inset />
+        ) : (
+          <ChartFigure slug="node-releases" data={chartData({ releases })} />
+        )}
       </Panel>
       <div className="grid min-w-0 gap-4 md:grid-cols-2">
         <Panel

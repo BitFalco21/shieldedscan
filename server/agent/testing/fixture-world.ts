@@ -34,6 +34,9 @@ import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../../v1/wind
 import { crosschainRoutes } from "../../crosschain-routes";
 import { type V1ChainPort, v1Routes } from "../../v1/routes";
 import { V1_MINERS_PATH, v1MinersRoutes } from "../../v1/miners";
+import { toNodeHistory } from "../../v1/network-nodes";
+import { getNetworkReleases, getNodeHosting } from "@/fixtures/netmap";
+import { softwareHistory } from "@/domain";
 import { V1_MINING_POOL_PATHS, v1MiningPoolRoutes } from "../../v1/mining-pools";
 import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "./miners-reader";
 import type { MinerWindow } from "../../mining-daily";
@@ -609,6 +612,10 @@ function publishedSeriesRoutes(): Hono {
       },
     });
   });
+  // The node history from the fixture records, through the route's own mapper.
+  app.get("/v1/nodes/history", (c) =>
+    c.json(toNodeHistory(softwareHistory(getNetworkReleases().history), getNodeHosting())),
+  );
   app.get("/v1/analytics/pools", (c) =>
     c.json({ ...PUBLISHED["/v1/analytics/pools"], query: window((k) => c.req.query(k)) }),
   );

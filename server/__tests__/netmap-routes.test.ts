@@ -8,6 +8,7 @@ import type {
   NetMap,
   NetNodePage,
   NetReleases,
+  NodeHosting,
   NetSummary,
   NetTopology,
 } from "@/domain";
@@ -127,6 +128,14 @@ describeDb("netmap routes publish no full address", () => {
               ('2026-10-02', '/Zebra:6.3.0/', 170160, 1, 0, 0),
               ('2026-10-02', '/Zebra:6.3.0/ ', 170160, 1, 1, 0)`,
     );
+    // Two recorded hosting days: a two-node network is folded, never named; 0 is no network.
+    await pool.query(
+      `INSERT INTO net_asn_day (day, asn, asn_org, nodes)
+       VALUES ('2026-11-01', 24940, 'Hetzner Online GmbH', 5),
+              ('2026-11-01', 16276, 'OVH SAS', 2),
+              ('2026-11-01', 0, '', 1),
+              ('2026-11-02', 24940, 'Hetzner Online GmbH', 2)`,
+    );
     // Gossip: A advertised B, C and every ghost; B advertised A and the onion; C advertised A.
     const links: Array<[string, string]> = [
       [HUB_A, HUB_B],
@@ -188,6 +197,7 @@ describeDb("netmap routes publish no full address", () => {
     "/chain/network/nodes?limit=1",
     "/chain/network/crawls",
     "/chain/network/releases",
+    "/chain/network/hosting",
   ];
 
   it.each(routes)("%s returns 200 and never leaks an address", async (path) => {
@@ -342,6 +352,23 @@ describeDb("netmap routes publish no full address", () => {
         tipUnknown: 0,
       },
     ]);
+  });
+
+  it("hosting names only networks of three or more that day, folding the rest", async () => {
+    const body = (await (await app.request("/chain/network/hosting")).json()) as NodeHosting;
+    expect(body.recordingSince).toBe("2026-11-01");
+    expect(body.days).toEqual([
+      {
+        day: "2026-11-01",
+        answering: 8,
+        networks: [{ asn: 24940, org: "Hetzner Online GmbH", nodes: 5 }],
+        other: 2,
+        otherNetworks: 1,
+        unknown: 1,
+      },
+      { day: "2026-11-02", answering: 2, networks: [], other: 2, otherNetworks: 1, unknown: 0 },
+    ]);
+    expect(JSON.stringify(body)).not.toContain("OVH");
   });
 
   it("health carries histograms with denominators, ASN shares, the /24 label and the facts", async () => {

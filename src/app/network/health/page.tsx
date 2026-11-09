@@ -26,9 +26,10 @@ export const metadata: Metadata = {
 export default async function Page() {
   if (isTestnet) notFound();
   const data = getCachedDataSource();
-  const [shell, health] = await Promise.all([
+  const [shell, health, hosting] = await Promise.all([
     readNetworkShell(data),
     nullIfTransient(() => data.getNetworkHealth()),
+    nullIfTransient(() => data.getNodeHosting()),
   ]);
   return (
     <NetworkTabPage shell={shell} tab="health">
@@ -36,7 +37,7 @@ export default async function Page() {
         health === null ? (
           <DataUnavailable what="The network's health figures" />
         ) : (
-          <HealthPage health={health} peers={peers} />
+          <HealthPage health={health} peers={peers} hosting={hosting} />
         )
       }
     </NetworkTabPage>

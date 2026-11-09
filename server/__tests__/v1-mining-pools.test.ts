@@ -5,7 +5,13 @@ import { decodeCursor, encodeCursor } from "@/data/cursor";
 import { getNsmOverview } from "@/fixtures/nsm";
 import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "../agent/testing/miners-reader";
 import { v1MiningPoolRoutes } from "../v1/mining-pools";
-import type { V1MiningPool, V1MiningPools, V1MiningPoolSeries, V1Nsm } from "../v1/dto";
+import type {
+  V1BlockArrival,
+  V1MiningPool,
+  V1MiningPools,
+  V1MiningPoolSeries,
+  V1Nsm,
+} from "../v1/dto";
 
 /**
  * The `/miners` page on `/v1`, its reads stubbed with the fixture chain: strict parameters (the
@@ -225,5 +231,39 @@ describe("/v1/analytics/nsm", () => {
     expect(body.data.balance).toBeNull();
     expect(body.unknowns["data.balance"]).toBe("unmeasured");
     expect(body.coverage.status).toBe("partial");
+  });
+});
+
+describe("/v1/analytics/mining-pools/arrival", () => {
+  it("answers the window asked for, and is never read as a pool called arrival", async () => {
+    const { status, body } = await get<V1BlockArrival>(
+      "/v1/analytics/mining-pools/arrival?window=7d",
+    );
+    expect(status).toBe(200);
+    expect(body.query.window).toBe("7d");
+    expect(body.data.window!.key).toBe("7d");
+    expect(body.data.days).toHaveLength(7);
+    expect(body.data.days.at(-1)!.partial).toBe(true);
+    const all = body.data.window!.groups[0]!;
+    expect(all.group).toBe("all");
+    expect(all.blocks).toBe(all.measured + all.late + all.unstamped);
+    expect(body.basis).toMatch(/not|less any error/);
+  });
+
+  it("keeps a negative median, and gives a null percentile its reason", async () => {
+    const { body } = await get<V1BlockArrival>("/v1/analytics/mining-pools/arrival?window=7d");
+    const kupool = body.data.window!.groups.find((g) => g.group === "kupool")!;
+    expect(kupool.p50Seconds).toBeLessThan(0);
+    const day = body.data.days.findIndex((d) =>
+      d.groups.some((g) => g.group === "nicehash" && g.p50Seconds === null),
+    );
+    expect(day).toBeGreaterThanOrEqual(0);
+    const j = body.data.days[day]!.groups.findIndex((g) => g.group === "nicehash");
+    expect(body.unknowns![`data.days.${day}.groups.${j}.p50Seconds`]).toBe("unmeasured");
+  });
+
+  it("refuses a window it does not compute, and an unknown parameter", async () => {
+    expect((await get("/v1/analytics/mining-pools/arrival?window=1y")).status).toBe(400);
+    expect((await get("/v1/analytics/mining-pools/arrival?pool=foundry")).status).toBe(400);
   });
 });
