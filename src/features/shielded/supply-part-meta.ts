@@ -96,7 +96,7 @@ function table(nu7Active: boolean): Record<SupplyPartId, SupplyPartMeta> {
     nsm: {
       label: "NSM",
       tag: nu7Active ? "since NU7" : `from ${nu7At}`,
-      detail: `${nu7Active ? "" : `Starts at ${nu7At}. `}60% of each block's fees, held out of circulation until reissued in later block rewards (ZIP 235). No transactions.`,
+      detail: `${nu7Active ? "" : `Starts at ${nu7At}. `}Block rewards miners never claimed since 2016, carried in at NU7, plus 60% of each block's fees since. Held out of circulation until reissued in later block rewards. No transactions.`,
       // Not a green: green means privacy here, and the NSM is no pool.
       ink: "text-line-4",
       privacy: null,

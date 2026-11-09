@@ -626,6 +626,8 @@ const MACHINERY_TERMS: readonly RegExp[] = [
   /\bthe payload\b/i,
   /\bcoverage register\b/i,
   /\bvalueUsdText\b|\busdText\b|\bpoolTxCounts(?:Unavailable)?\b|\btrailingTotals\b/,
+  // The NSM payload's balance split and dollar fields: a reader gets the words, not the keys.
+  /\bcarriedIn(?:Zat)?\b|\bfromFees(?:Zat)?\b|\bto(?:Nsm|Miners)ValueUsd\b/,
 ];
 
 /**

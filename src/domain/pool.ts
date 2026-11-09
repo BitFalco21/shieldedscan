@@ -186,9 +186,10 @@ export const MAX_SUPPLY_ZAT = 21_000_000 * ZATS_PER_ZEC;
 export interface SupplyBreakdown {
   pools: ValuePoolBalance[];
   /**
-   * ZEC removed from circulation into the NSM balance (ZIP 235's 60% of fees from NU7, less what
-   * ZIP 237 has reissued), as the node reports it. Issued, so part of what was mined, but in no
-   * pool. Null when the node does not report it (before Zakura 1.7.0), which is not zero.
+   * The NSM balance as the node reports it: block rewards miners never claimed, carried in at NU7,
+   * plus 60% of fees from NU7 (ZIP 235), less what has been reissued. Paid out by the schedule but
+   * in no pool: the pools plus this equal the scheduled issuance to the zatoshi (checked at
+   * 3,555,246). Null when the node does not report it (before Zakura 1.7.0), which is not zero.
    */
   nsmZat: number | null;
   /** Height the balances were read at, so the figures can be checked against a block. */
@@ -198,8 +199,8 @@ export interface SupplyBreakdown {
 const SHIELDED: ValuePoolName[] = [...POOL_NAMES];
 
 /**
- * Every ZEC mined so far: the six pools plus the NSM balance. ZEC removed into the NSM was issued
- * and has left every pool, so without it the total would shrink with every block's fees.
+ * Every ZEC the issuance schedule has paid out so far: the six pools plus the NSM balance, which
+ * holds what left every pool (fees) or never reached one (unclaimed rewards).
  */
 export function minedZat(s: SupplyBreakdown): number {
   return s.pools.reduce((sum, p) => sum + p.balanceZat, 0) + (s.nsmZat ?? 0);
