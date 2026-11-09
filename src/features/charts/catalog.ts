@@ -26,6 +26,7 @@ export type ChartSlug =
   | "pool-migrations"
   | "shielded-supply"
   | "ironwood-balance"
+  | "orchard-migration"
   | "price"
   | "difficulty"
   | "block-size"
@@ -33,6 +34,7 @@ export type ChartSlug =
   | "crosschain-volume"
   | "privacy-share"
   | "anonymity-set"
+  | "notes-added"
   | "blocks-per-day"
   | "transparent-activity"
   | "upgrade-readiness"
@@ -46,7 +48,8 @@ export type ChartSlug =
   | "shielded-share"
   | "supply-issuance"
   | "pools-to-majority"
-  | "shielded-capable-by-chain";
+  | "shielded-capable-by-chain"
+  | "issuance-vs-nsm";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -99,6 +102,17 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Issued ZEC at each day's closing block, then the issuance schedule projected to the sixth halving. Issued is what the schedule has paid out through a block: the six value pools plus the NSM balance add up to it to the zatoshi.",
       `Heights in the projection are consensus; their dates are estimates at the observed block rate. From block ${formatCount(REISSUANCE_START_HEIGHT)} blocks also pay out part of the NSM balance (ZIP 237); that ZEC is already counted here, so the total is unchanged.`,
+    ],
+  },
+  {
+    slug: "issuance-vs-nsm",
+    title: "Issuance vs NSM removals",
+    category: "Supply",
+    api: { docsId: "nsm", path: "/v1/analytics/nsm" },
+    blurb: "ZEC issued each day since NU7, and what the NSM removed.",
+    description: [
+      "Per complete UTC day since NU7: the ZEC the day's blocks issued under the subsidy schedule, funding streams included, and the 60% of their fees ZIP 235 moved into the NSM. Issued less removed is the day's net new ZEC; the readout gives it.",
+      "Drawn on a log scale, because removals are a small fraction of issuance: on a plain scale they would be a flat line at zero.",
     ],
   },
   {
@@ -164,6 +178,17 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Zcash's newest shielded pool, hourly from its activation at block 3,428,143 (2026-07-28). Hourly because the window is days old — a daily series would be a handful of points drawn as a trend nobody measured.",
       "The pool did not exist before the series starts, so there is nothing earlier to show. Not everything arriving here is the Orchard turnstile: a measurable share is fresh shielding straight from transparent addresses — see the breakdown on the shielded pools page.",
+    ],
+  },
+  {
+    slug: "orchard-migration",
+    title: "Orchard migrating to Ironwood",
+    category: "Supply",
+    api: { docsId: "analytics-ironwood", path: "/v1/analytics/ironwood" },
+    blurb: "ZEC moved from Orchard into Ironwood since NU6.3, and what Orchard still holds.",
+    description: [
+      "Since NU6.3 opened Ironwood at block 3,428,143 (2026-07-28), Orchard value migrates into it. One line is the ZEC migrated from Orchard into Ironwood so far, as Ironwood received it; the other is Orchard's balance at each day's last block.",
+      "The share is everything migrated as a percent of Orchard's balance at block 3,428,142, the block before activation. Orchard also shrinks by unshielding, fees and migrations into other pools, so the two lines need not add up. A migration drawing on two or more pools at once is left out, never split.",
     ],
   },
   {
@@ -265,6 +290,17 @@ export const CHARTS: ChartEntry[] = [
     description: [
       "Each shielded pool keeps a tree of every note ever created in it, spent or not. A spend proves its note is somewhere in that tree without saying where, so the tree's size is the crowd the spend hides in.",
       "Pools are drawn separately and never added: a spend hides only among its own pool's notes. The node does not report Sprout's tree size, so Sprout is not drawn.",
+    ],
+  },
+  {
+    slug: "notes-added",
+    title: "Notes added per pool",
+    category: "Privacy",
+    api: { docsId: "analytics-pool-usage", path: "/v1/analytics/pool-usage" },
+    blurb: "How fast each pool's anonymity set grows: notes created per day or month.",
+    description: [
+      "The notes each pool's commitment tree gained in a period, monthly over all history and daily for shorter ranges. Every Sapling output and every Orchard or Ironwood action creates one note, so this is also the pool's output or action count.",
+      "Pools are drawn separately and never added: a spend hides only among its own pool's notes. The node does not report Sprout's tree, so Sprout is not drawn.",
     ],
   },
   {
@@ -424,6 +460,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "upgrade-readiness",
   // Dated from /halving's schedule, whose heights are mainnet consensus constants.
   "supply-issuance",
+  // The NSM series is read from mainnet's NU7 height.
+  "issuance-vs-nsm",
   // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
   "orphan-rate",
   // Reviewed pool labels are mainnet payout addresses, and /miners is absent on testnet.

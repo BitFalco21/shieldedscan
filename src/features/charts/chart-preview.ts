@@ -5,6 +5,7 @@ import {
   issuanceAt,
   issuanceOutlook,
   orphanRatePct,
+  orchardDrainLatest,
   utcDayFromSeconds,
   type CrossChainProtocol,
 } from "@/domain";
@@ -119,7 +120,24 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
           { values: col(2), className: RANKED_LINES[2] },
         ],
       };
+    case "issuance-vs-nsm":
+      return {
+        kind: "lines",
+        series: [
+          { values: col(0), className: "text-green" },
+          { values: col(1), className: "text-series" },
+        ],
+      };
+    case "orchard-migration":
+      return {
+        kind: "lines",
+        series: [
+          { values: col(0), className: POOL_CLASSES.ironwood },
+          { values: col(1), className: POOL_CLASSES.orchard },
+        ],
+      };
     case "anonymity-set":
+    case "notes-added":
       return {
         kind: "lines",
         series: [
@@ -366,6 +384,40 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: `${formatCount(largest.v)} notes`,
         caption: `${largest.pool}, the largest tree, ${utcDayFromSeconds(t.timestamps.at(-1)!)}`,
+      };
+    }
+    case "issuance-vs-nsm": {
+      const t = chartTable(slug, data, "all");
+      const i = t && lastWithValue(t, 2);
+      if (!t || i === null || i === undefined) return null;
+      return {
+        value: formatZecTwo(t.rows[i]![2]!),
+        caption: `issued net of NSM removals, ${utcDayFromSeconds(t.timestamps[i]!)}`,
+      };
+    }
+    case "orchard-migration": {
+      const drain = data.ironwood?.orchardDrain;
+      const last = drain ? orchardDrainLatest(drain) : null;
+      if (!drain || !last || last.sharePct === null || drain.baseOrchardZat === null) return null;
+      return {
+        value: formatSharePct(last.sharePct),
+        caption: `of Orchard's ${formatZecWhole(drain.baseOrchardZat)} before NU6.3 migrated to Ironwood, ${utcDayFromSeconds(last.timestamp)}`,
+      };
+    }
+    case "notes-added": {
+      // Daily rows, every one a complete day: the route leaves today out.
+      const t = chartTable(slug, data, "30d");
+      const last = t?.rows.at(-1);
+      if (!t || !last) return null;
+      const pools = ["Sapling", "Orchard", "Ironwood"];
+      const largest = last
+        .map((v, i) => ({ v, pool: pools[i]! }))
+        .filter((x): x is { v: number; pool: string } => x.v !== null)
+        .sort((a, b) => b.v - a.v)[0];
+      if (!largest) return null;
+      return {
+        value: `${formatCount(largest.v)} notes`,
+        caption: `added to ${largest.pool}, the most of any pool, ${utcDayFromSeconds(t.timestamps.at(-1)!)}`,
       };
     }
     case "blocks-per-day": {

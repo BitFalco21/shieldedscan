@@ -14,6 +14,7 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "median-fee": ["fees", "feesDaily"],
   "shielded-supply": ["supply"],
   "ironwood-balance": ["ironwood"],
+  "orchard-migration": ["ironwood"],
   price: ["prices"],
   difficulty: ["network"],
   "block-size": ["network"],
@@ -21,6 +22,7 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "crosschain-volume": ["crosschainVolume"],
   "privacy-share": ["months", "days"],
   "anonymity-set": ["noteTrees"],
+  "notes-added": ["noteTrees"],
   "blocks-per-day": ["blocksDaily"],
   "transparent-activity": ["transparentDays"],
   "upgrade-readiness": ["releases"],
@@ -35,6 +37,7 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "supply-issuance": ["supply", "halving", "supplyNow"],
   "pools-to-majority": ["minerMonths"],
   "shielded-capable-by-chain": ["destinationWindows"],
+  "issuance-vs-nsm": ["nsm"],
 };
 
 /**
@@ -92,6 +95,7 @@ export async function loadChartData(
     supplyNow,
     minerMonths,
     destinationWindows,
+    nsm,
   ] = await Promise.all([
     wanted.has("months") ? guard(() => data.getMonthlySeries()) : null,
     wanted.has("flow") ? guard(() => data.getShieldingFlow()) : null,
@@ -123,6 +127,7 @@ export async function loadChartData(
     wanted.has("supplyNow") ? guard(() => data.getSupplyBreakdown()) : null,
     wanted.has("minerMonths") ? guard(() => data.getMinerSeries("month")) : null,
     wanted.has("destinationWindows") ? guard(() => data.getDestinationWindows()) : null,
+    wanted.has("nsm") ? guard(() => data.getNsmOverview()) : null,
   ]);
   return {
     months,
@@ -155,6 +160,7 @@ export async function loadChartData(
     supplyNow,
     minerMonths,
     destinationWindows,
+    nsm,
     asOf: nowSeconds(),
   };
 }

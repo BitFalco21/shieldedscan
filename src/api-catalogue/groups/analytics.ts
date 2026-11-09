@@ -1313,7 +1313,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
       path: "/v1/analytics/ironwood",
       title: "Where Ironwood's balance came from",
       description:
-        "Ironwood's balance now, and the terms that account for it exactly: net from Orchard, Sapling and Sprout, net shielded from transparent, mined straight into the pool, minus fees paid out of it. Plus how many transactions carried an Ironwood bundle, and how many shielded into it from transparent.",
+        "Ironwood's balance now, and the terms that account for it exactly: net from Orchard, Sapling and Sprout, net shielded from transparent, mined straight into the pool, minus fees paid out of it. Plus how many transactions carried an Ironwood bundle, how many shielded into it from transparent, and Orchard's migration into it, per day and as a share of Orchard before NU6.3.",
       params: [],
       exampleResponse: `{
   "query": {},
@@ -1378,6 +1378,11 @@ export const ANALYTICS_GROUP: ApiGroup = {
       notes: [
         "`residual` is zero by construction and published so the identity can be checked: balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid.",
         "Each term is a counterparty's own published value balance, netted over every transaction since activation. Nothing is apportioned between pools.",
+        "`orchard` follows Orchard emptying into Ironwood per complete UTC day: `migrated` is the day's migrations from Orchard alone, as Ironwood received them; `cumulative` their running total; `remaining` Orchard's balance at the day's last block (`closeHeight`). `latest.shareMigrated` is `cumulative` as a share of `beforeActivation.balance`, Orchard's balance at block 3,428,142, the block before NU6.3. `shareMigrated` is the same per day. Orchard also shrinks by unshielding, fees and migrations into other pools, so `cumulative` + `remaining` does not equal the base. Migrations drawing on two or more pools at once, not necessarily Orchard, are in `migratedFromSeveralPools`, never in the share. The example predates the section and omits it.",
+      ],
+      toolNotes: [
+        "balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid (`residual` 0); nothing is apportioned.",
+        "`orchard.latest.shareMigrated`: migrations from Orchard alone over Orchard at block 3,428,142, before NU6.3.",
       ],
     },
     {

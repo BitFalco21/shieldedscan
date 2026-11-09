@@ -44,6 +44,7 @@ import {
   UNATTRIBUTED_GROUP,
   groupMinersByPool,
   minerValueUsd,
+  netIssuedZat,
   nsmWindow,
   type MinerAddressRow,
   isShieldedCapableKind,
@@ -1304,8 +1305,14 @@ export function toNsm(
   }
   if (w === null) unknowns["data.window"] = "nonexistent";
   else {
-    for (const k of ["fees", "toNsm", "toMiners"] as const) {
-      const zat = k === "fees" ? w.feeZat : k === "toNsm" ? w.nsmZat : w.minerZat;
+    const sums = {
+      fees: w.feeZat,
+      toNsm: w.nsmZat,
+      toMiners: w.minerZat,
+      issued: w.issuedZat,
+      issuedNetOfNsm: w.netIssuedZat,
+    };
+    for (const [k, zat] of Object.entries(sums)) {
       if (zat === null) unknowns[`data.window.${k}`] = "unmeasured";
     }
   }
@@ -1316,7 +1323,7 @@ export function toNsm(
     coverage: { status: partial ? "partial" : "complete", notes },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
     basis:
-      "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at `balance.height`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (`carriedIn`); `fromFees` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. `toNsmValueUsd` and `toMinersValueUsd` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
+      "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at `balance.height`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (`carriedIn`); `fromFees` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. `issued` is the scheduled subsidy the same blocks issued, funding streams included, and `issuedNetOfNsm` is `issued` less `toNsm`: new ZEC added to circulation net of ZIP 235's removal. `toNsmValueUsd` and `toMinersValueUsd` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
     data: {
       activationHeight: o.activationHeight,
       activationDay: o.activationDay,
@@ -1345,6 +1352,8 @@ export function toNsm(
               fees: amountOrNull(w.feeZat),
               toNsm: amountOrNull(w.nsmZat),
               toMiners: amountOrNull(w.minerZat),
+              issued: amountOrNull(w.issuedZat),
+              issuedNetOfNsm: amountOrNull(w.netIssuedZat),
               toNsmValueUsd: valueUsd(
                 w.nsmZat,
                 w.nsmUsd,
@@ -1366,6 +1375,9 @@ export function toNsm(
         if (d.feeZat === null || d.nsmZat === null) {
           unknowns[`data.days.${i}.toMiners`] = "unmeasured";
         }
+        const net = netIssuedZat(d);
+        if (d.issuedZat === null) unknowns[`data.days.${i}.issued`] = "unmeasured";
+        if (net === null) unknowns[`data.days.${i}.issuedNetOfNsm`] = "unmeasured";
         if (d.closeUsd === null) {
           unknowns[`data.days.${i}.usdClose`] = d.partial ? "nonexistent" : "unmeasured";
         }
@@ -1377,6 +1389,8 @@ export function toNsm(
           toNsm: amountOrNull(d.nsmZat),
           toMiners:
             d.feeZat === null || d.nsmZat === null ? null : amountOrNull(d.feeZat - d.nsmZat),
+          issued: amountOrNull(d.issuedZat),
+          issuedNetOfNsm: amountOrNull(net),
           usdClose: d.closeUsd,
         };
       }),

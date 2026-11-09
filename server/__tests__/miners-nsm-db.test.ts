@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { minerFeeShareZat, NU7_HEIGHT } from "@/domain";
-import { loadNsmDays, loadNsmPrefix, nsmCarriedInZat } from "../miners-nsm";
+import { loadNsmDays, loadNsmPrefix, NSM_DAYS_SQL, nsmCarriedInZat } from "../miners-nsm";
 
 /**
  * The NSM read on a real Postgres with the real schemas: blocks around NU7 with fees chosen so
@@ -89,6 +89,24 @@ describeDb("loadNsmDays", () => {
       ["2026-11-08", 2, null, null, null],
     ]);
     expect(o.days[0]!.nsmZat).toBe(75);
+    // The day's blocks' scheduled subsidy, the back-stamped block on the day it is stamped; today's
+    // issuance is known even where a fee is not.
+    expect(o.days.map((d) => d.issuedZat)).toEqual([4, 1, 2].map((n) => n * 52_083_333));
+  });
+
+  it("sums each block's own subsidy across a change in the per-block amount", async () => {
+    // A pretend change at NU7 + 4: the back-stamped block (NU7 + 4) on the 6th pays the new amount.
+    const { rows } = await pool.query<{ day: string; issued: string }>(NSM_DAYS_SQL, [
+      NU7_HEIGHT,
+      NOV_6,
+      [NU7_HEIGHT, NU7_HEIGHT + 4],
+      [10, 3],
+    ]);
+    expect(rows.map((r) => [r.day, Number(r.issued)])).toEqual([
+      ["2026-11-06", 10 + 10 + 10 + 3],
+      ["2026-11-07", 10],
+      ["2026-11-08", 3 + 3],
+    ]);
   });
 
   it("carries in the balance less every fee share up to the block it was read at", async () => {

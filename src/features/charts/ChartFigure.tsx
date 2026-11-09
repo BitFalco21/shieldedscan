@@ -337,6 +337,66 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
         />
       );
     }
+    case "issuance-vs-nsm": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The NSM series");
+      const zec = (v: ChartCell) => (v === null ? "—" : formatZec(v));
+      // Log, so removals a few-thousandths the size of issuance still draw as a line.
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={[
+            { name: "Issued", values: column(t, 0), className: "text-green" },
+            { name: "Removed into the NSM", values: column(t, 1), className: "text-series" },
+          ]}
+          scale="log"
+          formatValue={formatZec}
+          formatTick={formatZecTick}
+          contextRows={[
+            { name: "Net of NSM", values: column(t, 2).map(zec) },
+            {
+              name: "Blocks",
+              values: column(t, 3).map((v) => (v === null ? "—" : formatCount(v))),
+            },
+          ]}
+          ariaLabel="ZEC issued per day since NU7, and the fees moved into the NSM, on a log scale"
+        />
+      );
+    }
+    case "orchard-migration": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The Orchard migration series");
+      const base = data.ironwood?.orchardDrain?.baseOrchardZat ?? null;
+      // Two ZEC lines on one scale: what has crossed, and what Orchard still holds. Never a stack:
+      // Orchard also shrinks by unshielding, fees and other migrations: the two partition nothing.
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={[
+            {
+              name: "Migrated to Ironwood",
+              values: column(t, 0),
+              className: POOL_CLASSES.ironwood,
+            },
+            { name: "Left in Orchard", values: column(t, 1), className: POOL_CLASSES.orchard },
+          ]}
+          formatValue={formatZecWhole}
+          formatTick={formatZecTick}
+          contextRows={[
+            {
+              // The share and its denominator, stated at every point.
+              name: "Share migrated",
+              values: column(t, 3).map((v) =>
+                v === null || base === null
+                  ? "—"
+                  : `${formatSharePct(v)} of ${formatZecWhole(base)} before NU6.3`,
+              ),
+            },
+          ]}
+          ariaLabel="ZEC migrated from Orchard into Ironwood since NU6.3, and Orchard's balance, per day"
+        />
+      );
+    }
     case "price": {
       if (!data.prices) return unavailable("The price series");
       const days = sliceTail(Object.keys(data.prices).sort(), range);
@@ -521,6 +581,45 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           formatValue={compactCount}
           formatTick={compactCountTick}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
+        />
+      );
+    }
+    case "notes-added": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The note commitment tree series");
+      const running = runningMonth(t, data.asOf);
+      const readout = tableReadout(t).map((label, i) =>
+        i === running?.index ? `${label}, to day ${running.throughDay}` : label,
+      );
+      // LINES, never a stack: a spend hides only among its own pool's notes, so a total of the
+      // three pools would be a crowd no spend hides in.
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          readoutLabels={readout}
+          series={[
+            {
+              name: "Sapling",
+              values: column(t, 0),
+              className: POOL_CLASSES.sapling,
+              omitNullFromReadout: true,
+            },
+            {
+              name: "Orchard",
+              values: column(t, 1),
+              className: POOL_CLASSES.orchard,
+              omitNullFromReadout: true,
+            },
+            {
+              name: "Ironwood",
+              values: column(t, 2),
+              className: POOL_CLASSES.ironwood,
+              omitNullFromReadout: true,
+            },
+          ]}
+          formatValue={compactCount}
+          formatTick={compactCountTick}
+          ariaLabel={`Notes added to each shielded pool's commitment tree, per ${t.period}`}
         />
       );
     }

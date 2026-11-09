@@ -37,6 +37,9 @@ const CHART_ROUTES = [
   "/charts/shielded-share",
   "/charts/upgrade-readiness",
   "/charts/anonymity-set",
+  "/charts/notes-added",
+  "/charts/orchard-migration",
+  "/charts/issuance-vs-nsm",
   // A time axis with a projection, cap and event rules: drawn on its own page and on /halving.
   "/charts/supply-issuance",
   "/halving",

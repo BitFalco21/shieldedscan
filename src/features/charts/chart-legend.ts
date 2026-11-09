@@ -38,7 +38,18 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "pool-usage":
       return pools("line");
     case "anonymity-set":
+    case "notes-added":
       return pools("line", ["sapling", "orchard", "ironwood"]);
+    case "issuance-vs-nsm":
+      return [
+        { label: "Issued", className: "text-green", mark: "line" },
+        { label: "Removed into the NSM", className: "text-series", mark: "line" },
+      ];
+    case "orchard-migration":
+      return [
+        { label: "Migrated to Ironwood", className: POOL_CLASSES.ironwood, mark: "line" },
+        { label: "Left in Orchard", className: POOL_CLASSES.orchard, mark: "line" },
+      ];
     case "shielding-flow":
       return [
         { label: "Shielded", className: "text-series", mark: "bar" },

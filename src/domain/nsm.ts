@@ -21,6 +21,11 @@ export interface NsmDay {
   feeZat: number | null;
   /** What ZIP 235 moved into the NSM, block by block on each block's total. Null when `feeZat` is. */
   nsmZat: number | null;
+  /**
+   * The scheduled subsidy the day's blocks issued (`scheduledSubsidyZat`, block by block): new ZEC,
+   * funding streams included. Null when the index does not hold every block the day spans.
+   */
+  issuedZat: number | null;
   /** The day's stored close; null for today, which has none yet, or a day the feed missed. */
   closeUsd: number | null;
   /** Today, still running. */
@@ -61,6 +66,10 @@ export interface NsmWindow {
   nsmZat: number | null;
   /** The miners' share: the fees less the NSM's. */
   minerZat: number | null;
+  /** The scheduled subsidy the window's blocks issued. */
+  issuedZat: number | null;
+  /** Issued less what the NSM removed: the window's change in circulating ZEC from the schedule and ZIP 235. */
+  netIssuedZat: number | null;
   nsmUsd: MinerUsdParts;
   minerUsd: MinerUsdParts;
 }
@@ -95,6 +104,7 @@ export function nsmWindow(o: NsmOverview, fromDay: string, toDay: string): NsmWi
   const covered = o.days.length > 0 && o.days[0]!.day <= start;
   const feeZat = covered ? sumOrNull(days.map((d) => d.feeZat)) : null;
   const nsmZat = covered ? sumOrNull(days.map((d) => d.nsmZat)) : null;
+  const issuedZat = covered ? sumOrNull(days.map((d) => d.issuedZat)) : null;
   const minerOf = (d: NsmDay) =>
     d.feeZat === null || d.nsmZat === null ? null : d.feeZat - d.nsmZat;
   return {
@@ -104,7 +114,13 @@ export function nsmWindow(o: NsmOverview, fromDay: string, toDay: string): NsmWi
     feeZat,
     nsmZat,
     minerZat: feeZat === null || nsmZat === null ? null : feeZat - nsmZat,
+    issuedZat,
+    netIssuedZat: issuedZat === null || nsmZat === null ? null : issuedZat - nsmZat,
     nsmUsd: usdParts(days, (d) => d.nsmZat),
     minerUsd: usdParts(days, minerOf),
   };
 }
+
+/** A day's issuance net of ZIP 235's removal; null when either term is unknown. */
+export const netIssuedZat = (d: Pick<NsmDay, "issuedZat" | "nsmZat">): number | null =>
+  d.issuedZat === null || d.nsmZat === null ? null : d.issuedZat - d.nsmZat;

@@ -310,6 +310,58 @@ describe("the newer charts' tables", () => {
     expect(t.timestamps).toEqual([Date.UTC(2026, 0, 1) / 1000, Date.UTC(2026, 1, 1) / 1000]);
     expect(t.rows.map((r) => r[1])).toEqual([400, 1_000]);
   });
+
+  it("states notes added per day under ALL's months, keeping a window's first day's base", () => {
+    const tree = (day: number, sapling: number) => ({
+      timestamp: Date.UTC(2026, 0, day) / 1000,
+      saplingNotes: sapling,
+      orchardNotes: null,
+      ironwoodNotes: null,
+    });
+    const noteTrees = [tree(30, 100), tree(31, 130), tree(32, 135), tree(33, 145)];
+    // Four days are too few for months: ALL draws them by day.
+    expect(chartTable("notes-added", chartData({ noteTrees }), "all")!.period).toBe("day");
+    // A day in July, after a gap, makes the series long enough for months.
+    const long = [...noteTrees, tree(200, 900)];
+    const months = chartTable("notes-added", chartData({ noteTrees: long }), "all")!;
+    expect(months.period).toBe("month");
+    // January opens the series, so it has no base; February is 5 + 10; July follows a gap.
+    expect(months.rows.map((r) => r[0])).toEqual([null, 15, null]);
+    const days = chartTable("notes-added", chartData({ noteTrees }), "30d")!;
+    expect(days.rows.map((r) => r[0])).toEqual([null, 30, 5, 10]);
+    expect(days.rows.every((r) => r[1] === null && r[2] === null)).toBe(true);
+  });
+});
+
+describe("issuance against the NSM", () => {
+  const day = (d: string, issued: number | null, nsm: number | null, partial = false) => ({
+    day: d,
+    blocks: 3_456,
+    feeZat: nsm === null ? null : nsm * 2,
+    nsmZat: nsm,
+    issuedZat: issued,
+    closeUsd: null,
+    partial,
+  });
+  const nsm = {
+    activationHeight: 3_543_405,
+    activationDay: "2026-11-06",
+    balance: null,
+    days: [
+      day("2026-11-06", 1_000, 6),
+      day("2026-11-07", 1_200, null),
+      day("2026-11-08", 500, 2, true),
+    ],
+  };
+
+  it("draws complete days only, the net only where both terms are known", () => {
+    const t = chartTable("issuance-vs-nsm", chartData({ nsm }), "all")!;
+    expect(t.timestamps).toEqual([Date.UTC(2026, 10, 6) / 1000, Date.UTC(2026, 10, 7) / 1000]);
+    expect(t.rows.map((r) => r[2])).toEqual([994, null]);
+    expect(chartPreview("issuance-vs-nsm", chartData({ nsm }), 0).headline?.caption).toMatch(
+      /2026-11-06/,
+    );
+  });
 });
 
 describe("supply issuance", async () => {

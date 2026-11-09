@@ -947,10 +947,19 @@ describe("getNsmOverview", () => {
         blocks: 3_000,
         feeZat: 1_000,
         nsmZat: 600,
+        issuedZat: 156_249_999_000,
         closeUsd: 500,
         partial: false,
       },
-      { day: "2026-11-07", blocks: 1, feeZat: null, nsmZat: null, closeUsd: null, partial: true },
+      {
+        day: "2026-11-07",
+        blocks: 1,
+        feeZat: null,
+        nsmZat: null,
+        issuedZat: 52_083_333,
+        closeUsd: null,
+        partial: true,
+      },
     ],
   };
 
@@ -959,6 +968,13 @@ describe("getNsmOverview", () => {
     expect(await createChainApiSource(config).getNsmOverview()).toEqual(nsm);
     vi.stubGlobal("fetch", stub(200, { ...nsm, balance: null }));
     expect((await createChainApiSource(config).getNsmOverview()).balance).toBeNull();
+  });
+
+  it("rejects a day from an API that predates issuance", async () => {
+    const { issuedZat: _issued, ...day } = nsm.days[0]!;
+    void _issued;
+    vi.stubGlobal("fetch", stub(200, { ...nsm, days: [day] }));
+    await expect(createChainApiSource(config).getNsmOverview()).rejects.toThrow(/unrecognised/);
   });
 
   it("rejects a day with one share known and the other not", async () => {

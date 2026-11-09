@@ -42,6 +42,7 @@ import { createPool } from "./pg-pool";
 import { DAY_SECONDS } from "@/domain/time";
 import "./pg-types";
 import { Cached } from "./cached";
+import { loadOrchardDrain } from "./orchard-drain";
 
 /**
  * The analytics series, from the rollup `block` table and the daily/monthly rollups.
@@ -1122,7 +1123,7 @@ export function analyticsRoutes(
         // Anchored on the server's clock, not the newest row: a quiet chain must yield an empty
         // window rather than sliding back to the last migration. The edges travel in the payload.
         const nowSec = Math.floor(Date.now() / 1000);
-        const [inflow, sinceRows, matrixRows, balance] = await Promise.all([
+        const [inflow, sinceRows, matrixRows, balance, orchardDrain] = await Promise.all([
           /*
            * The pool's current balance and what accounts for it.
            *
@@ -1164,6 +1165,8 @@ export function analyticsRoutes(
               ORDER BY date_trunc('hour', to_timestamp(timestamp)), height DESC`,
             [IRONWOOD_ACTIVATION_HEIGHT],
           ),
+          // Orchard emptying into Ironwood per day. Optional: a failed read costs this one field.
+          loadOrchardDrain(pool, IRONWOOD_ACTIVATION_HEIGHT).catch(() => undefined),
         ]);
 
         const row = inflow.rows[0];
@@ -1191,6 +1194,7 @@ export function analyticsRoutes(
             nowSec,
             deps.spotUsd?.() ?? null,
           ),
+          ...(orchardDrain === undefined ? {} : { orchardDrain }),
         };
       }),
     ),

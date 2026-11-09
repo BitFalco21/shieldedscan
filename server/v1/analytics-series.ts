@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import type { Pool } from "pg";
-import { ironwoodResidualZat, migratedZat, type IronwoodInflow } from "@/domain";
+import { ironwoodResidualZat, migratedZat, type IronwoodInflow, type OrchardDrain } from "@/domain";
 import { POOL_NAMES, type PoolName } from "@/domain/pool";
 import type { FeeExtreme, FeeExtremeScope, FeeExtremes, ValueExtremes } from "@/domain";
 import { readCrossingRecords, type CrossingRecord, type CrossingRecords } from "../boundary-daily";
@@ -14,6 +14,8 @@ import {
 import { DAY_SECONDS, utcDayFromSeconds } from "@/domain/time";
 import { MAINNET_SITE_URL as SITE } from "@/lib/network";
 import { amount } from "./format";
+import { orchardDrainWire } from "./orchard-drain";
+import { loadOrchardDrain } from "../orchard-drain";
 import { MAX_DAY_BUCKETS, ParamError, parseOptionalDayEdges, rejectUnknown } from "./params";
 import { errorBody, routeGroupErrors, setCache } from "./http";
 import { loadPoolUsage, type PoolUsageRow } from "../pool-usage";
@@ -221,19 +223,23 @@ async function loadFeeTrailing(pool: Pool, days: number) {
 }
 
 interface IronwoodTerms {
-  inflow: Omit<IronwoodInflow, "balance" | "migrations">;
+  inflow: Omit<IronwoodInflow, "balance" | "migrations" | "orchardDrain">;
   tipHeight: number;
+  /** Null when the rollup tables could not be read: the section says so, the terms stand. */
+  drain: OrchardDrain | null;
 }
 
 async function loadIronwood(pool: Pool, activationHeight: number): Promise<IronwoodTerms | null> {
-  const [terms, tip] = await Promise.all([
+  const [terms, tip, drain] = await Promise.all([
     pool.query<IronwoodInflowRow>(IRONWOOD_INFLOW_SQL, [activationHeight]),
     pool.query<{ h: number }>("SELECT max(height) AS h FROM block"),
+    loadOrchardDrain(pool, activationHeight).catch(() => null),
   ]);
   const r = terms.rows[0];
   if (r === undefined) return null;
   return {
     tipHeight: Number(tip.rows[0]?.h ?? 0),
+    drain,
     inflow: {
       activationHeight,
       balanceZat: Number(r.balance),
@@ -705,13 +711,15 @@ export function v1SeriesRoutes(deps: V1SeriesDeps): Hono {
       );
     }
     const i = terms.inflow;
+    const unknowns: Record<string, string> = {};
+    const orchard = orchardDrainWire(terms.drain, unknowns);
     cacheHeader(c);
     return c.json({
       query: {},
       coverage: { status: "complete", notes: [] },
       source: { name: "ShieldedScan", url: `${SITE}/shielded` },
       basis:
-        "every term is the counterparty's own published value balance, netted across every transaction since activation; nothing is apportioned. balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid",
+        "every term is the counterparty's own published value balance, netted across every transaction since activation; nothing is apportioned. balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid. `orchard` follows Orchard emptying into Ironwood per complete UTC day: `migrated` is the day's migrations from Orchard alone (the rule /v1/analytics/migrations applies, as Ironwood received them), `remaining` Orchard's balance at the day's last block, and `shareMigrated` everything migrated through the day as a share of Orchard's balance at the block before activation (`beforeActivation`). Migrations drawing on two or more pools at once, not necessarily Orchard, are counted apart in `migratedFromSeveralPools`, never apportioned.",
       data: {
         activationHeight: i.activationHeight,
         readAtHeight: terms.tipHeight,
@@ -731,8 +739,9 @@ export function v1SeriesRoutes(deps: V1SeriesDeps): Hono {
           withIronwoodBundle: i.txCount,
           shieldedFromTransparent: i.fromTransparentTxCount,
         },
+        orchard,
       },
-      unknowns: {},
+      unknowns,
       asOf: nowSec(),
     });
   });

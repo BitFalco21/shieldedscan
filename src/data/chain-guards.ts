@@ -11,6 +11,7 @@ import type {
   MiningPoolBlocks,
   NsmDay,
   NsmOverview,
+  OrchardDrain,
   PulseEdgeTotal,
   PulseRibbonWindow,
   ReorgEvent,
@@ -298,8 +299,29 @@ function isNsmDay(d: unknown): d is NsmDay {
     isFiniteOrNull(x.nsmZat) &&
     // One is never known without the other: a lone figure is a server bug, not a day.
     (x.feeZat === null) === (x.nsmZat === null) &&
+    isFiniteOrNull(x.issuedZat) &&
     isFiniteOrNull(x.closeUsd) &&
     typeof x.partial === "boolean"
+  );
+}
+
+/** Orchard emptying into Ironwood: the pre-activation base and one row per complete day. */
+export function isOrchardDrain(b: unknown): b is OrchardDrain {
+  if (typeof b !== "object" || b === null) return false;
+  const o = b as Partial<OrchardDrain>;
+  return (
+    isFiniteNumber(o.activationHeight) &&
+    isFiniteNumber(o.baseHeight) &&
+    isFiniteOrNull(o.baseOrchardZat) &&
+    Array.isArray(o.days) &&
+    o.days.every(
+      (d) =>
+        isFiniteNumber(d.timestamp) &&
+        isFiniteNumber(d.closeHeight) &&
+        isFiniteOrNull(d.orchardZat) &&
+        isFiniteNumber(d.migratedZat) &&
+        isFiniteNumber(d.multiSourceZat),
+    )
   );
 }
 

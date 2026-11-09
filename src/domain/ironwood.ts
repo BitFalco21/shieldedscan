@@ -17,6 +17,7 @@
  * explicitly lets the sources reconcile to the balance exactly.
  */
 
+import type { OrchardDrain } from "./orchard-drain";
 import type { PoolName } from "./pool";
 
 /** Where Ironwood's current balance came from, and how much. All figures in zatoshi. */
@@ -77,6 +78,11 @@ export interface IronwoodInflow {
    * and is never summed. Optional because older APIs omit it.
    */
   migrations?: IronwoodMigrations;
+  /**
+   * Orchard emptying into Ironwood, day by day since activation, against Orchard's balance at the
+   * block before it. Optional because older APIs omit it.
+   */
+  orchardDrain?: OrchardDrain;
 }
 
 /**

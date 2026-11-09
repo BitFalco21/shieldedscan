@@ -10,7 +10,9 @@ import {
   freshShieldingPct,
   type IronwoodInflow,
   ironwoodSourceShares,
+  orchardDrainSeries,
   rankBuckets,
+  utcDayFromSeconds,
   shieldedShareOfCirculatingPct,
   shieldedVsTransparentPct,
   utcDayFromMs,
@@ -21,7 +23,13 @@ import {
   type MarketAsset,
   type MarketSnapshot,
 } from "@/domain/market";
-import { formatMultiple, formatUsdCompact, formatUsdExact, formatZecAmount } from "@/lib/format";
+import {
+  formatMultiple,
+  formatSharePct,
+  formatUsdCompact,
+  formatUsdExact,
+  formatZecAmount,
+} from "@/lib/format";
 import { formatMoneyCompact, formatMoneyExact, formatZatMoneyApprox } from "@/lib/money";
 import { USD } from "../../fx-rates";
 import { asRecord } from "./json";
@@ -686,11 +694,50 @@ interface SharePct {
 }
 
 /** The share of Ironwood's balance that is new shielding rather than relocated value. */
+/**
+ * Orchard emptying into Ironwood, summarised: the share is computed here against its stated base,
+ * so "what share of Orchard has migrated" needs no division, and the daily rows are cut to the last
+ * week, which is all a turn needs (the whole series is on /charts/orchard-migration).
+ */
+function orchardMigrationSummary(inflow: IronwoodInflow) {
+  const drain = inflow.orchardDrain;
+  if (!drain) return null;
+  const points = orchardDrainSeries(drain);
+  const last = points.at(-1);
+  if (last === undefined) return null;
+  const base = drain.baseOrchardZat;
+  return {
+    asOfDay: utcDayFromSeconds(last.timestamp),
+    asOfHeight: last.closeHeight,
+    orchardBeforeActivationZat: base,
+    orchardBeforeActivationHeight: drain.baseHeight,
+    migratedFromOrchardZat: last.cumulativeZat,
+    migratedFromOrchardZec: formatZecAmount(last.cumulativeZat),
+    orchardRemainingZat: last.orchardZat,
+    orchardRemainingZec: last.orchardZat === null ? null : formatZecAmount(last.orchardZat),
+    migratedFromSeveralPoolsZat: last.cumulativeMultiSourceZat,
+    shareMigratedText:
+      last.sharePct === null || base === null
+        ? null
+        : `${formatSharePct(last.sharePct)} of Orchard's ${formatZecAmount(base)} ZEC at block ${drain.baseHeight}, the block before NU6.3 activated, had migrated to Ironwood by the close of ${utcDayFromSeconds(last.timestamp)}`,
+    lastDays: points.slice(-7).map((p) => ({
+      day: utcDayFromSeconds(p.timestamp),
+      migratedThatDayZec: formatZecAmount(p.migratedZat),
+      orchardRemainingZec: p.orchardZat === null ? null : formatZecAmount(p.orchardZat),
+    })),
+  };
+}
+
 export function enrichIronwood(payload: unknown): unknown {
   const inflow = asIronwoodInflow(payload);
   if (inflow === null) return payload;
+  const orchard = orchardMigrationSummary(inflow);
+  // The raw daily rows are replaced by the summary: a turn needs the share, not every day.
+  const { orchardDrain: _drain, ...rest } = payload as Record<string, unknown>;
+  void _drain;
+  const base = orchard === null ? rest : { ...rest, orchardMigration: orchard };
   const pct = freshShieldingPct(inflow);
-  if (pct === null) return payload;
+  if (pct === null) return base;
   const share: SharePct = {
     pct,
     numeratorZat: inflow.netFromTransparentZat,
@@ -705,7 +752,7 @@ export function enrichIronwood(payload: unknown): unknown {
    */
   const sources = ironwoodSourceShares(inflow);
   return {
-    ...(payload as Record<string, unknown>),
+    ...base,
     freshShieldingShare: share,
     ...(sources === null
       ? {}

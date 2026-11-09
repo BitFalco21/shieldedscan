@@ -381,4 +381,16 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     mustCall: ["chain_activity"],
     mustContain: [/3\.07/, /368\.58/],
   },
+  {
+    id: "activity-issued-net-of-nsm",
+    category: "insights",
+    world: "fixture",
+    /**
+     * Yesterday in the fixture is 2026-07-11: 3,456 blocks issued 1,799.99998848 ZEC and the NSM
+     * took 1.28653056, so 1,798.71345792 net. Quoted, never a subsidy times a block count.
+     */
+    question: "how much ZEC was issued yesterday, and how much net of what the NSM removed?",
+    mustCall: ["chain_activity"],
+    mustContain: [/1,?799\.99/, /1,?798\.71/],
+  },
 ];
