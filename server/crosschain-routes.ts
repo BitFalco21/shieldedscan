@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import {
+  DAY_SECONDS,
+  DESTINATION_WINDOW_DAYS,
   parseChainFilter,
   parseCrossChainGroupBy,
   parseDirectionFilter,
@@ -8,7 +10,9 @@ import {
   parseProtocolFilter,
   parseUtcDayStart,
   parseWindowDays,
+  type DestinationWindows,
 } from "@/domain";
+import { Cached } from "./cached";
 import type { CrossChainStorePort } from "./crosschain-store";
 import { clampPageSize } from "./page-size";
 
@@ -22,6 +26,37 @@ export const VENUE_MONTHS_PATH = "/crosschain/venue-months";
 export const INFLOW_KINDS_PATH = "/crosschain/inflow-kinds";
 /** Every counterpart chain the transfer list shows, per direction: the list's column menus. */
 export const LISTED_CHAINS_PATH = "/crosschain/chains";
+/** Inbound swaps per source chain and Zcash address family, over each chart range. */
+export const DESTINATION_WINDOWS_PATH = "/crosschain/destination-windows";
+
+/**
+ * Inbound swaps per (source chain, address family) over each trailing window the chart offers,
+ * anchored on `nowSec`: the same grouped rows `/v1/crosschain/destinations` reads, one read each.
+ */
+export async function destinationWindows(
+  store: CrossChainStorePort,
+  nowSec: number,
+): Promise<DestinationWindows> {
+  const windows = await Promise.all(
+    DESTINATION_WINDOW_DAYS.map(async (days) => {
+      const fromTimestamp = days === null ? null : nowSec - days * DAY_SECONDS;
+      const rows = await store.crossChainEdges(fromTimestamp);
+      return {
+        days,
+        fromTimestamp,
+        buckets: rows
+          .filter((r) => r.direction === "in")
+          .map((r) => ({
+            chain: r.chain,
+            kind: r.addressKind,
+            transfers: r.transfers,
+            zat: r.zecAmountZat,
+          })),
+      };
+    }),
+  );
+  return { asOf: nowSec, windows };
+}
 /**
  * The private cross-chain surface: the transfer list, the aggregates and the lookups the frontend
  * and the agent read.
@@ -137,6 +172,11 @@ export function crosschainRoutes(store: CrossChainStorePort): Hono {
   app.get(OUTFLOW_BY_CHAIN_PATH, async (c) => c.json(await store.outflowByChain()));
   app.get(VENUE_MONTHS_PATH, async (c) => c.json(await store.volumeByVenue()));
   app.get(INFLOW_KINDS_PATH, async (c) => c.json(await store.inflowByAddressKind()));
+  // Six grouped reads, at most once per ten minutes however many pages ask.
+  const windowsMemo = new Cached<DestinationWindows>(600_000);
+  app.get(DESTINATION_WINDOWS_PATH, async (c) =>
+    c.json(await windowsMemo.get(() => destinationWindows(store, Math.floor(Date.now() / 1000)))),
+  );
 
   // The crossings a Zcash transaction is a leg of, for the `/tx` page's swap strip. Always 200 with
   // a list and its exact total (empty is the common answer), with the txid echoed so an adapter can

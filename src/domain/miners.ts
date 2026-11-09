@@ -322,3 +322,66 @@ export function minerFeeSharePct(height: number): number {
 
 /** The miner's subsidy per block just before NU7: what the tip strip says it "was". */
 export const MINER_SUBSIDY_BEFORE_NU7_ZAT = nu6MinerSubsidyZat(NU7_HEIGHT - 1);
+
+// ------------------------------------------------------------------- pools to a majority
+
+/** The share of a period's blocks the majority figure counts pools up to. */
+export const MAJORITY_PCT = 51;
+
+/**
+ * How many reviewed pools, largest first, mined a majority of one period's blocks.
+ *
+ * Every block of the period is in the denominator: unattributed, shielded-coinbase, no-address and
+ * unrecorded ones too. Attributing any of them could only raise some pool's count, so the number of
+ * pools needed can only fall: `pools` is a maximum. When every reviewed pool together mined less
+ * than `MAJORITY_PCT`, the answer would rest on how the rest is split, and `pools` is null.
+ */
+export interface PoolMajority {
+  period: string;
+  partial: boolean;
+  /** Every block in the period: the denominator. */
+  blocks: number;
+  /** Reviewed pools, largest first, whose blocks reach the majority; null when they never do. */
+  pools: number | null;
+  /** What those pools mined; when `pools` is null, what every reviewed pool mined. */
+  poolsBlocks: number;
+  /** The largest reviewed pool's blocks, and the largest three's. */
+  top1Blocks: number;
+  top3Blocks: number;
+  /** Every reviewed pool's blocks together. */
+  reviewedBlocks: number;
+}
+
+/** Each period's `PoolMajority`, in the series' order. */
+export function poolsToMajority(series: MinerSeries): PoolMajority[] {
+  const byPeriod = new Map<string, number[]>();
+  for (const p of series.points) {
+    if (!isMiningPoolId(p.group) || p.blocks <= 0) continue;
+    byPeriod.set(p.period, [...(byPeriod.get(p.period) ?? []), p.blocks]);
+  }
+  return series.periods.map((p) => {
+    const counts = (byPeriod.get(p.period) ?? []).sort((a, b) => b - a);
+    const sum = (n: number) => counts.slice(0, n).reduce((s, b) => s + b, 0);
+    const reviewedBlocks = sum(counts.length);
+    let pools: number | null = null;
+    let running = 0;
+    for (let i = 0; i < counts.length; i++) {
+      running += counts[i]!;
+      // Integer comparison: 100 × part ≥ 51 × whole, so no rounding decides a boundary month.
+      if (p.blocks > 0 && 100 * running >= MAJORITY_PCT * p.blocks) {
+        pools = i + 1;
+        break;
+      }
+    }
+    return {
+      period: p.period,
+      partial: p.partial,
+      blocks: p.blocks,
+      pools,
+      poolsBlocks: pools === null ? reviewedBlocks : sum(pools),
+      top1Blocks: sum(1),
+      top3Blocks: sum(3),
+      reviewedBlocks,
+    };
+  });
+}

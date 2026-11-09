@@ -324,6 +324,38 @@ export const CHAIN_ACTIVITY: EvalCase[] = [
     mustContain: [/3,?729/],
   },
   {
+    id: "activity-mining-pools-to-majority",
+    category: "insights",
+    world: "fixture",
+    /**
+     * The monthly series carries each month's pools-to-51% figure: in the fixture's June 2026 the
+     * three largest reviewed pools mined 62.52% of the blocks, the two largest only 50-odd. A
+     * maximum, since unattributed blocks stay in the denominator: the answer must say so.
+     */
+    question: "how many mining pools together mined 51% of Zcash's blocks in June 2026?",
+    mustCall: ["chain_activity"],
+    mustContain: [
+      /\b(?:3|three)\b/i,
+      /62\.5/,
+      /cannot be higher|at most|or fewer|maximum|upper bound/i,
+    ],
+  },
+  {
+    id: "activity-mining-pools-no-majority",
+    category: "insights",
+    world: "fixture",
+    /**
+     * August 2025 in the fixture: every reviewed pool together mined 44.54% of the blocks, so no
+     * count of pools reaches 51%. The answer gives that share and states no number of pools.
+     */
+    question: "in August 2025, how many mining pools controlled 51% of Zcash mining?",
+    mustCall: ["chain_activity"],
+    mustContain: [/44\.5/],
+    mustNotContain: [
+      /\b(?:[1-9]|one|two|three|four|five) (?:reviewed )?pools? (?:together )?(?:mined|controlled|control)\b/i,
+    ],
+  },
+  {
     id: "activity-mining-pool-label",
     category: "insights",
     world: "fixture",

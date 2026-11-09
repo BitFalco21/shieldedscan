@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getDataSource } from "@/data";
 import { chartRangeDays, parseChartRange } from "@/domain";
 import { isTestnet } from "@/lib/network";
+import { nullIfTransient } from "@/lib/transient-upstream";
 import { CrossChainFlowsPage } from "@/features/crosschain/CrossChainFlowsPage";
 
 // Tip-sensitive: skip Next's fetch Data Cache (ARCHITECTURE.md, "Caching and freshness").
@@ -27,6 +28,11 @@ export default async function Page({
   // Parsed, not trusted: the range set is closed, so a hand-edited `?range=` that names
   // nothing we know is a typo and resolves to ALL. The port speaks days, not range names.
   const range = parseChartRange((await searchParams).range);
-  const summary = await getDataSource().getCrossChainFlows(chartRangeDays(range));
-  return <CrossChainFlowsPage summary={summary} range={range} />;
+  const data = getDataSource();
+  const [summary, destinations] = await Promise.all([
+    data.getCrossChainFlows(chartRangeDays(range)),
+    // A section of its own: an outage costs it alone, never the page.
+    nullIfTransient(() => data.getDestinationWindows()),
+  ]);
+  return <CrossChainFlowsPage summary={summary} range={range} destinations={destinations} />;
 }

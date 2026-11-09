@@ -167,6 +167,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getInflowKinds() {
     return chartSeries.getInflowKinds();
   },
+  async getDestinationWindows() {
+    return chartSeries.getDestinationWindows();
+  },
   async getReorgWeeks() {
     return chartSeries.getReorgWeeks();
   },

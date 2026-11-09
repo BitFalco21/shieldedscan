@@ -44,7 +44,9 @@ export type ChartSlug =
   | "volume-by-venue"
   | "shielded-capable-swaps"
   | "shielded-share"
-  | "supply-issuance";
+  | "supply-issuance"
+  | "pools-to-majority"
+  | "shielded-capable-by-chain";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -375,6 +377,28 @@ export const CHARTS: ChartEntry[] = [
       "Drawn by swap count, as the public API states it, and by ZEC. A swap whose venue published no Zcash address is in neither side of either share.",
     ],
   },
+  {
+    slug: "pools-to-majority",
+    title: "Pools needed for 51% of blocks",
+    category: "Mining",
+    api: { docsId: "mining-pools-series", path: "/v1/analytics/mining-pools/series" },
+    blurb: "How many mining pools, largest first, mined a majority of each month's blocks.",
+    description: [
+      "Each month, how many reviewed mining pools, counted from the largest, mined 51% of all its blocks. Unattributed, shielded-coinbase and unrecorded blocks stay in the month's total, so naming more of them could only lower the count: it is a maximum.",
+      "A month in which every reviewed pool together mined less than 51% has no count: the answer would depend on how the rest is split. A pool is this explorer's reviewed label on its payout addresses.",
+    ],
+  },
+  {
+    slug: "shielded-capable-by-chain",
+    title: "Shielded-capable swaps by source chain",
+    category: "Cross-chain",
+    api: { docsId: "destinations", path: "/v1/crosschain/destinations" },
+    blurb: "Per source chain, the share of swaps into ZEC sent to a Sapling or unified address.",
+    description: [
+      "For each chain swaps into ZEC came from, the share that went to an address able to receive shielded funds, Sapling or unified, against a transparent one, with the counts. Shielded-capable, never shielded: a unified address may carry a transparent receiver, and which one a payout used is not public.",
+      "A swap whose venue published no Zcash address is in neither share and counted beside it. The mix follows the venues: THORChain swaps begin on 2 October 2026, and Maya carried no ZEC from late August to 1 October 2026.",
+    ],
+  },
 ];
 
 /**
@@ -402,6 +426,9 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "supply-issuance",
   // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
   "orphan-rate",
+  // Reviewed pool labels are mainnet payout addresses, and /miners is absent on testnet.
+  "pools-to-majority",
+  "shielded-capable-by-chain",
 ]);
 
 /** The charts this deployment may honestly show. */

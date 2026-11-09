@@ -147,15 +147,15 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const toolNames = (t: AgentTools) => t.defs().map((d) => d.function.name);
 
 /**
- * The prompt and tool list an agent without `export_data` sends: v46, the text v47 is less its
+ * The prompt and tool list an agent without `export_data` sends: v47, the text v48 is less its
  * data-file section and tool. Pinned so "off" is a text with a version a result can name; a prompt
  * or definition change re-pins these with its version bump.
  */
-const V46 = {
+const V47 = {
   prompt: "d50ab9e1e87c75eaf97c17d83d32d524588c4a2f2771a61b440f83fc206f9787",
   promptWithoutCharts: "eb9158310f8b8ff10123a5a371939b19ed228c94361d78613edbbaa215197f6b",
-  defs: "d725968aa7d5945a162a0e5d2b83d3dd656e481b791579f44ecd7c45ec4915c5",
-  defsWithoutCharts: "884bed7388b9fc810150653f1119b6faa14f3bc587cac62faea8259f1e15bf19",
+  defs: "91e5ec73a0b319b4d08f75464b0eb67babf4715a8c34e20d69bd8330616207fc",
+  defsWithoutCharts: "346c584ba9448e9988b8c5b0dc5c33164387fb4b0bf08f0c641e8ef924548379",
 };
 
 describe("the off switch", () => {
@@ -165,17 +165,17 @@ describe("the off switch", () => {
       exports: false,
     });
 
-  it("leaves the prompt and the tool list exactly v46's", () => {
-    expect(sha(systemPromptFor({ charts: true, exports: false }))).toBe(V46.prompt);
-    expect(sha(systemPromptFor({ charts: false, exports: false }))).toBe(V46.promptWithoutCharts);
-    expect(sha(JSON.stringify(off().defs()))).toBe(V46.defs);
-    expect(sha(JSON.stringify(off(false).defs()))).toBe(V46.defsWithoutCharts);
-    expect(promptVersion(false)).toBe(46);
+  it("leaves the prompt and the tool list exactly v47's", () => {
+    expect(sha(systemPromptFor({ charts: true, exports: false }))).toBe(V47.prompt);
+    expect(sha(systemPromptFor({ charts: false, exports: false }))).toBe(V47.promptWithoutCharts);
+    expect(sha(JSON.stringify(off().defs()))).toBe(V47.defs);
+    expect(sha(JSON.stringify(off(false).defs()))).toBe(V47.defsWithoutCharts);
+    expect(promptVersion(false)).toBe(47);
   });
 
   it("is a version bump only when on", () => {
     expect(promptVersion(true)).toBe(SYSTEM_PROMPT_VERSION);
-    expect(SYSTEM_PROMPT_VERSION).toBe(47);
+    expect(SYSTEM_PROMPT_VERSION).toBe(48);
     expect(systemPromptFor({ charts: true, exports: true })).toBe(SYSTEM_PROMPT);
     expect(SYSTEM_PROMPT.match(/## Data files/g)).toHaveLength(1);
     expect(systemPromptFor({ charts: true, exports: false })).not.toMatch(
@@ -193,7 +193,7 @@ describe("the off switch", () => {
     expect(result.export).toBeUndefined();
   });
 
-  it("reaches the route: an agent mounted with exports off sends v46's prompt", async () => {
+  it("reaches the route: an agent mounted with exports off sends v47's prompt", async () => {
     const { streamer, params } = script([[content("Words only."), done()]]);
     const app = agentRoutes({
       v1: makeV1(),
@@ -209,7 +209,7 @@ describe("the off switch", () => {
       body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] }),
     });
     await res.text();
-    expect(sha(String(params[0]!.messages[0]!.content))).toBe(V46.prompt);
+    expect(sha(String(params[0]!.messages[0]!.content))).toBe(V47.prompt);
     expect(
       params[0]!.tools.map((t) => (t as { function: { name: string } }).function.name),
     ).not.toContain("export_data");

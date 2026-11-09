@@ -79,6 +79,11 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
         { label: "Share of swaps", className: RANKED_LINES[0], mark: "line" },
         { label: "Share of ZEC", className: RANKED_LINES[1], mark: "line" },
       ];
+    case "shielded-capable-by-chain":
+      return [
+        { label: "Shielded-capable", className: "text-green", mark: "bar" },
+        { label: "Transparent", className: "text-ink-faint", mark: "bar" },
+      ];
     case "shielded-supply":
     case "ironwood-balance":
     case "price":
@@ -89,6 +94,7 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "reorgs":
     case "orphan-rate":
     case "shielded-share":
+    case "pools-to-majority":
     // The issuance panel draws its own key beside its figures.
     case "supply-issuance":
     // A ranked key beside the bars is the legend.

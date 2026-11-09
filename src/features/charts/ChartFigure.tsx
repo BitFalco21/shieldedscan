@@ -21,6 +21,7 @@ import { PoolAreaChart } from "@/components/PoolAreaChart";
 import { RangeToggle } from "@/components/RangeToggle";
 import { StackedAreaChart } from "@/components/StackedAreaChart";
 import { IssuancePanel } from "@/features/issuance/IssuancePanel";
+import { PoolsToMajorityChart } from "@/features/miners/PoolsToMajorityChart";
 import { issuanceSnapshot } from "@/features/issuance/issuance-snapshot";
 import { readinessChart } from "@/features/network/upgrade/readiness-chart";
 import { chainName } from "@/lib/chains";
@@ -45,6 +46,7 @@ import { POOL_CLASSES } from "@/lib/pool-palette";
 import { useQueryParam } from "@/lib/use-query-param";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
+import { CapableByChainChart } from "./CapableByChainChart";
 import { ChartActions } from "./ChartActions";
 import type { ChartData } from "./chart-data";
 import { chartLegend } from "./chart-legend";
@@ -704,6 +706,20 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           snapshot={issuanceSnapshot(data.supply, data.halving, data.supplyNow, data.asOf)}
         />
       );
+    }
+    case "shielded-capable-by-chain": {
+      const t = chartTable(slug, data, range);
+      if (!t) return unavailable("The cross-chain series");
+      if (t.rows.length === 0) {
+        return <p className="text-sm text-ink-faint">No swaps into ZEC in this window.</p>;
+      }
+      return <CapableByChainChart table={t} />;
+    }
+    case "pools-to-majority": {
+      if (!data.minerMonths || data.minerMonths.periods.length < 2) {
+        return unavailable("The mining series");
+      }
+      return <PoolsToMajorityChart series={data.minerMonths} />;
     }
     case "shielded-share": {
       const t = chartTable(slug, data, range);

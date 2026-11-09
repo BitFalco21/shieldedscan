@@ -18,6 +18,7 @@ import {
   rejectUnknownParams,
   setCache,
 } from "./http";
+import { createKeyedCache } from "./keyed-cache";
 import { ParamError } from "./params";
 import { toDestinations, toFloorCoverage, toFlows, toTransfer } from "./map";
 
@@ -40,6 +41,7 @@ export type VenueHealthReader = ReturnType<typeof venueHealthReader>;
 const DIRECTIONS = ["in", "out"] as const satisfies readonly CrossChainDirection[];
 const RANK_BY = ["zec", "usd"] as const;
 const RANK_ORDER = ["largest", "smallest"] as const;
+const DESTINATION_GROUP_BY = ["none", "chain"] as const;
 
 /** The cross-chain transfers, their ranking, per-chain flows and destination address kinds. */
 export function v1CrossChainRoutes(
@@ -50,6 +52,8 @@ export function v1CrossChainRoutes(
   app.onError(coreRouteErrors);
   // The GROUP BY behind `/flows` runs at most once per ten minutes however many callers arrive.
   const flowsMemo = new Cached<Awaited<ReturnType<CrossChainStorePort["flows"]>>>(600_000);
+  // One grouped read per destinations window; a caller varying the window is bounded by the cap.
+  const edgesMemo = createKeyedCache({ now: Date.now, max: 64 });
 
   /**
    * Every narrowing the public transfer reads accept; a value it cannot read is a 400 naming it.
@@ -223,15 +227,39 @@ export function v1CrossChainRoutes(
     return c.json(toFlows(summary, await venueHealth()));
   });
 
+  /**
+   * Where transfers land, by the Zcash-side address family, optionally per counterpart chain and
+   * over a window of UTC days. One query per window, the rows grouped by (chain, direction,
+   * family), memoised ten minutes per window: the totals and the per-chain rows are the same rows.
+   */
   app.get("/v1/crosschain/destinations", async (c) => {
-    rejectUnknownParams(c, ["direction"]);
-    const direction = c.req.query("direction") ?? "in";
+    rejectUnknownParams(c, ["direction", "chain", "groupBy", "from", "to"]);
+    const q = c.req.query();
+    const direction = q.direction ?? "in";
     if (!isOneOf(DIRECTIONS, direction)) {
       throw new ParamError("invalid_parameter", "direction: in | out");
     }
-    const buckets = await store.countByAddressKind(direction);
+    const groupBy = q.groupBy ?? "none";
+    if (!isOneOf(DESTINATION_GROUP_BY, groupBy)) {
+      throw new ParamError("invalid_parameter", "groupBy: none | chain");
+    }
+    // A ticker's shape only: the set of chains is open, and an unknown one is an honest empty answer.
+    const chain = q.chain ? q.chain.toUpperCase() : null;
+    if (chain !== null && !/^[A-Z0-9_-]{1,24}$/.test(chain)) {
+      throw new ParamError("invalid_parameter", "chain: one ticker, e.g. BTC");
+    }
+    const window = narrowingParams(c);
+    const from = window.fromTimestamp ?? null;
+    const to = window.toTimestamp ?? null;
+    const rows = await edgesMemo(`${from}:${to}`, 600_000, () => store.crossChainEdges(from, to));
     setCache(c, "aggregate");
-    return c.json(toDestinations(direction, buckets, await venueHealth()));
+    return c.json(
+      toDestinations(
+        { direction, chain, groupBy, from: q.from ?? null, to: q.to ?? null },
+        rows.filter((r) => r.direction === direction && (chain === null || r.chain === chain)),
+        await venueHealth(),
+      ),
+    );
   });
   return app;
 }

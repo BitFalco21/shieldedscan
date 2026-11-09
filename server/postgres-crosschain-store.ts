@@ -971,7 +971,10 @@ export class PostgresStorePort implements CrossChainStorePort {
    * Completed only, like every total here (`COUNTED`). Served by `crosschain_transfer_kind_idx (direction, zcash_address_kind)`, with the
    * settlement filter by asset as everywhere else.
    */
-  async crossChainEdges(fromTimestamp: number | null): Promise<CrossChainEdgeRow[]> {
+  async crossChainEdges(
+    fromTimestamp: number | null,
+    toTimestamp: number | null = null,
+  ): Promise<CrossChainEdgeRow[]> {
     const { rows } = await this.#pool.query<{
       chain: string;
       direction: CrossChainDirection;
@@ -986,8 +989,9 @@ export class PostgresStorePort implements CrossChainStorePort {
         WHERE ${COUNTED}
           AND NOT (counterpart_asset = ANY($1))
           AND ($2::bigint IS NULL OR timestamp >= $2)
+          AND ($3::bigint IS NULL OR timestamp < $3)
         GROUP BY 1, 2, 3`,
-      [SETTLEMENT_ASSETS, fromTimestamp],
+      [SETTLEMENT_ASSETS, fromTimestamp, toTimestamp],
     );
     return rows.map((r) => ({
       chain: r.chain,

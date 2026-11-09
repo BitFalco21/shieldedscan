@@ -1,11 +1,21 @@
-import type { ChartRange, CrossChainFlow, CrossChainFlowSummary, FlowTrend } from "@/domain";
+import type {
+  ChartRange,
+  CrossChainFlow,
+  CrossChainFlowSummary,
+  DestinationWindows,
+  FlowTrend,
+} from "@/domain";
 import { CHART_RANGES, flowRowsWithPrevious, flowTotalZat, flowTrend } from "@/domain";
 import { ChainLogo } from "@/components/ChainLogo";
 import { CrossChainSankey } from "@/components/CrossChainSankey";
 import { DataTable } from "@/components/DataTable";
 import { FilterChips } from "@/components/FilterChips";
 import { PageHeader } from "@/components/PageHeader";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { Panel } from "@/components/Panel";
+import { CapableByChainChart } from "@/features/charts/CapableByChainChart";
+import { chartData } from "@/features/charts/chart-data";
+import { chartTable } from "@/features/charts/chart-table";
 import { chainName } from "@/lib/chains";
 import {
   formatCount,
@@ -22,6 +32,8 @@ import { balanceSentence, periodNoun, rangeLabel, windowPhrase } from "./window-
 export interface CrossChainFlowsPageProps {
   summary: CrossChainFlowSummary;
   range: ChartRange;
+  /** Inbound swaps by source chain and address family; null when it did not load. */
+  destinations?: DestinationWindows | null;
 }
 
 /**
@@ -36,7 +48,11 @@ const COLUMNS = [
   { label: "SHARE", align: "right" as const },
 ];
 
-export function CrossChainFlowsPage({ summary, range }: CrossChainFlowsPageProps) {
+export function CrossChainFlowsPage({
+  summary,
+  range,
+  destinations = null,
+}: CrossChainFlowsPageProps) {
   const { flows, firstAt, lastAt } = summary;
   const outZat = flowTotalZat(flows, "out");
   const inZat = flowTotalZat(flows, "in");
@@ -131,6 +147,8 @@ export function CrossChainFlowsPage({ summary, range }: CrossChainFlowsPageProps
           directionTotalZat={inZat}
           trendLabel={trendLabel}
         />
+
+        <LandingPanel destinations={destinations} range={range} />
 
         {/* Why the trend column is missing, said rather than left as an absence: we decline
             to divide by a period we only partly recorded. It resolves itself as the dataset
@@ -277,6 +295,35 @@ function FlowTable({
           </tr>
         ))}
       </DataTable>
+    </Panel>
+  );
+}
+
+interface LandingPanelProps {
+  destinations: DestinationWindows | null;
+  range: ChartRange;
+}
+
+/** Per source chain, where arriving ZEC landed: the `shielded-capable-by-chain` chart's figure. */
+function LandingPanel({ destinations, range }: LandingPanelProps) {
+  const table = chartTable(
+    "shielded-capable-by-chain",
+    chartData({ destinationWindows: destinations }),
+    range,
+  );
+  return (
+    <Panel title="ARRIVING ZEC, BY LANDING ADDRESS" className="mt-3">
+      {table === null ? (
+        <DataUnavailable what="The landing addresses" inset />
+      ) : table.rows.length === 0 ? (
+        <p className="text-sm text-ink-faint">No ZEC arrived in this window.</p>
+      ) : (
+        <CapableByChainChart table={table} />
+      )}
+      <p className="mt-3 text-xs text-ink-faint">
+        Shielded-capable is a Sapling or unified address. Which receiver a unified address used is
+        not public.
+      </p>
     </Panel>
   );
 }

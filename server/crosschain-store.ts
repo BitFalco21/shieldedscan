@@ -94,11 +94,15 @@ export interface CrossChainStorePort {
    * demonstrably reached the transparent box. `pulseZcashEnd` is the one rule turning a kind into
    * an end, shared with the per-transfer pulses.
    *
-   * `fromTimestamp` is an inclusive lower bound in unix seconds, or null for all of history.
-   * Settlement legs (CACAO, RUNE) are excluded by asset, never by chain: a chain filter would drop
-   * every wrapped-ZEC crossing.
+   * `fromTimestamp` is an inclusive lower bound in unix seconds, or null for all of history;
+   * `toTimestamp` an exclusive upper one, or null for none. Settlement legs (CACAO, RUNE) are
+   * excluded by asset, never by chain: a chain filter would drop every wrapped-ZEC crossing.
+   * `/v1/crosschain/destinations` reads its inbound rows for the shielded-capable share per chain.
    */
-  crossChainEdges(fromTimestamp: number | null): Promise<CrossChainEdgeRow[]>;
+  crossChainEdges(
+    fromTimestamp: number | null,
+    toTimestamp?: number | null,
+  ): Promise<CrossChainEdgeRow[]>;
   count(): Promise<number>;
   /** Exact count for the totals line, filter-aware. */
   countFiltered(options?: ListOptions): Promise<number>;
@@ -191,8 +195,12 @@ export class MemoryStorePort implements CrossChainStorePort {
         .items.filter((t) => !SETTLEMENT_ASSETS.includes(t.counterpartAsset)),
     );
   }
-  async crossChainEdges(fromTimestamp: number | null): Promise<CrossChainEdgeRow[]> {
-    return this.#store.crossChainEdges(fromTimestamp);
+  // Both edges forwarded: a dropped `toTimestamp` would typecheck and answer an open window.
+  async crossChainEdges(
+    fromTimestamp: number | null,
+    toTimestamp: number | null = null,
+  ): Promise<CrossChainEdgeRow[]> {
+    return this.#store.crossChainEdges(fromTimestamp, toTimestamp);
   }
   async count(): Promise<number> {
     return this.#store.size;

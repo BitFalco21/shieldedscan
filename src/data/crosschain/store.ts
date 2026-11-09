@@ -156,11 +156,15 @@ export class CrossChainStore {
    * in-memory twin of the Postgres query (see `CrossChainStorePort.crossChainEdges`),
    * classified with the same `classifyZcashAddress`; settlement legs excluded by asset.
    */
-  crossChainEdges(fromTimestamp: number | null): CrossChainEdgeRow[] {
+  crossChainEdges(
+    fromTimestamp: number | null,
+    toTimestamp: number | null = null,
+  ): CrossChainEdgeRow[] {
     const rows = new Map<string, CrossChainEdgeRow>();
     for (const t of this.#sorted) {
       if (!countsTowardTotals(t) || isSettlementLeg(t)) continue;
       if (fromTimestamp !== null && t.timestamp < fromTimestamp) continue;
+      if (toTimestamp !== null && t.timestamp >= toTimestamp) continue;
       const addressKind = classifyZcashAddress(t.zcashAddress);
       const key = `${t.counterpartChain}|${t.direction}|${addressKind ?? "none"}`;
       const row = rows.get(key) ?? {

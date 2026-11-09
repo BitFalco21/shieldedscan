@@ -6,6 +6,7 @@ import type {
   ChainInflowPoint,
   ChainOutflowPoint,
   InflowKindMonthPoint,
+  DestinationWindows,
   VenueMonthPoint,
   CrossChainVolumeSeries,
   ListedChain,
@@ -416,6 +417,17 @@ export function createCrossChainApiSource(config: CrossChainApiConfig) {
       return body as InflowKindMonthPoint[];
     },
 
+    async getDestinationWindows(): Promise<DestinationWindows> {
+      const res = await request(config, "/crosschain/destination-windows");
+      if (!res.ok)
+        throw new Error(`cross-chain API returned ${res.status} for destination windows`);
+      const body = (await res.json()) as unknown;
+      if (!isDestinationWindows(body)) {
+        throw new Error("cross-chain API returned an unrecognised destination windows shape");
+      }
+      return body;
+    },
+
     async countCrossChainTransfers(filters: CrossChainFilters = {}): Promise<number> {
       const params = new URLSearchParams();
       applyFilters(params, filters);
@@ -563,4 +575,28 @@ export function createCrossChainApiSource(config: CrossChainApiConfig) {
       };
     },
   };
+}
+
+/** Every window the chart ranges need, each bucket a chain, a family or null, and two counts. */
+function isDestinationWindows(body: unknown): body is DestinationWindows {
+  const b = body as DestinationWindows;
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    typeof b.asOf === "number" &&
+    Array.isArray(b.windows) &&
+    b.windows.every(
+      (w) =>
+        (w.days === null || typeof w.days === "number") &&
+        (w.fromTimestamp === null || typeof w.fromTimestamp === "number") &&
+        Array.isArray(w.buckets) &&
+        w.buckets.every(
+          (k) =>
+            typeof k.chain === "string" &&
+            (k.kind === null || typeof k.kind === "string") &&
+            typeof k.transfers === "number" &&
+            typeof k.zat === "number",
+        ),
+    )
+  );
 }

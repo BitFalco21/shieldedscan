@@ -739,6 +739,10 @@ export function transfer(overrides: Partial<CrossChainTransfer> = {}): CrossChai
  * The June row sits on the last second of June and the August row on the first instant of August,
  * so a July window including either edge is visibly wrong.
  */
+/** A unified address, by its prefix: the shielded-capable landing in the cross-chain rows. */
+const FIXTURE_UNIFIED_ADDRESS =
+  "u1l8xunezsvhq8fgzfl7404m450nwnd76zshscn6nfys7vyz2ywyh4cc5daaq0c7q2su5lqfh23sp7fkf3kt27ve5948mzpfdvckzaect2jtte308mkwlycj2u0eac077wu70vqcetkxf";
+
 export const CROSSCHAIN_TRANSFERS: CrossChainTransfer[] = [
   transfer({
     id: "maya:june-btc",
@@ -748,6 +752,9 @@ export const CROSSCHAIN_TRANSFERS: CrossChainTransfer[] = [
     counterpartAsset: "BTC",
     zecAmountZat: 100_000_000_000,
     usdValueAtSwap: 4_000,
+    // Landing addresses for `destinations`: June's unified, July's transparent, and the unpriced
+    // July leg published none — so all of history is 1 shielded-capable of 2, July 0 of 1.
+    zcashAddress: FIXTURE_UNIFIED_ADDRESS,
     timestamp: Math.floor(Date.parse("2026-06-30T23:59:59Z") / 1000),
   }),
   transfer({
@@ -758,6 +765,7 @@ export const CROSSCHAIN_TRANSFERS: CrossChainTransfer[] = [
     counterpartAsset: "BTC",
     zecAmountZat: 900_000_000_000,
     usdValueAtSwap: 36_000,
+    zcashAddress: "t1Mv595nLBUxJxKAfAZAG9RjhibExEErmMf",
     timestamp: Math.floor(Date.parse("2026-07-02T00:00:00Z") / 1000),
   }),
   transfer({

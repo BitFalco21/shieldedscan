@@ -131,6 +131,8 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
   { tool: "crosschain", args: { mode: "aggregate", groupBy: "chain" } },
   { tool: "crosschain", args: { mode: "transfers", sort: "largest", sortBy: "zec" } },
   { tool: "crosschain", args: { mode: "destinations" } },
+  // Per source chain: each chain's own buckets and share, keys the totals do not carry.
+  { tool: "crosschain", args: { mode: "destinations", groupBy: "chain" } },
   { tool: "chain_activity", args: { mode: "window", from: "2026-07-01", to: "2026-08-01" } },
   { tool: "chain_activity", args: { mode: "miners", from: "2026-07-01", to: "2026-08-01" } },
   { tool: "chain_activity", args: { mode: "mining-pools", lastDays: 7 } },

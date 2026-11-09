@@ -33,6 +33,8 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "shielded-capable-swaps": ["inflowKinds"],
   "shielded-share": ["supplyDays"],
   "supply-issuance": ["supply", "halving", "supplyNow"],
+  "pools-to-majority": ["minerMonths"],
+  "shielded-capable-by-chain": ["destinationWindows"],
 };
 
 /**
@@ -88,6 +90,8 @@ export async function loadChartData(
     releases,
     halving,
     supplyNow,
+    minerMonths,
+    destinationWindows,
   ] = await Promise.all([
     wanted.has("months") ? guard(() => data.getMonthlySeries()) : null,
     wanted.has("flow") ? guard(() => data.getShieldingFlow()) : null,
@@ -117,6 +121,8 @@ export async function loadChartData(
     wanted.has("releases") ? guard(() => data.getNetworkReleases()) : null,
     wanted.has("halving") ? guard(() => data.getHalvingSchedule()) : null,
     wanted.has("supplyNow") ? guard(() => data.getSupplyBreakdown()) : null,
+    wanted.has("minerMonths") ? guard(() => data.getMinerSeries("month")) : null,
+    wanted.has("destinationWindows") ? guard(() => data.getDestinationWindows()) : null,
   ]);
   return {
     months,
@@ -147,6 +153,8 @@ export async function loadChartData(
     releases,
     halving,
     supplyNow,
+    minerMonths,
+    destinationWindows,
     asOf: nowSeconds(),
   };
 }

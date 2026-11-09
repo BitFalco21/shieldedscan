@@ -66,6 +66,7 @@ import type {
   ChainInflowPoint,
   ChainOutflowPoint,
   InflowKindMonthPoint,
+  DestinationWindows,
   SupplyDayPoint,
   VenueMonthPoint,
   MinerShareMonth,
@@ -320,6 +321,8 @@ export interface ExplorerDataSource {
   getVenueMonths(): Promise<VenueMonthPoint[]>;
   /** Inbound ZEC and transfers per Zcash address kind per month. */
   getInflowKinds(): Promise<InflowKindMonthPoint[]>;
+  /** Inbound swaps per source chain and Zcash address family, over each chart range. */
+  getDestinationWindows(): Promise<DestinationWindows>;
   /** Every value pool's balance at each complete UTC day's close, all history. */
   getSupplyDays(): Promise<SupplyDayPoint[]>;
   /** Each shielded pool's note commitment tree size at every day's close. */

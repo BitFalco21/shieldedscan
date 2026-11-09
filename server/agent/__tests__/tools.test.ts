@@ -2052,6 +2052,39 @@ describe("crosschain", () => {
       expect(result.content).toMatch(/was shielded/);
       expect(result.content).toMatch(/receiverUsedIsNotPublic/);
     });
+
+    it("splits the share per source chain over a window, and checks the echo", async () => {
+      const result = await call({
+        mode: "destinations",
+        groupBy: "chain",
+        from: "2026-07-01",
+        to: "2026-08-01",
+      });
+      expect(result.endpoints).toEqual([
+        "GET /v1/crosschain/destinations?direction=in&groupBy=chain&from=2026-07-01&to=2026-08-01",
+      ]);
+      // July: the transparent leg and the unpublished one, so 0 of 1 classified.
+      expect(result.content).toMatch(/"chain":\s*"BTC"/);
+      expect(result.content).toMatch(/"numerator":\s*0,\s*"denominator":\s*1/);
+      expect(result.content).toContain("PER CHAIN");
+    });
+
+    it("narrows to one chain", async () => {
+      const result = await call({ mode: "destinations", chain: "btc" });
+      expect(result.endpoints).toEqual(["GET /v1/crosschain/destinations?direction=in&chain=BTC"]);
+      expect(result.content).toMatch(/"numerator":\s*1,\s*"denominator":\s*2/);
+    });
+
+    it("refuses a venue, a threshold or another grouping rather than dropping it", async () => {
+      for (const args of [
+        { mode: "destinations", venue: "maya" },
+        { mode: "destinations", minZec: 5 },
+        { mode: "destinations", groupBy: "month" },
+      ]) {
+        const result = await call(args);
+        expect(result.endpoints, JSON.stringify(args)).toEqual([]);
+      }
+    });
   });
 
   /**

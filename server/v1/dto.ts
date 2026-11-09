@@ -769,17 +769,43 @@ export interface V1FlowFigures {
   usdCoveredTransfers: number;
 }
 
+/** One landing family's completed transfers. */
+export interface V1DestinationBucket {
+  addressKind: "transparent" | "sapling" | "unified" | null;
+  shieldedCapable: boolean | null;
+  transfers: number;
+  zecAmountZat: number;
+}
+
+/** One counterpart chain's transfers by landing family (`groupBy=chain`). */
+export interface V1ChainDestinations {
+  chain: string;
+  /** Every completed transfer from or to this chain, published address or not. */
+  transfers: number;
+  buckets: V1DestinationBucket[];
+  /** Of this chain's classified transfers; null (reason `unmeasured`) when it has none. */
+  shieldedCapableShare: V1Share | null;
+}
+
 export interface V1Destinations {
   direction: "in" | "out";
+  /**
+   * The narrowing applied, echoed so a caller can tell an older deployment that ignored `chain`,
+   * `groupBy` or the window (it omits the key) from an answer to the question asked.
+   */
+  applied: {
+    direction: "in" | "out";
+    chain: string | null;
+    groupBy: "none" | "chain";
+    from: string | null;
+    to: string | null;
+  };
   coverage: V1FloorCoverage;
-  buckets: {
-    addressKind: "transparent" | "sapling" | "unified" | null;
-    shieldedCapable: boolean | null;
-    transfers: number;
-    zecAmountZat: number;
-  }[];
+  buckets: V1DestinationBucket[];
   /** Share of CLASSIFIED transfers landing shielded-capable — denominator stated below. */
   shieldedCapableShare: V1Share | null;
+  /** With `groupBy=chain`: every counterpart chain, most transfers first. Absent otherwise. */
+  chains?: V1ChainDestinations[];
   shareDenominator: string;
   /** A capability claim only: which receiver a unified address paid into is not public. */
   receiverUsedIsNotPublic: true;
@@ -992,6 +1018,15 @@ export interface V1MiningSeriesCell {
   fees: V1Amount | null;
 }
 
+/** A period's pools-to-a-majority figure, in blocks; the period's `blocks` is the denominator. */
+export interface V1PoolMajority {
+  pools: number | null;
+  blocks: number;
+  top1Blocks: number;
+  top3Blocks: number;
+  reviewedBlocks: number;
+}
+
 export interface V1MiningPoolSeries {
   query: { interval: "day" | "month"; pool: string | null };
   coverage: { status: "complete" | "partial"; notes: string[] };
@@ -1012,6 +1047,12 @@ export interface V1MiningPoolSeries {
       lastHeight: number | null;
       /** Only the groups that mined in the period; a group absent here mined no block in it. */
       groups: V1MiningSeriesCell[];
+      /**
+       * How many reviewed pools, largest first, mined 51% of the period's blocks, every block in the
+       * denominator. Attribution could only lower `pools`, so it is a maximum. Null (reason
+       * `indeterminate`) when every reviewed pool together mined less; `blocks` is then theirs.
+       */
+      majority: V1PoolMajority;
     }[];
   };
   unknowns: V1Unknowns;

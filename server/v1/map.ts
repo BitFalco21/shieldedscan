@@ -46,7 +46,10 @@ import {
   minerValueUsd,
   nsmWindow,
   type MinerAddressRow,
+  isShieldedCapableKind,
+  poolsToMajority,
   type MinerSeries,
+  type PoolMajority,
   type MinersOverview,
   type MinersWindowKey,
   type MinerUsdParts,
@@ -57,10 +60,12 @@ import {
   type NsmOverview,
 } from "@/domain";
 import { unspendablePools } from "@/domain/consensus";
-import type { AddressKindBucket, VenueHealth } from "@/data/crosschain/store";
+import type { AddressKindBucket, CrossChainEdgeRow, VenueHealth } from "@/data/crosschain/store";
 import type {
   V1Label,
   V1Labels,
+  V1ChainDestinations,
+  V1DestinationBucket,
   V1Destinations,
   V1FloorCoverage,
   V1Flows,
@@ -93,6 +98,7 @@ import type {
   V1MiningPoolBlock,
   V1MiningPools,
   V1MiningPoolSeries,
+  V1PoolMajority,
   V1MiningPoolSummary,
   V1MiningSeriesCell,
   V1MiningSeriesGroup,
@@ -494,41 +500,102 @@ export function toFlows(
   };
 }
 
+export type V1DestinationsApplied = V1Destinations["applied"];
+
+/** Buckets by landing family, largest ZEC first, with each one's shielded-capable flag. */
+function destinationBuckets(rows: readonly AddressKindBucket[]): V1DestinationBucket[] {
+  const byKind = new Map<string, AddressKindBucket>();
+  for (const r of rows) {
+    const key = r.kind ?? "none";
+    const b = byKind.get(key) ?? { kind: r.kind, transfers: 0, zecAmountZat: 0 };
+    b.transfers += r.transfers;
+    b.zecAmountZat += r.zecAmountZat;
+    byKind.set(key, b);
+  }
+  return [...byKind.values()]
+    .sort((a, b) => b.zecAmountZat - a.zecAmountZat || b.transfers - a.transfers)
+    .map((b) => ({
+      addressKind: b.kind,
+      // A capability claim, not a privacy claim: unified is shielded-CAPABLE, and which
+      // receiver was used is not public. null kind → null, not false.
+      shieldedCapable: isShieldedCapableKind(b.kind),
+      transfers: b.transfers,
+      zecAmountZat: b.zecAmountZat,
+    }));
+}
+
+/** Of the classified transfers, the share on a shielded-capable address; null over none. */
+function capableShare(buckets: readonly V1DestinationBucket[]): V1Share | null {
+  const classified = buckets.filter((b) => b.shieldedCapable !== null);
+  const capable = classified.filter((b) => b.shieldedCapable === true);
+  return share(
+    capable.reduce((sum, b) => sum + b.transfers, 0),
+    classified.reduce((sum, b) => sum + b.transfers, 0),
+  );
+}
+
+/**
+ * The null bucket's reason: `unmeasured` rather than `indeterminate`, because the venue
+ * published no Zcash-side address at all, so there is nothing to reason from. The head poller
+ * re-upserts rows, so a venue that starts publishing addresses does reclassify them.
+ */
+function markUnpublished(buckets: readonly V1DestinationBucket[], path: string, u: V1Unknowns) {
+  buckets.forEach((b, i) => {
+    if (b.addressKind !== null) return;
+    u[`${path}[${i}].addressKind`] = "unmeasured";
+    u[`${path}[${i}].shieldedCapable`] = "unmeasured";
+  });
+}
+
+/**
+ * `/v1/crosschain/destinations` from the per-(chain, direction, family) rows of one window, already
+ * narrowed to the direction and chain asked. The totals and every chain's row come from the same
+ * rows, so they cannot disagree.
+ */
 export function toDestinations(
-  direction: "in" | "out",
-  buckets: AddressKindBucket[],
+  applied: V1DestinationsApplied,
+  rows: readonly CrossChainEdgeRow[],
   venues: (VenueHealth & { enabled: boolean })[],
 ): V1Destinations {
-  const classified = buckets.filter((b) => b.kind !== null);
-  const capable = classified.filter((b) => b.kind !== "transparent");
-  const classifiedTotal = classified.reduce((sum, b) => sum + b.transfers, 0);
-  const capableTotal = capable.reduce((sum, b) => sum + b.transfers, 0);
-
-  /*
-   * The null bucket's reason: `unmeasured` rather than `indeterminate`, because the venue
-   * published no Zcash-side address at all, so there is nothing to reason from. The head poller
-   * re-upserts rows, so a venue that starts publishing addresses does reclassify them.
-   */
-  const unknowns: V1Unknowns = {};
-  buckets.forEach((b, i) => {
-    if (b.kind !== null) return;
-    unknowns[`buckets[${i}].addressKind`] = "unmeasured";
-    unknowns[`buckets[${i}].shieldedCapable`] = "unmeasured";
+  const asBucket = (r: CrossChainEdgeRow): AddressKindBucket => ({
+    kind: r.addressKind,
+    transfers: r.transfers,
+    zecAmountZat: r.zecAmountZat,
   });
+  const buckets = destinationBuckets(rows.map(asBucket));
+  const unknowns: V1Unknowns = {};
+  markUnpublished(buckets, "buckets", unknowns);
+
+  let chains: V1ChainDestinations[] | undefined;
+  if (applied.groupBy === "chain") {
+    const byChain = new Map<string, AddressKindBucket[]>();
+    for (const r of rows) byChain.set(r.chain, [...(byChain.get(r.chain) ?? []), asBucket(r)]);
+    chains = [...byChain]
+      .map(([chain, chainRows]) => {
+        const chainBuckets = destinationBuckets(chainRows);
+        return {
+          chain,
+          transfers: chainBuckets.reduce((sum, b) => sum + b.transfers, 0),
+          buckets: chainBuckets,
+          shieldedCapableShare: capableShare(chainBuckets),
+        };
+      })
+      .sort((a, b) => b.transfers - a.transfers || (a.chain < b.chain ? -1 : 1));
+    chains.forEach((c, i) => {
+      markUnpublished(c.buckets, `chains[${i}].buckets`, unknowns);
+      if (c.shieldedCapableShare === null)
+        unknowns[`chains[${i}].shieldedCapableShare`] = "unmeasured";
+    });
+  }
 
   return withUnknowns(
     {
-      direction,
+      direction: applied.direction,
+      applied,
       coverage: toFloorCoverage(venues, null, null, "totals"),
-      buckets: buckets.map((b) => ({
-        addressKind: b.kind,
-        // A capability claim, not a privacy claim: unified is shielded-CAPABLE, and which
-        // receiver was used is not public. null kind → null, not false.
-        shieldedCapable: b.kind === null ? null : b.kind !== "transparent",
-        transfers: b.transfers,
-        zecAmountZat: b.zecAmountZat,
-      })),
-      shieldedCapableShare: share(capableTotal, classifiedTotal),
+      buckets,
+      shieldedCapableShare: capableShare(buckets),
+      ...(chains === undefined ? {} : { chains }),
       shareDenominator: "transfers whose venue published a classifiable Zcash-side address",
       receiverUsedIsNotPublic: true as const,
       asOf: now(),
@@ -1116,6 +1183,18 @@ export const MINING_SERIES_GROUP_IDS: readonly string[] = [
   NO_ADDRESS_GROUP,
 ];
 
+/** A period's majority figure; a null count carries its reason, the blocks it fell short with. */
+function majorityOf(m: PoolMajority, path: string, unknowns: V1Unknowns): V1PoolMajority {
+  if (m.pools === null) unknowns[`${path}.pools`] = "indeterminate";
+  return {
+    pools: m.pools,
+    blocks: m.poolsBlocks,
+    top1Blocks: m.top1Blocks,
+    top3Blocks: m.top3Blocks,
+    reviewedBlocks: m.reviewedBlocks,
+  };
+}
+
 /** `/v1/analytics/mining-pools/series`: each group's blocks and share per day or month. */
 export function toMiningPoolSeries(
   s: MinerSeries,
@@ -1133,6 +1212,8 @@ export function toMiningPoolSeries(
       : { id, name: SERIES_GROUP_NAME[id]!, kind: SERIES_GROUP_KIND[id]! },
   );
   const byCell = new Map(s.points.map((x) => [`${x.period}|${x.group}`, x]));
+  // From every group whatever `group` narrows to: the majority is a fact about the whole period.
+  const majorities = poolsToMajority(s);
   const periods = s.periods.map((p, i) => ({
     period: p.period,
     partial: p.partial,
@@ -1167,6 +1248,7 @@ export function toMiningPoolSeries(
           fees: amountOrNull(fees),
         };
       }),
+    majority: majorityOf(majorities[i]!, `data.periods.${i}.majority`, unknowns),
   }));
   const running = s.periods.find((p) => p.partial);
   return {
@@ -1178,7 +1260,7 @@ export function toMiningPoolSeries(
         : [],
     },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
-    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period, and a period lists only the groups that mined in it. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
+    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period, and a period lists only the groups that mined in it. \`majority.pools\` is how many reviewed pools, largest first, mined 51% of the period's blocks; attributing more blocks could only lower it, and it is null when every reviewed pool together mined less. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
     data: { interval: s.interval, fromDay: s.fromDay, toDay: s.toDay, groups, periods },
     unknowns,
     asOf,
