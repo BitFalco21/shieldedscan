@@ -842,7 +842,7 @@ function compactMajority(raw: unknown, blocks: unknown): unknown {
     typeof v === "number" ? Math.round((10_000 * v) / blocks) / 100 : null;
   return {
     pools: m.pools ?? null,
-    poolsPct: pct(m.blocks),
+    poolsPct: pct(m.poolsBlocks),
     top1Pct: pct(m.top1Blocks),
     top3Pct: pct(m.top3Blocks),
     reviewedPct: pct(m.reviewedBlocks),

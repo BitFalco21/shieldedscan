@@ -6,7 +6,6 @@ import type {
   InflowKindMonthPoint,
   VenueMonthPoint,
   CrossChainAggregate,
-  CrossChainDirection,
   CrossChainFlowSummary,
   CrossChainGroupBy,
   CrossChainNarrowing,
@@ -36,7 +35,7 @@ import { CrossChainStore, type ListOptions, type VenueHealth } from "@/data/cros
  * with its status.
  */
 export type { AddressKindBucket, CrossChainEdgeRow } from "@/data/crosschain/store";
-import type { AddressKindBucket, CrossChainEdgeRow } from "@/data/crosschain/store";
+import type { CrossChainEdgeRow } from "@/data/crosschain/store";
 
 export interface CrossChainVolumeSide {
   transfers: number;
@@ -82,8 +81,6 @@ export interface CrossChainStorePort {
     limit: number,
     order?: CrossChainTopOrder,
   ): Promise<CrossChainTransfer[]>;
-  /** The shielded-capable-destination statistic. */
-  countByAddressKind(direction: CrossChainDirection): Promise<AddressKindBucket[]>;
   /** Every counterpart chain the list shows, per direction, for the column menus (`ListedChain`). */
   listedChains(): Promise<ListedChain[]>;
   /**
@@ -184,9 +181,6 @@ export class MemoryStorePort implements CrossChainStorePort {
     order: CrossChainTopOrder = "largest",
   ): Promise<CrossChainTransfer[]> {
     return this.#store.top(filters, by, limit, order);
-  }
-  async countByAddressKind(direction: CrossChainDirection): Promise<AddressKindBucket[]> {
-    return this.#store.countByAddressKind(direction);
   }
   async listedChains(): Promise<ListedChain[]> {
     return listedChains(

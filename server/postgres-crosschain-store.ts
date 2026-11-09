@@ -937,35 +937,6 @@ export class PostgresStorePort implements CrossChainStorePort {
   }
 
   /**
-   * The shielded-capable-destination statistic, served by `crosschain_transfer_kind_idx`.
-   * Settlement legs are excluded, by asset (a chain filter would drop every wrapped-ZEC crossing),
-   * and the null bucket is a real null, never the string "null".
-   */
-  async countByAddressKind(direction: CrossChainDirection): Promise<AddressKindBucket[]> {
-    const { rows } = await this.#pool.query<{
-      kind: AddressKindBucket["kind"];
-      transfers: number;
-      zec: number;
-    }>(
-      `SELECT zcash_address_kind AS kind,
-              count(*)::bigint AS transfers,
-              COALESCE(SUM(zec_amount_zat), 0)::bigint AS zec
-         FROM crosschain_transfer
-        WHERE ${COUNTED}
-          AND direction = $1
-          AND NOT (counterpart_asset = ANY($2))
-        GROUP BY zcash_address_kind
-        ORDER BY zec DESC`,
-      [direction, SETTLEMENT_ASSETS],
-    );
-    return rows.map((r) => ({
-      kind: r.kind,
-      transfers: Number(r.transfers),
-      zecAmountZat: Number(r.zec),
-    }));
-  }
-
-  /**
    * Gross ZEC per (counterpart chain, direction, Zcash address kind): `/pulse`'s ribbons.
    *
    * Completed only, like every total here (`COUNTED`). Served by `crosschain_transfer_kind_idx (direction, zcash_address_kind)`, with the

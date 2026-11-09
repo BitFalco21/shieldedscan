@@ -12,7 +12,10 @@ export interface PoolsToMajorityChartProps {
   withTable?: boolean;
 }
 
-/** A month with no count draws no bar: below zero, so the chart skips it and the readout says why. */
+/**
+ * A month with no count draws no bar (below zero, the chart skips it) but a fixed hollow marker,
+ * and the readout says why.
+ */
 const NO_COUNT = -1;
 
 /** A count axis labels whole numbers only: "1.5 pools" is not a quantity. */
@@ -32,7 +35,7 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
     return p === null ? "—" : formatSharePct(p);
   };
   const count = (v: number) =>
-    v === NO_COUNT ? `none: reviewed pools under ${MAJORITY_PCT}%` : formatCount(v);
+    v === NO_COUNT ? `not stated: reviewed pools under ${MAJORITY_PCT}%` : formatCount(v);
   return (
     <div>
       <StackedBarChart
@@ -52,6 +55,7 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
         partial={running < 0 ? null : { index: running, note: "so far" }}
         readout="total"
         totalLabel={`Pools to ${MAJORITY_PCT}%`}
+        unstated={months.flatMap((m, i) => (m.pools === null ? [i] : []))}
         contextRows={[
           { name: "Largest pool", values: months.map((m) => pct(m.top1Blocks, m.blocks)) },
           { name: "Largest 3", values: months.map((m) => pct(m.top3Blocks, m.blocks)) },
@@ -67,7 +71,7 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
           rows={months.map((m) => ({
             label: monthLabel(m.period, true) + (m.partial ? " (so far)" : ""),
             cells: [
-              m.pools === null ? "none" : formatCount(m.pools),
+              m.pools === null ? "not stated" : formatCount(m.pools),
               pct(m.top1Blocks, m.blocks),
               pct(m.top3Blocks, m.blocks),
               pct(m.reviewedBlocks, m.blocks),

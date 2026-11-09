@@ -1188,7 +1188,7 @@ function majorityOf(m: PoolMajority, path: string, unknowns: V1Unknowns): V1Pool
   if (m.pools === null) unknowns[`${path}.pools`] = "indeterminate";
   return {
     pools: m.pools,
-    blocks: m.poolsBlocks,
+    poolsBlocks: m.poolsBlocks,
     top1Blocks: m.top1Blocks,
     top3Blocks: m.top3Blocks,
     reviewedBlocks: m.reviewedBlocks,

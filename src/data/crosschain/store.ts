@@ -31,7 +31,7 @@ export interface CrossChainEdgeRow {
 }
 
 /**
- * One landing bucket for `countByAddressKind`; the server port re-exports the same shape.
+ * One landing bucket of `/v1/crosschain/destinations`; the server port re-exports the same shape.
  * `kind: null` means the venue published no Zcash-side address — a real bucket, not a
  * dropped row.
  */
@@ -130,25 +130,6 @@ export class CrossChainStore {
         matchesCrossChainFilters(t, options),
     );
     return cursorSlice(items, (t) => ({ sortKey: t.timestamp, id: t.id }), query);
-  }
-
-  /**
-   * Where transfers land, by Zcash address family — classified with the same
-   * `classifyZcashAddress` the Postgres adapter applies at ingest, so the two stores agree.
-   * Completed transfers only, settlement legs excluded by asset.
-   */
-  countByAddressKind(direction: CrossChainDirection): AddressKindBucket[] {
-    const buckets = new Map<string, AddressKindBucket>();
-    for (const t of this.#sorted) {
-      if (!countsTowardTotals(t) || t.direction !== direction || isSettlementLeg(t)) continue;
-      const kind = classifyZcashAddress(t.zcashAddress);
-      const key = kind ?? "none";
-      const bucket = buckets.get(key) ?? { kind, transfers: 0, zecAmountZat: 0 };
-      bucket.transfers += 1;
-      bucket.zecAmountZat += t.zecAmountZat;
-      buckets.set(key, bucket);
-    }
-    return [...buckets.values()].sort((a, b) => b.zecAmountZat - a.zecAmountZat);
   }
 
   /**

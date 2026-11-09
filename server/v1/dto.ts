@@ -1021,7 +1021,8 @@ export interface V1MiningSeriesCell {
 /** A period's pools-to-a-majority figure, in blocks; the period's `blocks` is the denominator. */
 export interface V1PoolMajority {
   pools: number | null;
-  blocks: number;
+  /** What the counted pools mined; when `pools` is null, what every reviewed pool mined. */
+  poolsBlocks: number;
   top1Blocks: number;
   top3Blocks: number;
   reviewedBlocks: number;

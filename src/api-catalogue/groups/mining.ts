@@ -811,7 +811,7 @@ export const MINING_GROUP: ApiGroup = {
         ],
         "majority": {
           "pools": 2,
-          "blocks": 18018,
+          "poolsBlocks": 18018,
           "top1Blocks": 12650,
           "top3Blocks": 22876,
           "reviewedBlocks": 32090
@@ -1025,7 +1025,7 @@ export const MINING_GROUP: ApiGroup = {
         ],
         "majority": {
           "pools": 3,
-          "blocks": 23238,
+          "poolsBlocks": 23238,
           "top1Blocks": 11826,
           "top3Blocks": 23238,
           "reviewedBlocks": 32981
@@ -1239,7 +1239,7 @@ export const MINING_GROUP: ApiGroup = {
         ],
         "majority": {
           "pools": 3,
-          "blocks": 11558,
+          "poolsBlocks": 11558,
           "top1Blocks": 5878,
           "top3Blocks": 11558,
           "reviewedBlocks": 16596

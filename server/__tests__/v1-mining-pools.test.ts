@@ -161,7 +161,7 @@ describe("/v1/analytics/mining-pools/series", () => {
     expect(short.majority.pools).toBeNull();
     expect(body.unknowns["data.periods.0.majority.pools"]).toBe("indeterminate");
     expect(100 * short.majority.reviewedBlocks).toBeLessThan(51 * short.blocks);
-    expect(short.majority.blocks).toBe(short.majority.reviewedBlocks);
+    expect(short.majority.poolsBlocks).toBe(short.majority.reviewedBlocks);
     const m = periods[1]!.majority;
     expect(m.pools).not.toBeNull();
     const pools = periods[1]!.groups
@@ -169,7 +169,7 @@ describe("/v1/analytics/mining-pools/series", () => {
       .map((g) => g.blocks)
       .sort((a, b) => b - a);
     const first = pools.slice(0, m.pools!).reduce((s, b) => s + b, 0);
-    expect(m.blocks).toBe(first);
+    expect(m.poolsBlocks).toBe(first);
     expect(100 * first).toBeGreaterThanOrEqual(51 * periods[1]!.blocks);
     // One pool fewer falls short: the count is the least that reaches a majority.
     expect(100 * (first - pools[m.pools! - 1]!)).toBeLessThan(51 * periods[1]!.blocks);
