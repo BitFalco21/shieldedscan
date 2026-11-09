@@ -1,18 +1,21 @@
+"use client";
+
 import { useId } from "react";
 import { ChartHover } from "@/components/ChartHover";
 import {
   CHART_GUTTER_GAP,
-  CHART_H,
-  CHART_PAD_B,
   CHART_PAD_R,
-  CHART_PAD_T,
   CHART_W,
+  chartSize,
+  framePadding,
   TICK_FONT,
   tickCharW,
   XAxis,
   YAxis,
 } from "@/components/chart-axes";
 import { niceAxis } from "@/lib/nice-ticks";
+import { useElementWidth } from "@/lib/use-element-width";
+import { usePhoneViewport } from "@/lib/use-phone-viewport";
 
 export interface BarSeries {
   key: string;
@@ -83,32 +86,41 @@ export function StackedBarChart({
 }: StackedBarChartProps) {
   // React's ids carry punctuation a `url(#…)` reference may not survive.
   const hatchId = `hatch-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  // On a phone the frame is sized from the width it is drawn at (`chartSize`), so the ticks render
+  // at ~11px rather than a third of that, and the frame grows taller with them. Wider screens and
+  // the server render keep the fixed frame, so desktop is drawn exactly as before.
+  const [measure, width] = useElementWidth<HTMLDivElement>();
+  const phone = usePhoneViewport();
+  const { tickFont, height } = chartSize(false, phone ? width : undefined);
   const n = labels.length;
   if (n === 0 || series.length === 0) return null;
 
   const totals = labels.map((_, i) => series.reduce((sum, s) => sum + (s.values[i] ?? 0), 0));
   const { max: ceiling, ticks } = niceAxis(0, Math.max(...totals, 0), { label: formatTick });
   const padL =
-    Math.max(...ticks.map((t) => formatTick(t).length)) * tickCharW(TICK_FONT) + CHART_GUTTER_GAP;
+    Math.max(...ticks.map((t) => formatTick(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
+  const { padT, padB } = framePadding(tickFont);
   const plotW = CHART_W - padL - CHART_PAD_R;
-  const plotH = CHART_H - CHART_PAD_T - CHART_PAD_B;
+  const plotH = height - padT - padB;
   const lead = Math.max(0, Math.floor(before?.slots ?? 0));
   const slot = plotW / (n + lead);
   // Where the first period's slot starts: everything left of it is the empty lead.
   const start = padL + lead * slot;
   // A fifth of the slot as the gap keeps bars dominant at any count, as `FlowBalanceChart` does.
   const barW = slot * 0.8;
-  const y = (v: number) => CHART_H - CHART_PAD_B - (v / ceiling) * plotH;
+  const y = (v: number) => height - padB - (v / ceiling) * plotH;
   const frame = {
     padL,
-    tickFont: TICK_FONT,
+    tickFont,
     // Slot centres: a bar's label sits under the bar.
     x: (i: number) => start + (i + 0.5) * slot,
     y,
     plotStart: start / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
-    height: CHART_H,
+    height,
   };
+  // The notes drawn in the plot scale with the ticks.
+  const scaled = (units: number) => (units / TICK_FONT) * tickFont;
 
   const rows = [
     ...(readout === "series"
@@ -122,126 +134,135 @@ export function StackedBarChart({
   ];
 
   return (
-    <ChartHover
-      labels={readoutLabels ?? labels}
-      rows={rows}
-      total={{ name: totalLabel, values: totals.map(formatValue) }}
-      mode="bands"
-      plotStart={frame.plotStart}
-      plotEnd={frame.plotEnd}
-      onActiveChange={onActiveChange}
-    >
-      <svg
-        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-        className="h-auto w-full"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={ariaLabel}
+    <div ref={measure}>
+      <ChartHover
+        labels={readoutLabels ?? labels}
+        rows={rows}
+        total={{ name: totalLabel, values: totals.map(formatValue) }}
+        mode="bands"
+        plotStart={frame.plotStart}
+        plotEnd={frame.plotEnd}
+        onActiveChange={onActiveChange}
       >
-        <defs>
-          <pattern
-            id={hatchId}
-            width={6}
-            height={6}
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(45)"
-          >
-            <line x1={0} y1={0} x2={0} y2={6} stroke="currentColor" strokeWidth={1.5} />
-          </pattern>
-        </defs>
-        <YAxis frame={frame} ticks={ticks} formatValue={formatTick} />
-        {labels.map((label, i) => {
-          const left = start + i * slot + (slot - barW) / 2;
-          const running = i === partial?.index;
-          let base = 0;
-          return (
-            <g key={`${label}-${i}`}>
-              {series.map((s) => {
-                const v = s.values[i] ?? 0;
-                if (v <= 0) return null;
-                const top = y(base + v);
-                const height = y(base) - top;
-                base += v;
-                const faded = highlightKey !== null && s.key !== highlightKey;
+        <svg
+          viewBox={`0 0 ${CHART_W} ${height}`}
+          className="h-auto w-full"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={ariaLabel}
+        >
+          <defs>
+            <pattern
+              id={hatchId}
+              width={6}
+              height={6}
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <line x1={0} y1={0} x2={0} y2={6} stroke="currentColor" strokeWidth={1.5} />
+            </pattern>
+          </defs>
+          <YAxis frame={frame} ticks={ticks} formatValue={formatTick} />
+          {labels.map((label, i) => {
+            const left = start + i * slot + (slot - barW) / 2;
+            const running = i === partial?.index;
+            let base = 0;
+            return (
+              <g key={`${label}-${i}`}>
+                {series.map((s) => {
+                  const v = s.values[i] ?? 0;
+                  if (v <= 0) return null;
+                  const top = y(base + v);
+                  const height = y(base) - top;
+                  base += v;
+                  const faded = highlightKey !== null && s.key !== highlightKey;
+                  return (
+                    <rect
+                      key={s.key}
+                      x={left}
+                      y={top}
+                      width={barW}
+                      height={height}
+                      fill="currentColor"
+                      className={`chart-band ${s.colorClass} transition-opacity motion-reduce:transition-none ${
+                        faded ? "opacity-15" : running ? "opacity-45" : ""
+                      }`}
+                    />
+                  );
+                })}
+                {running ? (
+                  <>
+                    <rect
+                      x={left}
+                      y={y(totals[i]!)}
+                      width={barW}
+                      height={y(0) - y(totals[i]!)}
+                      fill={`url(#${hatchId})`}
+                      className="text-ink-faint"
+                    />
+                    <text
+                      // Centred on its bar, never past the frame's right edge: the newest period
+                      // sits there, and a phone's larger type would be clipped.
+                      x={Math.min(
+                        left + barW / 2,
+                        CHART_W - (partial!.note.length * tickCharW(tickFont)) / 2,
+                      )}
+                      // Above a full-height bar the note would start above the frame; held a
+                      // line's cap height below the top instead.
+                      y={Math.max(y(totals[i]!) - scaled(6), tickFont * 0.8)}
+                      textAnchor="middle"
+                      fontSize={tickFont}
+                      className="chart-tick"
+                    >
+                      {partial!.note}
+                    </text>
+                  </>
+                ) : null}
+              </g>
+            );
+          })}
+          {marker !== null && marker.index >= 0 && marker.index < n
+            ? (() => {
+                const at = start + marker.index * slot;
+                // The label flips left of its rule in the last fifth, so it is never clipped.
+                const near = at > CHART_W - plotW * 0.2;
                 return (
-                  <rect
-                    key={s.key}
-                    x={left}
-                    y={top}
-                    width={barW}
-                    height={height}
-                    fill="currentColor"
-                    className={`chart-band ${s.colorClass} transition-opacity motion-reduce:transition-none ${
-                      faded ? "opacity-15" : running ? "opacity-45" : ""
-                    }`}
-                  />
+                  <g className="chart-marker">
+                    <line x1={at} x2={at} y1={padT} y2={height - padB} />
+                    <text
+                      x={at + scaled(near ? -5 : 5)}
+                      y={padT + scaled(10)}
+                      textAnchor={near ? "end" : "start"}
+                      fontSize={Math.round(scaled(10))}
+                      className="chart-marker-label"
+                    >
+                      {marker.label}
+                    </text>
+                  </g>
                 );
-              })}
-              {running ? (
-                <>
-                  <rect
-                    x={left}
-                    y={y(totals[i]!)}
-                    width={barW}
-                    height={y(0) - y(totals[i]!)}
-                    fill={`url(#${hatchId})`}
-                    className="text-ink-faint"
-                  />
-                  <text
-                    x={left + barW / 2}
-                    y={y(totals[i]!) - 6}
-                    textAnchor="middle"
-                    fontSize={TICK_FONT}
-                    className="chart-tick"
-                  >
-                    {partial!.note}
-                  </text>
-                </>
-              ) : null}
-            </g>
-          );
-        })}
-        {marker !== null && marker.index >= 0 && marker.index < n
-          ? (() => {
-              const at = start + marker.index * slot;
-              // The label flips left of its rule in the last fifth, so it is never clipped.
-              const near = at > CHART_W - plotW * 0.2;
-              return (
-                <g className="chart-marker">
-                  <line x1={at} x2={at} y1={CHART_PAD_T} y2={CHART_H - CHART_PAD_B} />
-                  <text
-                    x={at + (near ? -5 : 5)}
-                    y={CHART_PAD_T + 10}
-                    textAnchor={near ? "end" : "start"}
-                    fontSize={Math.round(TICK_FONT * (10 / 11))}
-                    className="chart-marker-label"
-                  >
-                    {marker.label}
-                  </text>
-                </g>
-              );
-            })()
-          : null}
-        {before !== null &&
-        lead > 0 &&
-        before.note.length * tickCharW(TICK_FONT) < lead * slot - 16 ? (
-          <text
-            x={padL + (lead * slot) / 2}
-            y={CHART_PAD_T + plotH / 2}
-            textAnchor="middle"
-            fontSize={TICK_FONT}
-            className="chart-tick"
-          >
-            {before.note}
-          </text>
-        ) : null}
-        {/* The axis spans the lead too, as blank labels: its end labels anchor at the plot's
+              })()
+            : null}
+          {before !== null &&
+          lead > 0 &&
+          before.note.length * tickCharW(tickFont) < lead * slot - scaled(16) ? (
+            <text
+              x={padL + (lead * slot) / 2}
+              y={padT + plotH / 2}
+              textAnchor="middle"
+              fontSize={tickFont}
+              className="chart-tick"
+            >
+              {before.note}
+            </text>
+          ) : null}
+          {/* The axis spans the lead too, as blank labels: its end labels anchor at the plot's
             edges, so a few bars at the right would otherwise put the first label over the last. */}
-        <XAxis
-          frame={{ ...frame, x: (i: number) => padL + (i + 0.5) * slot }}
-          labels={lead > 0 ? [...Array<string>(lead).fill(""), ...labels] : labels}
-        />
-      </svg>
-    </ChartHover>
+          <XAxis
+            frame={{ ...frame, x: (i: number) => padL + (i + 0.5) * slot }}
+            labels={lead > 0 ? [...Array<string>(lead).fill(""), ...labels] : labels}
+          />
+        </svg>
+      </ChartHover>
+    </div>
   );
 }

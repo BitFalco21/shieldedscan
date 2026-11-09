@@ -34,6 +34,24 @@ export const PHONE_TICK_FONT = 40;
 export const PHONE_CHART_H = 640;
 
 /**
+ * Tick size and frame height in SVG units. A measured width sizes the ticks to render at
+ * `TICK_FONT` px (never below the base size), and the frame grows with them up to the phone's
+ * height; otherwise `phone` picks one of the two fixed sizes.
+ */
+export function chartSize(
+  phone: boolean,
+  renderedWidth?: number,
+): { tickFont: number; height: number } {
+  if (renderedWidth !== undefined && renderedWidth > 0) {
+    const tickFont = Math.max(TICK_FONT, (TICK_FONT * CHART_W) / renderedWidth);
+    return { tickFont, height: Math.min(PHONE_CHART_H, (CHART_H * tickFont) / TICK_FONT) };
+  }
+  return phone
+    ? { tickFont: PHONE_TICK_FONT, height: PHONE_CHART_H }
+    : { tickFont: TICK_FONT, height: CHART_H };
+}
+
+/**
  * JetBrains Mono's advance per character, scaled with the font: 7.2 units/char at the
  * 11-unit base. Long ticks ("0.0001875 ZEC") measure ~7.0/char, so this keeps them unclipped.
  */
@@ -112,21 +130,16 @@ export function ticksAxisFrame(
 }
 
 /**
- * Tick size and frame height in SVG units. A measured width sizes the ticks to render at
- * `TICK_FONT` px (never below the base size), and the frame grows with them up to the phone's
- * height; otherwise `phone` picks one of the two fixed sizes.
+ * Room for the x labels below and the top tick's upper half above; a larger tick (the phone's)
+ * buys more. Below, two lines of tick: one would leave the lowest y label level with the first
+ * x label, where "0 ZEC" and "2026-07-01" read as one run. At the base size this is exactly
+ * `CHART_PAD_T` and `CHART_PAD_B`.
  */
-export function chartSize(
-  phone: boolean,
-  renderedWidth?: number,
-): { tickFont: number; height: number } {
-  if (renderedWidth !== undefined && renderedWidth > 0) {
-    const tickFont = Math.max(TICK_FONT, (TICK_FONT * CHART_W) / renderedWidth);
-    return { tickFont, height: Math.min(PHONE_CHART_H, (CHART_H * tickFont) / TICK_FONT) };
-  }
-  return phone
-    ? { tickFont: PHONE_TICK_FONT, height: PHONE_CHART_H }
-    : { tickFont: TICK_FONT, height: CHART_H };
+export function framePadding(tickFont: number): { padT: number; padB: number } {
+  return {
+    padT: Math.max(CHART_PAD_T, tickFont * 0.7),
+    padB: Math.max(CHART_PAD_B, 2 * tickFont + 8),
+  };
 }
 
 /** The shared geometry: a gutter sized to the ticks, and `y` from a value's fraction of the axis. */
@@ -141,12 +154,8 @@ function frameFor(
 ): AxisFrame & { ticks: number[] } {
   const padL =
     Math.max(...ticks.map((t) => formatValue(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
-  // Room for the x labels below and the top tick's upper half above; a larger tick (the
-  // phone's) buys more. Below, two lines of tick: one would leave the lowest y label level
-  // with the first x label, where "0 ZEC" and "2026-07-01" read as one run. At the base size
-  // this is exactly `CHART_PAD_B`.
-  const padB = Math.max(CHART_PAD_B, 2 * tickFont + 8);
-  const padT = Math.max(CHART_PAD_T, tickFont * 0.7) + extraTop;
+  const { padT: basePadT, padB } = framePadding(tickFont);
+  const padT = basePadT + extraTop;
   return {
     padL,
     ticks,
