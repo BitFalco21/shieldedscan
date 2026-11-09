@@ -140,15 +140,15 @@ for (const width of [390, 1280]) {
 }
 
 test.describe("/mining", () => {
-  test("redirects permanently to /miners, keeping a window it can still serve", async ({
-    request,
-  }) => {
+  test("redirects permanently to /miners, keeping the window", async ({ request }) => {
     const cases: [string, string][] = [
       ["/mining", "/miners?window=7d"],
       ["/mining?window=24h", "/miners?window=7d"],
       ["/mining?window=30d", "/miners"],
       ["/mining?window=90d", "/miners?window=90d"],
-      ["/mining?window=1y", "/miners"],
+      ["/mining?window=1y", "/miners?window=1y"],
+      ["/mining?window=all", "/miners?window=all"],
+      ["/mining?window=nonsense", "/miners"],
     ];
     for (const [from, to] of cases) {
       const res = await request.get(from, { maxRedirects: 0 });
