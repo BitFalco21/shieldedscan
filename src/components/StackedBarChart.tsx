@@ -190,7 +190,7 @@ export function StackedBarChart({
                     />
                   );
                 })}
-                {running ? (
+                {running && totals[i]! > 0 ? (
                   <>
                     <rect
                       x={left}

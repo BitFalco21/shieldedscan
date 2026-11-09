@@ -400,6 +400,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "upgrade-readiness",
   // Dated from /halving's schedule, whose heights are mainnet consensus constants.
   "supply-issuance",
+  // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
+  "orphan-rate",
 ]);
 
 /** The charts this deployment may honestly show. */

@@ -1,3 +1,4 @@
+import { isTestnet } from "@/lib/network";
 import type { Metadata } from "next";
 import { getDataSource } from "@/data";
 import { cursorNavHrefs } from "@/app/_shared/cursor-nav";
@@ -26,7 +27,8 @@ export default async function Page({
     data.listReorgEvents({ before, after, limit: PAGE_SIZE }),
     data.getReorgSummary(),
     // Optional: a failed read costs the chart, never the log.
-    nullIfTransient(() => data.getOrphanRate()),
+    // Not on testnet until its API carries the route (a 404 there is not transient).
+    isTestnet ? null : nullIfTransient(() => data.getOrphanRate()),
   ]);
   // Wall clock: `detectedAt` is the follower's clock, an off-chain event like a swap.
   return (

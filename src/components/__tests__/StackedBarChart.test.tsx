@@ -51,6 +51,16 @@ describe("StackedBarChart", () => {
     expect(svg.textContent).toContain("to 9 Oct");
   });
 
+  it("draws no hatch for a running period that has nothing yet, never a negative height", () => {
+    const svg = draw({
+      series: [{ key: "x", label: "x", colorClass: "flow-1", values: [3, 2, -1] }],
+      partial: { index: 2, note: "so far" },
+    });
+    for (const r of svg.querySelectorAll("rect")) {
+      expect(Number(r.getAttribute("height") ?? 0)).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("brings a highlighted series forward by fading every other one", () => {
     const svg = draw({ highlightKey: "BTC" });
     for (const r of segments(svg, "flow-1"))
