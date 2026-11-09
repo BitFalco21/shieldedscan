@@ -266,4 +266,38 @@ describeDb("block arrival on a database whose follower never stamped a block", (
     await tracker.refresh();
     expect(blockReads.length).toBeGreaterThan(walked);
   });
+
+  it("retries a read that failed on the next pass, without the six-hour wait", async () => {
+    let clock = (D0 + DAY) * 1000;
+    let failNext = true;
+    let reads = 0;
+    const flaky = new Proxy(pool, {
+      get(target, key, receiver) {
+        if (key !== "query") return Reflect.get(target, key, receiver);
+        return (sql: string, params?: unknown[]) => {
+          reads += 1;
+          if (failNext && /block_arrival_day/.test(sql)) {
+            failNext = false;
+            return Promise.reject(new Error("connection reset"));
+          }
+          return target.query(sql, params);
+        };
+      },
+    }) as Pool;
+    const tracker = new BlockArrivalTracker({
+      pool: flaky,
+      pacer: () => ({
+        preflight: async () => {},
+        afterUnit: async () => "continue",
+        stats: { sleptMs: 0, stallSamples: 0, maxBlocksBehind: 0 },
+      }),
+      log: () => {},
+      now: () => clock,
+    });
+    await expect(tracker.refresh()).rejects.toThrow("connection reset");
+    const failed = reads;
+    clock += 10 * 60 * 1000;
+    expect(await tracker.refresh()).toEqual({ computed: 0, aborted: false });
+    expect(reads).toBeGreaterThan(failed);
+  });
 });

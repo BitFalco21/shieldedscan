@@ -362,15 +362,13 @@ export class BlockArrivalTracker {
       // Every read waits for the pacer, the recording-start walk included.
       const pacer = this.deps.pacer();
       await pacer.preflight();
-      let start: number | null;
-      try {
-        start = await arrivalRecordingStart(this.deps.pool, sec(), this.deps.stampFloor);
-      } catch (error) {
-        this.#lookAgainAt = now() + ARRIVAL_START_RETRY_MS;
-        throw error;
-      }
+      // A read that throws is retried on the next ten-minute pass, like any failed pass; only a
+      // walk that found nothing waits.
+      const start = await arrivalRecordingStart(this.deps.pool, sec(), this.deps.stampFloor);
       if (start === null) {
-        // No stamped block yet: look again in hours, not on every ten-minute pass.
+        // No stamped block yet: look again in hours, not on every ten-minute pass. On a database
+        // that never stamps, each look walks one day more than the last (floor to today), so it
+        // stays bounded and runs four times a day.
         this.#lookAgainAt = now() + ARRIVAL_START_RETRY_MS;
         this.deps.log("block arrival: no stamped block yet, looking again in 6 hours");
         return { computed: 0, aborted: false };
