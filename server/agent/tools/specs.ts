@@ -262,7 +262,7 @@ export const MAX_MINER_ROWS = 25;
 export const DEFAULT_MINER_ROWS = 10;
 
 /** The trailing windows 'mining-pools' and 'nsm' read, in whole UTC days, today included. */
-export const MINING_WINDOW_DAYS = [7, 30, 90] as const;
+export const MINING_WINDOW_DAYS = [7, 30, 90, 365] as const;
 
 /** How many of a pool's newest blocks one 'mining-pools' call lists. */
 export const MAX_POOL_BLOCK_ROWS = 20;

@@ -1,4 +1,6 @@
 import { NU7_HEIGHT, scheduledSubsidyZat } from "@/domain/halving";
+import { LOCKBOX_DISBURSEMENTS } from "@/domain/lockbox-disbursement";
+import { minerRewardAboveIssuance } from "@/domain/miner";
 import { POOL_COLUMNS, PUBLISHED_CLIENTS, PUBLISHED_VERSION } from "./tables";
 
 /**
@@ -32,7 +34,9 @@ export interface BlockRow {
 }
 
 /** The one-time lockbox disbursement at the NU6.1 boundary: 78,750 ZEC out, checked 2026-10-31. */
-export const LOCKBOX_DISBURSEMENT_HEIGHT = 3_146_400;
+export const LOCKBOX_DISBURSEMENT_HEIGHT = LOCKBOX_DISBURSEMENTS.find(
+  (d) => d.network === "mainnet",
+)!.height;
 
 /**
  * Sprout emptied at 407 and the node reports it as not monitored until 416 (`getblock`
@@ -152,6 +156,19 @@ export class BlockChecker {
     }
     if (row.miner_reward_zat !== null && row.miner_kind !== "transparent") {
       this.failures.add("miner reward on a non-transparent coinbase", String(h));
+    }
+    // More than the block could pay anyone means a non-miner output was counted as the miner's.
+    // An alert, not a failure: a stored row is corrected by a supervised repair, and a release
+    // must not wait on one; the manifest names the heights until the repair has run.
+    if (
+      row.miner_reward_zat !== null &&
+      minerRewardAboveIssuance(
+        h,
+        Number(row.miner_reward_zat),
+        row.total_fee_zat === null ? null : Number(row.total_fee_zat),
+      ) === true
+    ) {
+      this.alerts.add("miner reward above subsidy plus fees", String(h));
     }
 
     const day = utcDay(row.timestamp);

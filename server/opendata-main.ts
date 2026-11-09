@@ -170,6 +170,7 @@ try {
   );
   // Comparing the open ledger range parses two of its parts: the release's other memory peak.
   log(`after history: rss ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
+  for (const a of history.accepted) log(`declared history change accepted: ${a}`);
   if (history.failures.length > 0 && !args["accept-history-change"]) {
     fail("published data would change", history.failures);
   }
@@ -191,7 +192,10 @@ try {
       contentSha256: f.contentSha256,
     })),
     fills: history.fills,
-    acceptedHistoryChanges: args["accept-history-change"] ? history.failures : [],
+    acceptedHistoryChanges: [
+      ...history.accepted,
+      ...(args["accept-history-change"] ? history.failures : []),
+    ],
     checks: { underClaimedHeights: release.underClaimed, alerts: release.alerts },
     ledger: ledgerManifest(ledger),
     snapshots: [

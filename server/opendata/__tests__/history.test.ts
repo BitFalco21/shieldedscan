@@ -1,7 +1,21 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { compareHistory, REPLACED, rowKey, type PublishedFile } from "../history";
+import {
+  compareHistory,
+  DECLARED_HISTORY_CHANGES,
+  REPLACED,
+  rowKey,
+  type DeclaredHistoryChange,
+  type PublishedFile,
+} from "../history";
 import { arrowTable, toParquet, type ColumnSpec } from "../parquet";
+import {
+  BLOCK_COINBASE_COLUMNS,
+  BLOCK_COLUMNS,
+  blocksCoinbaseFile,
+  blocksFile,
+  SMALL_TABLES,
+} from "../tables";
 
 const COLUMNS: ColumnSpec[] = [
   { name: "day", type: "date", nullable: false },
@@ -21,7 +35,7 @@ const BASE: [string, bigint | null][] = [
 describe("what a release may change in published data", () => {
   it("accepts unchanged files and new rows appended", () => {
     const r = compareHistory([file(BASE)], [file([...BASE, ["2026-10-04", 9n]])]);
-    expect(r).toEqual({ failures: [], fills: [] });
+    expect(r).toEqual({ failures: [], fills: [], accepted: [] });
   });
 
   it("accepts a NULL becoming known, and counts it", () => {
@@ -92,7 +106,11 @@ describe("the ledger's history", () => {
 
   it("lets the open range grow, and nothing else", () => {
     const grown = ledger([...OPEN, ["c", "out", 0, 9n]]);
-    expect(compareHistory([ledger(OPEN)], [grown])).toEqual({ failures: [], fills: [] });
+    expect(compareHistory([ledger(OPEN)], [grown])).toEqual({
+      failures: [],
+      fills: [],
+      accepted: [],
+    });
     // An input and an output share a txid and an ordinal: only `io` tells them apart.
     const swapped = ledger([OPEN[0]!, ["b", "in", 0, 4n], ["b", "out", 0, 5n]]);
     expect(compareHistory([ledger(OPEN)], [swapped]).failures).toEqual([
@@ -135,6 +153,7 @@ describe("a snapshot's history", () => {
     expect(compareHistory([snapshot(BEFORE)], [snapshot(AFTER)])).toEqual({
       failures: [],
       fills: [],
+      accepted: [],
     });
   });
 
@@ -167,5 +186,141 @@ describe("a snapshot's history", () => {
     expect(compareHistory([day(5n)], [day(6n)]).failures).toEqual([
       "shielding_daily.parquet: 1 published values changed",
     ]);
+  });
+});
+
+describe("declared history changes", () => {
+  const PAYOUTS: ColumnSpec[] = [
+    { name: "day", type: "date", nullable: false },
+    { name: "kind", type: "utf8", nullable: false },
+    { name: "address", type: "utf8", nullable: true },
+    { name: "blocks", type: "int32", nullable: false },
+    { name: "reward_zat", type: "int64", nullable: true },
+  ];
+  type Payout = [string, string, string, number, bigint | null];
+  const payouts = (rows: Payout[]): PublishedFile => {
+    const bytes = toParquet(
+      arrowTable(
+        PAYOUTS,
+        PAYOUTS.map((_, i) => rows.map((r) => r[i]!)),
+      ),
+    );
+    return {
+      path: "mining_payouts_daily.parquet",
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      read: () => bytes,
+    };
+  };
+  const MINER = "t1at7nVNsv6taLRrNRvnQdtfLNRDfsGc3Ak";
+  const MULTISIG = "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo";
+  const before: Payout[] = [
+    ["2025-11-23", "transparent", MINER, 300, 37_500_000_000n],
+    ["2025-11-24", "transparent", MINER, 299, 37_375_000_000n],
+    ["2025-11-24", "transparent", MULTISIG, 1, 7_875_000_000_000n],
+  ];
+  const after: Payout[] = [
+    ["2025-11-23", "transparent", MINER, 300, 37_500_000_000n],
+    ["2025-11-24", "transparent", MINER, 300, 37_500_000_000n],
+  ];
+  const declaration: DeclaredHistoryChange = {
+    id: "test-fix",
+    reason: "a test",
+    until: "2026-12-31",
+    scopes: [
+      {
+        path: "mining_payouts_daily.parquet",
+        rows: { column: "day", from: "2025-11-24", to: "2025-11-24" },
+        columns: ["blocks", "reward_zat"],
+        rowsMayGo: true,
+      },
+    ],
+  };
+  const compare = (
+    prev: Payout[],
+    next: Payout[],
+    today = "2026-11-08",
+    declared = [declaration],
+  ) => compareHistory([payouts(prev)], [payouts(next)], declared, today);
+  const on = (rows: Payout[], day: string, edit: (r: Payout) => Payout) =>
+    rows.map((r) => (r[0] === day ? edit(r) : r));
+
+  it("accepts exactly the declared rows and columns, and says so", () => {
+    expect(compare(before, after)).toEqual({
+      failures: [],
+      fills: [],
+      accepted: ["test-fix: mining_payouts_daily.parquet: 2 published values changed, 1 rows gone"],
+    });
+  });
+
+  it("still stops on a change outside the declared rows", () => {
+    const outside = on(after, "2025-11-23", ([d, k, a, , r]) => [d, k, a, 301, r]);
+    expect(compare(before, outside).failures).toEqual([
+      "mining_payouts_daily.parquet: 1 published values changed",
+    ]);
+  });
+
+  it("still stops on a value becoming NULL, or an undeclared column, in the declared rows", () => {
+    const nulled = on(after, "2025-11-24", ([d, k, a, b]) => [d, k, a, b, null]);
+    expect(compare(before, nulled).failures).toEqual([
+      "mining_payouts_daily.parquet: 1 published values became NULL",
+    ]);
+    const narrow = { ...declaration, scopes: [{ ...declaration.scopes[0]!, columns: ["blocks"] }] };
+    expect(compare(before, after, "2026-11-08", [narrow]).failures).toEqual([
+      "mining_payouts_daily.parquet: 1 published values changed",
+    ]);
+  });
+
+  it("covers nothing after its last day", () => {
+    expect(compare(before, after, "2027-01-01").failures).toEqual([
+      "mining_payouts_daily.parquet: 1 published rows are gone",
+      "mining_payouts_daily.parquet: 2 published values changed",
+    ]);
+  });
+
+  it("accepts the NU6.1 row in a real blocks_coinbase file, and only that row", () => {
+    const path = blocksCoinbaseFile(3_000_000);
+    const coinbase = (rows: [number, string][]): PublishedFile => {
+      const values = [rows.map((r) => r[0]), rows.map((r) => r[1]), rows.map(() => null)];
+      const bytes = toParquet(arrowTable(BLOCK_COINBASE_COLUMNS, values));
+      return { path, sha256: createHash("sha256").update(bytes).digest("hex"), read: () => bytes };
+    };
+    const published: [number, string][] = [
+      [3_146_399, MINER],
+      [3_146_400, MULTISIG],
+      [3_146_401, MINER],
+    ];
+    const fixed = published.map(([h, a]): [number, string] => [h, h === 3_146_400 ? MINER : a]);
+    expect(
+      compareHistory([coinbase(published)], [coinbase(fixed)], undefined, "2026-11-08"),
+    ).toEqual({
+      failures: [],
+      fills: [],
+      accepted: [`nu61-miner: ${path}: 1 published values changed, 0 rows gone`],
+    });
+    const neighbour = fixed.map(([h, a]): [number, string] => [h, h === 3_146_401 ? MULTISIG : a]);
+    expect(
+      compareHistory([coinbase(published)], [coinbase(neighbour)], undefined, "2026-11-08")
+        .failures,
+    ).toEqual([`${path}: 1 published values changed`]);
+  });
+
+  it("names real published files, their row keys and columns", () => {
+    const columnsOf: Record<string, readonly ColumnSpec[]> = {
+      [blocksFile(3_000_000)]: BLOCK_COLUMNS,
+      [blocksCoinbaseFile(3_000_000)]: BLOCK_COINBASE_COLUMNS,
+      "mining_payouts_daily.parquet": SMALL_TABLES.mining_payouts_daily,
+      "mining_concentration_daily.parquet": SMALL_TABLES.mining_concentration_daily,
+    };
+    for (const d of DECLARED_HISTORY_CHANGES) {
+      for (const s of d.scopes) {
+        const names = (columnsOf[s.path] ?? []).map((c) => c.name);
+        expect(names.length, s.path).toBeGreaterThan(0);
+        expect(rowKey(s.path)).toContain(s.rows.column);
+        for (const col of s.columns) {
+          expect(names, `${s.path} ${col}`).toContain(col);
+          expect(rowKey(s.path), "a key column is never declared").not.toContain(col);
+        }
+      }
+    }
   });
 });

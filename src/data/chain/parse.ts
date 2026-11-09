@@ -357,7 +357,7 @@ export function parseBlock(raw: RpcBlock): ParsedBlock {
   // what the block paid out — all from the block response in hand, with no input resolution,
   // which keeps these fields affordable on the list path.
   const coinbase = transactions.find((tx) => tx.isCoinbase);
-  const miner = blockMiner(coinbase ? [toDomainShape(coinbase)] : []);
+  const miner = blockMiner(coinbase ? [toDomainShape(coinbase)] : [], raw.height);
   const rawCoinbase = raw.tx.find((tx) => isCoinbase(tx));
 
   return {

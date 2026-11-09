@@ -21,17 +21,16 @@ export const MINERS_WINDOWS = ["7d", "30d", "90d", "1y", "all"] as const;
 export type MinersWindowKey = (typeof MINERS_WINDOWS)[number];
 
 /**
- * The windows served. 1Y and ALL cover block 3,146,400 (2025-11-24), whose stored miner is the
- * NU6.1 lockbox disbursement multisig until its row is repaired; they open, in one line here,
- * once it is. Every server read is held to `MINERS_HISTORY_FROM_DAY` meanwhile.
+ * The windows served. 1Y and ALL opened once block 3,146,400's stored miner (the NU6.1 lockbox
+ * disbursement multisig, under the old rule) was repaired; a window may be closed again here.
  */
-export const MINERS_OPEN_WINDOWS: readonly MinersWindowKey[] = ["7d", "30d", "90d"];
+export const MINERS_OPEN_WINDOWS: readonly MinersWindowKey[] = MINERS_WINDOWS;
 
 /**
- * The first day any miners figure may include, or null for all of history: the first day of the
- * first whole month after 2025-11-24. Set to null with the windows above.
+ * The first day any miners figure may include, or null for all of history. A date here holds every
+ * server read to it, for a span whose stored miners cannot be trusted.
  */
-export const MINERS_HISTORY_FROM_DAY: string | null = "2025-12-01";
+export const MINERS_HISTORY_FROM_DAY: string | null = null;
 
 export const MINERS_DEFAULT_WINDOW: MinersWindowKey = "30d";
 

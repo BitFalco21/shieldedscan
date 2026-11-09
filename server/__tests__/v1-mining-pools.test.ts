@@ -54,7 +54,7 @@ describe("/v1/analytics/mining-pools", () => {
         d.byKind.noAddress.blocks +
         d.byKind.unrecorded.blocks,
     ).toBe(d.blocks);
-    expect(d.historyFrom).toBe("2025-12-01");
+    expect(d.historyFrom).toBe("2016-10-28");
     expect(body.basis).toMatch(/never add/);
   });
 
@@ -70,13 +70,14 @@ describe("/v1/analytics/mining-pools", () => {
     expect(cold.body.unknowns["data.pools.0.valueUsd"]).toBe("unmeasured");
   });
 
-  it("refuses the closed windows by name and any other parameter", async () => {
-    const closed = await get<{ error: { message: string } }>(
-      "/v1/analytics/mining-pools?window=1y",
+  it("serves 1y and all, and refuses any other window or parameter", async () => {
+    expect((await get("/v1/analytics/mining-pools?window=1y")).status).toBe(200);
+    expect((await get("/v1/analytics/mining-pools?window=all")).status).toBe(200);
+    const other = await get<{ error: { message: string } }>(
+      "/v1/analytics/mining-pools?window=24h",
     );
-    expect(closed.status).toBe(400);
-    expect(closed.body.error.message).toMatch(/3,146,400/);
-    expect((await get("/v1/analytics/mining-pools?window=24h")).status).toBe(400);
+    expect(other.status).toBe(400);
+    expect(other.body.error.message).toMatch(/7d, 30d, 90d, 1y, all/);
     expect((await get("/v1/analytics/mining-pools?limit=3")).status).toBe(400);
   });
 
@@ -132,10 +133,24 @@ describe("/v1/analytics/mining-pools/series", () => {
     expect(body.data.interval).toBe("month");
     const p = body.data.periods[0]!;
     expect(p.groups.reduce((s, g) => s + g.blocks, 0)).toBe(p.blocks);
-    const i = body.data.groups.findIndex((g) => g.id === "shielded");
-    expect(body.data.groups[i]!.kind).toBe("shielded-coinbase");
+    expect(body.data.groups.find((g) => g.id === "shielded")!.kind).toBe("shielded-coinbase");
+    // Cells name their group: a period lists only the groups that mined in it, so position is
+    // not a group's index in `groups`.
+    const i = p.groups.findIndex((g) => g.group === "shielded");
     expect(p.groups[i]).toMatchObject({ reward: null, fees: null });
     expect(body.unknowns[`data.periods.0.groups.${i}.reward`]).toBe("shielded");
+  });
+
+  it("lists only the groups that mined in each period, never a zero-block cell", async () => {
+    const { body } = await get<V1MiningPoolSeries>("/v1/analytics/mining-pools/series");
+    const cells = body.data.periods.flatMap((p) => p.groups);
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.every((c) => c.blocks > 0)).toBe(true);
+    for (const p of body.data.periods) {
+      const listed = p.groups.reduce((sum, c) => sum + c.blocks, 0);
+      expect(listed).toBeLessThanOrEqual(p.blocks);
+    }
+    expect(body.basis).toMatch(/only the groups that mined in it/);
   });
 
   it("narrows to one group, and needs one for a daily series", async () => {

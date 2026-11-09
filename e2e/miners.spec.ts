@@ -26,9 +26,9 @@ for (const width of [390, 1280]) {
       await page.goto("/miners");
       await expect(page.getByRole("heading", { level: 1, name: "Miners" })).toBeVisible();
       await expect(page.getByRole("link", { name: "30D" })).toHaveAttribute("aria-current", "page");
-      // Closed windows are not offered while the NU6.1 row waits for its repair.
-      await expect(page.getByRole("link", { name: "1Y", exact: true })).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "ALL", exact: true })).toHaveCount(0);
+      // Every window is offered, 1Y and all of history included.
+      await expect(page.getByRole("link", { name: "1Y", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("link", { name: "ALL", exact: true })).toHaveCount(1);
 
       const table = page.getByRole("table", { name: /Mining pools/ });
       const shielded = table.getByRole("row").filter({ hasText: "shielded coinbase" });
@@ -140,15 +140,15 @@ for (const width of [390, 1280]) {
 }
 
 test.describe("/mining", () => {
-  test("redirects permanently to /miners, keeping a window it can still serve", async ({
-    request,
-  }) => {
+  test("redirects permanently to /miners, keeping the window", async ({ request }) => {
     const cases: [string, string][] = [
       ["/mining", "/miners?window=7d"],
       ["/mining?window=24h", "/miners?window=7d"],
       ["/mining?window=30d", "/miners"],
       ["/mining?window=90d", "/miners?window=90d"],
-      ["/mining?window=1y", "/miners"],
+      ["/mining?window=1y", "/miners?window=1y"],
+      ["/mining?window=all", "/miners?window=all"],
+      ["/mining?window=nonsense", "/miners"],
     ];
     for (const [from, to] of cases) {
       const res = await request.get(from, { maxRedirects: 0 });

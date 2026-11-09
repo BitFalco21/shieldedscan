@@ -18,7 +18,7 @@ export const fetchCache = "force-no-store";
 export const metadata: Metadata = {
   title: "Miners",
   description:
-    "Who mined Zcash and what their blocks paid them, by mining pool, over the last 7, 30 or 90 days.",
+    "Who mined Zcash and what their blocks paid them, by mining pool, over the last 7, 30, 90 or 365 days, or all of history.",
 };
 
 /** The days the daily charts draw: the series covers a year, the page shows a quarter. */

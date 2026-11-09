@@ -35,9 +35,21 @@ describe("chain_activity 'mining-pools' and 'nsm'", () => {
     expect(content).not.toContain('"basis": "A mining pool here');
   });
 
-  it("refuses a window the page does not serve, naming the mode that answers it", async () => {
+  it("reads a year as 1y and all of history as all, never both at once", async () => {
     expect(await dispatch("chain_activity", { mode: "mining-pools", lastDays: 365 })).toMatch(
-      /7, 30 or 90/,
+      /^<note source="GET \/v1\/analytics\/mining-pools\?window=1y">/,
+    );
+    expect(await dispatch("chain_activity", { mode: "nsm", allTime: true })).toMatch(
+      /^<note source="GET \/v1\/analytics\/nsm\?window=all">/,
+    );
+    expect(
+      await dispatch("chain_activity", { mode: "mining-pools", allTime: true, lastDays: 30 }),
+    ).toMatch(/not both/);
+  });
+
+  it("refuses a window the page does not serve, naming the mode that answers it", async () => {
+    expect(await dispatch("chain_activity", { mode: "mining-pools", lastDays: 60 })).toMatch(
+      /7, 30, 90 or 365.*allTime/,
     );
     expect(
       await dispatch("chain_activity", { mode: "nsm", from: "2026-01-01", to: "2026-02-01" }),

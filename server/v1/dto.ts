@@ -921,7 +921,7 @@ export interface V1MiningPools {
   basis: string;
   data: {
     window: V1MiningWindow;
-    /** The first day any figure here may include; 1y and all-of-history windows are not served. */
+    /** The first day any figure here may include. */
     historyFrom: string;
     blocks: number;
     byKind: {
@@ -1010,6 +1010,7 @@ export interface V1MiningPoolSeries {
       blocks: number;
       firstHeight: number | null;
       lastHeight: number | null;
+      /** Only the groups that mined in the period; a group absent here mined no block in it. */
       groups: V1MiningSeriesCell[];
     }[];
   };

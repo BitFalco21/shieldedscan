@@ -150,6 +150,27 @@ describe("BlockDetailPage reward and miner", () => {
     );
   });
 
+  it("names the NU6.1 disbursement as a consensus output, its ten chunks on one line", () => {
+    const multisig = "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo";
+    renderPage({
+      height: 3_146_400,
+      miner: { kind: "transparent", address: "t1at7nVNsv6taLRrNRvnQdtfLNRDfsGc3Ak" },
+      fundingStreams: [
+        { address: "t3cFfPt1Bcvgez9ZbMBFWeZsskxTkPzGCow", valueZat: 12_500_000 },
+        ...Array.from({ length: 10 }, () => ({ address: multisig, valueZat: 787_500_000_000 })),
+      ],
+      blockRewardZat: 7_875_137_500_000,
+      totalFeeZat: 0,
+    });
+    expect(screen.getByText("CONSENSUS OUTPUTS")).toBeDefined();
+    expect(screen.queryByText("FUNDING STREAMS")).toBeNull();
+    const toMultisig = screen
+      .getAllByRole("link")
+      .filter((a) => a.getAttribute("href") === `/address/${multisig}`);
+    expect(toMultisig).toHaveLength(1);
+    expect(screen.getByText(/10 ×/).textContent).toMatch(/^10 × 7,875/);
+  });
+
   it("says a fee total is unknown rather than showing a short sum as if it were whole", () => {
     renderPage({ totalFeeZat: null });
     expect(screen.getByText("unknown")).toBeDefined();

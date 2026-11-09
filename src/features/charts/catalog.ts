@@ -292,7 +292,7 @@ export const CHARTS: ChartEntry[] = [
     blurb:
       "Share of each month's blocks paid to the top 1, 3 and 10 addresses, and to shielded ones.",
     description: [
-      "Each month's blocks, grouped by the payout address of the coinbase's largest output, which is the miner by consensus. The lines are the share of all the month's blocks paid to the largest address, the largest three and the largest ten.",
+      "Each month's blocks, grouped by the payout address of the coinbase's largest output, which is the miner by consensus once the NU6.1 lockbox disbursement is set aside. The lines are the share of all the month's blocks paid to the largest address, the largest three and the largest ten.",
       "A miner paid to a shielded address cannot be named, so those blocks are drawn as their own line. Addresses are never merged: an operator paid at several counts as several, so every share is a lower bound for any operator.",
     ],
   },

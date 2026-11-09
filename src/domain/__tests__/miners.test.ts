@@ -31,11 +31,11 @@ const row = (over: Partial<MinerAddressRow>): MinerAddressRow => ({
 });
 
 describe("windows", () => {
-  it("opens only 7D, 30D and 90D while 1Y and ALL wait on the NU6.1 row", () => {
+  it("opens every window, 1Y and ALL included, since the NU6.1 row's repair", () => {
     expect(parseMinersWindow("7d")).toBe("7d");
     expect(parseMinersWindow("90d")).toBe("90d");
-    expect(parseMinersWindow("1y")).toBe("30d");
-    expect(parseMinersWindow("all")).toBe("30d");
+    expect(parseMinersWindow("1y")).toBe("1y");
+    expect(parseMinersWindow("all")).toBe("all");
     expect(parseMinersWindow("nonsense")).toBe("30d");
     expect(parseMinersWindow(undefined)).toBe("30d");
   });
@@ -51,18 +51,19 @@ describe("windows", () => {
     expect(minersWindowDays("7d", Date.UTC(2026, 10, 7) / 1000).toDay).toBe("2026-11-07");
   });
 
-  it("never reach before the history floor, even for ALL", () => {
-    expect(minersWindowDays("all", NOON_6_NOV).fromDay).toBe("2025-12-01");
-    expect(minersWindowDays("1y", NOON_6_NOV).fromDay).toBe("2025-12-01");
+  it("reach back a year for 1Y and to the first day for ALL", () => {
+    expect(minersWindowDays("1y", NOON_6_NOV).fromDay).toBe("2025-11-07");
+    expect(minersWindowDays("all", NOON_6_NOV).fromDay).toBe("1970-01-01");
   });
 
-  it("map /mining's windows: rolling and absent ones to 7D, closed ones to the default", () => {
+  it("map /mining's windows: rolling and absent ones to 7D, the others to themselves", () => {
     expect(minersWindowFromMining(undefined)).toBe("7d");
     expect(minersWindowFromMining("24h")).toBe("7d");
     expect(minersWindowFromMining("3d")).toBe("7d");
     expect(minersWindowFromMining("7d")).toBe("7d");
     expect(minersWindowFromMining("90d")).toBe("90d");
-    expect(minersWindowFromMining("1y")).toBe("30d");
+    expect(minersWindowFromMining("1y")).toBe("1y");
+    expect(minersWindowFromMining("nonsense")).toBe("30d");
   });
 });
 

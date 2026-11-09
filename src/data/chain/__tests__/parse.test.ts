@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { minerRewardZat } from "@/domain";
 import type { RpcBlock } from "../rpc-types";
 import { classifyTxKind, computeFeeZat, parseBlock, reconcilePoolFlows } from "../parse";
 import block3426950 from "../__fixtures__/block-3426950.json";
@@ -7,6 +8,7 @@ import block3426998 from "../__fixtures__/block-3426998.json";
 import block3428150 from "../__fixtures__/block-3428150.json";
 import shieldedCoinbase from "../__fixtures__/block-3437300-coinbase.json";
 import block460495 from "../__fixtures__/block-460495.json";
+import { NU61_MINER, nu61Block } from "../__fixtures__/block-3146400";
 
 /**
  * Every assertion here is against a real capture from a synced node, not a hand-written
@@ -257,6 +259,17 @@ describe("miner and funding streams", () => {
 
   it("leaves fees unknown on the parse path, which cannot resolve inputs", () => {
     expect(parseBlock(shielding).block.totalFeeZat).toBeNull();
+  });
+
+  it("names the miner at NU6.1, with the ZIP-271 disbursement as a non-miner output", () => {
+    // Mainnet block 3,146,400: the miner's 1.25 ZEC, the FPF's 0.125 and ZIP 271's ten 7,875 ZEC
+    // chunks to the key-holders' multisig, in their on-chain order.
+    const { block } = parseBlock(nu61Block);
+    expect(block.miner).toEqual({ kind: "transparent", address: NU61_MINER });
+    expect(block.coinbaseTag).toBeNull();
+    expect(block.blockRewardZat).toBe(7_875_137_500_000);
+    expect(block.fundingStreams).toHaveLength(11);
+    expect(minerRewardZat(block)).toBe(125_000_000);
   });
 });
 

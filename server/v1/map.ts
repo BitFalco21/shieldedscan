@@ -942,7 +942,7 @@ function miningCoverage(o: MinersOverview): V1MiningPools["coverage"] {
 
 /** Said on every mining-pool answer: what a pool is here, and what the figures are. */
 export const MINING_POOLS_BASIS =
-  "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30 or 90 UTC days, today unfinished; nothing before `historyFrom` is read, and longer windows are not served until one stored block's miner is repaired.";
+  "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history from `historyFrom`; blocks that paid a bare public key have no address and are counted apart.";
 
 /**
  * How a pool's payout address was reviewed. Every address grouped into a pool has a label, so a
@@ -1139,30 +1139,34 @@ export function toMiningPoolSeries(
     blocks: p.blocks,
     firstHeight: p.firstHeight,
     lastHeight: p.lastHeight,
-    groups: ids.map((id, j): V1MiningSeriesCell => {
-      const point = byCell.get(`${p.period}|${id}`);
-      const blocks = point?.blocks ?? 0;
-      const path = `data.periods.${i}.groups.${j}`;
-      const sh = share(blocks, p.blocks);
-      if (sh === null) unknowns[`${path}.share`] = "nonexistent";
-      // A shielded coinbase pays into an encrypted note: its amounts are never numbers here.
-      if (id === SHIELDED_GROUP) {
-        unknowns[`${path}.reward`] = "shielded";
-        unknowns[`${path}.fees`] = "shielded";
-        return { group: id, blocks, share: sh, reward: null, fees: null };
-      }
-      const reward = point === undefined ? 0 : point.rewardZat;
-      const fees = point === undefined ? 0 : point.feeZat;
-      if (reward === null) unknowns[`${path}.reward`] = "unmeasured";
-      if (fees === null) unknowns[`${path}.fees`] = "unmeasured";
-      return {
-        group: id,
-        blocks,
-        share: sh,
-        reward: amountOrNull(reward),
-        fees: amountOrNull(fees),
-      };
-    }),
+    // Only the groups that mined in the period: a group absent from it mined no block there. Listing
+    // every group in every month of all history put the series past what an MCP answer may carry.
+    groups: ids
+      .filter((id) => (byCell.get(`${p.period}|${id}`)?.blocks ?? 0) > 0)
+      .map((id, j): V1MiningSeriesCell => {
+        const point = byCell.get(`${p.period}|${id}`);
+        const blocks = point?.blocks ?? 0;
+        const path = `data.periods.${i}.groups.${j}`;
+        const sh = share(blocks, p.blocks);
+        if (sh === null) unknowns[`${path}.share`] = "nonexistent";
+        // A shielded coinbase pays into an encrypted note: its amounts are never numbers here.
+        if (id === SHIELDED_GROUP) {
+          unknowns[`${path}.reward`] = "shielded";
+          unknowns[`${path}.fees`] = "shielded";
+          return { group: id, blocks, share: sh, reward: null, fees: null };
+        }
+        const reward = point === undefined ? 0 : point.rewardZat;
+        const fees = point === undefined ? 0 : point.feeZat;
+        if (reward === null) unknowns[`${path}.reward`] = "unmeasured";
+        if (fees === null) unknowns[`${path}.fees`] = "unmeasured";
+        return {
+          group: id,
+          blocks,
+          share: sh,
+          reward: amountOrNull(reward),
+          fees: amountOrNull(fees),
+        };
+      }),
   }));
   const running = s.periods.find((p) => p.partial);
   return {
@@ -1174,7 +1178,7 @@ export function toMiningPoolSeries(
         : [],
     },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
-    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year from it.`,
+    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period, and a period lists only the groups that mined in it. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
     data: { interval: s.interval, fromDay: s.fromDay, toDay: s.toDay, groups, periods },
     unknowns,
     asOf,
@@ -1230,7 +1234,7 @@ export function toNsm(
     coverage: { status: partial ? "partial" : "complete", notes },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
     basis:
-      "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at `balance.height`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (`carriedIn`); `fromFees` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. `toNsmValueUsd` and `toMinersValueUsd` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30 or 90 UTC days, today unfinished.",
+      "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at `balance.height`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (`carriedIn`); `fromFees` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. `toNsmValueUsd` and `toMinersValueUsd` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
     data: {
       activationHeight: o.activationHeight,
       activationDay: o.activationDay,

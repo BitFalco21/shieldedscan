@@ -13,6 +13,7 @@ import {
   hasBlockHeader,
   publicValueZat,
   feeDestinationSentence,
+  isLockboxDisbursementOutput,
   targetSpacingSeconds,
   NU7_HEIGHT,
 } from "@/domain";
@@ -91,14 +92,27 @@ function FundingStreamValue({ streams }: { streams: TransparentOutput[] }) {
   if (streams.length === 0) {
     return <span className="text-sm text-ink-faint">none at this height</span>;
   }
+  // Identical outputs are listed once with their count: the NU6.1 disbursement is ten equal
+  // chunks to one address, and ten identical rows would read as a rendering fault.
+  const grouped: { output: TransparentOutput; count: number }[] = [];
+  for (const output of streams) {
+    const same = grouped.find(
+      (g) => g.output.address === output.address && g.output.valueZat === output.valueZat,
+    );
+    if (same) same.count += 1;
+    else grouped.push({ output, count: 1 });
+  }
   return (
     <ul className="space-y-1.5">
-      {streams.map((stream) => (
-        <li key={`${stream.address}:${stream.valueZat}`} className="flex flex-wrap gap-x-3 gap-y-1">
+      {grouped.map(({ output, count }) => (
+        <li key={`${output.address}:${output.valueZat}`} className="flex flex-wrap gap-x-3 gap-y-1">
           {/* Copyable like every other address on a detail page: an elided address is useless
               without a way to take it whole. */}
-          <AddressLink address={stream.address} edge={8} copyable />
-          <span className="text-xs text-ink-dim tabular-nums">{formatZec(stream.valueZat)}</span>
+          <AddressLink address={output.address} edge={8} copyable />
+          <span className="text-xs text-ink-dim tabular-nums">
+            {count > 1 ? `${count} × ` : ""}
+            {formatZec(output.valueZat)}
+          </span>
         </li>
       ))}
     </ul>
@@ -326,14 +340,20 @@ export function BlockDetailPage({
           },
           {
             label: "MINER",
-            hint: "Read from the coinbase: the miner is its largest transparent output. Zcash has no miner field, so this is derived rather than declared. A pool is named only where its payout address is on our reviewed list.",
+            hint: "Read from the coinbase: the miner is its largest transparent output that consensus does not direct elsewhere. Zcash has no miner field, so this is derived rather than declared. A pool is named only where its payout address is on our reviewed list.",
             value: <MinerValue miner={block.miner} />,
           },
-          {
-            label: "FUNDING STREAMS",
-            hint: "The share of each block reward that consensus directs to Zcash development funds rather than to the miner.",
-            value: <FundingStreamValue streams={block.fundingStreams} />,
-          },
+          block.fundingStreams.some((o) => isLockboxDisbursementOutput(block.height, o))
+            ? {
+                label: "CONSENSUS OUTPUTS",
+                hint: "Outputs consensus directs away from the miner: the funding stream and, in this block only, ZIP 271's one-time payout from the dev fund lockbox.",
+                value: <FundingStreamValue streams={block.fundingStreams} />,
+              }
+            : {
+                label: "FUNDING STREAMS",
+                hint: "The share of each block reward that consensus directs to Zcash development funds rather than to the miner.",
+                value: <FundingStreamValue streams={block.fundingStreams} />,
+              },
         ]}
       />
 

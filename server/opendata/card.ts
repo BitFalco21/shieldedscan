@@ -103,7 +103,7 @@ const DESCRIPTIONS: Record<string, string> = {
 const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
   blocks_coinbase: {
     miner_address:
-      "Payout address: the coinbase's largest transparent output. NULL for a shielded coinbase, when that output names no address, or where the block's miner is not recorded yet.",
+      "Payout address: the coinbase's largest transparent output, the NU6.1 lockbox disbursement (ZIP 271) set aside. NULL for a shielded coinbase, when that output names no address, or where the block's miner is not recorded yet.",
     coinbase_tag:
       "Text the miner wrote in the coinbase, sanitised at parse. NULL when none is printable, or where not recorded yet.",
   },
@@ -314,7 +314,7 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
   mining_payouts_daily: {
     kind: "transparent, shielded (a shielded coinbase, ZIP 213) or unknown (the coinbase names no address).",
     address:
-      "Payout address: the coinbase's largest transparent output. NULL unless kind is transparent. One operator can use several.",
+      "Payout address: the coinbase's largest transparent output, the NU6.1 lockbox disbursement (ZIP 271) set aside. NULL unless kind is transparent. One operator can use several.",
     blocks: "Blocks paid that way that day.",
     reward_zat:
       "The miner's own outputs, excluding funding streams, zatoshis; NULL unless known for every block (never for shielded).",

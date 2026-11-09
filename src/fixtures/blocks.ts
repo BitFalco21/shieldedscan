@@ -47,7 +47,7 @@ export const blocks: Block[] = HEIGHTS.map((height) => {
   // Derived exactly as the node path derives them, from the same domain functions, so a
   // change to the rules cannot leave the fixture chain disagreeing with the real one.
   const coinbase = txs.find((t) => t.isCoinbase);
-  const miner = blockMiner(txs);
+  const miner = blockMiner(txs, height);
 
   return {
     height,

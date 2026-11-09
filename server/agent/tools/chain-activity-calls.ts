@@ -335,7 +335,7 @@ export function chainActivityCalls(
     }
     case "mining-pools": {
       // The public `/v1/analytics/mining-pools` routes: the `/miners` page by reviewed pool. Their
-      // windows are the page's trailing 7, 30 or 90 days, so a from/to period is refused with the
+      // windows are the page's trailing 7, 30, 90 or 365 days or all of history, so a from/to period is refused with the
       // mode that answers it rather than silently narrowed.
       const asked = miningWindow(args);
       if (typeof asked === "string") return asked;
@@ -348,7 +348,7 @@ export function chainActivityCalls(
       if (!isOneOf(WINDOW_GROUP_BY, groupBy)) return `groupBy must be ${orList(WINDOW_GROUP_BY)}`;
       if (groupBy !== "none") {
         if (args.raw.lastDays !== undefined) {
-          return `the per-period series covers every month since 2025-12-01 (day: one pool's trailing year) — omit lastDays`;
+          return `the per-period series covers every month since 2016 (day: one pool's trailing year) — omit lastDays`;
         }
         if (groupBy === "day" && id === null) {
           return `a daily series takes one pool: pass miningPool, and call again for another`;
@@ -446,17 +446,22 @@ export function chainActivityCalls(
 }
 
 /**
- * The `/miners` window a 'mining-pools' or 'nsm' call asks for: `lastDays` of 7, 30 or 90, 30 by
- * default, as the page's own key. Anything else is an error naming the mode that answers it.
+ * The `/miners` window a 'mining-pools' or 'nsm' call asks for, as the page's own key: `lastDays`
+ * of 7, 30, 90 or 365 (30 by default), or `allTime` for all of history. Anything else is an error
+ * naming the mode that answers it.
  */
 function miningWindow(args: ToolArgs): { window: string } | string {
   if (args.raw.from !== undefined || args.raw.to !== undefined) {
-    return `'mining-pools' and 'nsm' cover only the last 7, 30 or 90 days (pass lastDays); for miners over any other period use 'miners', which groups by payout address`;
+    return `'mining-pools' and 'nsm' take lastDays (${orList(MINING_WINDOW_DAYS.map(String))}) or allTime, not from/to; for a calendar period use 'miners', which groups by payout address`;
+  }
+  if (args.flag("allTime")) {
+    if (args.raw.lastDays !== undefined) return "pass lastDays or allTime, not both";
+    return { window: "all" };
   }
   if (args.raw.lastDays === undefined) return { window: "30d" };
   const days = args.int("lastDays");
   if (days === null || !(MINING_WINDOW_DAYS as readonly number[]).includes(days)) {
-    return `lastDays must be ${orList(MINING_WINDOW_DAYS.map(String))} here: longer windows are not served yet`;
+    return `lastDays must be ${orList(MINING_WINDOW_DAYS.map(String))} here, or pass allTime for all of history`;
   }
-  return { window: `${days}d` };
+  return { window: days === 365 ? "1y" : `${days}d` };
 }
