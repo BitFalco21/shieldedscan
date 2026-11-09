@@ -2656,7 +2656,10 @@ describe("chain_activity", () => {
       });
       expect(res.endpoints[0]).toContain("from=2026-02-01");
       expect(res.content).not.toMatch(/THIS READ CANNOT BE USED/);
-      expect(res.content).toMatch(/baselineOnly/);
+      // In the data itself, not just the note that explains it.
+      expect(res.content).toMatch(/"baselineOnly": true/);
+      expect(res.content).toMatch(/"changeFromPrevious": \{/);
+      expect(res.content).toMatch(/"changeZec": "-?[0-9]/);
     });
 
     it("lists months for groupBy none, and its error names every value it accepts", async () => {

@@ -49,15 +49,19 @@ describe("a pool-balance series' changes", () => {
   });
 
   it("gives each point its change from the one before, and marks the baseline", () => {
-    const out = withPoolBalanceChanges(
-      {
-        points: [
-          { pools: { sapling: zat(1000), orchard: zat(50) }, totalShielded: zat(1050) },
-          { pools: { sapling: zat(900), orchard: zat(80) }, totalShielded: zat(980) },
-        ],
-      },
-      true,
-    ) as { points: Record<string, unknown>[] };
+    const out = (
+      withPoolBalanceChanges(
+        {
+          data: {
+            points: [
+              { pools: { sapling: zat(1000), orchard: zat(50) }, totalShielded: zat(1050) },
+              { pools: { sapling: zat(900), orchard: zat(80) }, totalShielded: zat(980) },
+            ],
+          },
+        },
+        true,
+      ) as { data: { points: Record<string, unknown>[] } }
+    ).data;
     expect(out.points[0]).toMatchObject({ baselineOnly: true });
     expect(out.points[0]).not.toHaveProperty("changeFromPrevious");
     expect(out.points[1]).not.toHaveProperty("baselineOnly");
@@ -68,15 +72,19 @@ describe("a pool-balance series' changes", () => {
   });
 
   it("marks no baseline on an open window, and names an unreadable change null", () => {
-    const out = withPoolBalanceChanges(
-      {
-        points: [
-          { pools: { sapling: null }, totalShielded: zat(1) },
-          { pools: { sapling: zat(5) }, totalShielded: zat(2) },
-        ],
-      },
-      false,
-    ) as { points: Record<string, unknown>[] };
+    const out = (
+      withPoolBalanceChanges(
+        {
+          data: {
+            points: [
+              { pools: { sapling: null }, totalShielded: zat(1) },
+              { pools: { sapling: zat(5) }, totalShielded: zat(2) },
+            ],
+          },
+        },
+        false,
+      ) as { data: { points: Record<string, unknown>[] } }
+    ).data;
     expect(out.points[0]).not.toHaveProperty("baselineOnly");
     expect(out.points[1]!.changeFromPrevious).toEqual({
       pools: { sapling: null },

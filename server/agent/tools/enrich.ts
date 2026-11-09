@@ -883,8 +883,9 @@ export function priorPeriodStart(day: string, interval: "day" | "month"): string
  * asked period its change: it is marked, so it is never reported as part of the window.
  */
 export function withPoolBalanceChanges(payload: unknown, baseline: boolean): unknown {
-  const p = asRecord(payload);
-  if (p === null || !Array.isArray(p.points)) return payload;
+  const body = asRecord(payload);
+  const p = asRecord(body?.data);
+  if (body === null || p === null || !Array.isArray(p.points)) return payload;
   const zatOf = (v: unknown): number | null => {
     const r = asRecord(v);
     return r !== null && typeof r.zat === "number" ? r.zat : null;
@@ -914,5 +915,5 @@ export function withPoolBalanceChanges(payload: unknown, baseline: boolean): unk
       },
     };
   });
-  return { ...p, points };
+  return { ...body, data: { ...p, points } };
 }
