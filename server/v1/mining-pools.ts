@@ -22,7 +22,7 @@ import {
 import { ParamError, rejectUnknown } from "./params";
 
 /**
- * The `/miners` page on the public API: who mined the last 7, 30 or 90 days by reviewed mining pool,
+ * The `/miners` page on the public API: who mined the last 7, 30, 90 or 365 days, or all of history, by reviewed mining pool,
  * one pool's addresses and newest blocks, each pool's share per day or month, and the NSM.
  *
  * Every read goes through `MinersReader` (`server/miners-routes.ts`), the loaders the page's own
@@ -65,17 +65,12 @@ export interface V1MiningPoolsDeps {
 
 const WINDOW_LIST = MINERS_OPEN_WINDOWS.join(", ");
 
-/** `window`: one the page serves, 30d by default; 1y, all and anything else are a 400 naming why. */
+/** `window`: one the page serves, 30d by default; anything else is a 400. */
 function parseWindow(raw: string | undefined): MinersWindowKey {
   if (raw === undefined || raw === "") return "30d";
   const found = MINERS_OPEN_WINDOWS.find((w) => w === raw);
   if (found) return found;
-  throw new ParamError(
-    "invalid_parameter",
-    raw === "1y" || raw === "all"
-      ? `window ${raw} is not served yet: one stored block's miner (height 3,146,400) awaits repair, so only ${WINDOW_LIST} are`
-      : `window must be one of ${WINDOW_LIST}`,
-  );
+  throw new ParamError("invalid_parameter", `window must be one of ${WINDOW_LIST}`);
 }
 
 function parseLimit(raw: string | undefined): number {

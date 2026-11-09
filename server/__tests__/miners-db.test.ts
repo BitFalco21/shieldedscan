@@ -117,7 +117,7 @@ const PAYOUTS: Payout[] = [
     lo: 50,
     hi: 60,
   },
-  // Before the history floor: never read.
+  // The oldest day: read by 1Y and ALL only.
   {
     day: "2025-11-24",
     kind: "transparent",
@@ -239,19 +239,25 @@ describeDb("/chain/miners", () => {
     expect(viaB.usd).toEqual({ closedUsd: 0, unpricedZat: 0, todayZat: 500_000_000 });
   });
 
-  it("serves only open windows and never reads before the history floor", async () => {
-    expect((await overview("?window=all")).window).toBe("30d");
-    expect((await overview("?window=1y")).window).toBe("30d");
+  it("serves 1Y and ALL, ALL starting at the first mining day rather than an epoch", async () => {
+    const all = await overview("?window=all");
+    expect(all.window).toBe("all");
+    expect(all.fromDay).toBe("2025-11-24");
+    const quarter = await overview("?window=90d");
+    const blocksOf = (o: MinersOverview) => o.labelled.find((r) => r.address === VIABTC_A)?.blocks;
+    expect(blocksOf(all)).toBe((blocksOf(quarter) ?? 0) + 999);
+    expect((await overview("?window=1y")).window).toBe("1y");
     const week = await overview("?window=7d");
     expect(week.fromDay).toBe("2026-10-31");
     expect(week.labelled.find((r) => r.address === VIABTC_A)?.blocks).toBe(10);
   });
 
-  it("serves the series by pool from the floor, with every period's total", async () => {
+  it("serves the series by pool from the first mining day, with every period's total", async () => {
     const res = await app.request("/chain/miners/series?interval=month");
     const s = (await res.json()) as MinerSeries;
-    expect(s.fromDay).toBe("2025-12-01");
+    expect(s.fromDay).toBe("2025-11-24");
     expect(s.periods.map((p) => [p.period, p.blocks, p.partial])).toEqual([
+      ["2025-11-01", 999, false],
       ["2026-10-01", 6, false],
       ["2026-11-01", 26, true],
     ]);

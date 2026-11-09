@@ -54,7 +54,7 @@ describe("/v1/analytics/mining-pools", () => {
         d.byKind.noAddress.blocks +
         d.byKind.unrecorded.blocks,
     ).toBe(d.blocks);
-    expect(d.historyFrom).toBe("2025-12-01");
+    expect(d.historyFrom).toBe("2016-10-28");
     expect(body.basis).toMatch(/never add/);
   });
 
@@ -70,13 +70,14 @@ describe("/v1/analytics/mining-pools", () => {
     expect(cold.body.unknowns["data.pools.0.valueUsd"]).toBe("unmeasured");
   });
 
-  it("refuses the closed windows by name and any other parameter", async () => {
-    const closed = await get<{ error: { message: string } }>(
-      "/v1/analytics/mining-pools?window=1y",
+  it("serves 1y and all, and refuses any other window or parameter", async () => {
+    expect((await get("/v1/analytics/mining-pools?window=1y")).status).toBe(200);
+    expect((await get("/v1/analytics/mining-pools?window=all")).status).toBe(200);
+    const other = await get<{ error: { message: string } }>(
+      "/v1/analytics/mining-pools?window=24h",
     );
-    expect(closed.status).toBe(400);
-    expect(closed.body.error.message).toMatch(/3,146,400/);
-    expect((await get("/v1/analytics/mining-pools?window=24h")).status).toBe(400);
+    expect(other.status).toBe(400);
+    expect(other.body.error.message).toMatch(/7d, 30d, 90d, 1y, all/);
     expect((await get("/v1/analytics/mining-pools?limit=3")).status).toBe(400);
   });
 

@@ -456,7 +456,7 @@ function miningWindow(args: ToolArgs): { window: string } | string {
   if (args.raw.lastDays === undefined) return { window: "30d" };
   const days = args.int("lastDays");
   if (days === null || !(MINING_WINDOW_DAYS as readonly number[]).includes(days)) {
-    return `lastDays must be ${orList(MINING_WINDOW_DAYS.map(String))} here: longer windows are not served yet`;
+    return `lastDays must be ${orList(MINING_WINDOW_DAYS.map(String))} here`;
   }
   return { window: `${days}d` };
 }

@@ -921,7 +921,7 @@ export interface V1MiningPools {
   basis: string;
   data: {
     window: V1MiningWindow;
-    /** The first day any figure here may include; 1y and all-of-history windows are not served. */
+    /** The first day any figure here may include. */
     historyFrom: string;
     blocks: number;
     byKind: {

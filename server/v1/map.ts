@@ -942,7 +942,7 @@ function miningCoverage(o: MinersOverview): V1MiningPools["coverage"] {
 
 /** Said on every mining-pool answer: what a pool is here, and what the figures are. */
 export const MINING_POOLS_BASIS =
-  "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30 or 90 UTC days, today unfinished; nothing before `historyFrom` is read, and longer windows are not served until one stored block's miner is repaired.";
+  "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its `basis`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in `unattributed`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. `reward` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains `fees`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. `valueUsd` values each closed UTC day at that day's stored close and today at the live price; `floor` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history from `historyFrom`; blocks that paid a bare public key have no address and are counted apart.";
 
 /**
  * How a pool's payout address was reviewed. Every address grouped into a pool has a label, so a
@@ -1174,7 +1174,7 @@ export function toMiningPoolSeries(
         : [],
     },
     source: { name: "ShieldedScan", url: `${siteUrl}/miners` },
-    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year from it.`,
+    basis: `${MINING_POOLS_BASIS} Each period's share is of every block in that period. Months run from ${MINING_HISTORY_FROM}; days cover the trailing year.`,
     data: { interval: s.interval, fromDay: s.fromDay, toDay: s.toDay, groups, periods },
     unknowns,
     asOf,

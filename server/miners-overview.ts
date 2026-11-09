@@ -152,7 +152,8 @@ export async function loadMinersOverview(
 
   return {
     window,
-    fromDay,
+    // ALL has no lower bound of its own: it starts where the mining days do.
+    fromDay: start,
     toDay,
     fromHeight: h.lo,
     toHeight: h.hi,
@@ -184,7 +185,14 @@ export async function loadMinerSeries(
   nowSec: number,
 ): Promise<MinerSeries> {
   const toDay = utcDayOf(Math.floor(nowSec / DAY_SECONDS) * DAY_SECONDS);
-  const floor = MINERS_HISTORY_FROM_DAY ?? "1970-01-01";
+  // With no history floor, months start at the first mining day, never at an epoch placeholder.
+  const first = (
+    await pool.query<{ first: string | null }>(
+      "SELECT to_char(min(day), 'YYYY-MM-DD') AS first FROM mining_day",
+    )
+  ).rows[0]?.first;
+  const lowest = MINERS_HISTORY_FROM_DAY ?? first ?? toDay;
+  const floor = first != null && first > lowest ? first : lowest;
   const yearAgo = utcDayOf(Math.floor(nowSec / DAY_SECONDS) * DAY_SECONDS - 364 * DAY_SECONDS);
   const fromDay = interval === "month" ? floor : yearAgo > floor ? yearAgo : floor;
   const end = nextDay(toDay);
