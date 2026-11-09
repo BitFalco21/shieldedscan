@@ -450,7 +450,7 @@ describe("versioning", () => {
     // Bump the version on any change to the prompt or the tool definitions (a definition sits in
     // the fixed prefix on every turn). The corpus records this number, so a change that leaves it
     // alone makes past runs unattributable to the prompt that produced them.
-    expect(SYSTEM_PROMPT_VERSION).toBe(49);
+    expect(SYSTEM_PROMPT_VERSION).toBe(50);
   });
 });
 
