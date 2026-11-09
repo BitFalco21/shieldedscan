@@ -19,6 +19,7 @@ import { MoreMiningLinks } from "./MoreMiningLinks";
 import { NsmSection } from "./NsmSection";
 import { PoolShareBar } from "./PoolShareBar";
 import { PoolShareByMonthChart } from "./PoolShareByMonthChart";
+import { PoolsToMajorityChart } from "./PoolsToMajorityChart";
 import { PoolTable } from "./PoolTable";
 import { TipStrip } from "./TipStrip";
 import { grouped, shareSegments, WINDOW_LABELS } from "./miners-view";
@@ -111,6 +112,18 @@ export function MinersPage({ overview, terms, months, days, nsm, windowHref }: M
         ) : (
           <PoolShareByMonthChart series={months} />
         )}
+      </Panel>
+
+      <Panel title="POOLS TO 51%" className="mt-3">
+        {months === null ? (
+          <DataUnavailable what="The monthly series" inset />
+        ) : (
+          <PoolsToMajorityChart series={months} withTable />
+        )}
+        <p className="mt-3 text-xs text-ink-faint">
+          Reviewed pools, largest first, that mined 51% of each month&apos;s blocks. Unattributed
+          blocks stay in the total, so the real number cannot be higher.
+        </p>
       </Panel>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">

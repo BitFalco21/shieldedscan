@@ -189,8 +189,8 @@ describeDb("PostgresStorePort matches the in-memory store", () => {
           "u103es06kwh0vumpqutx3kfyy5v8s0np5zyv2u3dq3gqxza78r2s2zh4vekx5x0dznkk2jvlufg0cruvektv588m4l70gcwa8yugd56e25",
       }),
     ]);
-    const buckets = await pg.countByAddressKind("in");
-    const unified = buckets.find((b) => b.kind === "unified");
+    const edges = await pg.crossChainEdges(null);
+    const unified = edges.find((b) => b.direction === "in" && b.addressKind === "unified");
     expect(unified?.transfers).toBe(1);
   });
 
@@ -573,7 +573,6 @@ describeDb("every total counts completed transfers only, in both stores", () => 
     ["outflowByChain", (s) => s.outflowByChain()],
     ["volumeByVenue", (s) => s.volumeByVenue()],
     ["inflowByAddressKind", (s) => s.inflowByAddressKind()],
-    ["countByAddressKind", (s) => s.countByAddressKind("in")],
     ["crossChainEdges", (s) => s.crossChainEdges(null)],
   ];
   for (const [what, read] of TOTALS) {

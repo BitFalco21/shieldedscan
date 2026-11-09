@@ -57,6 +57,11 @@ export interface StackedBarChartProps {
    * rate is made of, which belong in the readout and not on the axis.
    */
   contextRows?: { name: string; values: string[] }[];
+  /**
+   * Periods with no figure to state: each drawn as one hollow dashed box of a fixed height at the
+   * baseline, the same for every such period, so the gap is marked without reading as a value.
+   */
+  unstated?: readonly number[];
   onActiveChange?: (index: number | null) => void;
 }
 
@@ -82,6 +87,7 @@ export function StackedBarChart({
   readout = "series",
   totalLabel = "Total",
   contextRows = [],
+  unstated = [],
   onActiveChange,
 }: StackedBarChartProps) {
   // React's ids carry punctuation a `url(#…)` reference may not survive.
@@ -190,6 +196,19 @@ export function StackedBarChart({
                     />
                   );
                 })}
+                {unstated.includes(i) ? (
+                  <rect
+                    x={left}
+                    y={y(0) - scaled(8)}
+                    width={barW}
+                    height={scaled(8)}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeDasharray="3 2"
+                    vectorEffect="non-scaling-stroke"
+                    className="text-ink-faint"
+                  />
+                ) : null}
                 {running && totals[i]! > 0 ? (
                   <>
                     <rect

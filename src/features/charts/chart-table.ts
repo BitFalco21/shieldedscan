@@ -1,7 +1,13 @@
 import type { ChartRange } from "@/domain";
 import {
+  chartRangeDays,
+  destinationsByChain,
+  destinationSwaps,
+  foldDestinations,
+  shieldedCapableSharePct,
   blocksTargetForDay,
   issuanceOutlook,
+  poolsToMajority,
   shieldedSplits,
   NU7,
   NU7_RELEASES,
@@ -26,16 +32,21 @@ export type ChartCell = number | null;
  * and a formatted ZEC string is not a number.
  */
 export interface ChartTable {
-  /** "day", "week" (ISO, labelled by its Monday), "month" or "hour". */
-  period: "day" | "week" | "month" | "hour";
+  /**
+   * "day", "week" (ISO, labelled by its Monday), "month" or "hour"; or "chain", for a table with
+   * one row per counterpart chain over one window, labelled by `rowKeys`.
+   */
+  period: "day" | "week" | "month" | "hour" | "chain";
   columns: string[];
   /**
    * What each column stands for, where the column name alone cannot carry it: the source chain's
    * ticker behind each of `inflow-by-chain`'s columns, so the figure colours and names it.
    */
   keys?: string[];
-  /** Unix seconds of each row, oldest first. */
+  /** Unix seconds of each row, oldest first. Empty for a "chain" table. */
   timestamps: number[];
+  /** A "chain" table's row labels: a ticker, or `FOLDED_KEY` for the folded tail. */
+  rowKeys?: string[];
   rows: ChartCell[][];
 }
 
@@ -47,6 +58,7 @@ const utcHour = (ts: number) => `${new Date(ts * 1000).toISOString().slice(0, 13
 
 /** The period label of a row, as the CSV's first column prints it. */
 export function periodLabel(table: ChartTable, index: number): string {
+  if (table.rowKeys) return table.rowKeys[index]!;
   const ts = table.timestamps[index]!;
   if (table.period === "month") return utcMonth(ts);
   if (table.period === "hour") return utcHour(ts);
@@ -82,6 +94,7 @@ export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   "shielded-capable-swaps",
   // A projection to 2040: a 30-day window of it would be a flat line.
   "supply-issuance",
+  "pools-to-majority",
 ]);
 
 /** Chains drawn on their own in the inflow and outflow charts; the rest fold into one band. */
@@ -489,6 +502,58 @@ export function chartTable(
         timestamps: points.map((p) => p.at),
         rows: points.map((p) => [p.height, p.issuedZat, p.projected]),
       };
+    }
+    case "shielded-capable-by-chain": {
+      const days = chartRangeDays(range);
+      const w = data.destinationWindows?.windows.find((x) => x.days === days);
+      if (!w) return null;
+      const rows = foldDestinations(destinationsByChain(w.buckets), CHAINS_SHOWN, FOLDED_KEY);
+      return {
+        period: "chain",
+        columns: [
+          "chains",
+          "capable_pct",
+          "capable_swaps",
+          "transparent_swaps",
+          "unpublished_swaps",
+          "swaps",
+          "capable_zat",
+          "transparent_zat",
+          "unpublished_zat",
+        ],
+        timestamps: [],
+        rowKeys: rows.map((r) => r.chain),
+        rows: rows.map((r) => {
+          const pct = shieldedCapableSharePct(r);
+          return [
+            r.chains,
+            pct === null ? null : Math.round(pct * 100) / 100,
+            r.capable,
+            r.transparent,
+            r.unknown,
+            destinationSwaps(r),
+            r.capableZat,
+            r.transparentZat,
+            r.unknownZat,
+          ];
+        }),
+      };
+    }
+    case "pools-to-majority": {
+      if (!data.minerMonths) return null;
+      const months = poolsToMajority(data.minerMonths).map((m) => ({
+        ...m,
+        timestamp: Date.parse(`${m.period}T00:00:00Z`) / 1000,
+      }));
+      return table("month", months, [
+        { name: "pools_to_51pct", value: (m) => m.pools },
+        { name: "pools_pct", value: (m) => share(m.poolsBlocks, m.blocks) },
+        { name: "top1_pool_pct", value: (m) => share(m.top1Blocks, m.blocks) },
+        { name: "top3_pools_pct", value: (m) => share(m.top3Blocks, m.blocks) },
+        { name: "reviewed_pools_pct", value: (m) => share(m.reviewedBlocks, m.blocks) },
+        { name: "blocks", value: (m) => m.blocks },
+        { name: "partial", value: (m) => (m.partial ? 1 : 0) },
+      ]);
     }
     case "shielded-share": {
       const supply = data.supplyDays;

@@ -190,6 +190,31 @@ export function verifyCrossChainQueryEcho(
 }
 
 /**
+ * Compares the `applied` block `/v1/crosschain/destinations` echoes with what this call asked: a
+ * deployment that ignored `chain`, `groupBy` or the window answers all chains over all of history,
+ * well-formed and wider than the question.
+ */
+export function verifyDestinationsEcho(
+  payload: unknown,
+  asked: {
+    direction: string;
+    chain: string | null;
+    groupBy: "none" | "chain";
+    from: string | null;
+    to: string | null;
+  },
+): string | null {
+  const a = asRecord(asRecord(payload)?.applied);
+  if (a === null) return refuseWiderQuestion("narrowing");
+  if (a.direction !== asked.direction) return refuseWiderQuestion("direction");
+  if ((a.chain ?? null) !== asked.chain) return refuseWiderQuestion("chain filter");
+  if (a.groupBy !== asked.groupBy) return refuseWiderQuestion("split by chain");
+  if ((a.from ?? null) !== asked.from) return refuseWiderQuestion("start of the window");
+  if ((a.to ?? null) !== asked.to) return refuseWiderQuestion("end of the window");
+  return null;
+}
+
+/**
  * Why a transfer list cannot be described as the answer to the question asked, or null.
  *
  * The two `/v1` transfer routes publish no `applied` block, and the rows are a better witness

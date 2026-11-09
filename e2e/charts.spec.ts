@@ -40,6 +40,10 @@ const CHART_ROUTES = [
   // A time axis with a projection, cap and event rules: drawn on its own page and on /halving.
   "/charts/supply-issuance",
   "/halving",
+  // Bars per source chain over a window, and a monthly count with months that have none.
+  "/charts/shielded-capable-by-chain",
+  "/charts/pools-to-majority",
+  "/miners",
   "/charts",
   // The stage is SVG end to end — boxes, ribbons and the heartbeat — and it is drawn from
   // runtime geometry rather than from a chart component, so the well-formedness invariant is

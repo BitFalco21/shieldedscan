@@ -16,7 +16,7 @@ import { V1_ADDRESS_EXPORT_REGEXP } from "../v1/export/address-route";
 import { type V1ChainPort, v1Routes } from "../v1/routes";
 import { ByteBudget } from "../v1/byte-budget";
 import { LABELS_NOTICE } from "../v1/map";
-import type { V1Labels } from "../v1/dto";
+import type { V1Destinations, V1Labels } from "../v1/dto";
 import { ADDRESS_LABELS, MINING_POOL_LABELS, MINING_POOLS } from "@/domain";
 
 /**
@@ -1190,6 +1190,90 @@ describe("GET /v1/crosschain/destinations", () => {
       await app.request("/v1/crosschain/destinations?direction=in")
     ).json()) as Record<string, unknown>;
     expect(body).not.toHaveProperty("unknowns");
+  });
+});
+
+describe("GET /v1/crosschain/destinations by chain and window", () => {
+  const base = {
+    direction: "in" as const,
+    protocol: "near-intents" as const,
+    counterpartChain: "BTC",
+    counterpartAsset: "BTC",
+    counterpartAmount: 1,
+    counterpartIsSynthetic: false,
+    counterpartTxHash: null,
+    counterpartAddress: null,
+    zcashTxid: null,
+    zcashAddress: "t1XWk29dAliceFixtureAddr000001" as string | null,
+    zecAmountZat: 100_000_000,
+    usdValueAtSwap: null,
+    counterpartUsdAtSwap: null,
+    venueDepositAddress: null,
+    status: "completed" as const,
+    timestamp: Date.UTC(2026, 9, 15) / 1000,
+  };
+  const SAPLING = "zs1exampleshieldedsaplingaddressfixture0000000000000001";
+  async function app() {
+    const store = new MemoryStorePort();
+    await store.upsert([
+      { ...base, id: "b-1" },
+      { ...base, id: "b-2", zcashAddress: SAPLING },
+      { ...base, id: "b-3", zcashAddress: SAPLING },
+      { ...base, id: "e-1", counterpartChain: "ETH", counterpartAsset: "ETH" },
+      // A chain whose venue published no address: a row, and no share.
+      { ...base, id: "s-1", counterpartChain: "SOL", counterpartAsset: "SOL", zcashAddress: null },
+      // Outside October, and the other direction: in neither answer below.
+      { ...base, id: "b-old", timestamp: Date.UTC(2026, 8, 30) / 1000, zcashAddress: SAPLING },
+      { ...base, id: "b-out", direction: "out" as const },
+    ]);
+    return v1Routes({ store, enabledProtocols: { "near-intents": true } });
+  }
+  const read = async (q: string) => {
+    const res = await (await app()).request(`/v1/crosschain/destinations${q}`);
+    return { status: res.status, body: (await res.json()) as V1Destinations };
+  };
+
+  it("splits the share per counterpart chain from the same rows as the totals", async () => {
+    const { body } = await read("?groupBy=chain&from=2026-10-01&to=2026-11-01");
+    expect(body.applied).toEqual({
+      direction: "in",
+      chain: null,
+      groupBy: "chain",
+      from: "2026-10-01",
+      to: "2026-11-01",
+    });
+    expect(body.chains!.map((c) => c.chain)).toEqual(["BTC", "ETH", "SOL"]);
+    const btc = body.chains![0]!;
+    expect(btc.transfers).toBe(3);
+    expect(btc.shieldedCapableShare).toMatchObject({ numerator: 2, denominator: 3 });
+    // The totals are the chains added up: 2 capable of 4 classified, SOL's in neither term.
+    expect(body.shieldedCapableShare).toMatchObject({ numerator: 2, denominator: 4 });
+    expect(body.chains!.reduce((s, c) => s + c.transfers, 0)).toBe(
+      body.buckets.reduce((s, b) => s + b.transfers, 0),
+    );
+    expect(body.chains![2]!.shieldedCapableShare).toBeNull();
+    expect(body.unknowns?.["chains[2].shieldedCapableShare"]).toBe("unmeasured");
+    expect(body.unknowns?.["chains[2].buckets[0].shieldedCapable"]).toBe("unmeasured");
+  });
+
+  it("narrows to one chain, and lists no chains unless asked", async () => {
+    const { body } = await read("?chain=btc");
+    expect(body.applied.chain).toBe("BTC");
+    expect(body).not.toHaveProperty("chains");
+    // All of history: the September swap counts too.
+    expect(body.shieldedCapableShare).toMatchObject({ numerator: 3, denominator: 4 });
+  });
+
+  it("refuses what it cannot read rather than widening the answer", async () => {
+    for (const q of [
+      "?groupBy=venue",
+      "?chain=not%20a%20ticker",
+      "?from=2026-13-01",
+      "?from=2026-11-01&to=2026-10-01",
+      "?min=5",
+    ]) {
+      expect((await read(q)).status, q).toBe(400);
+    }
   });
 });
 

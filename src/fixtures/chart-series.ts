@@ -3,6 +3,8 @@ import type {
   ChainInflowPoint,
   ChainOutflowPoint,
   InflowKindMonthPoint,
+  DestinationBucket,
+  DestinationWindows,
   SupplyDayPoint,
   VenueMonthPoint,
   MinerShareMonth,
@@ -14,7 +16,8 @@ import type {
 } from "@/domain";
 import { classifyZcashAddress } from "@/domain/address";
 import { ORPHAN_RATE_DAYS } from "@/domain/reorg";
-import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
+import { SETTLEMENT_ASSETS, countsTowardTotals } from "@/domain/crosschain";
+import { DESTINATION_WINDOW_DAYS } from "@/domain/destinations";
 import { crossChainTransfers } from "./crosschain";
 import { TIP_HEIGHT, TIP_TIME } from "./ids";
 import { getDailySeries, getMonthlySeries, getReorgSummary, listReorgEvents } from "./index";
@@ -244,4 +247,70 @@ export function getBlocksDaily(): BlocksDayPoint[] {
       height += blocks;
       return { timestamp: d.timestamp, blocks, topHeight: height };
     });
+}
+
+/**
+ * Older inbound swaps for the shielded-capable-by-chain chart, as (chain, family, swaps, days ago):
+ * the fixture chain's own crossings name five chains with one published family each, which can
+ * neither fold a tail nor show a swap whose venue published no address. These do both, and give
+ * one chain (ARB) nothing but unpublished addresses, so a row with no share is drawn too.
+ */
+const DESTINATION_HISTORY: [string, DestinationBucket["kind"], number, number][] = [
+  ["BTC", "unified", 40, 10],
+  ["BTC", "transparent", 55, 12],
+  ["BTC", null, 6, 20],
+  ["BTC", "sapling", 4, 200],
+  ["ETH", "unified", 22, 5],
+  ["ETH", "transparent", 30, 40],
+  ["SOL", "unified", 18, 8],
+  ["SOL", "transparent", 9, 70],
+  ["NEAR", "transparent", 25, 3],
+  ["NEAR", null, 12, 15],
+  ["ARB", null, 30, 25],
+  ["TRON", "transparent", 10, 25],
+  ["DOGE", "unified", 3, 90],
+  ["DOGE", "transparent", 5, 120],
+  ["BASE", "unified", 2, 300],
+  ["XRP", "transparent", 3, 400],
+  ["BSC", "unified", 1, 50],
+];
+
+/** Every chart window of inbound swaps by chain and family, from `TIP_TIME`. */
+export function getDestinationWindows(): DestinationWindows {
+  const swapsIn = crossChainTransfers.filter(
+    (t) =>
+      t.direction === "in" &&
+      countsTowardTotals(t) &&
+      !SETTLEMENT_ASSETS.includes(t.counterpartAsset),
+  );
+  const DAY = 86_400;
+  const history = DESTINATION_HISTORY.map(([chain, kind, transfers, daysAgo]) => ({
+    chain,
+    kind,
+    transfers,
+    timestamp: TIP_TIME - daysAgo * DAY,
+  }));
+  return {
+    asOf: TIP_TIME,
+    windows: DESTINATION_WINDOW_DAYS.map((days) => {
+      const fromTimestamp = days === null ? null : TIP_TIME - days * DAY;
+      const inWindow = (ts: number) => fromTimestamp === null || ts >= fromTimestamp;
+      const by = new Map<string, DestinationBucket>();
+      const add = (chain: string, kind: DestinationBucket["kind"], n: number, zat: number) => {
+        const key = `${chain}:${kind}`;
+        const b = by.get(key) ?? { chain, kind, transfers: 0, zat: 0 };
+        b.transfers += n;
+        b.zat += zat;
+        by.set(key, b);
+      };
+      for (const t of swapsIn) {
+        if (!inWindow(t.timestamp)) continue;
+        add(t.counterpartChain, classifyZcashAddress(t.zcashAddress), 1, t.zecAmountZat);
+      }
+      for (const h of history) {
+        if (inWindow(h.timestamp)) add(h.chain, h.kind, h.transfers, h.transfers * 250_000_000);
+      }
+      return { days, fromTimestamp, buckets: [...by.values()] };
+    }),
+  };
 }

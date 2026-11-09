@@ -20,6 +20,7 @@ import {
   formatZecWhole,
   monthLong,
 } from "@/lib/format";
+import { chainName } from "@/lib/chains";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 import { chartTable, FOLDED_KEY, runningMonth, type ChartTable } from "./chart-table";
@@ -184,6 +185,11 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
       };
     case "shielded-share":
       return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.shielded }] };
+    case "pools-to-majority":
+      return { kind: "bars", series: { values: col(0), className: "text-series" } };
+    case "shielded-capable-by-chain":
+      // Each chain's share, largest chain first: the bars the chart draws, as bars.
+      return { kind: "bars", series: { values: col(1), className: "text-green" } };
     case "supply-issuance":
       return issuanceThumb(data) ?? { kind: "lines", series: green(1) };
   }
@@ -448,6 +454,30 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: formatSharePct(t.rows[i]![0]!),
         caption: `of circulating ZEC shielded, ${utcDayFromSeconds(t.timestamps[i]!)}`,
+      };
+    }
+    case "shielded-capable-by-chain": {
+      // The busiest source chain over all of history, its share beside its counts.
+      const t = chartTable(slug, data, "all");
+      const row = t?.rows[0];
+      const key = t?.rowKeys?.[0];
+      const pct = row?.[1];
+      if (!t || !row || !key || key === FOLDED_KEY || pct === null || pct === undefined) {
+        return null;
+      }
+      return {
+        value: formatSharePct(pct),
+        caption: `of swaps from ${chainName(key)} went to a shielded-capable address: ${formatCount(row[2] ?? 0)} of ${formatCount((row[2] ?? 0) + (row[3] ?? 0))}`,
+      };
+    }
+    case "pools-to-majority": {
+      const t = chartTable(slug, data, "all");
+      const i = t && lastEndedMonth(t, nowSec);
+      const pools = t && i !== null ? t.rows[i]![0] : null;
+      if (!t || i === null || pools === null || pools === undefined) return null;
+      return {
+        value: formatCount(pools),
+        caption: `reviewed ${pools === 1 ? "pool" : "pools"} mined 51% of blocks, ${monthLong(t.timestamps[i]!)}; the real number cannot be higher`,
       };
     }
     case "shielded-capable-swaps": {

@@ -22,7 +22,12 @@ import {
 } from "./specs";
 import type { ToolCall } from "./types";
 import { withoutDirection } from "./enrich";
-import { thresholdNote, verifyCrossChainQueryEcho, verifyRowsClearThreshold } from "./verify";
+import {
+  thresholdNote,
+  verifyCrossChainQueryEcho,
+  verifyDestinationsEcho,
+  verifyRowsClearThreshold,
+} from "./verify";
 
 /** Zcash's first day: an aggregate with no lower edge starts here, so it misses no crossing. */
 const ZCASH_FIRST_DAY = "2016-10-28";
@@ -198,15 +203,45 @@ export function crossChainCalls(args: ToolArgs, nowMs: number): ToolCall[] | str
         },
       ];
     }
-    case "destinations":
-      // `direction` is the only narrowing this endpoint takes, defaulting to inbound: "where does bridged
-      // ZEC land" is a question about arrivals.
+    case "destinations": {
+      // Direction defaults to inbound: "where does bridged ZEC land" is a question about arrivals.
+      // A venue or a value threshold is not a narrowing this endpoint takes: refused, never dropped.
+      if (venue !== null || thresholdAsked) {
+        return `'destinations' takes direction, chain, groupBy 'chain' and a window — not a venue or a threshold`;
+      }
+      const groupBy = str("groupBy") ?? "none";
+      if (groupBy !== "none" && groupBy !== "chain") {
+        return `'destinations' groups by 'chain' (each source or destination chain's share) or 'none'`;
+      }
+      const dest = new URLSearchParams({ direction: direction ?? "in" });
+      if (chain !== null) dest.set("chain", chain);
+      if (groupBy === "chain") dest.set("groupBy", "chain");
+      if (days.from !== null) dest.set("from", days.from);
+      if (days.to !== null) dest.set("to", days.to);
+      const narrowed =
+        chain !== null || groupBy === "chain" || days.from !== null || days.to !== null;
       return [
         {
-          path: `${CROSSCHAIN_DESTINATIONS_PATH}?direction=${direction ?? "in"}`,
+          path: `${CROSSCHAIN_DESTINATIONS_PATH}?${dest.toString()}`,
           surface: "v1",
-          aggregate: { note: CROSSCHAIN_DESTINATIONS_NOTE, emptyIsAnAnswer: true },
+          aggregate: {
+            note: CROSSCHAIN_DESTINATIONS_NOTE,
+            emptyIsAnAnswer: true,
+            ...(narrowed
+              ? {
+                  verify: (payload: unknown) =>
+                    verifyDestinationsEcho(payload, {
+                      direction: direction ?? "in",
+                      chain,
+                      groupBy,
+                      from: days.from,
+                      to: days.to,
+                    }),
+                }
+              : {}),
+          },
         },
       ];
+    }
   }
 }

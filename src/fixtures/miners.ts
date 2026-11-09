@@ -129,6 +129,16 @@ const POOL_GROUPS = [
   [SHIELDED_GROUP, 0.055],
 ] as const;
 
+/**
+ * A group's share of a period. The oldest month is mostly unattributed (more than half its blocks
+ * on addresses no label names), as Zcash's early years are: the month no count of reviewed pools
+ * reaches a majority in, which the pools-to-51% chart must state rather than draw.
+ */
+function mixOf(interval: "month" | "day", k: number, group: string, share: number): number {
+  if (interval !== "month" || k !== 0 || group === SHIELDED_GROUP) return share;
+  return group === UNATTRIBUTED_GROUP ? 0.53 : share * 0.45;
+}
+
 /** Twelve months, or the trailing 90 days, with shares drifting a little period to period. */
 export function getMinerSeries(interval: "month" | "day"): MinerSeries {
   const today = Math.floor(TIP_TIME / DAY_SECONDS) * DAY_SECONDS;
@@ -152,7 +162,7 @@ export function getMinerSeries(interval: "month" | "day"): MinerSeries {
   const points: MinerSeriesPoint[] = periods.flatMap((p, k) =>
     POOL_GROUPS.map(([group, share], g) => {
       const drift = 1 + 0.15 * Math.sin(k / 2 + g);
-      const blocks = Math.round(p.blocks * share * drift);
+      const blocks = Math.round(p.blocks * mixOf(interval, k, group, share) * drift);
       const priced = group !== SHIELDED_GROUP;
       return {
         period: p.period,

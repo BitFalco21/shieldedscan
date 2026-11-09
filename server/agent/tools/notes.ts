@@ -205,6 +205,8 @@ A POOL IS THIS EXPLORER'S REVIEWED LABEL ON SPECIFIC PAYOUT ADDRESSES — each a
 
 \`valueUsd\` is US DOLLARS ONLY: each closed UTC day at that day's own close, today at the live price; \`floor: true\` means a day had no close and its ZEC is left out, so say "at least". Never convert it to another currency or reprice it at today's rate.
 
+A SERIES PERIOD'S \`majority\` is how many reviewed pools, largest first, mined 51% of that period's blocks (\`pools\`), what those pools mined (\`poolsPct\`), the largest pool's and the largest three's shares (\`top1Pct\`, \`top3Pct\`) and every reviewed pool's (\`reviewedPct\`). The rest (\`notReviewedPct\`) — unattributed, shielded-coinbase, unrecorded — stays in the denominator, and naming any of it could only LOWER the count, so it is a MAXIMUM: say "N reviewed pools mined 51% of the month's blocks; with notReviewedPct% not attributed to a reviewed pool, the real number cannot be higher" — never "it takes N pools to attack Zcash". A null \`pools\` means the reviewed pools together mined less than 51%: give \`reviewedPct\` and say no count can be stated, never a number of pools.
+
 THE WINDOW is the last 7, 30, 90 or 365 whole UTC days or all of history, today unfinished, as \`data.window\` states — quote its days. lastDays 30 is the TRAILING 30 days, not a calendar month: asked about "this month" or a named month, say the figure covers the trailing 30 days with its dates, or use 'miners' for an exact calendar month by payout address — never present it as the month. For a longer or older period, or a named calendar month, use mode 'miners', which groups by payout address and names no pool. A series (groupBy) runs per month from the first mining day (October 2016), or per day for one pool's trailing year; a period lists only the groups that mined in it, so a group absent from a period mined no block there; the period holding today is \`partial\`. A pool with zero blocks in the window is a measurement.
 
 Published on /miners.`;
@@ -326,7 +328,9 @@ SHIELDED-CAPABLE IS NOT SHIELDED. \`shieldedCapable\` says the address CAN recei
 
 THE DENOMINATOR TRAVELS: \`shieldedCapableShare\` carries both its terms, and \`shareDenominator\` says what they count — transfers whose venue published a classifiable Zcash-side address. A bucket with \`addressKind: null\` is a venue that published NO address, marked \`unmeasured\`: it is excluded from the share rather than counted as transparent, so never describe the null bucket as transparent and never present the share as covering every crossing.
 
-Public swap venues only, so a floor like every other cross-chain figure. Published on /cross-chain.`;
+PER CHAIN (\`groupBy: chain\`): \`chains\` lists every counterpart chain, most transfers first, each with its own buckets and its own \`shieldedCapableShare\` over its own classified transfers. A chain whose venues published no address has a null share (\`unmeasured\`): say none was published, never 0%. A chain with a handful of transfers has a share over a handful: give the counts with it. The mix follows the venues: THORChain carries ZEC only from 2 October 2026, and Maya carried none from late August to 1 October 2026, so a chain's share moves when a venue does — never read that as users changing habit. \`applied\` echoes the chain and window answered; quote the window.
+
+Public swap venues only, so a floor like every other cross-chain figure. Published on /cross-chain/flows and /charts/shielded-capable-by-chain.`;
 
 /**
  * The standing instruction wrapped around every tool result. It sits before the payload

@@ -479,7 +479,7 @@ export const MINING_GROUP: ApiGroup = {
       path: "/v1/analytics/mining-pools/series",
       title: "Each mining pool's share over time",
       description:
-        "Each mining pool's blocks, share, reward and fees per month since 2016, or per day for one pool.",
+        "Each mining pool's blocks, share, reward and fees per month since 2016 (or per day for one pool), and how many pools mined 51%.",
       params: [
         {
           name: "interval",
@@ -513,7 +513,7 @@ export const MINING_GROUP: ApiGroup = {
     "name": "ShieldedScan",
     "url": "https://shieldedscan.xyz/miners"
   },
-  "basis": "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its \`basis\`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in \`unattributed\`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. \`reward\` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains \`fees\`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. \`valueUsd\` values each closed UTC day at that day's stored close and today at the live price; \`floor\` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history from \`historyFrom\`; blocks that paid a bare public key have no address and are counted apart. Each period's share is of every block in that period, and a period lists only the groups that mined in it. Months run from 2016-10-28; days cover the trailing year.",
+  "basis": "A mining pool here is this explorer's reviewed label on specific payout addresses (each address carries its \`basis\`); a pool's figures add up those addresses and nothing else. Addresses no label names stay in \`unattributed\`, each its own row and never merged; some of their blocks may be a pool's, so a pool's share is a lower bound. Every share is of every block in the window, unattributed, shielded-coinbase and unrecorded ones included. \`reward\` is what the coinbase paid the address, its subsidy share plus its fee share, so it already contains \`fees\`: never add the two. From NU7 a miner keeps 40% of a block's fees and 60% goes to the NSM (/v1/analytics/nsm). A shielded coinbase (ZIP 213) is counted and never valued: its amount is encrypted. \`valueUsd\` values each closed UTC day at that day's stored close and today at the live price; \`floor\` marks a closed day with no stored close, left out rather than priced at 0. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history from \`historyFrom\`; blocks that paid a bare public key have no address and are counted apart. Each period's share is of every block in that period, and a period lists only the groups that mined in it. \`majority.pools\` is how many reviewed pools, largest first, mined 51% of the period's blocks; attributing more blocks could only lower it, and it is null when every reviewed pool together mined less. Months run from 2016-10-28; days cover the trailing year.",
   "data": {
     "interval": "month",
     "fromDay": "2016-10-28",
@@ -808,7 +808,14 @@ export const MINING_GROUP: ApiGroup = {
             "reward": null,
             "fees": null
           }
-        ]
+        ],
+        "majority": {
+          "pools": 2,
+          "poolsBlocks": 18018,
+          "top1Blocks": 12650,
+          "top3Blocks": 22876,
+          "reviewedBlocks": 32090
+        }
       },
       {
         "period": "2026-10-01",
@@ -1015,7 +1022,14 @@ export const MINING_GROUP: ApiGroup = {
             "reward": null,
             "fees": null
           }
-        ]
+        ],
+        "majority": {
+          "pools": 3,
+          "poolsBlocks": 23238,
+          "top1Blocks": 11826,
+          "top3Blocks": 23238,
+          "reviewedBlocks": 32981
+        }
       },
       {
         "period": "2026-11-01",
@@ -1222,7 +1236,14 @@ export const MINING_GROUP: ApiGroup = {
             "reward": null,
             "fees": null
           }
-        ]
+        ],
+        "majority": {
+          "pools": 3,
+          "poolsBlocks": 11558,
+          "top1Blocks": 5878,
+          "top3Blocks": 11558,
+          "reviewedBlocks": 16596
+        }
       }
     ]
   },

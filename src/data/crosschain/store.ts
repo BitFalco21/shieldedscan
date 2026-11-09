@@ -31,7 +31,7 @@ export interface CrossChainEdgeRow {
 }
 
 /**
- * One landing bucket for `countByAddressKind`; the server port re-exports the same shape.
+ * One landing bucket of `/v1/crosschain/destinations`; the server port re-exports the same shape.
  * `kind: null` means the venue published no Zcash-side address — a real bucket, not a
  * dropped row.
  */
@@ -133,34 +133,19 @@ export class CrossChainStore {
   }
 
   /**
-   * Where transfers land, by Zcash address family — classified with the same
-   * `classifyZcashAddress` the Postgres adapter applies at ingest, so the two stores agree.
-   * Completed transfers only, settlement legs excluded by asset.
-   */
-  countByAddressKind(direction: CrossChainDirection): AddressKindBucket[] {
-    const buckets = new Map<string, AddressKindBucket>();
-    for (const t of this.#sorted) {
-      if (!countsTowardTotals(t) || t.direction !== direction || isSettlementLeg(t)) continue;
-      const kind = classifyZcashAddress(t.zcashAddress);
-      const key = kind ?? "none";
-      const bucket = buckets.get(key) ?? { kind, transfers: 0, zecAmountZat: 0 };
-      bucket.transfers += 1;
-      bucket.zecAmountZat += t.zecAmountZat;
-      buckets.set(key, bucket);
-    }
-    return [...buckets.values()].sort((a, b) => b.zecAmountZat - a.zecAmountZat);
-  }
-
-  /**
    * Gross ZEC per (counterpart chain, direction, Zcash address kind), completed only. The
    * in-memory twin of the Postgres query (see `CrossChainStorePort.crossChainEdges`),
    * classified with the same `classifyZcashAddress`; settlement legs excluded by asset.
    */
-  crossChainEdges(fromTimestamp: number | null): CrossChainEdgeRow[] {
+  crossChainEdges(
+    fromTimestamp: number | null,
+    toTimestamp: number | null = null,
+  ): CrossChainEdgeRow[] {
     const rows = new Map<string, CrossChainEdgeRow>();
     for (const t of this.#sorted) {
       if (!countsTowardTotals(t) || isSettlementLeg(t)) continue;
       if (fromTimestamp !== null && t.timestamp < fromTimestamp) continue;
+      if (toTimestamp !== null && t.timestamp >= toTimestamp) continue;
       const addressKind = classifyZcashAddress(t.zcashAddress);
       const key = `${t.counterpartChain}|${t.direction}|${addressKind ?? "none"}`;
       const row = rows.get(key) ?? {

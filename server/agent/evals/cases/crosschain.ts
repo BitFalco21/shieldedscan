@@ -116,6 +116,38 @@ export const CROSSCHAIN: EvalCase[] = [
     mustSatisfy: [STATES_SHIELDED_BY_DESIGN],
   },
   {
+    id: "crosschain-shielded-capable-by-chain",
+    category: "insights",
+    world: "fixture",
+    /**
+     * Per source chain, over a window: `destinations` with groupBy 'chain'. In the fixture's July
+     * the one Bitcoin swap with a published address landed on a transparent one (0 of 1), and one
+     * more published none. A count of one must travel with its share, and "capable" is the word.
+     */
+    question:
+      "In July 2026, what share of swaps from each chain into ZEC went to a shielded-capable address?",
+    mustCall: ["crosschain"],
+    mustContain: [/Bitcoin|BTC/, /\b0(?:\.0)?%|none of|no swap/i, /\b1\b|one/i],
+    mustNotContain: [
+      /\d[\d.,]*%\s*(?:of (?:the )?(?:ZEC|swaps|transfers))?\s*(?:was|were)\s*shielded/i,
+    ],
+  },
+  {
+    id: "crosschain-shielded-capable-one-chain",
+    category: "insights",
+    world: "fixture",
+    /**
+     * One chain over all of history: 1 of the 2 Bitcoin swaps whose venue published an address
+     * landed on a unified one; a third published none and is in neither term.
+     */
+    question: "Of all swaps from Bitcoin into ZEC, how many went to a shielded-capable address?",
+    mustCall: ["crosschain"],
+    mustContain: [
+      /50(?:\.0+)?%|1 of 2|one of (?:the )?two/i,
+      /capable|can receive|able to receive/i,
+    ],
+  },
+  {
     id: "crosschain-usd-is-swap-time",
     category: "insights",
     world: "fixture",

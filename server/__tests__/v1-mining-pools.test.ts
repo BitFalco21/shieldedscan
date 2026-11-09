@@ -153,6 +153,40 @@ describe("/v1/analytics/mining-pools/series", () => {
     expect(body.basis).toMatch(/only the groups that mined in it/);
   });
 
+  it("counts the reviewed pools that mined 51% of each period, every block in the denominator", async () => {
+    const { body } = await get<V1MiningPoolSeries>("/v1/analytics/mining-pools/series");
+    const periods = body.data.periods;
+    // The fixture's oldest month is mostly unattributed: no count of reviewed pools reaches 51%.
+    const short = periods[0]!;
+    expect(short.majority.pools).toBeNull();
+    expect(body.unknowns["data.periods.0.majority.pools"]).toBe("indeterminate");
+    expect(100 * short.majority.reviewedBlocks).toBeLessThan(51 * short.blocks);
+    expect(short.majority.poolsBlocks).toBe(short.majority.reviewedBlocks);
+    const m = periods[1]!.majority;
+    expect(m.pools).not.toBeNull();
+    const pools = periods[1]!.groups
+      .filter((g) => !["unattributed", "shielded", "no-address"].includes(g.group))
+      .map((g) => g.blocks)
+      .sort((a, b) => b - a);
+    const first = pools.slice(0, m.pools!).reduce((s, b) => s + b, 0);
+    expect(m.poolsBlocks).toBe(first);
+    expect(100 * first).toBeGreaterThanOrEqual(51 * periods[1]!.blocks);
+    // One pool fewer falls short: the count is the least that reaches a majority.
+    expect(100 * (first - pools[m.pools! - 1]!)).toBeLessThan(51 * periods[1]!.blocks);
+    expect(m.top1Blocks).toBe(pools[0]);
+    expect(m.top3Blocks).toBe(pools.slice(0, 3).reduce((s, b) => s + b, 0));
+    expect(body.unknowns["data.periods.1.majority.pools"]).toBeUndefined();
+    expect(body.basis).toMatch(/majority\.pools/);
+  });
+
+  it("reads the majority from every group, whichever one the request narrows to", async () => {
+    const all = await get<V1MiningPoolSeries>("/v1/analytics/mining-pools/series");
+    const one = await get<V1MiningPoolSeries>("/v1/analytics/mining-pools/series?pool=luxor");
+    expect(one.body.data.periods.map((p) => p.majority)).toEqual(
+      all.body.data.periods.map((p) => p.majority),
+    );
+  });
+
   it("narrows to one group, and needs one for a daily series", async () => {
     const one = await get<V1MiningPoolSeries>(
       "/v1/analytics/mining-pools/series?interval=day&pool=viabtc",

@@ -5,6 +5,8 @@ import type {
   InflowKindMonthPoint,
   SupplyDayPoint,
   VenueMonthPoint,
+  DestinationWindows,
+  MinerSeries,
   MinerShareMonth,
   NetReleases,
   NoteTreeDayPoint,
@@ -72,6 +74,10 @@ export interface ChartData {
   halving: HalvingSchedule | null;
   /** The live supply at the tip, for the issuance chart's headline. */
   supplyNow: SupplyBreakdown | null;
+  /** Every group's blocks per month, by reviewed mining pool: the pools-to-51% chart. */
+  minerMonths: MinerSeries | null;
+  /** Inbound swaps by source chain and address family, over each range: the by-chain chart. */
+  destinationWindows: DestinationWindows | null;
   /**
    * When these series were read, Unix seconds: what a period still running is measured against.
    * Stamped with the data rather than read in the browser, so a cached page never calls a month
@@ -111,6 +117,8 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     releases: null,
     halving: null,
     supplyNow: null,
+    minerMonths: null,
+    destinationWindows: null,
     asOf: 0,
     ...partial,
   };

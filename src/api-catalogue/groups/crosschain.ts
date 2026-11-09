@@ -11,7 +11,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
       path: "/v1/crosschain/transfers",
       title: "ZEC crossing to and from other chains",
       description:
-        "Swaps through public swap protocols (Maya, THORChain, NEAR Intents), newest first. Each has two legs, each with the protocol's own USD figure; they differ by the protocol's fee, so there is no single `usdValue`.",
+        "Swaps through Maya, THORChain and NEAR Intents, newest first. Each has two legs, each with the protocol's own USD figure; they differ by the protocol's fee, so there is no single `usdValue`.",
       params: [
         {
           name: "limit",
@@ -363,7 +363,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
       path: "/v1/crosschain/destinations",
       title: "Where inbound ZEC lands — the shielded-capable rate",
       description:
-        "Of the completed transfers arriving from other chains, the share landing on a shielded-capable address. `shieldedCapable`, never `shielded`: which receiver a unified address paid into is not public. A transfer whose venue published no Zcash-side address is in neither term of the share, and its bucket is marked unmeasured.",
+        "Completed transfers by Zcash-side address family, and the share on a shielded-capable address — never `shielded`: which receiver a unified address used is not public. No published address: in neither term, unmeasured.",
       params: [
         {
           name: "direction",
@@ -373,9 +373,38 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
           description: "Default `in`.",
           example: "in",
         },
+        {
+          name: "groupBy",
+          kind: "query",
+          type: "none | chain",
+          required: false,
+          description: "Per counterpart chain too.",
+        },
+        {
+          name: "chain",
+          kind: "query",
+          type: "string",
+          required: false,
+          description: "One chain, e.g. BTC.",
+        },
+        {
+          name: "from",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "First UTC day.",
+        },
+        {
+          name: "to",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "Day it ends before.",
+        },
       ],
       exampleResponse: `{
   "direction": "in",
+  "applied": { "direction": "in", "chain": null, "groupBy": "chain", "from": null, "to": null },
   "coverage": { "basis": "floor", "…": "…" },
   "buckets": [
     { "addressKind": "transparent", "shieldedCapable": false, "transfers": 3080, "zecAmountZat": 44100000000000 },
@@ -383,6 +412,14 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
     { "addressKind": null, "shieldedCapable": null, "transfers": 80, "zecAmountZat": 800000000000 }
   ],
   "shieldedCapableShare": { "pct": 25.42, "numerator": 1050, "denominator": 4130 },
+  "chains": [
+    { "chain": "BTC", "transfers": 1920,
+      "buckets": [
+        { "addressKind": "transparent", "shieldedCapable": false, "transfers": 1310, "zecAmountZat": 21200000000000 },
+        { "addressKind": "unified", "shieldedCapable": true, "transfers": 610, "zecAmountZat": 9900000000000 }
+      ],
+      "shieldedCapableShare": { "pct": 31.77, "numerator": 610, "denominator": 1920 } }
+  ],
   "shareDenominator": "transfers whose venue published a classifiable Zcash-side address",
   "receiverUsedIsNotPublic": true,
   "unknowns": {

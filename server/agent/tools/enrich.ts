@@ -831,6 +831,26 @@ export function withoutBasis(payload: unknown): unknown {
 }
 
 /**
+ * A period's pools-to-51% figure as percentages of its blocks, computed here so the model quotes
+ * them rather than dividing. `pools` stays null when the reviewed pools fell short; `reviewedPct`
+ * is then what they mined.
+ */
+function compactMajority(raw: unknown, blocks: unknown): unknown {
+  const m = asRecord(raw);
+  if (m === null || typeof blocks !== "number" || blocks <= 0) return null;
+  const pct = (v: unknown) =>
+    typeof v === "number" ? Math.round((10_000 * v) / blocks) / 100 : null;
+  return {
+    pools: m.pools ?? null,
+    poolsPct: pct(m.poolsBlocks),
+    top1Pct: pct(m.top1Blocks),
+    top3Pct: pct(m.top3Blocks),
+    reviewedPct: pct(m.reviewedBlocks),
+    notReviewedPct: typeof m.reviewedBlocks === "number" ? pct(blocks - m.reviewedBlocks) : null,
+  };
+}
+
+/**
  * The per-pool series, compacted for the model: each period's blocks and every group's blocks and
  * share percentage, its reward and fees dropped (the window view carries a pool's reward), and the
  * periods lifted to the top level so a long daily series is windowed with its true length beside
@@ -858,6 +878,7 @@ export function compactMiningSeries(payload: unknown): unknown {
           const share = asRecord(c.share);
           return { group: c.group, blocks: c.blocks, sharePct: share?.pct ?? null };
         }),
+        majority: compactMajority(p.majority, p.blocks),
       };
     }),
   };

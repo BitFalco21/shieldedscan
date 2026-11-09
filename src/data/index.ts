@@ -84,6 +84,7 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getChainOutflow: () => crossChain.getChainOutflow(),
     getVenueMonths: () => crossChain.getVenueMonths(),
     getInflowKinds: () => crossChain.getInflowKinds(),
+    getDestinationWindows: () => crossChain.getDestinationWindows(),
 
     getPools: () => chain.getPools(),
     getSupplyBreakdown: () => chain.getSupplyBreakdown(),
