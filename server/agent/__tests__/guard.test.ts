@@ -925,6 +925,19 @@ describe("namesOurMachinery", () => {
     expect(namesOurMachinery("each usdText at today's price")).toBe(true);
   });
 
+  it("names the NSM balance split by its words, not its keys", () => {
+    // Observed: an answer about the NSM quoted the payload's split as `carriedIn` and `fromFees`.
+    const leak = "The NSM holds 370.88 ZEC: carriedIn 368.58 ZEC and fromFees 2.30 ZEC.";
+    expect(namesOurMachinery(leak)).toBe(true);
+    expect(namesOurMachinery("toMinersValueUsd is $1.2M over the window.")).toBe(true);
+    const words =
+      "The NSM holds 370.88 ZEC: 368.58 carried in at NU7 from rewards miners never claimed, " +
+      "and 2.30 from fees since.";
+    expect(namesOurMachinery(words)).toBe(false);
+    // An answer about the public API may name its fields.
+    expect(namesOurMachinery("`/v1/analytics/nsm` returns `balance.carriedIn`.", true)).toBe(false);
+  });
+
   it("is silent on all sixteen clean answers", () => {
     for (const [id, answer] of CLEAN_ANSWERS) {
       expect(namesOurMachinery(answer), id).toBe(false);
