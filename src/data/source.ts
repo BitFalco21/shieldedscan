@@ -71,6 +71,7 @@ import type {
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
+  OrphanRateSeries,
   TransparentDayPoint,
 } from "@/domain";
 // Not part of the `@/domain` barrel; every consumer imports it from its own module.
@@ -331,6 +332,8 @@ export interface ExplorerDataSource {
   getBlocksDaily(): Promise<BlocksDayPoint[]>;
   /** Reorganisations this node observed per ISO week, from when it began observing. */
   getReorgWeeks(): Promise<ReorgWeekSeries>;
+  /** Orphaned blocks per canonical block this node observed, daily and over standing windows. */
+  getOrphanRate(): Promise<OrphanRateSeries>;
   /** The mempool is unbounded on a busy chain — always paginated. */
   listMempool(page: number, pageSize: number): Promise<Paginated<MempoolEntry>>;
   /** Reorgs our own node observed, newest first — keyset over (detectedAt, id). */

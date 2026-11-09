@@ -38,6 +38,7 @@ export type ChartSlug =
   | "upgrade-readiness"
   | "miner-concentration"
   | "reorgs"
+  | "orphan-rate"
   | "inflow-by-chain"
   | "outflow-by-chain"
   | "volume-by-venue"
@@ -321,6 +322,17 @@ export const CHARTS: ChartEntry[] = [
     ],
   },
   {
+    slug: "orphan-rate",
+    title: "Observed orphan rate",
+    category: "Network & nodes",
+    api: null,
+    blurb: "Blocks this explorer's node saw orphaned, per canonical block, daily.",
+    description: [
+      "Each UTC day's orphaned blocks as a share of its canonical blocks, over the last sixty days, with the rate over standing windows and on either side of NU7. A depth-2 reorg is two orphans. Each orphan is counted on the day of the block it competed with, by header time, so both counts share one clock.",
+      "One node's view, so the network's rate can only be higher: a competing block our node never received is not counted. The same node and the same polling since recording began is what makes the before-and-after comparison like with like. NU7 cut the block time from 75 to 25 seconds, which is why the canonical count per day tripled.",
+    ],
+  },
+  {
     slug: "inflow-by-chain",
     title: "Inflow by source chain",
     category: "Cross-chain",
@@ -388,6 +400,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "upgrade-readiness",
   // Dated from /halving's schedule, whose heights are mainnet consensus constants.
   "supply-issuance",
+  // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
+  "orphan-rate",
 ]);
 
 /** The charts this deployment may honestly show. */

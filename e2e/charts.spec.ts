@@ -27,6 +27,9 @@ const CHART_ROUTES = [
   // geometry path that only a real browser proves well-formed. Plus the library's thumbnails.
   "/charts/blocks-per-day",
   "/charts/reorgs",
+  // The orphan rate: bars over unobserved lead slots, a partial day and an upgrade rule.
+  "/charts/orphan-rate",
+  "/reorgs",
   "/charts/inflow-by-chain",
   "/charts/outflow-by-chain",
   "/charts/volume-by-venue",

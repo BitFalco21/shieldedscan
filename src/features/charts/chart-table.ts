@@ -68,13 +68,14 @@ function table<T extends { timestamp: number }>(
 
 /**
  * Charts with no range control: their whole series is either narrower than the shortest range
- * (ironwood-balance), or monthly or weekly with no daily sibling, where thirty days would be one
- * or four points.
+ * (ironwood-balance) or than all but one (orphan-rate's sixty days), or monthly or weekly with no
+ * daily sibling, where thirty days would be one or four points.
  */
 export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   "ironwood-balance",
   "miner-concentration",
   "reorgs",
+  "orphan-rate",
   "inflow-by-chain",
   "outflow-by-chain",
   "volume-by-venue",
@@ -402,6 +403,15 @@ export function chartTable(
       return table("week", data.reorgWeeks.weeks, [
         { name: "reorgs", value: (p) => p.reorgs },
         { name: "deepest", value: (p) => p.deepest },
+      ]);
+    }
+    case "orphan-rate": {
+      if (!data.orphanRate) return null;
+      return table("day", data.orphanRate.days, [
+        { name: "orphan_rate_pct", value: (p) => share(p.orphans, p.blocks) },
+        { name: "orphans", value: (p) => p.orphans },
+        { name: "canonical_blocks", value: (p) => p.blocks },
+        { name: "partial", value: (p) => (p.partial ? 1 : 0) },
       ]);
     }
     case "inflow-by-chain":

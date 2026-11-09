@@ -8,11 +8,15 @@ import type {
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
+  OrphanRateSeries,
+  OrphanRateSpan,
   TransparentDayPoint,
 } from "@/domain";
 import { classifyZcashAddress } from "@/domain/address";
+import { ORPHAN_RATE_DAYS } from "@/domain/reorg";
 import { SETTLEMENT_ASSETS } from "@/domain/crosschain";
 import { crossChainTransfers } from "./crosschain";
+import { TIP_HEIGHT, TIP_TIME } from "./ids";
 import { getDailySeries, getMonthlySeries, getReorgSummary, listReorgEvents } from "./index";
 
 /**
@@ -76,6 +80,67 @@ export function getReorgWeeks(): ReorgWeekSeries {
     });
   }
   return { observingSince, weeks };
+}
+
+/**
+ * The orphan rate over the fixture's observed span, read at the fixture tip: blocks every 75 s
+ * until a sample upgrade three days back and every 25 s after, the shape NU7 gave mainnet, and an
+ * orphan for each block the fixture reorgs discarded, filed at the time each was detected.
+ */
+export function getOrphanRate(): OrphanRateSeries {
+  const { observingSince } = getReorgSummary();
+  const asOf = TIP_TIME;
+  const today = Math.floor(asOf / DAY) * DAY;
+  const upgradeAt = today - 3 * DAY + 2 * 3_600 + 34 * 60;
+  const blocks: number[] = [];
+  for (let ts = asOf; ts >= observingSince; ts -= ts > upgradeAt ? 25 : 75) blocks.push(ts);
+  const orphans = listReorgEvents({ limit: 100 }).items.map((e) => ({
+    at: e.detectedAt - 30,
+    count: e.depth,
+  }));
+  const span = (keep: (ts: number) => boolean): OrphanRateSpan => ({
+    blocks: blocks.filter(keep).length,
+    orphans: orphans.filter((o) => keep(o.at)).reduce((sum, o) => sum + o.count, 0),
+  });
+  const firstDay = Math.max(
+    today - (ORPHAN_RATE_DAYS - 1) * DAY,
+    Math.floor(observingSince / DAY) * DAY,
+  );
+  const days: OrphanRateSeries["days"] = [];
+  for (let ts = firstDay; ts <= today; ts += DAY) {
+    days.push({
+      timestamp: ts,
+      ...span((t) => t >= ts && t < ts + DAY),
+      partial: ts === today || observingSince > ts,
+    });
+  }
+  const window = (
+    key: OrphanRateSeries["windows"][number]["key"],
+    keep: (ts: number) => boolean,
+  ) => {
+    const kept = blocks.filter(keep);
+    return {
+      key,
+      ...span(keep),
+      // Newest first, as walked back from the tip.
+      firstBlockAt: kept.at(-1) ?? null,
+      lastBlockAt: kept[0] ?? null,
+    };
+  };
+  const upgradeHeight = TIP_HEIGHT - blocks.filter((ts) => ts >= upgradeAt).length + 1;
+  return {
+    observingSince,
+    asOf,
+    upgrade: { name: "NU7", height: upgradeHeight, activatedAt: upgradeAt },
+    days,
+    windows: [
+      window("24h", (ts) => ts > asOf - DAY),
+      window("7d", (ts) => ts > asOf - 7 * DAY),
+      window("30d", (ts) => ts > asOf - 30 * DAY),
+      window("before-upgrade", (ts) => ts < upgradeAt),
+      window("since-upgrade", (ts) => ts >= upgradeAt),
+    ],
+  };
 }
 
 export function getChainInflow(): ChainInflowPoint[] {

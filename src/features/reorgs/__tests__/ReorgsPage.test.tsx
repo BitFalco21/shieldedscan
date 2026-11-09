@@ -23,6 +23,7 @@ function renderPage(events: ReorgEvent[], sum: ReorgSummary = summary) {
     <ReorgsPage
       events={events}
       summary={sum}
+      orphanRate={null}
       now={1_783_875_480}
       newerHref={null}
       olderHref={null}
@@ -59,5 +60,12 @@ describe("ReorgsPage", () => {
       screen.getAllByText(/nothing here is backdated|no source to backdate/).length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("none yet")).toBeDefined();
+  });
+
+  it("keeps the log when the orphan rate cannot be read, and says so", () => {
+    renderPage([event]);
+    expect(screen.getByText("OBSERVED ORPHAN RATE")).toBeDefined();
+    expect(screen.getByText(/TEMPORARILY UNAVAILABLE/)).toBeDefined();
+    expect(screen.getByRole("link", { name: /b2b2b2b2…b2b2b2b2/ })).toBeDefined();
   });
 });

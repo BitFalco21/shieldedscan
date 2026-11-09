@@ -4,6 +4,7 @@ import {
   feeTotalIsComplete,
   issuanceAt,
   issuanceOutlook,
+  orphanRatePct,
   utcDayFromSeconds,
   type CrossChainProtocol,
 } from "@/domain";
@@ -153,6 +154,7 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
       };
     }
     case "reorgs":
+    case "orphan-rate":
       return { kind: "bars", series: { values: col(0), className: "text-series" } };
     case "inflow-by-chain":
     case "outflow-by-chain":
@@ -409,6 +411,15 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: formatCount(total),
         caption: `observed since ${utcDayFromSeconds(since)}`,
+      };
+    }
+    case "orphan-rate": {
+      const w = data.orphanRate?.windows.find((x) => x.key === "30d");
+      const pct = w ? orphanRatePct(w) : null;
+      if (!w || pct === null) return null;
+      return {
+        value: formatSharePct(pct, 2),
+        caption: `of blocks orphaned, last 30 days: ${formatCount(w.orphans)} of ${formatCount(w.blocks)}`,
       };
     }
     // Flows, and lines that do not partition, have no one figure that stands for the chart.

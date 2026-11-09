@@ -87,6 +87,7 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "fee-totals":
     case "transparent-activity":
     case "reorgs":
+    case "orphan-rate":
     case "shielded-share":
     // The issuance panel draws its own key beside its figures.
     case "supply-issuance":

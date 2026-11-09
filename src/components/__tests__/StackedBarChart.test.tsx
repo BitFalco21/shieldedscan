@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { StackedBarChart, type StackedBarChartProps } from "../StackedBarChart";
 
@@ -51,11 +51,71 @@ describe("StackedBarChart", () => {
     expect(svg.textContent).toContain("to 9 Oct");
   });
 
+  it("draws no hatch for a running period that has nothing yet, never a negative height", () => {
+    const svg = draw({
+      series: [{ key: "x", label: "x", colorClass: "flow-1", values: [3, 2, -1] }],
+      partial: { index: 2, note: "so far" },
+    });
+    for (const r of svg.querySelectorAll("rect")) {
+      expect(Number(r.getAttribute("height") ?? 0)).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("brings a highlighted series forward by fading every other one", () => {
     const svg = draw({ highlightKey: "BTC" });
     for (const r of segments(svg, "flow-1"))
       expect(r.getAttribute("class")).toContain("opacity-15");
     for (const r of segments(svg, "flow-3"))
       expect(r.getAttribute("class")).not.toContain("opacity-15");
+  });
+
+  describe("on a narrow screen", () => {
+    /** jsdom lays nothing out, so the viewport and the measured width are stubbed. */
+    const atWidth = (px: number, viewport: number) => {
+      vi.stubGlobal(
+        "matchMedia",
+        (query: string) =>
+          ({
+            matches: query === "(max-width: 639px)" && viewport < 640,
+            addEventListener() {},
+            removeEventListener() {},
+          }) as unknown as MediaQueryList,
+      );
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          observe() {}
+          disconnect() {}
+        },
+      );
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+        width: px,
+      } as DOMRect);
+    };
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+    const tickSizes = (svg: HTMLElement) =>
+      [...svg.querySelectorAll("text.chart-tick")].map((t) => Number(t.getAttribute("font-size")));
+
+    it("sizes the ticks to render at ~11px and grows the frame with them", () => {
+      atWidth(330, 375);
+      const svg = draw({ marker: { index: 1, label: "NU7" } });
+      // 11 units per 1000 rendered at 330px would be ~3.6px; scaled up they render at 11px.
+      for (const size of tickSizes(svg)) expect((size * 330) / 1000).toBeCloseTo(11, 0);
+      const height = Number(svg.querySelector("svg")!.getAttribute("viewBox")!.split(" ")[3]);
+      expect(height).toBeGreaterThan(320);
+      const label = svg.querySelector(".chart-marker-label")!;
+      expect(Number(label.getAttribute("font-size"))).toBeGreaterThan(10);
+    });
+
+    it("keeps the fixed frame above a phone's viewport, however narrow the panel", () => {
+      // A half-width panel on a desktop page: drawn as it always was.
+      atWidth(530, 1440);
+      const svg = draw();
+      expect(svg.querySelector("svg")!.getAttribute("viewBox")).toBe("0 0 1000 320");
+      for (const size of tickSizes(svg)) expect(size).toBe(11);
+    });
   });
 });
