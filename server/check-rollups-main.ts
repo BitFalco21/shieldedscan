@@ -1,10 +1,15 @@
 /**
- * Read-only proof that the rollup tables equal the materialized views they replace
+ * Proof that the rollup tables equal the materialized views they replace; it never writes
  * (`server/rollup/check.ts`).
  *
  *   node check-rollups.mjs           every table against its view, row for row (cheap)
- *   node check-rollups.mjs --live    against each view's definition evaluated now, in the same
- *                                    snapshot (a full scan per view; paced, preflighted)
+ *   node check-rollups.mjs --live    against each view's definition evaluated now, after the
+ *                                    pending marks are applied in the same rolled-back
+ *                                    transaction (a full scan per view under the rollup lock,
+ *                                    so the follower's pass skips meanwhile; paced, preflighted;
+ *                                    refused above MAX_CATCH_UP_DAYS of backlog). Each table
+ *                                    redoes the catch-up, so a run costs one pass per table plus
+ *                                    a scan per view: tens of minutes on production.
  *
  * Exit status 0 only when every table passes.
  *

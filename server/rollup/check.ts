@@ -1,15 +1,17 @@
 import type { Pool, PoolClient } from "pg";
 import { ROLLUP_TABLES, type RollupTable } from "./definitions";
 import { diffRows, identical, periodStartSql, type RowDiff } from "./compare";
-import { DELETE_WINDOW, monthEnd } from "./pass";
-import { bindSelect, nextName } from "./targets";
+import { applyMarks, beginRollupTransaction, DELETE_WINDOW, monthEnd } from "./pass";
+import { ROLLUP_PASS_LOCK, withSessionLock } from "./lock";
+import { markedDays, MAX_CATCH_UP_DAYS } from "./marks";
+import { bindSelect, nextName, resolveTargets } from "./targets";
 
 /**
- * Read-only proof that each rollup table equals the materialized view it replaces.
+ * Proof that each rollup table equals the materialized view it replaces; it never writes.
  *
  * Before the swap it compares `<name>_next` with the view `<name>`; after it, the table `<name>`
- * with the retired view `<name>_old`. Each table is read in its own REPEATABLE READ, READ ONLY
- * transaction, under UTC like the pass.
+ * with the retired view `<name>_old`. Without `live`, each table is read in its own REPEATABLE READ,
+ * READ ONLY transaction, under UTC like the pass.
  *
  * A view is only as fresh as its last refresh, so its newest periods may differ because it is
  * behind. Such a period passes only if it ends within `BEHIND_SECONDS` of the newest period the
@@ -17,9 +19,12 @@ import { bindSelect, nextName } from "./targets";
  * for it equal its definition recomputed in the same snapshot. Any
  * older difference fails: a recompute agreeing with the table proves only that the table matches
  * its own definition, not the view's. The all-time tables have no periods: without `live`, a
- * difference there is unverified, never a pass. With `live`, each view's own definition
- * (`pg_get_viewdef`) is evaluated in the table's snapshot, which proves equality outright at the
- * cost of a full scan.
+ * difference there is unverified, never a pass. With `live`, each table is first caught up to
+ * its snapshot by applying the pending marks in a read-write transaction under the rollup lock,
+ * then compared with its view's own definition (`pg_get_viewdef`) in that snapshot, then rolled
+ * back: equality proven outright on a moving chain, at the cost of a full scan per view, while
+ * the follower's pass skips (and retries) for as long as one table holds the lock. It refuses a
+ * backlog over `MAX_CATCH_UP_DAYS`, as the swap does.
  */
 
 export type Verdict = "PASS" | "FAIL" | "UNVERIFIED";
@@ -90,15 +95,53 @@ async function readOnly<T>(pool: Pool, work: (client: PoolClient) => Promise<T>)
   }
 }
 
-export async function checkTable(
+/**
+ * The live comparison, on a chain that keeps moving: the table is first brought up to the
+ * snapshot by applying every pending mark inside this transaction, as the swap does, then compared
+ * with the view's own definition evaluated in the same snapshot, then ROLLED BACK — nothing is
+ * written. Without the catch-up, every block since the follower's last pass reads as a difference.
+ * Holds the rollup lock, so the follower's pass waits (and retries) while one table is compared.
+ */
+async function checkLive(
   pool: Pool,
   table: RollupTable,
   pair: Pair,
-  targets: ReadonlyMap<string, string>,
-  live: boolean,
 ): Promise<{ verdict: Verdict; detail: string }> {
-  return readOnly(pool, async (client) => {
-    if (live) {
+  const backlog = (days: number) => ({
+    verdict: "UNVERIFIED" as const,
+    detail: `${days} marked days wait; let the follower's passes drain them before a live check`,
+  });
+  // Read once before waiting for the lock, and again inside the transaction: a repair can mark a
+  // backlog while this waits, and the catch-up must never recompute one unpaced under the lock.
+  const before = await markedDays(pool);
+  if (before > MAX_CATCH_UP_DAYS) return backlog(before);
+  const outcome = await withSessionLock(pool, ROLLUP_PASS_LOCK, { wait: true }, async (client) => {
+    await beginRollupTransaction(client);
+    try {
+      const days = await markedDays(client);
+      if (days > MAX_CATCH_UP_DAYS) return backlog(days);
+      const resolution = await resolveTargets(client);
+      if (!resolution.ok) {
+        return { verdict: "FAIL" as const, detail: "the rollup tables could not be resolved" };
+      }
+      // The catch-up rewrites an all-time table whole, so comparing after it would prove the
+      // SELECT, never the stored rows. Every writer rewrites it with its day helpers in one
+      // transaction, so before the catch-up it must equal its SELECT over the stored helpers.
+      if (table.key === null) {
+        const stored = await diffRows(
+          client,
+          table,
+          pair.table,
+          `(${bindSelect(table.select, resolution.targets)})`,
+        );
+        if (!identical(stored)) {
+          return {
+            verdict: "FAIL" as const,
+            detail: `the stored totals differ from their own definition before any catch-up: ${describe(stored)}`,
+          };
+        }
+      }
+      await applyMarks(client, resolution.targets, Number.POSITIVE_INFINITY);
       const { rows } = await client.query<{ def: string }>(
         "SELECT pg_get_viewdef(to_regclass($1)) AS def",
         [pair.view],
@@ -107,12 +150,36 @@ export async function checkTable(
       const d = await diffRows(client, table, pair.table, `(${def})`);
       return identical(d)
         ? {
-            verdict: "PASS",
-            detail: `equal to the view's definition evaluated now (${describe(d)})`,
+            verdict: "PASS" as const,
+            detail:
+              `equal to the view's definition evaluated now (${describe(d)}); ` +
+              (days === 0
+                ? "no marks were pending"
+                : `${days} marked day(s) recomputed first and rolled back, so rows in those days ` +
+                  "prove the definition, not what was stored") +
+              (table.key === null ? "; the stored totals equalled their definition before it" : ""),
           }
-        : { verdict: "FAIL", detail: `differs from the definition evaluated now: ${describe(d)}` };
+        : {
+            verdict: "FAIL" as const,
+            detail: `differs from the definition evaluated now, pending marks applied: ${describe(d)}`,
+          };
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
     }
+  });
+  // A waiting lock always returns the callback's value; null would mean it was never taken.
+  return outcome ?? { verdict: "UNVERIFIED", detail: "could not take the rollup lock" };
+}
 
+export async function checkTable(
+  pool: Pool,
+  table: RollupTable,
+  pair: Pair,
+  targets: ReadonlyMap<string, string>,
+  live: boolean,
+): Promise<{ verdict: Verdict; detail: string }> {
+  if (live) return checkLive(pool, table, pair);
+  return readOnly(pool, async (client) => {
     const d = await diffRows(client, table, pair.table, pair.view);
     if (identical(d)) return { verdict: "PASS", detail: `equal to the view (${describe(d)})` };
     if (table.key === null) {

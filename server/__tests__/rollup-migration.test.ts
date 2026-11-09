@@ -159,6 +159,57 @@ run("migrating from the views to the rollup tables", () => {
     expect(live.every((r) => r.verdict === "PASS")).toBe(true);
   });
 
+  it("live: blocks since the last pass are caught up in the check's own transaction, never written", async () => {
+    // New blocks marked but not yet passed: on a moving chain this is the normal state.
+    await ingestDays("2026-04-03T00:00:00", 1, 5_000);
+    await refreshViews();
+    const marked = await pendingMarks(pool);
+    expect(marked).toBeGreaterThan(0);
+    const snapshot = () =>
+      pool.query("SELECT * FROM chain_day_rollup_next ORDER BY 1").then((r) => r.rows);
+    const before = await snapshot();
+    const live = await checkRollups(pool, { live: true });
+    for (const r of live) expect(r.verdict, `${r.table}: ${r.detail}`).toBe("PASS");
+    // Rolled back: the marks still wait for the follower and every row is as it was, the day the
+    // new block landed in included.
+    expect(await pendingMarks(pool)).toBe(marked);
+    expect(await snapshot()).toEqual(before);
+    // With the marks still pending: a wrong all-time total is caught although the catch-up would
+    // rewrite it from scratch, and a wrong row in a period no mark touches is not masked by it.
+    await pool.query(
+      "UPDATE chain_tx_kind_count_next SET txs = txs + 1 WHERE kind = (SELECT min(kind) FROM chain_tx_kind_count_next)",
+    );
+    await pool.query(
+      "UPDATE chain_day_pool_tx_next SET txs = txs + 1 WHERE day = (SELECT min(day) FROM chain_day_pool_tx_next)",
+    );
+    expect(await pendingMarks(pool)).toBe(marked);
+    const wrong = await checkRollups(pool, { live: true });
+    const kindCount = wrong.find((r) => r.table === "chain_tx_kind_count_next");
+    expect(kindCount?.verdict).toBe("FAIL");
+    expect(kindCount?.detail).toMatch(/before any catch-up/);
+    expect(wrong.find((r) => r.table === "chain_day_pool_tx_next")?.verdict).toBe("FAIL");
+    await fill();
+    await store.refreshRollups();
+    await refreshViews();
+  }, 120_000);
+
+  it("live: refuses a backlog over the catch-up bound instead of recomputing it under the lock", async () => {
+    // A repair-sized mark, as the swap test uses: the chain itself is left as it was.
+    await pool.query(
+      `INSERT INTO chain_rollup_dirty (ts_lo, ts_hi) VALUES ($1::bigint, $1::bigint + 9 * 86400)`,
+      [at("2026-03-30T00:00:00")],
+    );
+    const live = await checkRollups(pool, { live: true });
+    for (const r of live) {
+      expect(r.verdict, r.table).toBe("UNVERIFIED");
+      expect(r.detail).toMatch(/marked days wait/);
+    }
+    // The refusal wrote nothing: the backlog is still there for the follower.
+    expect(await pendingMarks(pool)).toBeGreaterThan(0);
+    await store.refreshRollups();
+    expect(await pendingMarks(pool)).toBe(0);
+  }, 120_000);
+
   it("accepts a view that is merely behind, and refuses a wrong row", async () => {
     await ingestDays("2026-04-04T00:00:00", 4, 7_000);
     await store.refreshRollups();
