@@ -39,7 +39,11 @@ export function IssuancePanel({ snapshot, perDay = true }: IssuancePanelProps) {
   const { issued, remainingZat, perDayZat, measured, outlook, now } = snapshot;
   return (
     <div>
-      <dl className={`grid gap-x-8 gap-y-3 ${perDay ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+      <dl
+        className={
+          perDay ? "grid gap-x-8 gap-y-3 sm:grid-cols-3" : "grid gap-x-8 gap-y-3 sm:grid-cols-2"
+        }
+      >
         <Figure label="Issued supply">
           {issued ? formatZecWhole(issued.zat) : <Unmeasured />}
         </Figure>
@@ -48,12 +52,14 @@ export function IssuancePanel({ snapshot, perDay = true }: IssuancePanelProps) {
         </Figure>
         {perDay ? <Figure label="Issued per day">≈ {formatZecWhole(perDayZat)}</Figure> : null}
       </dl>
-      <p className="mt-2 text-xs text-ink-faint">
-        {issued ? `Issued as of block ${formatCount(issued.height)}. ` : null}
-        {perDay
-          ? `Per day is an estimate at the ${measured ? "observed" : "target"} block rate; fees are not issuance.`
-          : null}
-      </p>
+      {issued || perDay ? (
+        <p className="mt-2 text-xs text-ink-faint">
+          {issued ? `Issued as of block ${formatCount(issued.height)}. ` : null}
+          {perDay
+            ? `Per day is an estimate at the ${measured ? "observed" : "target"} block rate; fees are not issuance.`
+            : null}
+        </p>
+      ) : null}
       <div ref={chartRef} className="mt-4">
         <IssuanceChart
           outlook={outlook}
