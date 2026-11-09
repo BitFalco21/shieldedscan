@@ -266,13 +266,15 @@ async function windowRibbons(
               SUM(coinbase_zat)::text   AS coinbase_zat,   SUM(coinbase_txs)::text   AS coinbase_txs,
               SUM(hub_zat)::text        AS hub_zat,        SUM(hub_txs)::text        AS hub_txs
          FROM chain_day_pool_boundary${dayClause}
-        GROUP BY pool`,
+        GROUP BY pool
+        ORDER BY pool`,
       params,
     ),
     pool.query<MigrationRow>(
       `SELECT destination, source, SUM(txs)::text AS txs, SUM(zat)::text AS zat
          FROM chain_day_pool_migration${dayClause}
-        GROUP BY destination, source`,
+        GROUP BY destination, source
+        ORDER BY destination, source`,
       params,
     ),
   ]);
@@ -323,12 +325,21 @@ export async function loadPulseRibbons(
   },
   now: number = Date.now(),
 ): Promise<PulseRibbonsPayload | null> {
-  const populated = await pool.query<{ matviewname: string; ispopulated: boolean }>(
-    `SELECT matviewname, ispopulated FROM pg_matviews
-      WHERE matviewname IN ('chain_day_pool_boundary', 'chain_day_supply_close',
-                            'chain_day_pool_migration')`,
-  );
-  if (populated.rows.length < 3 || populated.rows.some((r) => !r.ispopulated)) return null;
+  // Whichever kind of relation holds them (materialized views until the rollup swap, tables
+  // after), the three must be readable, and the boundary and the closes must hold rows: an empty
+  // relation is a rollup not yet computed, never a chain where nothing crossed. The migration
+  // matrix may be empty on a chain that has none. A never-populated view raises 55000.
+  try {
+    const { rows } = await pool.query<{ ready: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM chain_day_pool_boundary)
+          AND EXISTS (SELECT 1 FROM chain_day_supply_close) AS ready,
+              (SELECT count(*) FROM (SELECT 1 FROM chain_day_pool_migration LIMIT 1) AS m) AS read`,
+    );
+    if (rows[0]?.ready !== true) return null;
+  } catch (error) {
+    if ((error as { code?: unknown }).code === "55000") return null;
+    throw error;
+  }
 
   const asOf = Math.floor(now / 1000);
   const closeColumns = `to_char(day, 'YYYY-MM-DD') AS day, top_height, hash, prev_hash,

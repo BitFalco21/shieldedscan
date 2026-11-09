@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import { blockTotalFeeZat, feeFromTermsZat, parseBlock } from "@/data/chain/parse";
 import type { NodeRpcPort } from "./follow";
 import { RESOLVE_INPUTS_JOIN } from "./postgres-chain-store";
+import { markingUpdate } from "./rollup/marks";
 
 /**
  * Recompute every stored fee from stored terms, without re-ingesting the chain.
@@ -76,16 +77,17 @@ const num = (v: string | null): number => (v === null ? 0 : Number(v));
 async function fillTrivialSproutTerms(deps: RepairFeesDeps, batch: number): Promise<number> {
   let filled = 0;
   for (;;) {
-    const { rowCount } = await deps.pool.query(
-      `UPDATE tx SET sprout_vpub_net_zat = 0
+    const { rows } = await deps.pool.query<{ changed: number }>(
+      markingUpdate(`UPDATE tx SET sprout_vpub_net_zat = 0
         WHERE txid IN (
           SELECT txid FROM tx
            WHERE sprout_vpub_net_zat IS NULL AND sprout_joinsplits IS NULL
            LIMIT $1
-        )`,
+        )
+        RETURNING tx.timestamp`),
       [batch],
     );
-    const written = rowCount ?? 0;
+    const written = rows[0]?.changed ?? 0;
     if (written === 0) break;
     filled += written;
     if (filled % (batch * 25) === 0) deps.log(`  sprout term (trivial): ${filled} rows`);
@@ -119,13 +121,14 @@ async function fillSproutTermsFromNode(
     const parsed = parseBlock(await deps.rpc.getBlock(height));
     const txids = parsed.transactions.map((t) => t.txid);
     const terms = parsed.transactions.map((t) => t.rpcSproutVB);
-    const { rowCount } = await deps.pool.query(
-      `UPDATE tx SET sprout_vpub_net_zat = data.vpub
+    const { rows: changed } = await deps.pool.query<{ changed: number }>(
+      markingUpdate(`UPDATE tx SET sprout_vpub_net_zat = data.vpub
          FROM (SELECT * FROM UNNEST($1::text[], $2::bigint[]) AS t(txid, vpub)) AS data
-        WHERE tx.txid = data.txid`,
+        WHERE tx.txid = data.txid AND tx.sprout_vpub_net_zat IS DISTINCT FROM data.vpub
+        RETURNING tx.timestamp`),
       [txids, terms],
     );
-    txs += rowCount ?? 0;
+    txs += changed[0]?.changed ?? 0;
     blocks += 1;
     if (blocks % 5_000 === 0) {
       const rate = blocks / ((Date.now() - startedAt) / 1000);
@@ -214,10 +217,12 @@ async function recomputeFees(deps: RepairFeesDeps, end: number): Promise<number>
     }
 
     for (let i = 0; i < txids.length; i += WRITE_CHUNK) {
+      // Only rows whose fee changes, so a re-run marks no rollup period it did not change.
       await deps.pool.query(
-        `UPDATE tx SET fee_zat = data.fee
+        markingUpdate(`UPDATE tx SET fee_zat = data.fee
            FROM (SELECT * FROM UNNEST($1::text[], $2::bigint[]) AS t(txid, fee)) AS data
-          WHERE tx.txid = data.txid`,
+          WHERE tx.txid = data.txid AND tx.fee_zat IS DISTINCT FROM data.fee
+          RETURNING tx.timestamp`),
         [txids.slice(i, i + WRITE_CHUNK), fees.slice(i, i + WRITE_CHUNK)],
       );
     }
@@ -287,9 +292,10 @@ async function recomputeBlockTotals(deps: RepairFeesDeps, end: number): Promise<
       blockTotalFeeZat(r.fees.map((f) => (f === null ? null : Number(f)))),
     );
     await deps.pool.query(
-      `UPDATE block SET total_fee_zat = data.total
+      markingUpdate(`UPDATE block SET total_fee_zat = data.total
          FROM (SELECT * FROM UNNEST($1::int[], $2::bigint[]) AS t(height, total)) AS data
-        WHERE block.height = data.height`,
+        WHERE block.height = data.height AND block.total_fee_zat IS DISTINCT FROM data.total
+        RETURNING block.timestamp`),
       [heights, totals],
     );
     written += heights.length;

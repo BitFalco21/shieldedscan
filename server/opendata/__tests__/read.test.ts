@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../../rollup/run";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +15,6 @@ import { exportTypes, readRelease, type Release } from "../read";
 import {
   dayOf,
   hex,
-  MATVIEWS,
   MIGRATION_HEIGHT,
   MINER,
   RELEASE,
@@ -382,13 +382,13 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     );
     const url = new URL(ADMIN_URL!);
     url.pathname = `/${DB}`;
-    const pool = new Pool({ connectionString: url.toString(), max: 1 });
+    const pool = new Pool({ connectionString: url.toString(), max: 2 });
     try {
       await computeMiningDay(pool, START + Math.floor((h * SPACING) / 86_400) * 86_400, 0);
+      await rebuildRollups(pool);
     } finally {
       await pool.end();
     }
-    for (const m of MATVIEWS) await db.query(`REFRESH MATERIALIZED VIEW ${m}`);
   };
 
   it("reads a fee-less block's underclaim from the pools, so the cross-check still holds", async () => {
@@ -580,28 +580,34 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
     ],
   ];
 
-  // The site's series: stale, never populated, or disagreeing with the stream. Each must stop
-  // the release, never be published as current.
-  const moved = 864_000_000; // ten thousand days: out of every window the export reads
+  // The site's series: empty, stale, or disagreeing with the stream. Each must stop the release,
+  // never be published as current. A rollup's rows are set aside in a temporary table (this
+  // session's) and put back by the fix.
+  const setAside = (table: string, where: string) =>
+    `CREATE TEMP TABLE set_aside AS SELECT * FROM ${table} WHERE ${where};
+     DELETE FROM ${table} WHERE ${where}`;
+  const putBack = (table: string) =>
+    `INSERT INTO ${table} SELECT * FROM set_aside; DROP TABLE set_aside`;
   breaks.push(
     [
-      "a matview never populated",
-      "REFRESH MATERIALIZED VIEW chain_day_pool_boundary WITH NO DATA",
-      "REFRESH MATERIALIZED VIEW chain_day_pool_boundary",
-      /opendata.pool_boundary_daily: never populated/,
+      "a rollup never filled",
+      setAside("chain_day_pool_boundary", "true"),
+      putBack("chain_day_pool_boundary"),
+      /stale view: no row for the final day: 1 \(e\.g\. chain_day_pool_boundary\)/,
     ],
     [
-      "a matview refreshed before the final day",
-      `UPDATE block SET timestamp = timestamp + ${moved} WHERE height > 150;
-       REFRESH MATERIALIZED VIEW chain_day_fee_total;
-       UPDATE block SET timestamp = timestamp - ${moved} WHERE height > 150`,
-      "REFRESH MATERIALIZED VIEW chain_day_fee_total",
+      "a rollup that stopped before the final day",
+      setAside(
+        "chain_day_fee_total",
+        `ts > ${START + Math.floor((150 * SPACING) / 86_400) * 86_400}`,
+      ),
+      putBack("chain_day_fee_total"),
       /stale view: no row for the final day: 1 \(e\.g\. chain_day_fee_total\)/,
     ],
     [
-      "a matview refreshed in another time zone",
-      `SET TIME ZONE 'Asia/Tokyo'; REFRESH MATERIALIZED VIEW chain_day_network; RESET TIME ZONE`,
-      "REFRESH MATERIALIZED VIEW chain_day_network",
+      "a rollup keyed in another time zone",
+      "UPDATE chain_day_network SET ts = ts - 32400",
+      "UPDATE chain_day_network SET ts = ts + 32400",
       /day not truncated in UTC.*chain_day_network/,
     ],
     [
@@ -611,11 +617,11 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       /stale view: no row for the final day: 1 \(e\.g\. boundary_daily\)/,
     ],
     [
-      "a matview that disagrees with the stream",
-      `UPDATE tx SET orchard_actions = 0 WHERE txid = '${hex(5000)}';
-       REFRESH MATERIALIZED VIEW chain_day_pool_tx;
-       UPDATE tx SET orchard_actions = 1 WHERE txid = '${hex(5000)}'`,
-      "REFRESH MATERIALIZED VIEW chain_day_pool_tx",
+      "a rollup that disagrees with the stream",
+      `UPDATE chain_day_pool_tx SET txs = txs - 1
+        WHERE pool = 'orchard' AND day = '${dayOf(MIGRATION_HEIGHT)}'`,
+      `UPDATE chain_day_pool_tx SET txs = txs + 1
+        WHERE pool = 'orchard' AND day = '${dayOf(MIGRATION_HEIGHT)}'`,
       /pool_flows_daily differs from chain_day_pool_tx/,
     ],
     [

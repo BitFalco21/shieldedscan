@@ -175,10 +175,10 @@ export function crossSide(s: CrossChainVolumeSide): CrossChainSide {
  *
  * Three facts decide it, each measured rather than assumed:
  *  - whether the window reaches into today's unfinished UTC day (or beyond);
- *  - whether the daily totals have been refreshed past the window's last day — they are day
- *    matviews the follower refreshes on a timer, so a day that ended minutes ago may not be in
+ *  - whether the daily totals have been computed past the window's last day — they are day
+ *    rollups the follower recomputes on a timer, so a day that ended minutes ago may not be in
  *    them yet (`dailyThrough` is the newest day they hold, null where an endpoint reads no
- *    day matview);
+ *    day rollup);
  *  - any lower bound the endpoint itself reports (`floorNotes`).
  *
  * The status is the WEAKEST property that applies — partial over floor over complete — and the

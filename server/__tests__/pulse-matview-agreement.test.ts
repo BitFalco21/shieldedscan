@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { readFileSync } from "node:fs";
@@ -348,9 +349,7 @@ describeDb("the /pulse matviews agree with the domain they transcribe", () => {
         ordinal += 1;
       }
     }
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_pool_boundary");
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_supply_close");
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_rollup");
+    await rebuildRollups(pool);
   });
 
   afterAll(async () => {
@@ -487,8 +486,7 @@ describeDb("the /pulse matviews agree with the domain they transcribe", () => {
     // The difference that makes this view exist: `issuanceZatBetween` refuses on a null, and it
     // can only do that if the null survives. A zero here would be a wrong figure, not a small one.
     await pool.query("UPDATE block SET ironwood_pool_zat = NULL WHERE height = 200");
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_supply_close");
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_rollup");
+    await rebuildRollups(pool);
     const { rows } = await pool.query<{ close: number | null; rollup: number }>(
       `SELECT c.ironwood_pool_zat AS close, r.ironwood AS rollup
          FROM chain_day_supply_close c

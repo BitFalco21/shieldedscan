@@ -53,7 +53,6 @@ function fakePool(blocks: { height: number; hash: string; difficulty: number | n
   let selects = 0;
   const pool = {
     query: vi.fn(async (sql: string, params?: unknown[]) => {
-      if (sql.includes("REFRESH MATERIALIZED VIEW")) return { rows: [], rowCount: 0 };
       if (sql.startsWith("SELECT height, hash")) {
         selects++;
         if (selects > 50) throw new Error("runaway loop: the repair is not making progress");
@@ -81,7 +80,8 @@ function fakePool(blocks: { height: number; hash: string; difficulty: number | n
           rowCount++;
         }
       });
-      return { rows: [], rowCount };
+      // The marking form returns the rows it changed as `changed`, in one row.
+      return { rows: [{ changed: rowCount }], rowCount: 1 };
     }),
   };
   return { pool: pool as unknown as Pool, updates, blocks, selects: () => selects };
@@ -145,21 +145,14 @@ describe("repairDifficulty", () => {
     expect(out.written).toBe(0);
   });
 
-  it("refreshes the day matview so the chart changes without waiting for the follower", async () => {
+  it("marks the days it changed for the rollup pass, in the same statement, and refreshes nothing", async () => {
     const f = fakePool([{ height: 1, hash: hashFor(1), difficulty: null }]);
     await repairDifficulty({ pool: f.pool, rpc, log });
     const sql = (f.pool.query as unknown as { mock: { calls: [string][] } }).mock.calls.map(
       ([s]) => s,
     );
-    expect(sql.some((s) => s.includes("REFRESH MATERIALIZED VIEW CONCURRENTLY"))).toBe(true);
-  });
-
-  it("can be told not to refresh", async () => {
-    const f = fakePool([{ height: 1, hash: hashFor(1), difficulty: null }]);
-    await repairDifficulty({ pool: f.pool, rpc, log, refresh: false });
-    const sql = (f.pool.query as unknown as { mock: { calls: [string][] } }).mock.calls.map(
-      ([s]) => s,
-    );
+    const update = sql.find((s) => s.includes("UPDATE block"));
+    expect(update).toContain("INSERT INTO chain_rollup_dirty");
     expect(sql.some((s) => s.includes("REFRESH"))).toBe(false);
   });
 });
@@ -176,7 +169,7 @@ describe("repairDifficulty bounded by end", () => {
       { height: 5, hash: hashFor(5), difficulty: null },
       { height: 9, hash: hashFor(9), difficulty: null },
     ]);
-    return repairDifficulty({ pool: f.pool, rpc, log, end: 5, refresh: false }).then((out) => {
+    return repairDifficulty({ pool: f.pool, rpc, log, end: 5 }).then((out) => {
       expect(out.written).toBe(1);
       expect(f.blocks.find((b) => b.height === 1)?.difficulty).toBe(1001);
       // `end` is exclusive: height 5 itself is out of range, as is everything above it.

@@ -377,9 +377,8 @@ export function pulseRoutes(deps: PulseRouteDeps): Hono {
       };
       return loadPulseRibbons(deps.pool, edges, at);
     });
-    // 503 while a matview has not been populated: `edges: []` would state that nothing has ever
-    // crossed the boundary. Not cached, so the refusal ends as soon as `npm run
-    // fill:pool-analytics` finishes.
+    // 503 while the day rollups have not been computed: `edges: []` would state that nothing has
+    // ever crossed the boundary. Not cached, so the refusal ends with the first rollup pass.
     if (built === null) {
       ribbons.clear();
       return c.json({ error: "the pool day views have not been populated yet" }, 503);

@@ -89,7 +89,7 @@ const nullableNum = (v: string | number | null): number | null => (v === null ? 
  *    transaction count that has nothing to do with shielding.
  *  - `blocks` and `blocks_covered` both come from `chain_day_fee_total`, where they are defined
  *    over the same rows, so coverage is always relative to its own denominator and can never
- *    exceed 100% because two matviews were refreshed at different times.
+ *    exceed 100% because two rollups were computed at different times.
  *  - The averages are weighted by block, so they equal a scan of every block in the range.
  *    `AVG(avg_difficulty)` is a different quantity whenever block production varies. `net_blocks`
  *    is the weight and comes from the same view as the mean it weights.
@@ -529,7 +529,7 @@ function migrationSelectSql(bucketExpr: string | null): string {
         AND ($4::text IS NULL OR m.source = $4::text)
         AND ($5::text IS NULL OR m.destination = $5::text)
       GROUP BY 1, 2${groupExtra}
-      ORDER BY SUM(m.txs) DESC`;
+      ORDER BY SUM(m.txs) DESC, 1, 2${groupExtra}`;
 }
 
 /**

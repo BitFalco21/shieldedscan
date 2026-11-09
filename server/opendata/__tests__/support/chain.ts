@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../../../rollup/run";
 import { Pool, type Client } from "pg";
 import { base58checkEncode } from "@/domain/encoding/base58check";
 import { blockSubsidyZat } from "@/domain/halving";
@@ -24,18 +25,6 @@ export const MINER = base58checkEncode(
 /** One Sapling-to-Orchard migration of 500 zat, so the migration series have a row. */
 export const MIGRATION_HEIGHT = 130;
 /** Every matview the export reads, refreshed as the follower would. */
-export const MATVIEWS = [
-  "chain_day_fee_kind",
-  "chain_day_rollup",
-  "chain_day_supply_close",
-  "chain_day_network",
-  "chain_day_fee_total",
-  "chain_day_pool_tx",
-  "chain_day_pool_boundary",
-  "chain_day_shielding_flow",
-  "chain_day_pool_migration",
-  "chain_month_fee_kind",
-];
 
 /** Fills an empty database that has the schema applied; `url` is that database's. */
 export async function seedChain(db: Client, url: URL): Promise<void> {
@@ -120,7 +109,7 @@ export async function seedChain(db: Client, url: URL): Promise<void> {
     [hex(5000), MIGRATION_HEIGHT, START + MIGRATION_HEIGHT * SPACING],
   );
   await db.query("UPDATE block SET miner_address = $1", [MINER]);
-  // The API's trackers, by their own functions, and the follower's matviews.
+  // The API's trackers, by their own functions, and the follower's rollups.
   const pool = new Pool({ connectionString: url.toString(), max: 2 });
   try {
     for (let d = 0; d < 75; d++) {
@@ -128,10 +117,10 @@ export async function seedChain(db: Client, url: URL): Promise<void> {
       await upsertBoundaryDay(pool, await computeBoundaryDay(pool, dayStart), 0);
       await computeMiningDay(pool, dayStart, 0);
     }
+    await rebuildRollups(pool);
   } finally {
     await pool.end();
   }
-  for (const m of MATVIEWS) await db.query(`REFRESH MATERIALIZED VIEW ${m}`);
   await db.query(`UPDATE block SET coinbase_tag = 'Foundry Zcash Pool' WHERE height % 3 = 0`);
   // The transparent ledger that makes those numbers true: each coinbase pays exactly the
   // slow-start subsidy to one output, and from 101 the mixed transaction spends 1,000 zat of

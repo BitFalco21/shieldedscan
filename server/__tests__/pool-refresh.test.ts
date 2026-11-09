@@ -2,23 +2,25 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { readFileSync } from "node:fs";
 import { POOL_ANALYTICS_MATVIEWS, PostgresChainStore } from "../postgres-chain-store";
+import { ROLLUP_VIEW_NAMES } from "../rollup/definitions";
+import { swapRollups } from "../rollup/swap";
+import { createLegacyViews } from "./support/rollup-chain";
 
 /**
- * The per-pool day matviews, and who is allowed to fill one, against a real database.
+ * The per-pool day views while a database still holds them as materialized views, before the
+ * rollup swap replaces them with tables (`server/rollup/swap.ts`), against a real database.
  *
  * The hourly timer never performs a first fill. An unpopulated matview forbids `CONCURRENTLY`, so
  * populating one takes an exclusive lock for the whole scan, in front of the follower's
- * ingestion. `refreshPoolAnalytics` (what the timer calls) refreshes only what is already
- * populated and says which views it skipped; `fillPoolAnalytics`, called only by
- * `fill-pool-analytics-main.ts`, populates behind the pacer's preflight. An unfilled view stays
- * empty and `/chain/pulse/ribbons` answers 503 visibly.
+ * ingestion. `refreshPoolAnalytics` refreshes only what is already populated and names what it
+ * skipped; once a name is a table it is the rollup pass's, and the refresh leaves it alone.
  *
  * A raised `work_mem` must be `RESET`: the connection returns to a shared pool, and a ceiling
  * left raised applies to every later query on it.
  *
- * Needs a real database; creates its own, since the shared one carries no base rows.
+ * Needs a real database; creates its own.
  *
- *   TEST_DATABASE_URL=postgres://test:test@127.0.0.1:55433/test \
+ *   TEST_DATABASE_URL=postgres://test:test@127.0.0.1:55434/test \
  *     npx vitest run server/__tests__/pool-refresh.test.ts
  */
 const DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -85,8 +87,11 @@ run("the per-pool day matviews", () => {
   beforeAll(async () => {
     const url = await createTestDatabase(DATABASE_URL as string);
     pool = new Pool({ connectionString: url });
-    // The real schema, so the views under test are the ones production creates — and every
-    // one of them arrives `WITH NO DATA`, which is the state these assertions are about.
+    // Production's shape before the swap: the frozen view definitions hold the names, and the
+    // pool views arrive `WITH NO DATA`, which is the state these assertions start from.
+    await pool.query(readFileSync("server/schema-chain.sql", "utf8"));
+    for (const name of ROLLUP_VIEW_NAMES) await pool.query(`DROP TABLE ${name}`);
+    await createLegacyViews(pool, "public");
     await pool.query(readFileSync("server/schema-chain.sql", "utf8"));
     store = new PostgresChainStore(pool);
     await seed(pool);
@@ -96,10 +101,9 @@ run("the per-pool day matviews", () => {
     await pool?.end();
   });
 
-  it("covers every chain_day_pool_% view the SCHEMA defines", async () => {
-    // Reads the database's own catalogue rather than comparing the constant against itself:
-    // a view in the schema and not in that list is one that is created, queried, and never
-    // refreshed, whose stale rows look exactly like fresh ones.
+  it("covers every chain_day_pool_% view production holds", async () => {
+    // From the frozen definitions rather than the constant: a view left out of the list is one
+    // that is queried and never refreshed, whose stale rows look exactly like fresh ones.
     const { rows } = await pool.query<{ matviewname: string }>(
       "SELECT matviewname FROM pg_matviews WHERE matviewname LIKE 'chain\\_day\\_pool\\_%'",
     );
@@ -125,33 +129,29 @@ run("the per-pool day matviews", () => {
     }
   });
 
-  it("populates EVERY view in the list once the fill script runs, and reports the row count", async () => {
-    const result = await store.fillPoolAnalytics();
-    expect(result.rows).toBeGreaterThan(0);
-    expect(result.skipped).toEqual([]);
-    // Derived from the constant rather than a `LIKE` and a literal count, so a view added later
-    // stays covered.
-    const state = await populated(pool);
-    expect(Object.keys(state).sort()).toEqual([...POOL_ANALYTICS_MATVIEWS].sort());
-    for (const view of POOL_ANALYTICS_MATVIEWS) expect(state[view]).toBe(true);
-  });
-
-  it("refreshes on the timer once populated, and skips nothing", async () => {
+  it("refreshes CONCURRENTLY once populated, and skips nothing", async () => {
+    for (const view of POOL_ANALYTICS_MATVIEWS)
+      await pool.query(`REFRESH MATERIALIZED VIEW ${view}`);
     const result = await store.refreshPoolAnalytics();
     expect(result.rows).toBeGreaterThan(0);
     expect(result.skipped).toEqual([]);
-    // Still populated, so every pass after the first went CONCURRENTLY — an exclusive lock
-    // here would block every reader behind it.
+    expect([...result.refreshed].sort()).toEqual([...POOL_ANALYTICS_MATVIEWS].sort());
     const state = await populated(pool);
     for (const view of POOL_ANALYTICS_MATVIEWS) expect(state[view]).toBe(true);
   });
 
   it("RESETS work_mem, so a pooled connection is not left raised", async () => {
     await store.refreshPoolAnalytics();
-    await store.fillPoolAnalytics();
     for (let i = 0; i < 3; i += 1) {
       const { rows } = await pool.query<{ work_mem: string }>("SHOW work_mem");
       expect(rows[0]!.work_mem).not.toBe("256MB");
     }
+  });
+
+  it("leaves a name alone once it is a rollup table", async () => {
+    await swapRollups(pool);
+    const result = await store.refreshPoolAnalytics();
+    expect(result).toEqual({ rows: 0, refreshed: [], skipped: [] });
+    await expect(store.refreshDayRollup()).resolves.toBeUndefined();
   });
 });

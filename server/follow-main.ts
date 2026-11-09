@@ -3,6 +3,7 @@ import { HttpNodeRpc } from "./node-rpc";
 import { PostgresChainStore } from "./postgres-chain-store";
 import { log, requirePostgres } from "./entrypoint";
 import { createRefreshQueue, type RefreshJob } from "./refresh-queue";
+import { DEFAULT_PASS_BUDGET_MS } from "./rollup/run";
 
 /**
  * The chain follower, as its own process.
@@ -54,15 +55,35 @@ const stop = startFollowing({
 });
 
 /**
- * Keep the materialised monthly series current.
+ * Keep the rollup tables current: the day and month series and the all-time figures.
  *
- * On a timer rather than per block: only the current month's row can change, so refreshing every
- * block would spend I/O on a change no reader can perceive. Ten minutes is well inside the
- * analytics pages' revalidation window.
+ * Each pass recomputes only the periods the dirty-period log names (`server/rollup/`), so its cost
+ * follows what changed, not the size of the chain: normally the open day and month. On a timer
+ * rather than per block, because a series point a few minutes old is honest and a recompute per
+ * block would spend I/O no reader can perceive. A backlog (a repair that rewrote history) drains
+ * over several passes, newest month first, each bounded by `ROLLUP_PASS_BUDGET_MS`.
  *
- * Failures are logged and swallowed. A refresh that cannot run leaves the view holding its
- * previous, still-true contents, whereas a rejection would take down the follower, and stopped
- * ingest is far worse than a chart a few minutes behind.
+ * `0` (or any non-positive value) disables it; marks then wait and are caught up exactly once it
+ * is enabled again.
+ *
+ * Failures are logged and swallowed by the queue. A pass that cannot run leaves every table
+ * holding its previous, still-true contents and its marks in place, whereas a rejection would take
+ * down the follower, and stopped ingest is far worse than a chart a few minutes behind.
+ */
+const ROLLUP_REFRESH_MS = Number(process.env.ROLLUP_REFRESH_MS ?? 600_000);
+const ROLLUP_PASS_BUDGET_MS = Number(process.env.ROLLUP_PASS_BUDGET_MS ?? DEFAULT_PASS_BUDGET_MS);
+
+const ROLLUPS: RefreshJob[] = [
+  {
+    name: "rollups",
+    refresh: async () => (await store.refreshRollups(log, ROLLUP_PASS_BUDGET_MS)) ?? undefined,
+  },
+];
+
+/*
+ * The materialized views a database holds until `swap-rollups` replaces them with the tables
+ * above (production, during the migration). Each refresh acts only on a name that is still a view
+ * and is a no-op once it is a table, so these timers stay until the cleanup that removes them.
  */
 const REFRESH_MS = Number(process.env.MONTHLY_REFRESH_MS ?? 600_000);
 
@@ -108,15 +129,9 @@ const DAILY_REFRESH_MS = Number(process.env.DAILY_REFRESH_MS ?? 3_600_000);
  * keep their own interval. They share the one refresh queue, so a cheap view can wait behind this
  * pass, at most once per interval.
  *
- * A full pass must stay well under its interval (the fill script enforces a 120 s gate). The
- * queue never runs two passes at once and skips a view still queued or running, so an overrun
- * skips the next pass instead of piling onto it.
- *
- * This timer cannot perform a first fill. A never-populated view forbids `CONCURRENTLY`, so
- * filling it takes an exclusive lock for an unmeasured scan in front of ingestion.
- * `refreshPoolAnalytics` refreshes only populated views and returns the names it skipped, which
- * are logged; the first fill of a new view is `npm run fill:pool-analytics`, run by an operator
- * through the pacer's preflight. Until then the view stays empty and its routes answer 503.
+ * This timer never performs a first fill: a never-populated view forbids `CONCURRENTLY`, so
+ * filling it takes an exclusive lock for a whole scan in front of ingestion.
+ * `refreshPoolAnalytics` skips such a view and names it.
  */
 const POOL_ANALYTICS_VIEWS: RefreshJob[] = [
   {
@@ -145,14 +160,19 @@ const POOL_ANALYTICS_ENABLED = POOL_ANALYTICS_REFRESH_MS > 0;
 const refreshes = createRefreshQueue(log);
 const runRefreshes = (views: RefreshJob[]) => refreshes.enqueue(views);
 
+if (ROLLUP_REFRESH_MS > 0) {
+  const rollupTimer = setInterval(() => runRefreshes(ROLLUPS), ROLLUP_REFRESH_MS);
+  rollupTimer.unref();
+} else {
+  log("rollup pass DISABLED (ROLLUP_REFRESH_MS <= 0) — marks wait until it is enabled");
+}
 const refreshTimer = setInterval(() => runRefreshes(VIEWS), REFRESH_MS);
 refreshTimer.unref();
 const dailyRefreshTimer = setInterval(() => runRefreshes(DAILY_VIEWS), DAILY_REFRESH_MS);
 dailyRefreshTimer.unref();
 /*
- * Not run at boot. This one scans `tx`, and a crash-looping container
- * would start a full-chain scan on every restart. An hour of staleness on a per-pool figure is
- * cheaper, and a cold start gets its data from `npm run fill:pool-analytics`.
+ * Not run at boot. This one scans `tx`, and a crash-looping container would start a full-chain
+ * scan on every restart.
  */
 if (POOL_ANALYTICS_ENABLED) {
   const poolAnalyticsTimer = setInterval(

@@ -1,3 +1,4 @@
+import { rebuildRollups } from "../rollup/run";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { loadChainWindow } from "../chain-window";
@@ -23,7 +24,7 @@ run("pool migrations over an arbitrary window", () => {
   let pool: Pool;
   beforeAll(async () => {
     pool = new Pool({ connectionString: url });
-    await pool.query("REFRESH MATERIALIZED VIEW chain_day_pool_migration");
+    await rebuildRollups(pool);
   });
   afterAll(async () => {
     await pool.end();

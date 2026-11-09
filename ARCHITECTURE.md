@@ -123,6 +123,30 @@ brand/          Reproducible generators for the site's brand assets.
   and live pollers back off. A 503 the API marks as a source this deployment does not have (a
   self-hosted copy without a node) still renders "unavailable" but is not a failure of the API.
 
+## Derived series (rollups)
+
+The day and month series and the all-time figures (`chain_day_*`, `chain_month_*`,
+`chain_tx_*_count`, `chain_fee_*`) are plain tables, recomputed one period at a time, never by
+re-scanning the chain. Their definitions are in `server/rollup/definitions.ts`: one windowed SELECT
+per table, shared by the follower's periodic pass and the full rebuild.
+
+- **Every write to a `block` or `tx` row a rollup reads marks the period it touches, and the one
+  it leaves, in the same transaction** (`chain_rollup_dirty`, `server/rollup/marks.ts`): ingest,
+  rollback and the repairs do. A new writer that does not mark leaves its periods stale with no
+  error; a change made by hand is followed by a mark or by `fill-rollups --restart`.
+- The pass consumes the marks under REPEATABLE READ and a session lock taken before its snapshot,
+  so it and the paced fill never overwrite newer rows with older. Periods are UTC: everything
+  that computes or compares these rows pins `TimeZone = 'UTC'`.
+- `server/__tests__/rollup-equality.test.ts` holds every table equal to the frozen view
+  definitions it replaced, after ingest, reorg, backfill, repair and mempool steps.
+
+Migration from the materialized views, on a live database (none of it locks `tx` or `block`):
+deploy (the schema stages `<name>_next` beside each view; the follower keeps both current) →
+`fill-rollups` (paced, resumable) → `check-rollups` and `check-rollups --live` (read-only) →
+`swap-rollups` (renames in one transaction; views that read them are rebound; `--revert` undoes
+it) → drop the `<name>_old` views by hand once the tables have served for a while. Measure first
+with `explain-rollups` (read-only).
+
 ## Interface rules
 
 - One dark, terminal-style design ("Phosphor"). Colours are OKLCH tokens in `src/app/styles/tokens.css` derived

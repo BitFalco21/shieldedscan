@@ -369,493 +369,148 @@ WHERE NOT EXISTS (SELECT 1 FROM reorg_observation);
 
 
 -- ---------------------------------------------------------------------------------------
--- The monthly series, materialised: about a hundred rows derived from millions, which would
--- otherwise be two sequential scans of `block` on every analytics read (raising `work_mem` does
--- not help; the cost is the scan).
+-- The rollups: the chain's day and month series and its all-time figures, as plain tables.
 --
--- In the follower's schema rather than the API's: the follower owns `block` and is its only writer,
--- so it is the process that knows when a refresh is due. The follower therefore ships before the
--- API reads a new view.
+-- Each was a materialized view whose refresh re-read all of `tx` or `block`. A period's rows depend
+-- only on that period's source rows, so each is now a table recomputed one period at a time. The
+-- definitions (one windowed SELECT per table) are in `server/rollup/definitions.ts`, where the same
+-- text serves the follower's incremental pass and the full rebuild.
 --
--- The unique index is required: REFRESH ... CONCURRENTLY needs one, and without CONCURRENTLY a
--- refresh takes an ACCESS EXCLUSIVE lock that would block every analytics read for its duration.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_month_rollup AS
-  WITH counts AS (
-    SELECT date_trunc('month', to_timestamp(timestamp)) AS m,
-           SUM(transparent_tx_count)::int AS transparent,
-           SUM(mixed_tx_count)::int       AS mixed,
-           SUM(shielded_tx_count)::int    AS shielded
-      FROM block GROUP BY 1
-  ),
-  closing AS (
-    SELECT DISTINCT ON (date_trunc('month', to_timestamp(timestamp)))
-           date_trunc('month', to_timestamp(timestamp)) AS m,
-           height,
-           COALESCE(sprout_pool_zat, 0)   AS sprout,
-           COALESCE(sapling_pool_zat, 0)  AS sapling,
-           COALESCE(orchard_pool_zat, 0)  AS orchard,
-           COALESCE(ironwood_pool_zat, 0) AS ironwood
-      FROM block
-     ORDER BY date_trunc('month', to_timestamp(timestamp)), height DESC
-  )
-  SELECT EXTRACT(EPOCH FROM counts.m)::bigint AS ts,
-         closing.height AS top_height,
-         counts.transparent, counts.mixed, counts.shielded,
-         closing.sprout, closing.sapling, closing.orchard, closing.ironwood
-    FROM counts JOIN closing USING (m)
-   ORDER BY counts.m;
+-- Which periods to recompute comes from `chain_rollup_dirty`. Every write to a `block` or `tx` row
+-- a rollup reads marks the timestamp it touched, and the one it leaves, in the same transaction:
+--   * `ingestBlock` (follower and backfiller) and `rollbackAbove`;
+--   * the fee, direction and difficulty repairs.
+-- Nothing else writes those rows. A new writer must mark (`server/rollup/marks.ts`); a change made
+-- by hand must be followed by an INSERT here or by `fill-rollups --restart`, or its periods stay
+-- stale. Mempool rows (`block_height IS NULL`) are in no rollup and need no mark.
+CREATE TABLE IF NOT EXISTS chain_rollup_dirty (
+  ts_lo BIGINT NOT NULL,   -- unix seconds, inclusive
+  ts_hi BIGINT NOT NULL,   -- unix seconds, inclusive; a point mark has ts_lo = ts_hi
+  CHECK (ts_lo <= ts_hi)
+);
 
-CREATE UNIQUE INDEX IF NOT EXISTS chain_month_rollup_ts_idx ON chain_month_rollup (ts);
+-- The paced full fill's resume point (`server/fill-rollups-main.ts`): one UTC month per chunk.
+CREATE TABLE IF NOT EXISTS chain_rollup_fill (
+  id           BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  next_ts      BIGINT NOT NULL,
+  end_ts       BIGINT NOT NULL,
+  started_at   BIGINT NOT NULL,
+  completed_at BIGINT
+);
 
--- ---------------------------------------------------------------------------------------
--- Monthly gross shielding flow: what crossed the privacy boundary, in both directions.
+-- The rollup tables, column for column and type for type the views they replaced (some readers
+-- `SELECT *`), each keyed by its period. Only primary keys: never a view's old index name, which
+-- stays with the view until it is dropped.
 --
--- Net flow hides the volume: a day with roughly equal shielding and unshielding nets to nearly
--- zero while large amounts moved. Both directions are stored and the net is derived from them.
---
--- Summed from each transaction's own value balances, not differenced from day-end pool totals (a
--- total can only yield the net). Its own view rather than columns on `chain_month_rollup`, because
--- that one aggregates `block` and this one `tx`, so a combined refresh would make the cheap view
--- pay for the expensive one.
---
--- Sign conventions (getting either wrong inverts the chart):
---   * `*_value_balance_zat` are stored in domain sign: positive = value entering that pool.
---   * `sprout_vpub_net_zat` is stored in RPC sign: positive = value leaving Sprout, so it is
---     subtracted to match its neighbours.
---
--- Sprout is included: omitting it would report zero shielding for the whole 2016-2018 era.
---
--- Coinbase is excluded: a block subsidy paid into a shielded pool is issuance, not a user choosing
--- privacy.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_month_shielding_flow AS
-  WITH per_tx AS (
-    SELECT date_trunc('month', to_timestamp(timestamp)) AS m,
-           COALESCE(sapling_value_balance_zat, 0)
-         + COALESCE(orchard_value_balance_zat, 0)
-         + COALESCE(ironwood_value_balance_zat, 0)
-         - COALESCE(sprout_vpub_net_zat, 0) AS net_in
-      FROM tx
-     WHERE kind <> 'coinbase' AND block_height IS NOT NULL
-  )
-  SELECT EXTRACT(EPOCH FROM m)::bigint                        AS ts,
-         COALESCE(SUM(net_in) FILTER (WHERE net_in > 0), 0)::bigint  AS shielded_zat,
-         COALESCE(-SUM(net_in) FILTER (WHERE net_in < 0), 0)::bigint AS unshielded_zat
-    FROM per_tx
-   GROUP BY m
-   ORDER BY m;
+-- A fresh database creates each under its own name. Where the view still holds the name, the table
+-- is created beside it as `<name>_next`: the follower keeps it current, nobody reads it, and
+-- `swap-rollups` later renames the view to `<name>_old` and the table into its place. This file
+-- runs at every follower start, so this is cheap DDL only: nothing here scans or fills.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('chain_month_rollup', 'ts BIGINT PRIMARY KEY, top_height INTEGER, transparent INTEGER,
+       mixed INTEGER, shielded INTEGER, sprout BIGINT, sapling BIGINT, orchard BIGINT,
+       ironwood BIGINT'),
+    ('chain_month_shielding_flow', 'ts BIGINT PRIMARY KEY, shielded_zat BIGINT,
+       unshielded_zat BIGINT'),
+    ('chain_month_fee_kind', 'ts BIGINT, kind TEXT, median_zat BIGINT, p25_zat BIGINT,
+       p75_zat BIGINT, txs INTEGER, PRIMARY KEY (ts, kind)'),
+    ('chain_tx_kind_count', 'kind TEXT PRIMARY KEY, txs BIGINT'),
+    ('chain_tx_mixed_direction_count', 'direction TEXT PRIMARY KEY, txs BIGINT'),
+    ('chain_day_rollup', 'ts BIGINT PRIMARY KEY, top_height INTEGER, transparent INTEGER,
+       mixed INTEGER, shielded INTEGER, sprout BIGINT, sapling BIGINT, orchard BIGINT,
+       ironwood BIGINT'),
+    ('chain_day_shielding_flow', 'ts BIGINT PRIMARY KEY, shielded_zat BIGINT,
+       unshielded_zat BIGINT'),
+    ('chain_day_fee_kind', 'ts BIGINT, kind TEXT, median_zat BIGINT, p25_zat BIGINT,
+       p75_zat BIGINT, txs INTEGER, PRIMARY KEY (ts, kind)'),
+    ('chain_day_fee_total', 'ts BIGINT PRIMARY KEY, fee_zat BIGINT, blocks INTEGER,
+       blocks_covered INTEGER'),
+    -- `avg_block_bytes` is NUMERIC because AVG over an integer is.
+    ('chain_day_network', 'ts BIGINT PRIMARY KEY, avg_difficulty DOUBLE PRECISION,
+       avg_block_bytes NUMERIC, blocks INTEGER'),
+    ('chain_day_pool_migration', 'day DATE, destination TEXT, source TEXT, txs BIGINT,
+       zat BIGINT, PRIMARY KEY (day, destination, source)'),
+    ('chain_day_pool_tx', 'day DATE, pool TEXT, txs BIGINT, value_in_zat BIGINT,
+       value_out_zat BIGINT, PRIMARY KEY (day, pool)'),
+    ('chain_day_pool_boundary', 'day DATE, pool TEXT, shielded_zat BIGINT, shielded_txs BIGINT,
+       unshielded_zat BIGINT, unshielded_txs BIGINT, coinbase_zat BIGINT, coinbase_txs BIGINT,
+       hub_zat BIGINT, hub_txs BIGINT, PRIMARY KEY (day, pool)'),
+    ('chain_day_supply_close', 'day DATE PRIMARY KEY, top_height INTEGER, hash TEXT,
+       prev_hash TEXT, timestamp BIGINT, received_at BIGINT, transparent_pool_zat BIGINT,
+       sprout_pool_zat BIGINT, sapling_pool_zat BIGINT, orchard_pool_zat BIGINT,
+       ironwood_pool_zat BIGINT, lockbox_pool_zat BIGINT'),
+    -- `*_id` and `*_height` are meaningful only when the matching count is 1: fees tie.
+    ('chain_fee_extremes', 'scope TEXT PRIMARY KEY, lowest_zat BIGINT, lowest_count BIGINT,
+       highest_zat BIGINT, highest_count BIGINT, highest_id TEXT, highest_height INTEGER,
+       considered BIGINT'),
+    ('chain_fee_nonzero_floor', 'scope TEXT PRIMARY KEY, lowest_zat BIGINT,
+       lowest_count BIGINT, lowest_id TEXT, lowest_height INTEGER, considered BIGINT')
+  ) AS v(name, columns)
+  LOOP
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %I (%s)',
+      CASE (SELECT relkind FROM pg_class WHERE oid = to_regclass(r.name))
+        WHEN 'm' THEN r.name || '_next' ELSE r.name END,
+      r.columns);
+  END LOOP;
+END $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS chain_month_shielding_flow_ts_idx
-  ON chain_month_shielding_flow (ts);
+-- Per-day parts of the all-time figures, which combine exactly across disjoint days: counts sum,
+-- and extremes combine by min/max with their tie counts and minimum ids. Internal; no reader.
+CREATE TABLE IF NOT EXISTS chain_day_tx_kind_count (
+  day  DATE,
+  kind TEXT,
+  txs  BIGINT NOT NULL,
+  PRIMARY KEY (day, kind)
+);
 
--- ---------------------------------------------------------------------------------------
--- Monthly fee distribution by privacy kind. ZIP-317 prices logical actions, so a transparent sweep
--- of many UTXOs typically costs more than a small shielded spend. The matview carries the monthly
--- trend; the endpoint adds a live recent window.
---
--- Percentiles, never means: the fee distribution is heavy-tailed (it includes genuine fat-finger
--- fees), and a mean would let one mistake move a whole year's line.
---
--- Same conventions as its siblings: derived from `tx`, so its own refresh; unique index for
--- CONCURRENTLY; refreshed by the follower. Coinbase is excluded because a coinbase has no fee.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_month_fee_kind AS
-  SELECT EXTRACT(EPOCH FROM date_trunc('month', to_timestamp(timestamp)))::bigint AS ts,
-         kind,
-         percentile_cont(0.5)  WITHIN GROUP (ORDER BY fee_zat)::bigint AS median_zat,
-         percentile_cont(0.25) WITHIN GROUP (ORDER BY fee_zat)::bigint AS p25_zat,
-         percentile_cont(0.75) WITHIN GROUP (ORDER BY fee_zat)::bigint AS p75_zat,
-         count(fee_zat)::int AS txs
-    FROM tx
-   WHERE kind <> 'coinbase' AND fee_zat IS NOT NULL AND block_height IS NOT NULL
-   GROUP BY 1, 2
-   ORDER BY 1, 2;
+CREATE TABLE IF NOT EXISTS chain_day_tx_direction_count (
+  day       DATE,
+  direction TEXT,
+  txs       BIGINT NOT NULL,
+  PRIMARY KEY (day, direction)
+);
 
-CREATE UNIQUE INDEX IF NOT EXISTS chain_month_fee_kind_idx
-  ON chain_month_fee_kind (ts, kind);
-
--- Transaction counts by privacy kind, for the "A total of X transactions" lines. A COUNT(*) over
--- `tx` per page view is unaffordable; a matview refreshed on the follower's cadence makes it one
--- index seek, and a headline total that is minutes stale is honest for a figure that only grows.
--- Blocks need no counterpart (their total is tip+1), and cross-chain counts query live.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_tx_kind_count AS
-  SELECT kind, count(*)::bigint AS txs
-    FROM tx
-   WHERE block_height IS NOT NULL
-   GROUP BY kind
-   ORDER BY kind;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_tx_kind_count_idx ON chain_tx_kind_count (kind);
-
--- The same totals for the two sub-filters `mixed` refines into.
---
--- A separate view rather than a second GROUP BY column on `chain_tx_kind_count`, because that view
--- is written by the follower and read by the API, deployed at different moments: adding
--- `direction` to its GROUP BY would, during a deploy window, return several rows for 'mixed' and
--- the route's fold would publish a fraction of the MIXED total as the whole. An API that does not
--- know this view simply does not query it.
---
--- `direction IS NOT NULL` excludes not-yet-backfilled rows and makes the column non-null, which
--- lets the unique index below exist (REFRESH ... CONCURRENTLY requires one).
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_tx_mixed_direction_count AS
-  SELECT direction, count(*)::bigint AS txs
-    FROM tx
-   WHERE kind = 'mixed' AND block_height IS NOT NULL AND direction IS NOT NULL
-   GROUP BY direction
-   ORDER BY direction;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_tx_mixed_direction_count_idx
-  ON chain_tx_mixed_direction_count (direction);
-
--- ---------------------------------------------------------------------------------------
--- The daily siblings of the three monthly views above, for the chart range toggles: thirty days
--- of a monthly series is one point, so every range short of "all" needs day grain, materialised
--- for the same reason as the monthly views (the derivations scan `block` and `tx`).
---
--- Same contracts as their monthly siblings: closing pool balances via DISTINCT ON (never max, a
--- pool can fall within a day), the shielding-flow sign conventions (domain sign for value
--- balances, RPC sign for Sprout's vpub net, coinbase excluded), fee percentiles never means, and a
--- unique index on each because REFRESH ... CONCURRENTLY requires one.
---
--- The follower refreshes these hourly (see follow-main.ts), slower than the monthly set: a
--- day-grain series changes perceptibly once a day.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_rollup AS
-  WITH counts AS (
-    SELECT date_trunc('day', to_timestamp(timestamp)) AS d,
-           SUM(transparent_tx_count)::int AS transparent,
-           SUM(mixed_tx_count)::int       AS mixed,
-           SUM(shielded_tx_count)::int    AS shielded
-      FROM block GROUP BY 1
-  ),
-  closing AS (
-    SELECT DISTINCT ON (date_trunc('day', to_timestamp(timestamp)))
-           date_trunc('day', to_timestamp(timestamp)) AS d,
-           height,
-           COALESCE(sprout_pool_zat, 0)   AS sprout,
-           COALESCE(sapling_pool_zat, 0)  AS sapling,
-           COALESCE(orchard_pool_zat, 0)  AS orchard,
-           COALESCE(ironwood_pool_zat, 0) AS ironwood
-      FROM block
-     ORDER BY date_trunc('day', to_timestamp(timestamp)), height DESC
-  )
-  SELECT EXTRACT(EPOCH FROM counts.d)::bigint AS ts,
-         closing.height AS top_height,
-         counts.transparent, counts.mixed, counts.shielded,
-         closing.sprout, closing.sapling, closing.orchard, closing.ironwood
-    FROM counts JOIN closing USING (d)
-   ORDER BY counts.d;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_rollup_ts_idx ON chain_day_rollup (ts);
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_shielding_flow AS
-  WITH per_tx AS (
-    SELECT date_trunc('day', to_timestamp(timestamp)) AS d,
-           COALESCE(sapling_value_balance_zat, 0)
-         + COALESCE(orchard_value_balance_zat, 0)
-         + COALESCE(ironwood_value_balance_zat, 0)
-         - COALESCE(sprout_vpub_net_zat, 0) AS net_in
-      FROM tx
-     WHERE kind <> 'coinbase' AND block_height IS NOT NULL
-  )
-  SELECT EXTRACT(EPOCH FROM d)::bigint                        AS ts,
-         COALESCE(SUM(net_in) FILTER (WHERE net_in > 0), 0)::bigint  AS shielded_zat,
-         COALESCE(-SUM(net_in) FILTER (WHERE net_in < 0), 0)::bigint AS unshielded_zat
-    FROM per_tx
-   GROUP BY d
-   ORDER BY d;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_shielding_flow_ts_idx
-  ON chain_day_shielding_flow (ts);
+-- `scope` is 'transaction' or 'block'; `nz_*` is the same over non-zero fees only.
+CREATE TABLE IF NOT EXISTS chain_day_fee_bounds (
+  day           DATE,
+  scope         TEXT,
+  considered    BIGINT NOT NULL,
+  lo            BIGINT,
+  lo_count      BIGINT,
+  hi            BIGINT,
+  hi_count      BIGINT,
+  hi_id         TEXT,
+  hi_height     INTEGER,
+  nz_considered BIGINT NOT NULL,
+  nz_lo         BIGINT,
+  nz_lo_count   BIGINT,
+  nz_lo_id      TEXT,
+  nz_lo_height  INTEGER,
+  PRIMARY KEY (day, scope)
+);
 
 -- ---------------------------------------------------------- column rename to unshielded_zat
--- Renames the older column name to `unshielded_zat` on existing databases, where the
--- `CREATE MATERIALIZED VIEW IF NOT EXISTS` above is a no-op. Metadata-only: the data, the unique
--- `ts` index and `REFRESH ... CONCURRENTLY` all survive, so neither view is rebuilt.
+-- Renames the older column name on a database old enough to carry it. `ALTER MATERIALIZED VIEW`
+-- also renames a table's column, so this is right whichever kind of relation holds the name.
 --
 -- The exception form is required: a guard on `information_schema.columns` would silently do
--- nothing, because materialized views do not appear in `information_schema`. Catching
--- `undefined_column` cannot be fooled that way, and matches the `duplicate_object` blocks above.
+-- nothing, because materialized views do not appear in `information_schema`.
 DO $$
 BEGIN
   ALTER MATERIALIZED VIEW chain_month_shielding_flow
     RENAME COLUMN deshielded_zat TO unshielded_zat;
-EXCEPTION WHEN undefined_column THEN NULL;
+EXCEPTION WHEN undefined_column OR wrong_object_type THEN NULL;
 END $$;
 
 DO $$
 BEGIN
   ALTER MATERIALIZED VIEW chain_day_shielding_flow
     RENAME COLUMN deshielded_zat TO unshielded_zat;
-EXCEPTION WHEN undefined_column THEN NULL;
+EXCEPTION WHEN undefined_column OR wrong_object_type THEN NULL;
 END $$;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_fee_kind AS
-  SELECT EXTRACT(EPOCH FROM date_trunc('day', to_timestamp(timestamp)))::bigint AS ts,
-         kind,
-         percentile_cont(0.5)  WITHIN GROUP (ORDER BY fee_zat)::bigint AS median_zat,
-         percentile_cont(0.25) WITHIN GROUP (ORDER BY fee_zat)::bigint AS p25_zat,
-         percentile_cont(0.75) WITHIN GROUP (ORDER BY fee_zat)::bigint AS p75_zat,
-         count(fee_zat)::int AS txs
-    FROM tx
-   WHERE kind <> 'coinbase' AND fee_zat IS NOT NULL AND block_height IS NOT NULL
-   GROUP BY 1, 2
-   ORDER BY 1, 2;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_fee_kind_idx
-  ON chain_day_fee_kind (ts, kind);
-
--- ---------------------------------------------------------------------------------------
--- Total fees paid per day: what the whole network pays (miner revenue beyond the subsidy), as
--- opposed to `chain_day_fee_kind`'s percentiles of what one transaction costs.
---
--- A SUM, so derived from `block` rather than `tx`: `total_fee_zat` is already the block's summed
--- figure. Coverage travels with the total: a block's fee total is NULL when one of its
--- transactions has an unresolvable input, and a sum over the measurable blocks alone needs its
--- denominator beside it.
---
--- Daily only: the monthly grain is aggregated from these rows at query time, which is instant.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_fee_total AS
-  SELECT EXTRACT(EPOCH FROM date_trunc('day', to_timestamp(timestamp)))::bigint AS ts,
-         COALESCE(SUM(total_fee_zat), 0)::bigint AS fee_zat,
-         COUNT(*)::int                          AS blocks,
-         COUNT(total_fee_zat)::int              AS blocks_covered
-    FROM block
-   GROUP BY 1
-   ORDER BY 1;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_fee_total_ts_idx ON chain_day_fee_total (ts);
-
--- ---------------------------------------------------------------------------------------
--- The directed pool-to-pool migration matrix, one row per (day, destination, source).
---
--- `poolMigration`'s definition (src/domain/pool.ts) in SQL at day grain: no transparent side
--- (`kind = 'shielded'`), exactly one pool gaining (the destination, whose own published balance is
--- the amount) and at least one losing. Two pools gaining is the shape the domain refuses to
--- apportion and is excluded; two or more sources are filed under 'multi' rather than split.
---
--- Signs: stored bundle balances are domain sign (positive = value entering that pool) while
--- `sprout_vpub_net_zat` is RPC sign (positive = leaving Sprout), so it is negated up front and all
--- four pools then read alike.
---
--- A deliberate second copy of the classification in `POOL_MIGRATION_MATRIX_SQL`
--- (server/analytics-routes.ts): a TypeScript constant cannot be interpolated into a .sql file the
--- follower applies verbatim, so `server/__tests__/pool-matview-agreement.test.ts` runs both over
--- one window and asserts identical rows. Do not edit one without the other.
---
--- No prices are stored: `zec_price_daily` lives in `schema.sql`, which the API applies, so a join
--- here would make two separately applied schemas depend on each other. USD is a read-time join on
--- `day`, which also stays current when a close is revised; `fx_rate_daily` converts each era at its
--- own rate the same way.
---
--- WITH NO DATA is required: this file is re-applied in one transaction on every container start,
--- so populating a large aggregate here would hold locks through a boot. It is filled by
--- `npm run fill:pool-analytics` and refreshed by `refreshPoolAnalytics()`.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_pool_migration AS
-  WITH m AS (
-    SELECT timestamp AS ts,
-           COALESCE(ironwood_value_balance_zat, 0) AS iw,
-           COALESCE(orchard_value_balance_zat, 0)  AS oc,
-           COALESCE(sapling_value_balance_zat, 0)  AS sa,
-           -COALESCE(sprout_vpub_net_zat, 0)       AS sr
-      FROM tx
-     WHERE block_height IS NOT NULL
-       AND kind = 'shielded'
-  ),
-  mm AS (
-    SELECT ts,
-           CASE WHEN iw > 0 THEN 'ironwood'
-                WHEN oc > 0 THEN 'orchard'
-                WHEN sa > 0 THEN 'sapling'
-                ELSE 'sprout' END AS dest,
-           CASE WHEN iw > 0 THEN iw
-                WHEN oc > 0 THEN oc
-                WHEN sa > 0 THEN sa
-                ELSE sr END AS amt,
-           ((iw < 0)::int + (oc < 0)::int + (sa < 0)::int + (sr < 0)::int) AS nsrc,
-           CASE WHEN iw < 0 THEN 'ironwood'
-                WHEN oc < 0 THEN 'orchard'
-                WHEN sa < 0 THEN 'sapling'
-                ELSE 'sprout' END AS single_src
-      FROM m
-     WHERE ((iw > 0)::int + (oc > 0)::int + (sa > 0)::int + (sr > 0)::int) = 1
-       AND ((iw < 0)::int + (oc < 0)::int + (sa < 0)::int + (sr < 0)::int) >= 1
-  )
-  SELECT (to_timestamp(mm.ts) AT TIME ZONE 'UTC')::date            AS day,
-         mm.dest                                                   AS destination,
-         CASE WHEN mm.nsrc > 1 THEN 'multi' ELSE mm.single_src END AS source,
-         COUNT(*)                                                  AS txs,
-         SUM(mm.amt)::bigint                                       AS zat
-    FROM mm
-   GROUP BY 1, 2, 3
-  WITH NO DATA;
-
--- Required by REFRESH ... CONCURRENTLY, and it is the natural key.
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_pool_migration_key_idx
-  ON chain_day_pool_migration (day, destination, source);
-
--- ---------------------------------------------------------------------------------------
--- Per-pool transaction counts and gross value flow, one row per (day, pool), so windows wider than
--- the exact `tx` scan can afford (`POOL_TX_COUNT_MAX_BLOCKS`) are a sum over day rows.
---
--- Gross, not net: a single transaction's balance is one signed number and is never split; the
--- gross figures sum positives and negatives separately across the day's transactions.
---
--- `txs` counts transactions that used the pool, including fully shielded transfers that never
--- crossed its boundary. It is neither inflow nor shielding.
---
--- Sprout is a different quantity: it publishes no per-bundle value balance (`reportsValueBalance`),
--- so its flow here is the public JoinSplit value (`sprout_vpub_net_zat`, negated into domain sign).
--- The read layer names the difference.
---
--- No prices here either (see the view above).
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_pool_tx AS
-  WITH per_tx AS (
-    SELECT (to_timestamp(t.timestamp) AT TIME ZONE 'UTC')::date AS day,
-           pool.name AS pool,
-           pool.bal  AS bal,
-           pool.used AS used
-      FROM tx t
-      CROSS JOIN LATERAL (VALUES
-        ('sprout',
-         -COALESCE(t.sprout_vpub_net_zat, 0),
-         COALESCE(t.sprout_joinsplits, 0) > 0),
-        ('sapling',
-         COALESCE(t.sapling_value_balance_zat, 0),
-         COALESCE(t.sapling_spends, 0) > 0 OR COALESCE(t.sapling_outputs, 0) > 0),
-        ('orchard',
-         COALESCE(t.orchard_value_balance_zat, 0),
-         COALESCE(t.orchard_actions, 0) > 0),
-        ('ironwood',
-         COALESCE(t.ironwood_value_balance_zat, 0),
-         COALESCE(t.ironwood_actions, 0) > 0)
-      ) AS pool(name, bal, used)
-     WHERE t.block_height IS NOT NULL
-  )
-  SELECT day,
-         pool,
-         COUNT(*) FILTER (WHERE used)                                       AS txs,
-         COALESCE(SUM(bal) FILTER (WHERE used AND bal > 0), 0)::bigint      AS value_in_zat,
-         COALESCE(SUM(-bal) FILTER (WHERE used AND bal < 0), 0)::bigint     AS value_out_zat
-    FROM per_tx
-   GROUP BY 1, 2
-  HAVING COUNT(*) FILTER (WHERE used) > 0
-  WITH NO DATA;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_pool_tx_key_idx
-  ON chain_day_pool_tx (day, pool);
-
--- ---------------------------------------------------------------------------------------
--- Daily difficulty and average block size, materialised like its daily siblings so the series is
--- not a GROUP BY over all of `block` on every cache miss.
---
--- AVG, not a closing value: difficulty and block size are properties of each block rather than a
--- running total, so the day's mean is the honest summary.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_network AS
-  SELECT EXTRACT(EPOCH FROM date_trunc('day', to_timestamp(timestamp)))::bigint AS ts,
-         AVG(difficulty)                  AS avg_difficulty,
-         AVG(size_bytes)                  AS avg_block_bytes,
-         COUNT(*)::int                    AS blocks
-    FROM block
-   GROUP BY 1
-   ORDER BY 1;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_network_ts_idx ON chain_day_network (ts);
-
--- ---------------------------------------------------------------------------------------
--- Fee extremes: the lowest and highest fee ever paid, by a transaction and by a block. The fee
--- views serve percentiles, and a percentile is not a minimum.
---
--- Its own view rather than columns on `chain_day_fee_kind`: changing an existing matview's
--- definition means DROP + CREATE, and this file is re-applied on every start, so a redefinition
--- would re-scan `tx` on every restart; per-day tie counts would also slow views live charts depend
--- on.
---
--- WITH NO DATA, like `chain_address_balance`: populating at CREATE time would put the scan inside
--- the schema transaction. `refreshFeeExtremes` fills it, and the route answers 503 until it has.
---
--- The tie counts matter: both minima are zero and shared by very many transactions and blocks, so
--- "the lowest-fee transaction" has no single answer. `*_id` is meaningful only when the matching
--- count is 1, and every consumer must check that.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_fee_extremes AS
-  WITH tx_bounds AS (
-    SELECT min(fee_zat) AS lo, max(fee_zat) AS hi
-      FROM tx
-     WHERE kind <> 'coinbase' AND fee_zat IS NOT NULL AND block_height IS NOT NULL
-  ),
-  block_bounds AS (
-    SELECT min(total_fee_zat) AS lo, max(total_fee_zat) AS hi
-      FROM block WHERE total_fee_zat IS NOT NULL
-  )
-    -- Coinbase excluded: it pays no fee, it collects them, so including it would put a zero at the
-    -- bottom that is not a fee.
-  SELECT 'transaction'::text                                            AS scope,
-         b.lo                                                           AS lowest_zat,
-         count(*) FILTER (WHERE t.fee_zat = b.lo)::bigint               AS lowest_count,
-         b.hi                                                           AS highest_zat,
-         count(*) FILTER (WHERE t.fee_zat = b.hi)::bigint               AS highest_count,
-         min(t.txid) FILTER (WHERE t.fee_zat = b.hi)                    AS highest_id,
-         min(t.block_height) FILTER (WHERE t.fee_zat = b.hi)            AS highest_height,
-         count(*)::bigint                                               AS considered
-    FROM tx t CROSS JOIN tx_bounds b
-   WHERE t.kind <> 'coinbase' AND t.fee_zat IS NOT NULL AND t.block_height IS NOT NULL
-   GROUP BY b.lo, b.hi
-  UNION ALL
-  SELECT 'block'::text,
-         b.lo,
-         count(*) FILTER (WHERE k.total_fee_zat = b.lo)::bigint,
-         b.hi,
-         count(*) FILTER (WHERE k.total_fee_zat = b.hi)::bigint,
-         min(k.height::text) FILTER (WHERE k.total_fee_zat = b.hi),
-         min(k.height) FILTER (WHERE k.total_fee_zat = b.hi),
-         count(*)::bigint
-    FROM block k CROSS JOIN block_bounds b
-   WHERE k.total_fee_zat IS NOT NULL
-   GROUP BY b.lo, b.hi
-  WITH NO DATA;
-
--- Required for REFRESH ... CONCURRENTLY; `scope` is the natural key (two rows).
-CREATE UNIQUE INDEX IF NOT EXISTS chain_fee_extremes_scope_idx ON chain_fee_extremes (scope);
-
--- ---------------------------------------------------------------------------------------
--- The non-zero fee floor, which the extremes above cannot answer: their minimum is 0 with many
--- ties.
---
--- A separate view rather than columns on `chain_fee_extremes`: changing an existing matview means
--- DROP + CREATE, and `IF NOT EXISTS` would leave existing databases on the old definition while a
--- fresh one got the new. Same WITH NO DATA reasoning; `refreshFeeExtremes` fills both.
---
--- The id/height columns are meaningful only when `lowest_count` is 1 (small fees repeat), so every
--- consumer must check the count before naming anything.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_fee_nonzero_floor AS
-  WITH tx_lo AS (
-    SELECT min(fee_zat) AS lo
-      FROM tx
-     WHERE kind <> 'coinbase' AND fee_zat > 0 AND block_height IS NOT NULL
-  ),
-  block_lo AS (
-    SELECT min(total_fee_zat) AS lo FROM block WHERE total_fee_zat > 0
-  )
-  SELECT 'transaction'::text                                    AS scope,
-         b.lo                                                   AS lowest_zat,
-         count(*) FILTER (WHERE t.fee_zat = b.lo)::bigint       AS lowest_count,
-         min(t.txid) FILTER (WHERE t.fee_zat = b.lo)            AS lowest_id,
-         min(t.block_height) FILTER (WHERE t.fee_zat = b.lo)    AS lowest_height,
-         count(*)::bigint                                       AS considered
-    FROM tx t CROSS JOIN tx_lo b
-   WHERE t.kind <> 'coinbase' AND t.fee_zat > 0 AND t.block_height IS NOT NULL
-   GROUP BY b.lo
-  UNION ALL
-  SELECT 'block'::text,
-         b.lo,
-         count(*) FILTER (WHERE k.total_fee_zat = b.lo)::bigint,
-         min(k.height::text) FILTER (WHERE k.total_fee_zat = b.lo),
-         min(k.height) FILTER (WHERE k.total_fee_zat = b.lo),
-         count(*)::bigint
-    FROM block k CROSS JOIN block_lo b
-   WHERE k.total_fee_zat > 0
-   GROUP BY b.lo
-  WITH NO DATA;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_fee_nonzero_floor_scope_idx
-  ON chain_fee_nonzero_floor (scope);
 
 -- ---------------------------------------------------------------------------------------
 -- The transparent value range.
@@ -963,142 +618,3 @@ CREATE TABLE IF NOT EXISTS chain_rich_list_meta (
   unattributed_zat BIGINT NOT NULL DEFAULT 0,
   computed_height  INTEGER NOT NULL DEFAULT 0
 );
-
--- ---------------------------------------------------------------------------------------
--- The shielded boundary at day grain, one row per (day, pool), plus one 'hub' row per day, for
--- `/pulse`'s ribbons: how much crossed at each pool.
---
--- The SQL twin of `boundaryCrossing` (src/domain/classify.ts), a deliberate second copy because a
--- TypeScript function cannot be interpolated into a .sql file applied verbatim.
--- `server/__tests__/pulse-matview-agreement.test.ts` checks agreement by summing
--- `pulseEventForTx`'s own legs over a UTC day and comparing row for row.
---
--- The classification, in the order the domain applies it:
---
---  * `kind = 'coinbase'` is issuance, never a crossing. Its pool legs are filed under
---    `coinbase_zat` and its transparent outputs are not here at all: the mined edges are measured
---    from `chain_day_supply_close`, because coinbase outputs include collected fees.
---  * A `mixed` row follows its stored `direction` (written by the domain's `txDirection`) only
---    while no published pool contradicts it. A transaction spending transparent and Sapling into
---    Orchard is net shielding while Sapling fell; that is `boundaryCrossing`'s withdrawal, filed
---    under 'hub'.
---  * `direction = 'indeterminate'` (pools moved opposite ways) is a hub row by definition, and so
---    is a NULL direction (not yet backfilled).
---  * Sprout is not part of the contradiction test, as `publishedBalances` excludes it: it publishes
---    no per-bundle balance, so it cannot contradict anything. It still gets a leg, filed under the
---    row's direction and sized on its public JoinSplit value, a different accounting that the read
---    layer marks (`vpubDerived`).
---
--- Signs: stored bundle balances are domain sign (positive = entering) and `sprout_vpub_net_zat` is
--- RPC sign (positive = leaving), so it is negated once up front. Sprout's sign does not affect any
--- figure in this view (a leg is a magnitude filed under the row's direction), but the negation is
--- kept so a future edit that reads a sign does not inherit the RPC convention.
---
--- A pool that is present but moved nothing contributes no leg, and an absent pool contributes none
--- either: presence is tested on the bundle column, never on the balance.
---
--- WITH NO DATA, as for `chain_day_pool_migration`.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_pool_boundary AS
-  WITH per_tx AS (
-    SELECT (to_timestamp(t.timestamp) AT TIME ZONE 'UTC')::date AS day,
-           t.kind,
-           t.direction,
-           t.sprout_joinsplits,
-           t.sapling_spends,
-           t.orchard_actions,
-           t.ironwood_actions,
-           COALESCE(t.ironwood_value_balance_zat, 0) AS iw,
-           COALESCE(t.orchard_value_balance_zat, 0)  AS oc,
-           COALESCE(t.sapling_value_balance_zat, 0)  AS sa,
-           -COALESCE(t.sprout_vpub_net_zat, 0)       AS sr
-      FROM tx t
-     WHERE t.block_height IS NOT NULL
-       AND t.kind IN ('mixed', 'coinbase')
-  ),
-  filed AS (
-    SELECT p.*,
-           CASE
-             WHEN p.kind = 'coinbase' THEN 'coinbase'
-             -- Shielding, and no published pool moved the other way.
-             WHEN p.direction = 'shielding'   AND NOT (p.iw < 0 OR p.oc < 0 OR p.sa < 0)
-               THEN 'shielding'
-             WHEN p.direction = 'unshielding' AND NOT (p.iw > 0 OR p.oc > 0 OR p.sa > 0)
-               THEN 'unshielding'
-             ELSE 'hub'
-           END AS bucket
-      FROM per_tx p
-  ),
-  legs AS (
-    SELECT f.day, f.bucket, pool.name AS pool, abs(pool.bal) AS amt
-      FROM filed f
-      CROSS JOIN LATERAL (VALUES
-        ('sprout',   f.sr, f.sprout_joinsplits IS NOT NULL),
-        ('sapling',  f.sa, f.sapling_spends    IS NOT NULL),
-        ('orchard',  f.oc, f.orchard_actions   IS NOT NULL),
-        ('ironwood', f.iw, f.ironwood_actions  IS NOT NULL)
-      ) AS pool(name, bal, present)
-     WHERE pool.present AND pool.bal <> 0
-  )
-  SELECT day,
-         pool,
-         COALESCE(SUM(amt) FILTER (WHERE bucket = 'shielding'), 0)::bigint    AS shielded_zat,
-         COUNT(*) FILTER (WHERE bucket = 'shielding')::bigint                 AS shielded_txs,
-         COALESCE(SUM(amt) FILTER (WHERE bucket = 'unshielding'), 0)::bigint  AS unshielded_zat,
-         COUNT(*) FILTER (WHERE bucket = 'unshielding')::bigint               AS unshielded_txs,
-         COALESCE(SUM(amt) FILTER (WHERE bucket = 'coinbase'), 0)::bigint     AS coinbase_zat,
-         COUNT(*) FILTER (WHERE bucket = 'coinbase')::bigint                  AS coinbase_txs,
-         0::bigint                                                            AS hub_zat,
-         0::bigint                                                            AS hub_txs
-    FROM legs
-   GROUP BY 1, 2
-  UNION ALL
-    -- The unsettled rows, counted once each rather than per pool: a hub transaction's legs do not
-    -- pair, so attributing its count to each pool would report one movement several times.
-    -- `hub_zat` is the total magnitude its pools moved, deliberately not a directed flow.
-  SELECT day,
-         'hub'                                                  AS pool,
-         0::bigint, 0::bigint, 0::bigint, 0::bigint, 0::bigint, 0::bigint,
-         SUM(abs(iw) + abs(oc) + abs(sa) + abs(sr))::bigint     AS hub_zat,
-         COUNT(*)::bigint                                       AS hub_txs
-    FROM filed
-   WHERE bucket = 'hub'
-   GROUP BY 1
-  WITH NO DATA;
-
--- Required by REFRESH ... CONCURRENTLY, and it is the natural key.
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_pool_boundary_key_idx
-  ON chain_day_pool_boundary (day, pool);
-
--- ---------------------------------------------------------------------------------------
--- The six value-pool closes at the last block of each UTC day, for `/pulse`.
---
--- `chain_day_rollup` carries four of them but coalesces each to zero, right for a chart and wrong
--- here: the mined edge is the difference of the six closes, so a pool read as zero would make the
--- difference wrong. `issuanceZatBetween` refuses the whole answer when any close is absent, which
--- needs the absence to survive the view.
---
--- DISTINCT ON (day) ... ORDER BY day, height DESC is the closing balance, never max(): a pool can
--- fall within a day.
---
--- The hash and header time ride along so a reader of this view is a `PulseBlockPools` without
--- inventing anything: a figure names the block it was measured at.
-CREATE MATERIALIZED VIEW IF NOT EXISTS chain_day_supply_close AS
-  SELECT DISTINCT ON ((to_timestamp(timestamp) AT TIME ZONE 'UTC')::date)
-         (to_timestamp(timestamp) AT TIME ZONE 'UTC')::date AS day,
-         height AS top_height,
-         hash,
-         prev_hash,
-         timestamp,
-         received_at,
-         transparent_pool_zat,
-         sprout_pool_zat,
-         sapling_pool_zat,
-         orchard_pool_zat,
-         ironwood_pool_zat,
-         lockbox_pool_zat
-    FROM block
-   ORDER BY (to_timestamp(timestamp) AT TIME ZONE 'UTC')::date, height DESC
-  WITH NO DATA;
-
-CREATE UNIQUE INDEX IF NOT EXISTS chain_day_supply_close_day_idx
-  ON chain_day_supply_close (day);
