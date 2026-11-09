@@ -1,6 +1,12 @@
 import type { Pool } from "pg";
 import { describe, expect, it } from "vitest";
-import { NU7_HEIGHT, REISSUANCE_START_HEIGHT, type NsmOverview } from "@/domain";
+import {
+  NEXT_HALVING_HEIGHT,
+  NU7_HEIGHT,
+  REISSUANCE_START_HEIGHT,
+  scheduledIssuanceThroughZat,
+  type NsmOverview,
+} from "@/domain";
 import {
   loadNsmDays,
   loadNsmPrefix,
@@ -8,6 +14,7 @@ import {
   NSM_SPAN_SQL,
   nsmCarriedInZat,
   nsmDaysOf,
+  subsidyStretches,
   type NsmDayRow,
 } from "../miners-nsm";
 import { minersRoutes } from "../miners-routes";
@@ -33,6 +40,7 @@ const ROWS: NsmDayRow[] = [
     fee_blocks: 3,
     fees: "1000",
     nsm: "600",
+    issued: "156249999",
   },
   {
     day: "2026-11-07",
@@ -42,6 +50,7 @@ const ROWS: NsmDayRow[] = [
     fee_blocks: 2,
     fees: "15",
     nsm: "8",
+    issued: "104166666",
   },
   {
     day: "2026-11-08",
@@ -51,6 +60,7 @@ const ROWS: NsmDayRow[] = [
     fee_blocks: 1,
     fees: "10",
     nsm: "6",
+    issued: "52083333",
   },
 ];
 
@@ -111,6 +121,7 @@ describe("nsmDaysOf", () => {
       blocks: 3,
       feeZat: 1000,
       nsmZat: 600,
+      issuedZat: 156_249_999,
       closeUsd: 500,
       partial: false,
     });
@@ -129,6 +140,8 @@ describe("nsmDaysOf", () => {
   it("leaves every day unknown when the index has a gap", () => {
     const days = nsmDaysOf(ROWS, closes, "2026-11-08", false);
     expect(days.every((d) => d.feeZat === null && d.nsmZat === null)).toBe(true);
+    // A missing block's subsidy is in no row either.
+    expect(days.every((d) => d.issuedZat === null)).toBe(true);
   });
 });
 
@@ -144,17 +157,22 @@ describe("loadNsmDays", () => {
     expect(o.days.map((d) => d.nsmZat)).toEqual([600, 8, 6]);
     expect(o.days[0]!.closeUsd).toBe(500);
     // The days query, by height from NU7 and from activation's midnight.
-    expect(seen).toContainEqual([NU7_HEIGHT, NOV_6]);
+    expect(seen).toContainEqual([
+      NU7_HEIGHT,
+      NOV_6,
+      subsidyStretches().starts,
+      subsidyStretches().subsidies,
+    ]);
     // Closes up to yesterday: today's bar is not a close.
     expect(seen).toContainEqual(["2026-11-06", "2026-11-08"]);
   });
 
-  it("trails the last 90 days once NU7 is older", async () => {
+  it("trails the last 366 days once NU7 is older", async () => {
     const seen: unknown[][] = [];
-    const later = NOW + 200 * 86_400;
+    const later = NOW + 500 * 86_400;
     await loadNsmDays(fakePool({ activation: ACTIVATION_TS, rows: [] }, seen), later);
     const today = Math.floor(later / 86_400) * 86_400;
-    expect(seen).toContainEqual([NU7_HEIGHT, today - 89 * 86_400]);
+    expect(seen.map((p) => p.slice(0, 2))).toContainEqual([NU7_HEIGHT, today - 365 * 86_400]);
   });
 
   it("has no days before the index holds the activation block", async () => {
@@ -261,5 +279,37 @@ describe("GET /chain/miners/nsm", () => {
     expect(body.balance).toBeNull();
     expect(body.days).toHaveLength(3);
     expect(logged.join()).toMatch(/node timeout/);
+  });
+});
+
+describe("subsidyStretches", () => {
+  it("starts at NU7 with the node's subsidy, and steps at each halving and reissuance", () => {
+    const { starts, subsidies } = subsidyStretches();
+    // `getblocksubsidy(3,543,405)`: 1.5625 ZEC over three, floored.
+    expect([starts[0], subsidies[0]]).toEqual([NU7_HEIGHT, 52_083_333]);
+    expect(starts[1]).toBe(NEXT_HALVING_HEIGHT);
+    expect(subsidies[1]).toBe(26_041_666);
+    expect(subsidies.at(-1)).toBe(0);
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+  });
+
+  it("sums, over any contiguous range, to what the schedule issued between its ends", () => {
+    const { starts, subsidies } = subsidyStretches();
+    // What `width_bucket(height, starts)` picks in SQL: the last stretch starting at or below.
+    const subsidyAt = (h: number) => subsidies[starts.findLastIndex((s) => s <= h)]!;
+    const summed = (lo: number, hi: number) => {
+      let total = 0;
+      for (let h = lo; h <= hi; h += 1) total += subsidyAt(h);
+      return total;
+    };
+    for (const [lo, hi] of [
+      [NU7_HEIGHT, NU7_HEIGHT + 3_455],
+      [NEXT_HALVING_HEIGHT - 1_000, NEXT_HALVING_HEIGHT + 1_000],
+      [REISSUANCE_START_HEIGHT - 10, REISSUANCE_START_HEIGHT + 10],
+    ] as const) {
+      expect(summed(lo, hi), `${lo}..${hi}`).toBe(
+        scheduledIssuanceThroughZat(hi) - scheduledIssuanceThroughZat(lo - 1),
+      );
+    }
   });
 });

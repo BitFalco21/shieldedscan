@@ -1,4 +1,11 @@
-import { NU7_HEIGHT, minerFeeShareZat, utcDayOf, type NsmDay, type NsmOverview } from "@/domain";
+import {
+  NU7_HEIGHT,
+  minerFeeShareZat,
+  scheduledSubsidyZat,
+  utcDayOf,
+  type NsmDay,
+  type NsmOverview,
+} from "@/domain";
 import { DAY_SECONDS } from "@/domain/time";
 import { chainInfo } from "./chain";
 import { TIP_TIME } from "./ids";
@@ -35,6 +42,7 @@ export function getNsmOverview(): NsmOverview {
       blocks,
       feeZat: blocks * feePerBlock,
       nsmZat: blocks * nsmPerBlock,
+      issuedZat: blocks * scheduledSubsidyZat(NU7_HEIGHT),
       closeUsd:
         i === 0 ? null : Math.round(chainInfo.priceUsd! * (1 + 0.03 * Math.sin(k)) * 100) / 100,
       partial: i === 0,

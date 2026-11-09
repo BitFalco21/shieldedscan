@@ -5,6 +5,7 @@ import type {
   ShieldedSupplyPoint,
   SupplyBreakdown,
 } from "@/domain";
+import { AnonymitySetLinks } from "./AnonymitySetLinks";
 import { IronwoodPanel } from "./IronwoodPanel";
 import { SupplyBreakdownPanel } from "./SupplyBreakdownPanel";
 import { shieldedShareOfCirculatingPct, totalShieldedZat, nu7ActiveAt } from "@/domain";
@@ -91,6 +92,21 @@ export function ShieldedPage({ chain, pools, series, supply, ironwood }: Shielde
           and this says where its contents came from. */}
       <IronwoodPanel inflow={ironwood} nu7Active={nu7ActiveAt(network, chain.height)} />
 
+      {/* How far Orchard has emptied into Ironwood: the /charts figure. Only its own series
+          crosses to the browser, never the hourly balance or the migration windows. */}
+      {ironwood?.orchardDrain && (
+        <Panel title="ORCHARD MIGRATING TO IRONWOOD" className="mt-3">
+          <div className="py-3">
+            <ChartFigure
+              slug="orchard-migration"
+              data={chartData({
+                ironwood: { ...ironwood, balance: [], migrations: undefined },
+              })}
+            />
+          </div>
+        </Panel>
+      )}
+
       <Panel title="TOTAL SHIELDED SUPPLY OVER TIME" className="mt-3">
         <div className="py-3">
           {/* The single renderer /charts uses — same configuration, same range toggle. */}
@@ -111,6 +127,8 @@ export function ShieldedPage({ chain, pools, series, supply, ironwood }: Shielde
           </p>
         ) : null}
       </Panel>
+
+      <AnonymitySetLinks />
 
       {/* Side by side: the veil states what is hidden, the panel how the totals are known
           anyway. The grid stretches both to the row's height. */}

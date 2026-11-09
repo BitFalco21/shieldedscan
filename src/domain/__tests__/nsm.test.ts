@@ -8,6 +8,7 @@ const day = (d: string, over: Partial<NsmDay> = {}): NsmDay => ({
   blocks: 3_456,
   feeZat: 1_000_000,
   nsmZat: 600_000,
+  issuedZat: 180_000_000_000,
   closeUsd: 500,
   partial: false,
   ...over,

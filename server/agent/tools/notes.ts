@@ -218,6 +218,8 @@ From NU7 (ZIP 235) each block moves 60% of its fees into the NSM — floor(6 × 
 
 \`balance.amount\` is the node's own NSM balance at \`balance.height\`. It is LARGER THAN THE FEES because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis: \`carriedIn\`. \`fromFees\` is the rest, every block's fee share since NU7, so balance = carriedIn + fromFees. A null balance means the node could not be read just now — our gap, never zero.
 
+ISSUANCE: \`issued\` is the ZEC the SAME BLOCKS created by the scheduled subsidy (funding streams included), per day and over the window, and \`issuedNetOfNsm\` is issued less \`toNsm\`: the new ZEC added to circulation net of what the NSM removed. Quote them for \`how much ZEC was issued yesterday\` or \`net of the NSM\`; never multiply a subsidy by a block count yourself. A day marked \`partial\` is today, still running: for yesterday take the last day that is not partial.
+
 \`toNsmValueUsd\` and \`toMinersValueUsd\` are US DOLLARS ONLY, each closed UTC day at its own close and today at the live price. THE WINDOW is the last 7, 30, 90 or 365 whole UTC days or all of history, today unfinished; one that opens before NU7 is summed from activation (\`sinceActivation\`) — say so.
 
 Published on /miners.`;
@@ -242,7 +244,7 @@ export const POOL_USAGE_NOTE = `HOW EACH SHIELDED POOL WAS USED in the period, f
 
 \`transactions.total\` counts transactions that USED the pool, meaning they carried a bundle in it. It splits exactly into \`fullyShielded\`, \`mixed\` (with \`mixedByDirection\`: shielding, unshielding, indeterminate) and \`coinbase\`. Using a pool is not moving value across its boundary: a fully shielded transfer inside a pool used it and crossed nothing. A pool migration uses two pools and is counted in BOTH, so the pools NEVER add up to a chain total.
 
-\`bundle\` is the pool's own component count: Sapling spends and outputs, Orchard and Ironwood actions, Sprout JoinSplits. \`notes.atClose\` is the pool's note commitment tree at the period's last block, meaning every note ever created in the pool, spent or not. It is the ANONYMITY SET a spend from that pool hides in, and it only grows. \`notes.created\` is how many of those notes the period added. Sprout's tree is not reported, and \`unknowns\` says so.
+\`bundle\` is the pool's own component count: Sapling spends and outputs, Orchard and Ironwood actions, Sprout JoinSplits. \`notes.atClose\` is the pool's note commitment tree at the period's last block, meaning every note ever created in the pool, spent or not. It is the ANONYMITY SET a spend from that pool hides in, and it only grows. \`notes.created\` is how many NOTES the period ADDED to that tree, the set's growth: every Sapling output and every Orchard or Ironwood action creates exactly one note, so it equals \`bundle.outputs\` for Sapling and \`bundle.actions\` for Orchard and Ironwood (two Sapling days so far differ by one note, where miner timestamps ran backwards across midnight). Quote it as the notes added; never subtract two closes yourself, and never add pools together, since a spend hides only among its own pool's notes. Sprout's tree is not reported, and \`unknowns\` says so.
 
 \`totals\` covers the whole period; with a grouping, \`points\` gives each day or month. Repeat anything \`coverage.notes\` says.`;
 

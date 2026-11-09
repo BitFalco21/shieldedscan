@@ -8,6 +8,9 @@ import {
   blocksTargetForDay,
   issuanceOutlook,
   poolsToMajority,
+  netIssuedZat,
+  notesAdded,
+  orchardDrainSeries,
   shieldedSplits,
   NU7,
   NU7_RELEASES,
@@ -95,7 +98,12 @@ export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   // A projection to 2040: a 30-day window of it would be a flat line.
   "supply-issuance",
   "pools-to-majority",
+  // From NU7, and read over its trailing 366 days at most.
+  "issuance-vs-nsm",
 ]);
+
+/** The span under which a series is drawn by day even at ALL: under four months, months are too few. */
+const MONTHLY_MIN_SPAN = 120 * 86_400;
 
 /** Chains drawn on their own in the inflow and outflow charts; the rest fold into one band. */
 export const CHAINS_SHOWN = 6;
@@ -360,6 +368,50 @@ export function chartTable(
           { name: "sapling_notes", value: (p) => p.saplingNotes },
           { name: "orchard_notes", value: (p) => p.orchardNotes },
           { name: "ironwood_notes", value: (p) => p.ironwoodNotes },
+        ],
+      );
+    }
+    case "orchard-migration": {
+      const drain = data.ironwood?.orchardDrain;
+      if (!drain) return null;
+      return table(
+        "day",
+        sliceRange(orchardDrainSeries(drain), (p) => p.timestamp, range),
+        [
+          { name: "migrated_to_ironwood_zat", value: (p) => p.cumulativeZat },
+          { name: "orchard_remaining_zat", value: (p) => p.orchardZat },
+          { name: "migrated_that_day_zat", value: (p) => p.migratedZat },
+          { name: "share_of_pre_activation_orchard_pct", value: (p) => p.sharePct },
+          { name: "close_height", value: (p) => p.closeHeight },
+        ],
+      );
+    }
+    case "issuance-vs-nsm": {
+      if (!data.nsm) return null;
+      // Complete days only: today, still running, would end the lines in a collapse.
+      const days = data.nsm.days
+        .filter((d) => !d.partial)
+        .map((d) => ({ ...d, timestamp: Date.parse(`${d.day}T00:00:00Z`) / 1000 }));
+      return table("day", days, [
+        { name: "issued_zat", value: (d) => d.issuedZat },
+        { name: "to_nsm_zat", value: (d) => d.nsmZat },
+        { name: "issued_net_of_nsm_zat", value: (d) => netIssuedZat(d) },
+        { name: "blocks", value: (d) => d.blocks },
+      ]);
+    }
+    case "notes-added": {
+      if (!data.noteTrees) return null;
+      // Months only where there are enough of them to draw: a young series stays by day.
+      const span = (data.noteTrees.at(-1)?.timestamp ?? 0) - (data.noteTrees[0]?.timestamp ?? 0);
+      const g = grain === "month" && span < MONTHLY_MIN_SPAN ? "day" : grain;
+      // Growth over the whole history first, so a window's first day keeps its base.
+      return table(
+        g,
+        sliceRange(notesAdded(data.noteTrees, g), (p) => p.timestamp, range),
+        [
+          { name: "sapling_notes_added", value: (p) => p.sapling },
+          { name: "orchard_notes_added", value: (p) => p.orchard },
+          { name: "ironwood_notes_added", value: (p) => p.ironwood },
         ],
       );
     }

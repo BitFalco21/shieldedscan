@@ -2,6 +2,8 @@ import type { Pool } from "pg";
 import {
   NU7_HEIGHT,
   REISSUANCE_START_HEIGHT,
+  nextSubsidyChangeHeight,
+  scheduledSubsidyZat,
   utcDayOf,
   type NsmDay,
   type NsmOverview,
@@ -11,26 +13,48 @@ import "./pg-types";
 
 /**
  * The NSM's daily series for `/miners`, read from `block` by height from NU7 on: every block,
- * whatever its coinbase, because the fee split is public. Bounded by the page's longest window,
- * so a read is at most 90 days of blocks on the primary key, memoised by the route.
+ * whatever its coinbase, because the fee split is public. Bounded by the longest window it serves,
+ * a year (`1y`, and `all` until NU7 is a year old), so a read is at most 366 days of blocks on the
+ * primary key, memoised by the route.
  *
  * The NSM's share is `floor(6 × fees / 10)` on each block's own total, summed per day, the rounding
  * `minerFeeShareZat` and the miners rollup (`mining-daily.ts`) use; the day of a block is the UTC
  * day of its timestamp, as `nsm_daily` in the open dataset has it, so the two agree day by day.
  */
 
-/** The trailing days served: the longest window `/miners` offers. */
-export const NSM_SERIES_DAYS = 90;
+/** The trailing days served: `1y`'s 365 and one, so a year's window is whole whatever the hour. */
+export const NSM_SERIES_DAYS = 366;
 
 export const NSM_DAYS_SQL = `
   SELECT to_char((to_timestamp(timestamp) AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
          count(*)::int AS blocks, min(height) AS lo, max(height) AS hi,
          count(total_fee_zat)::int AS fee_blocks,
          sum(total_fee_zat)::text AS fees,
-         sum((total_fee_zat * 6) / 10)::text AS nsm
+         sum((total_fee_zat * 6) / 10)::text AS nsm,
+         sum(($4::bigint[])[width_bucket(height, $3::int[])])::text AS issued
     FROM block
    WHERE height >= $1::int AND timestamp >= $2::bigint
    GROUP BY 1 ORDER BY 1`;
+
+/**
+ * The scheduled subsidy as stretches of constant per-block amount from NU7 on: `starts[i]` is the
+ * first height paying `subsidies[i]`. `width_bucket(height, starts)` picks a block's stretch in
+ * SQL, so a day's issuance is summed block by block, exactly, even across a halving. Runs to the
+ * last block that pays a zatoshi.
+ */
+export function subsidyStretches(from = NU7_HEIGHT): { starts: number[]; subsidies: number[] } {
+  const starts: number[] = [];
+  const subsidies: number[] = [];
+  for (let h = from; starts.length < 64; h = nextSubsidyChangeHeight(h)) {
+    const subsidy = scheduledSubsidyZat(h);
+    starts.push(h);
+    subsidies.push(subsidy);
+    if (subsidy === 0) break;
+  }
+  return { starts, subsidies };
+}
+
+const STRETCHES = subsidyStretches();
 
 export interface NsmDayRow {
   day: string;
@@ -40,6 +64,7 @@ export interface NsmDayRow {
   fee_blocks: number;
   fees: string | null;
   nsm: string | null;
+  issued: string | null;
 }
 
 /**
@@ -61,6 +86,7 @@ export function nsmDaysOf(
       blocks: r.blocks,
       feeZat: known ? Number(r.fees) : null,
       nsmZat: known ? Number(r.nsm) : null,
+      issuedZat: contiguous && r.issued !== null ? Number(r.issued) : null,
       closeUsd: partial ? null : (closes.get(r.day) ?? null),
       partial,
     };
@@ -85,7 +111,7 @@ export async function loadNsmDays(
   const activationStart = Math.floor(Number(at.timestamp) / DAY_SECONDS) * DAY_SECONDS;
   const from = Math.max(activationStart, todayStart - (NSM_SERIES_DAYS - 1) * DAY_SECONDS);
   const [days, prices] = await Promise.all([
-    pool.query<NsmDayRow>(NSM_DAYS_SQL, [NU7_HEIGHT, from]),
+    pool.query<NsmDayRow>(NSM_DAYS_SQL, [NU7_HEIGHT, from, STRETCHES.starts, STRETCHES.subsidies]),
     pool.query<{ day: string; usd: number }>(
       `SELECT to_char(day, 'YYYY-MM-DD') AS day, usd FROM zec_price_daily
         WHERE day >= $1::date AND day < $2::date`,

@@ -172,16 +172,19 @@ describe("the MCP tools are the /api-docs catalogue", () => {
     });
   });
 
-  it("costs an assistant at most 45 KB of tool definitions", () => {
+  it("costs an assistant at most 46 KB of tool definitions", () => {
     // The tool list is paid for in every conversation that connects (~44.7 KB for 35 tools since
     // analytics_miners became the five-view `miners` tool, paid for by shorter tool notes on
     // nodes, activity, pool usage, address windows and cross-chain totals). A
     // regression guard set just above the measured size, not a target: a new tool must be paid
-    // for by trimming another.
+    // for by trimming another. Raised once, 45 KB to 46 KB, for the five Nov 2026 chart datasets
+    // (anonymity set, Orchard→Ironwood, NSM issuance, mining majority, cross-chain by chain; exchange
+    // reserves, coin age, block arrival and node history follow), each a view or field of an
+    // existing tool, no new tool.
     const bytes = new TextEncoder().encode(
       JSON.stringify({ tools: tools.map((t) => t.tool) }),
     ).length;
-    expect(bytes).toBeLessThan(45 * 1024);
+    expect(bytes).toBeLessThan(46 * 1024);
   });
 });
 

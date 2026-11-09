@@ -5,6 +5,8 @@ import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
 import { Unmeasured } from "@/components/Unmeasured";
 import { formatCount, formatUsd, formatZec, formatZecSupply } from "@/lib/format";
+import { ChartFigure } from "@/features/charts/ChartFigure";
+import { chartData } from "@/features/charts/chart-data";
 import { NsmFeesChart } from "./NsmFeesChart";
 import { dayLabel, usdText } from "./miners-view";
 
@@ -124,6 +126,11 @@ export function NsmSection({ nsm, fromDay, toDay, livePriceUsd }: NsmSectionProp
             Every block from {formatCount(nsm.activationHeight)}, shielded coinbase included: fees
             are public.
           </p>
+        </Panel>
+      )}
+      {nsm.days.filter((d) => !d.partial).length < 2 ? null : (
+        <Panel title="ISSUED VS REMOVED INTO THE NSM" className="mt-3">
+          <ChartFigure slug="issuance-vs-nsm" data={chartData({ nsm })} />
         </Panel>
       )}
     </section>

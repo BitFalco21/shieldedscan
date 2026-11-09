@@ -84,6 +84,7 @@ import {
   isMinersOverview,
   isMinerSeries,
   isNsmOverview,
+  isOrchardDrain,
   isMiningPoolBlocks,
   isPulseRibbonWindow,
   isReorgEvent,
@@ -472,7 +473,9 @@ export function createChainApiSource(config: ChainApiConfig) {
         typeof i.fromTransparentTxCount !== "number" ||
         typeof i.minedZat !== "number" ||
         typeof i.feesPaidZat !== "number" ||
-        !Array.isArray(i.balance)
+        !Array.isArray(i.balance) ||
+        // Optional: an API predating it omits the key, and the chart says unavailable.
+        (i.orchardDrain !== undefined && !isOrchardDrain(i.orchardDrain))
       ) {
         throw new Error("chain API returned an unrecognised ironwood inflow shape");
       }

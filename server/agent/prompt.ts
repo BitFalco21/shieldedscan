@@ -19,7 +19,7 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 48;
+export const SYSTEM_PROMPT_VERSION = 49;
 
 /**
  * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
@@ -29,10 +29,11 @@ export const SYSTEM_PROMPT_VERSION = 48;
  * `chain_status`; v43 is v42 plus the data-file section (as v41 was v40 plus it). v44 without
  * exports and v45 with them add the mining pools and the NSM to `chain_activity`; v46 and v47 say
  * the pools' windows reach 365 days and all of history, and their monthly series back to 2016;
- * v47 and v48 add each month's pools-to-51% and the shielded-capable share per source chain. Each
- * number is new, so no version names two texts.
+ * v47 and v48 add each month's pools-to-51% and the shielded-capable share per source chain;
+ * v49, and v48 without exports, add the notes each pool's tree gained, Orchard's migration into
+ * Ironwood and each day's issuance net of the NSM.
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 47;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 48;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>

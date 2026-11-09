@@ -967,6 +967,38 @@ export const IRONWOOD_INFLOW: IronwoodInflow = {
       ],
     },
   },
+  // Orchard emptying into Ironwood. Through the last day, 736,000 ZEC migrated from Orchard alone:
+  // exactly 18.4% of the 4,000,000 ZEC Orchard held at the block before activation, so the share
+  // has one right answer, and 3,180,000 ZEC remain (Orchard also lost some to unshielding and
+  // fees, so the two do not sum to the base).
+  orchardDrain: {
+    activationHeight: 3_428_143,
+    baseHeight: 3_428_142,
+    baseOrchardZat: 400_000_000_000_000,
+    days: [
+      {
+        timestamp: 1_785_196_800,
+        closeHeight: 3_429_000,
+        orchardZat: 360_000_000_000_000,
+        migratedZat: 38_000_000_000_000,
+        multiSourceZat: 400_000_000_000,
+      },
+      {
+        timestamp: 1_785_283_200,
+        closeHeight: 3_430_150,
+        orchardZat: 335_000_000_000_000,
+        migratedZat: 24_000_000_000_000,
+        multiSourceZat: 300_000_000_000,
+      },
+      {
+        timestamp: 1_785_369_600,
+        closeHeight: 3_431_300,
+        orchardZat: 318_000_000_000_000,
+        migratedZat: 11_600_000_000_000,
+        multiSourceZat: 110_000_000_000,
+      },
+    ],
+  },
 };
 
 /** The oldest day in both daily fixtures, a UTC midnight. Days run forward from here. */

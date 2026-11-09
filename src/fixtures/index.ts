@@ -35,6 +35,7 @@ import type {
   TxKindFilter,
   Fees24h,
   IronwoodInflow,
+  OrchardDrain,
   ShieldingFlowPoint,
   FeeDistribution,
 } from "@/domain";
@@ -314,6 +315,37 @@ export function getIronwoodInflow(): IronwoodInflow | null {
       return {
         timestamp: 1_785_247_620 + i * 3_600,
         ironwoodZat: Math.round(finalZat * (1 - (1 - x) ** 2)),
+      };
+    }),
+    orchardDrain: orchardDrainFixture(),
+  };
+}
+
+/**
+ * Orchard emptying into Ironwood over the 30 days from activation, eased like the balance above.
+ * Everything migrated by the last day is `netFromOrchardZat`, and Orchard's last close is the
+ * pool card's 1,940,000 ZEC, so the page tells one story. Orchard falls a little more than it
+ * sends: fees are paid on the way, and some leaves by unshielding.
+ */
+function orchardDrainFixture(): OrchardDrain {
+  const days = 30;
+  const baseZat = 250_000_000_000_000;
+  const migratedTotal = 53_141_396_100_000;
+  const finalOrchard = 194_000_000_000_000;
+  const ease = (i: number) => 1 - (1 - (i + 1) / days) ** 2;
+  const start = Date.UTC(2026, 6, 28) / 1000;
+  return {
+    activationHeight: 3_428_143,
+    baseHeight: 3_428_142,
+    baseOrchardZat: baseZat,
+    days: Array.from({ length: days }, (_, i) => {
+      const before = i === 0 ? 0 : Math.round(migratedTotal * ease(i - 1));
+      return {
+        timestamp: start + i * 86_400,
+        closeHeight: 3_428_400 + i * 1_152,
+        orchardZat: Math.round(baseZat - (baseZat - finalOrchard) * ease(i)),
+        migratedZat: Math.round(migratedTotal * ease(i)) - before,
+        multiSourceZat: i % 4 === 0 ? 30_000_000_000 : 0,
       };
     }),
   };

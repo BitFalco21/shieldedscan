@@ -52,5 +52,7 @@ export * from "./plot-chart";
 export * from "./mining-pools";
 export * from "./miners";
 export * from "./nsm";
+export * from "./notes-added";
+export * from "./orchard-drain";
 export * from "./data-export";
 export * from "./destinations";

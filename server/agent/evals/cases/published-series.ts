@@ -26,6 +26,40 @@ export const PUBLISHED_SERIES: EvalCase[] = [
     mustContain: [/50,?281,?176|50\.28 ?million/],
   },
   {
+    id: "pools-notes-added",
+    category: "insights",
+    world: "fixture",
+    /*
+     * The growth is published as `notes.created`, equal to Orchard's action count: quoted, never
+     * worked out from two tree sizes, and never a total over pools.
+     */
+    question: "how many notes were added to the Orchard pool last month?",
+    mustCall: ["chain_activity"],
+    mustContain: [/126,?717/],
+    mustNotContain: [/50,?154,?459/],
+  },
+  {
+    id: "orchard-share-migrated",
+    category: "insights",
+    world: "fixture",
+    /*
+     * The share has one stated denominator, Orchard before NU6.3. The forbid is the share taken
+     * against Ironwood's balance instead (736,000 of 825,000).
+     */
+    question: "what share of Orchard has migrated to Ironwood so far?",
+    mustCall: ["explorer_insights"],
+    mustContain: [/18\.4\s?%/, /4,?000,?000|before (?:NU6\.3|activation)/i],
+    mustNotContain: [/89\.2\s?%/],
+  },
+  {
+    id: "orchard-remaining",
+    category: "insights",
+    world: "fixture",
+    question: "how much ZEC is left in the Orchard pool after the migration to Ironwood started?",
+    mustCall: ["explorer_insights"],
+    mustContain: [/3,?180,?000/],
+  },
+  {
     id: "pool-balances-monthly",
     category: "insights",
     world: "fixture",

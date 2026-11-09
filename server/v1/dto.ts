@@ -1068,6 +1068,10 @@ export interface V1NsmDay {
   /** 60% of each block's fees, floor-rounded per block (ZIP 235). */
   toNsm: V1Amount | null;
   toMiners: V1Amount | null;
+  /** The scheduled subsidy the day's blocks issued, funding streams included. */
+  issued: V1Amount | null;
+  /** `issued` less `toNsm`: new ZEC the day added to circulation, net of ZIP 235's removal. */
+  issuedNetOfNsm: V1Amount | null;
   /** The day's stored close; null for today, which has none yet. */
   usdClose: number | null;
 }
@@ -1100,6 +1104,8 @@ export interface V1Nsm {
       fees: V1Amount | null;
       toNsm: V1Amount | null;
       toMiners: V1Amount | null;
+      issued: V1Amount | null;
+      issuedNetOfNsm: V1Amount | null;
       toNsmValueUsd: V1ValueUsd | null;
       toMinersValueUsd: V1ValueUsd | null;
     } | null;

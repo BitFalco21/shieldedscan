@@ -1270,7 +1270,7 @@ export const MINING_GROUP: ApiGroup = {
       path: "/v1/analytics/nsm",
       title: "The NSM: fees in, and its balance",
       description:
-        "From NU7: the fees moved into the Network Sustainability Mechanism (60%) and kept by miners, per day and over the window, and the NSM balance now.",
+        "From NU7: the fees moved into the Network Sustainability Mechanism (60%) and kept by miners, the ZEC issued net of it, per day and over the window, and the NSM balance now.",
       params: [
         {
           name: "window",
@@ -1296,7 +1296,7 @@ export const MINING_GROUP: ApiGroup = {
     "name": "ShieldedScan",
     "url": "https://shieldedscan.xyz/miners"
   },
-  "basis": "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at \`balance.height\`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (\`carriedIn\`); \`fromFees\` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. \`toNsmValueUsd\` and \`toMinersValueUsd\` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
+  "basis": "From NU7 (ZIP 235) each block moves floor(6 × fees / 10) of its fees into the NSM (Network Sustainability Mechanism) and leaves the rest to the miner, summed per UTC day over every block whatever its coinbase: a block's fee total is public. The balance is the node's own figure at \`balance.height\`. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis (\`carriedIn\`); \`fromFees\` is the rest, every block's fee share from NU7 to that height. No reissuance has left the balance yet. \`issued\` is the scheduled subsidy the same blocks issued, funding streams included, and \`issuedNetOfNsm\` is \`issued\` less \`toNsm\`: new ZEC added to circulation net of ZIP 235's removal. \`toNsmValueUsd\` and \`toMinersValueUsd\` value each closed UTC day at that day's stored close and today at the live price. Windows are the last 7, 30, 90 or 365 UTC days, today unfinished, or all of history.",
   "data": {
     "activationHeight": 3543405,
     "activationDay": "2026-11-06",
@@ -1337,6 +1337,14 @@ export const MINING_GROUP: ApiGroup = {
         "zat": 153081747,
         "zec": "1.53081747"
       },
+      "issued": {
+        "zat": 492291663516,
+        "zec": "4922.91663516"
+      },
+      "issuedNetOfNsm": {
+        "zat": 492062042077,
+        "zec": "4920.62042077"
+      },
       "toNsmValueUsd": {
         "usd": 2930.67,
         "floor": false
@@ -1363,6 +1371,14 @@ export const MINING_GROUP: ApiGroup = {
           "zat": 59108408,
           "zec": "0.59108408"
         },
+        "issued": {
+          "zat": 152239582359,
+          "zec": "1522.39582359"
+        },
+        "issuedNetOfNsm": {
+          "zat": 152150920186,
+          "zec": "1521.50920186"
+        },
         "usdClose": 1320.165771484375
       },
       {
@@ -1380,6 +1396,14 @@ export const MINING_GROUP: ApiGroup = {
         "toMiners": {
           "zat": 49625706,
           "zec": "0.49625706"
+        },
+        "issued": {
+          "zat": 179322915519,
+          "zec": "1793.22915519"
+        },
+        "issuedNetOfNsm": {
+          "zat": 179248477349,
+          "zec": "1792.48477349"
         },
         "usdClose": 1260.21044921875
       },
@@ -1399,6 +1423,14 @@ export const MINING_GROUP: ApiGroup = {
           "zat": 44347633,
           "zec": "0.44347633"
         },
+        "issued": {
+          "zat": 160729165638,
+          "zec": "1607.29165638"
+        },
+        "issuedNetOfNsm": {
+          "zat": 160662644542,
+          "zec": "1606.62644542"
+        },
         "usdClose": null
       }
     ]
@@ -1412,7 +1444,10 @@ export const MINING_GROUP: ApiGroup = {
         "The balance is the node's own figure. It is larger than the fees because the node opened the NSM at NU7 with the miner subsidy never claimed since genesis: `carriedIn`. `fromFees` is every block's fee share from NU7 to `balance.height`.",
         "A window that opens before NU7 is summed from activation and says so.",
       ],
-      toolNotes: ["balance = carriedIn (unclaimed subsidy carried in at NU7) + fromFees."],
+      toolNotes: [
+        "balance = carriedIn (unclaimed subsidy carried in at NU7) + fromFees.",
+        "`issued`: the same blocks' scheduled subsidy; `issuedNetOfNsm` = issued − toNsm.",
+      ],
     },
   ],
 };
