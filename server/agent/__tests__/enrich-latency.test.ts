@@ -54,12 +54,21 @@ describe("a pool-balance series' changes", () => {
         {
           data: {
             points: [
-              { pools: { sapling: zat(1000), orchard: zat(50) }, totalShielded: zat(1050) },
-              { pools: { sapling: zat(900), orchard: zat(80) }, totalShielded: zat(980) },
+              {
+                periodStart: "2026-01-01",
+                pools: { sapling: zat(1000), orchard: zat(50) },
+                totalShielded: zat(1050),
+              },
+              {
+                periodStart: "2026-02-01",
+                pools: { sapling: zat(900), orchard: zat(80) },
+                totalShielded: zat(980),
+              },
             ],
           },
         },
-        true,
+        "2026-02-01",
+        "month",
       ) as { data: { points: Record<string, unknown>[] } }
     ).data;
     expect(out.points[0]).toMatchObject({ baselineOnly: true });
@@ -82,7 +91,8 @@ describe("a pool-balance series' changes", () => {
             ],
           },
         },
-        false,
+        null,
+        "month",
       ) as { data: { points: Record<string, unknown>[] } }
     ).data;
     expect(out.points[0]).not.toHaveProperty("baselineOnly");
@@ -90,5 +100,23 @@ describe("a pool-balance series' changes", () => {
       pools: { sapling: null },
       totalShielded: { changeZat: 1 },
     });
+  });
+
+  it("marks no baseline when the series starts at or after the asked day (a window from launch)", () => {
+    const out = (
+      withPoolBalanceChanges(
+        {
+          data: {
+            points: [
+              { periodStart: "2016-10-01", pools: { sprout: zat(1) }, totalShielded: zat(1) },
+              { periodStart: "2016-11-01", pools: { sprout: zat(5) }, totalShielded: zat(5) },
+            ],
+          },
+        },
+        "2016-10-28",
+        "month",
+      ) as { data: { points: Record<string, unknown>[] } }
+    ).data;
+    expect(out.points[0]).not.toHaveProperty("baselineOnly");
   });
 });

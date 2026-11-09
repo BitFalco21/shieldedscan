@@ -879,10 +879,14 @@ export function priorPeriodStart(day: string, interval: "day" | "month"): string
  * balance change month by month" is quoted rather than subtracted in calculator rounds. A balance
  * is a level, so the difference of two closes is exact; it is still NET, as the note says.
  *
- * With `baseline`, the first point is the period before the window, fetched only to give the first
+ * A point dated before `askedFrom` is the period before the window, fetched only to give the first
  * asked period its change: it is marked, so it is never reported as part of the window.
  */
-export function withPoolBalanceChanges(payload: unknown, baseline: boolean): unknown {
+export function withPoolBalanceChanges(
+  payload: unknown,
+  askedFrom: string | null,
+  interval: "day" | "month",
+): unknown {
   const body = asRecord(payload);
   const p = asRecord(body?.data);
   if (body === null || p === null || !Array.isArray(p.points)) return payload;
@@ -890,10 +894,17 @@ export function withPoolBalanceChanges(payload: unknown, baseline: boolean): unk
     const r = asRecord(v);
     return r !== null && typeof r.zat === "number" ? r.zat : null;
   };
+  const askedStart =
+    askedFrom === null ? null : interval === "month" ? `${askedFrom.slice(0, 7)}-01` : askedFrom;
   const points = p.points.map((point, i, all) => {
     const cur = asRecord(point);
     if (cur === null) return point;
-    const marked = baseline && i === 0 ? { baselineOnly: true } : {};
+    // Only a point dated before the asked period is the baseline: where the series starts at or
+    // after `askedFrom` (a window reaching back to launch), its first point is part of the answer.
+    const marked =
+      askedStart !== null && typeof cur.periodStart === "string" && cur.periodStart < askedStart
+        ? { baselineOnly: true }
+        : {};
     const prev = i > 0 ? asRecord(all[i - 1]) : null;
     if (prev === null) return { ...cur, ...marked };
     const curPools = asRecord(cur.pools) ?? {};

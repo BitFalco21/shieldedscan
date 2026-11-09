@@ -2662,6 +2662,23 @@ describe("chain_activity", () => {
       expect(res.content).toMatch(/"changeZec": "-?[0-9]/);
     });
 
+    it("fetches no baseline day when a daily window is already at the API's 366-day limit", async () => {
+      const res = await call({
+        mode: "pool-balances",
+        from: "2025-01-01",
+        to: "2026-01-02",
+        groupBy: "day",
+      });
+      expect(res.endpoints[0]).toContain("from=2025-01-01");
+      const shorter = await call({
+        mode: "pool-balances",
+        from: "2025-06-01",
+        to: "2025-07-01",
+        groupBy: "day",
+      });
+      expect(shorter.endpoints[0]).toContain("from=2025-05-31");
+    });
+
     it("lists months for groupBy none, and its error names every value it accepts", async () => {
       const none = await call({ mode: "pool-balances", groupBy: "none" });
       expect(none.endpoints[0]).toContain("interval=month");
