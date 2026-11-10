@@ -416,7 +416,7 @@ export const CHARTS: ChartEntry[] = [
     blurb: "Blocks this explorer's node saw orphaned, per canonical block, daily.",
     description: [
       "Each UTC day's orphaned blocks as a share of its canonical blocks, over the last sixty days, with the rate over standing windows and on either side of NU7. A depth-2 reorg is two orphans. Each orphan is counted on the day of the block it competed with, by header time, so both counts share one clock.",
-      "One node's view, so the network's rate can only be higher: a competing block our node never received is not counted. The same node and the same polling since recording began is what makes the before-and-after comparison like with like. NU7 cut the block time from 75 to 25 seconds, which is why the canonical count per day tripled.",
+      "One node's view, so the network's rate can only be higher: a competing block our node never received is not counted. The same node and the same polling since recording began is what makes the before-and-after comparison like with like. NU7 cut the block time from 75 to 25 seconds, which triples the target count per day.",
     ],
   },
   {
@@ -522,8 +522,9 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "supply-issuance",
   // The NSM series is read from mainnet's NU7 height.
   "issuance-vs-nsm",
-  // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
-  "orphan-rate",
+  // Note commitment tree sizes come from the pool usage tracker, which runs on mainnet only.
+  "anonymity-set",
+  "notes-added",
   // Reviewed pool labels are mainnet payout addresses, and /miners is absent on testnet.
   "pools-to-majority",
   "shielded-capable-by-chain",
