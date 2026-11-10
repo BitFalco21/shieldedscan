@@ -432,6 +432,9 @@ describe("a tool description names the quantities its payload carries", () => {
       "chain_activity:nicehash",
       "chain_activity:mining-dutch",
       "chain_activity:zec-mining-pool",
+      "chain_activity:poolin",
+      "chain_activity:flypool",
+      "chain_activity:coinotron",
       // The ranking measures. Each selects which bucket sorts first, never which keys come back;
       // the ranked call above already checks every quantity `ranking` carries. The ZEC measures are
       // named distinctly from the transaction kinds, since the schema walk cannot tell which enum a

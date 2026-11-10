@@ -154,8 +154,8 @@ const toolNames = (t: AgentTools) => t.defs().map((d) => d.function.name);
 const V52 = {
   prompt: "d50ab9e1e87c75eaf97c17d83d32d524588c4a2f2771a61b440f83fc206f9787",
   promptWithoutCharts: "eb9158310f8b8ff10123a5a371939b19ed228c94361d78613edbbaa215197f6b",
-  defs: "a0073bcfc244df3ffb31439cda779213e4f67adaa73a46bb70f6c7e086847528",
-  defsWithoutCharts: "2dfe41858e1b5ed28a7a74b6ccec3cc320b2c3b0ceededb73e09a0399698c6bc",
+  defs: "26f52faec6ac9ea815529b236ee026886cedfc5dc86f64c26d277a52c158ee44",
+  defsWithoutCharts: "93d5abedaab8fb160f8041db15880f7fb09e4630934b8c405d61bc5e5b141c6f",
 };
 
 describe("the off switch", () => {
