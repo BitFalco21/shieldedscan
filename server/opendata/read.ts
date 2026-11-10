@@ -358,6 +358,14 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
          FROM opendata.node_releases_daily WHERE day <= $1 ORDER BY day`,
       [yesterday],
     );
+    // Every block only: `grp = 'all'`. Days with no stamped block are not part of the record.
+    const arrival = await small(
+      "block_arrival_daily",
+      `SELECT day, blocks, measured, late, p50_seconds, p90_seconds
+         FROM opendata.block_arrival_daily
+        WHERE grp = 'all' AND day <= $1 AND measured + late > 0 ORDER BY day`,
+      [finalDay],
+    );
     const fees = await small(
       "fees_daily",
       `SELECT ${SMALL_TABLES.fees_daily.map((c) => c.name).join(", ")} FROM opendata.fees_daily
@@ -466,6 +474,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["hashrate_daily", SMALL_TABLES.hashrate_daily, dailyHashrate.rows(finalDay)],
       ["supply_daily", SMALL_TABLES.supply_daily, supplyRows],
       ["nsm_daily", SMALL_TABLES.nsm_daily, nsmRows],
+      ["block_arrival_daily", arrival.columns, arrival.rows],
       ["nu7_capable_releases", SMALL_TABLES.nu7_capable_releases, NU7_CAPABLE_RELEASES],
     ];
     writeTables(tables);

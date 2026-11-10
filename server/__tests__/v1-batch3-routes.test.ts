@@ -83,6 +83,7 @@ function snapshot(): NetmapSnapshot {
     // Fields the `nu7-readiness` branch adds; harmless here, required there.
     recentBlocks: [],
     releaseDays: [],
+    hostingDays: [],
   } as NetmapSnapshot;
 }
 
@@ -97,12 +98,66 @@ describe("/v1/nodes*", () => {
       "/v1/nodes/list",
       "/v1/nodes/geography",
       "/v1/nodes/concentration",
+      "/v1/nodes/history",
     ]) {
       const res = await app.request(path);
       expect(res.status, path).toBe(200);
       const text = await res.text();
       for (const host of HOSTS) expect(text, `${path} leaked ${host}`).not.toContain(host);
     }
+  });
+
+  it("history folds a network under three nodes and keeps every record's true length", async () => {
+    const app = v1NodesRoutes({
+      read: async () => ({
+        ...snapshot(),
+        releaseDays: [
+          {
+            day: "2026-11-01",
+            user_agent: "/Zebra:6.4.2/",
+            protocol_version: 170190,
+            nodes: 3,
+            behind_tip: 0,
+            tip_unknown: 0,
+          },
+          {
+            day: "2026-11-01",
+            user_agent: "/Zebra:6.4.1/",
+            protocol_version: 170190,
+            nodes: 2,
+            behind_tip: 0,
+            tip_unknown: 0,
+          },
+        ],
+        hostingDays: [
+          { day: "2026-11-01", asn: 24940, org: "Hetzner Online GmbH", nodes: 3 },
+          { day: "2026-11-01", asn: 16276, org: "OVH SAS", nodes: 2 },
+        ],
+      }),
+      close: async () => {},
+    });
+    const res = await app.request("/v1/nodes/history");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: {
+        software: {
+          daysRecorded: number;
+          days: { releases: { release: string; nodes: number }[] }[];
+        };
+        hosting: { minNodes: number; days: { networkOperators: unknown[]; other: unknown }[] };
+      };
+    };
+    expect(body.data.software.daysRecorded).toBe(1);
+    // Patch releases merge into one release line.
+    expect(body.data.software.days[0]!.releases).toEqual([
+      { client: "Zebra", release: "6.4", nodes: 5 },
+    ]);
+    expect(body.data.hosting.days[0]!.networkOperators).toEqual([
+      { asn: 24940, networkOperator: "Hetzner Online GmbH", nodes: 3 },
+    ]);
+    expect(body.data.hosting.days[0]!.other).toEqual({ nodes: 2, networkOperators: 1 });
+    expect(JSON.stringify(body)).not.toContain("OVH");
+    expect((await app.request("/v1/nodes/history?window=30d")).status).toBe(400);
   });
 
   it("withholds the figures that measure our crawler rather than the nodes", async () => {

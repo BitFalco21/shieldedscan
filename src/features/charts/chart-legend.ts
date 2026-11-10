@@ -68,6 +68,11 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
         { label: "Blocks", className: "text-green", mark: "line" },
         { label: "Target", className: "text-ink-faint", mark: "dashed" },
       ];
+    case "block-arrival-age":
+      return [
+        { label: "Median, every block", className: RANKED_LINES[0], mark: "line" },
+        { label: "90th percentile", className: RANKED_LINES[0], mark: "dashed" },
+      ];
     case "upgrade-readiness":
       return [
         { label: "Ready", className: RANKED_LINES[0], mark: "line" },
@@ -104,6 +109,9 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
     case "transparent-activity":
     case "reorgs":
     case "orphan-rate":
+    // Their bands are ranked in the window shown, so the chart draws its own key.
+    case "node-releases":
+    case "node-hosting":
     case "shielded-share":
     case "pools-to-majority":
     // The issuance panel draws its own key beside its figures.

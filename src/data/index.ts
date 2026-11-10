@@ -115,6 +115,7 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getMinerShares: () => chain.getMinerShares(),
     getReorgWeeks: () => chain.getReorgWeeks(),
     getOrphanRate: () => chain.getOrphanRate(),
+    getBlockArrival: () => chain.getBlockArrival(),
     getBlocksDaily: () => chain.getBlocksDaily(),
     getSupplyDays: () => chain.getSupplyDays(),
     getMinersOverview: (window) => chain.getMinersOverview(window),
@@ -151,6 +152,7 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getNetworkCrawls: () => chain.getNetworkCrawls(),
     getNetworkPeers: () => chain.getNetworkPeers(),
     getNetworkReleases: () => chain.getNetworkReleases(),
+    getNodeHosting: () => chain.getNodeHosting(),
 
     /**
      * `ChainInfo` is the one deliberately mixed value in the source, mixed here so it stays

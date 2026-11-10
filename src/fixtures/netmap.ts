@@ -1,4 +1,8 @@
 import {
+  HOSTING_MIN_NODES,
+  foldHosting,
+  type HostingRecordRow,
+  type NodeHosting,
   NET_LATENCY_BUCKETS,
   NET_UPTIME_BUCKETS,
   bucketNodesToCells,
@@ -631,6 +635,46 @@ export function getNetworkReleases(): NetReleases {
     behindTipBlocks: BEHIND_TIP_BLOCKS,
     groups: releaseGroups(HUBS, (i) => tipLagOf(i)),
     history: releaseHistory(),
+    asOf: TIP_TIME,
+  };
+}
+
+/**
+ * Fourteen days of the hosting record from the same hubs, folded by the domain's own rule. One
+ * network drifts either side of the three-node minimum, so it is named on some days and folded
+ * into "other" on the rest; before the newest day every fifth hub has no network found. The newest
+ * day is the hubs as they stand, so it agrees with the health tab's concentration.
+ */
+export function getNodeHosting(): NodeHosting {
+  const today = new Date(TIP_TIME * 1000);
+  const rows: HostingRecordRow[] = [];
+  for (let back = 13; back >= 0; back -= 1) {
+    const day = new Date(today.getTime() - back * 86_400_000).toISOString().slice(0, 10);
+    const counts = new Map<number, { org: string; nodes: number }>();
+    HUBS.forEach((h, i) => {
+      // Before the newest day every fifth hub had no network found yet: not enriched then.
+      const asn = (back > 0 && i % 5 === 4) || h.asn === null ? 0 : h.asn;
+      const c = counts.get(asn) ?? { org: asn === 0 ? "" : (h.asnOrg ?? ""), nodes: 0 };
+      c.nodes += 1;
+      counts.set(asn, c);
+    });
+    // Every other day a one-node network's node moves to the first two-node network, which
+    // then holds three: named, then folded, then named. The day's total is unchanged.
+    const pair = [...counts.entries()].find(([asn, c]) => asn !== 0 && c.nodes === 2)?.[1];
+    const single = [...counts.entries()].find(([asn, c]) => asn !== 0 && c.nodes === 1);
+    if (pair && single && back % 2 === 1) {
+      pair.nodes += 1;
+      counts.delete(single[0]);
+    }
+    for (const [asn, c] of counts) rows.push({ day, asn, org: c.org, nodes: c.nodes });
+  }
+  const days = foldHosting(rows);
+  return {
+    basis: "floor",
+    windowSeconds: REACHABLE_WINDOW_SEC,
+    minNodes: HOSTING_MIN_NODES,
+    recordingSince: days[0]?.day ?? null,
+    days,
     asOf: TIP_TIME,
   };
 }

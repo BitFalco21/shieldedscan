@@ -1,5 +1,8 @@
-import type { NetHealth, NetHistogram, NetPeers } from "@/domain";
+import type { NetHealth, NetHistogram, NetPeers, NodeHosting } from "@/domain";
+import { DataUnavailable } from "@/components/DataUnavailable";
 import { Panel } from "@/components/Panel";
+import { ChartFigure } from "@/features/charts/ChartFigure";
+import { chartData } from "@/features/charts/chart-data";
 import { netPct, shortAsnOrg } from "../net-format";
 import { NetBar } from "../NetBar";
 import { formatCount } from "@/lib/format";
@@ -8,6 +11,8 @@ export interface HealthPageProps {
   health: NetHealth;
   /** Our node's peers, for the sentence about nodes behind NAT; null when not read. */
   peers: NetPeers | null;
+  /** The daily hosting record; null when it did not load, and only its panel says so. */
+  hosting: NodeHosting | null;
 }
 
 /**
@@ -17,7 +22,7 @@ export interface HealthPageProps {
  * never clustered into operators. Latency is not here: a handshake round trip from one vantage
  * point is a fact about the path from that box, not a judgement on the nodes.
  */
-export function HealthPage({ health, peers }: HealthPageProps) {
+export function HealthPage({ health, peers, hosting }: HealthPageProps) {
   return (
     <div className="grid min-w-0 gap-4">
       <div className="grid min-w-0 gap-4 md:grid-cols-2">
@@ -36,6 +41,16 @@ export function HealthPage({ health, peers }: HealthPageProps) {
           <CannotSeeFacts health={health} peers={peers} />
         </Panel>
       </div>
+      <Panel
+        title="hosting over time"
+        action={<span className="text-xs text-ink-faint">smaller networks folded</span>}
+      >
+        {hosting === null ? (
+          <DataUnavailable what="The hosting record" inset />
+        ) : (
+          <ChartFigure slug="node-hosting" data={chartData({ hosting })} />
+        )}
+      </Panel>
       <div className="grid min-w-0 gap-4">
         <Panel
           title="answered our crawls"

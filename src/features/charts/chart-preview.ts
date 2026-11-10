@@ -1,4 +1,5 @@
 import {
+  ARRIVAL_ALL_GROUP,
   MAX_SUPPLY_ZAT,
   allPoolsSupply,
   feeTotalIsComplete,
@@ -156,6 +157,20 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
       };
     case "transparent-activity":
       return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.transparent }] };
+    case "node-releases":
+    case "node-hosting": {
+      // The largest band's share per day: the concentration the chart is about.
+      const share = rows.map((r) => (r[0] ? (100 * (r[1] ?? 0)) / r[0] : null));
+      return { kind: "lines", max: 100, series: [{ values: share, className: "text-series" }] };
+    }
+    case "block-arrival-age":
+      return {
+        kind: "lines",
+        series: [
+          { values: col(1), className: RANKED_LINES[0], opacity: 0.45 },
+          { values: col(0), className: RANKED_LINES[0] },
+        ],
+      };
     case "upgrade-readiness": {
       const pct = (part: number | null, whole: number | null) =>
         part === null || !whole ? null : (100 * part) / whole;
@@ -469,6 +484,25 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: formatCount(total),
         caption: `observed since ${utcDayFromSeconds(since)}`,
+      };
+    }
+    case "node-releases":
+    case "node-hosting": {
+      const t = chartTable(slug, data, "all");
+      const last = t?.rows.at(-1);
+      if (!t || !last || !last[0] || t.columns.length < 2) return null;
+      return {
+        value: formatSharePct((100 * (last[1] ?? 0)) / last[0]),
+        caption: `of ${formatCount(last[0])} answering nodes on ${t.keys?.[1] ?? ""}, ${utcDayFromSeconds(t.timestamps.at(-1)!)}`,
+      };
+    }
+    case "block-arrival-age": {
+      const w = data.blockArrival?.windows.find((x) => x.window === "30d");
+      const all = w?.groups.find((g) => g.group === ARRIVAL_ALL_GROUP);
+      if (!all || all.p50Seconds === null) return null;
+      return {
+        value: `${formatCount(all.p50Seconds)} s`,
+        caption: `median block age on arrival, last 30 days: ${formatCount(all.measured)} blocks`,
       };
     }
     case "orphan-rate": {

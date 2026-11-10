@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/charts/difficulty", label: "difficulty" },
   { href: "/charts/blocks-per-day", label: "blocks per day" },
   { href: "/charts/miner-concentration", label: "largest miners' share" },
+  { href: "/charts/block-arrival-age", label: "block age on arrival" },
   { href: "/mining-cost", label: "mining cost by country" },
   { href: "/halving", label: "halving" },
 ] as const;

@@ -113,23 +113,27 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
       pools: "mining-pools",
       pool: "mining-pool",
       series: "mining-pools-series",
+      arrival: "mining-pools-arrival",
       nsm: "nsm",
       addresses: "analytics-miners",
     },
     params: {
       pool: `A pool id: ${Object.keys(MINING_POOLS).join(", ")}. Required for view=pool; view=series also takes unattributed, shielded, no-address.`,
       limit: "view=pool: blocks, 1-20 (20). view=addresses: addresses, 1-100 (25).",
+      window:
+        "The last 7d, 30d, 90d or 1y UTC days, today included, or all; default 30d. view=arrival: 7d, 30d or 90d.",
     },
   },
   {
     name: "nodes",
-    title: "Network nodes: summary, list, geography, concentration",
-    summary: "The Zcash nodes this explorer's crawler reached in the last day.",
+    title: "Network nodes: summary, list, geography, concentration, history",
+    summary: "Zcash nodes our crawler reached in the last day.",
     views: {
       summary: "nodes-summary",
       list: "nodes-list",
       geography: "nodes-geography",
       concentration: "nodes-concentration",
+      history: "nodes-history",
     },
   },
   {

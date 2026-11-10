@@ -1,11 +1,16 @@
-import type { ChartRange } from "@/domain";
+import type { ChartRange, NodeBands } from "@/domain";
 import {
   chartRangeDays,
   destinationsByChain,
   destinationSwaps,
   foldDestinations,
   shieldedCapableSharePct,
+  ARRIVAL_ALL_GROUP,
+  BLOCK_ARRIVAL_GROUPS,
   blocksTargetForDay,
+  hostingBands,
+  softwareBands,
+  softwareHistory,
   issuanceOutlook,
   poolsToMajority,
   netIssuedZat,
@@ -19,6 +24,7 @@ import {
   sliceTail,
   utcDayFromSeconds,
 } from "@/domain";
+import { NODE_BAND_SLOTS } from "@/lib/node-band-palette";
 import type { ChartSlug } from "./catalog";
 import type { ChartData } from "./chart-data";
 
@@ -79,6 +85,26 @@ function table<T extends { timestamp: number }>(
     timestamps: points.map((p) => p.timestamp),
     rows: points.map((p) => columns.map((c) => c.value(p))),
   };
+}
+
+const dayTs = (day: string) => Date.parse(`${day}T00:00:00Z`) / 1000;
+
+/** The node-history bands a chart draws over its range: one builder for the chart and its CSV. */
+export function nodeBands(
+  slug: "node-releases" | "node-hosting",
+  data: ChartData,
+  range: ChartRange,
+): NodeBands | null {
+  if (slug === "node-releases") {
+    if (!data.releases) return null;
+    const days = sliceRange(softwareHistory(data.releases.history), (d) => dayTs(d.day), range);
+    return softwareBands(days, NODE_BAND_SLOTS);
+  }
+  if (!data.hosting) return null;
+  return hostingBands(
+    sliceRange(data.hosting.days, (d) => dayTs(d.day), range),
+    NODE_BAND_SLOTS,
+  );
 }
 
 /**
@@ -434,6 +460,50 @@ export function chartTable(
         sliceRange(data.transparentDays, (p) => p.timestamp, range),
         [{ name: "active_addresses", value: (p) => p.activeAddresses }],
       );
+    }
+    case "block-arrival-age": {
+      if (!data.blockArrival) return null;
+      const days = data.blockArrival.days.map((d) => ({
+        ...d,
+        timestamp: Date.parse(`${d.day}T00:00:00Z`) / 1000,
+      }));
+      const of = (d: (typeof days)[number], group: string) =>
+        d.groups.find((g) => g.group === group) ?? null;
+      return table(
+        "day",
+        sliceRange(days, (p) => p.timestamp, range),
+        [
+          { name: "median_s", value: (p) => of(p, ARRIVAL_ALL_GROUP)?.p50Seconds ?? null },
+          { name: "p90_s", value: (p) => of(p, ARRIVAL_ALL_GROUP)?.p90Seconds ?? null },
+          { name: "measured", value: (p) => of(p, ARRIVAL_ALL_GROUP)?.measured ?? 0 },
+          { name: "late", value: (p) => of(p, ARRIVAL_ALL_GROUP)?.late ?? 0 },
+          { name: "partial", value: (p) => (p.partial ? 1 : 0) },
+          ...BLOCK_ARRIVAL_GROUPS.flatMap((g) => [
+            {
+              name: `${g}_median_s`,
+              value: (p: (typeof days)[number]) => of(p, g)?.p50Seconds ?? null,
+            },
+            {
+              name: `${g}_p90_s`,
+              value: (p: (typeof days)[number]) => of(p, g)?.p90Seconds ?? null,
+            },
+            { name: `${g}_measured`, value: (p: (typeof days)[number]) => of(p, g)?.measured ?? 0 },
+          ]),
+        ],
+      );
+    }
+    case "node-releases":
+    case "node-hosting": {
+      const bands = nodeBands(slug, data, range);
+      if (!bands) return null;
+      const column = (label: string) => label.toLowerCase().replace(/[^a-z0-9.]+/g, "_");
+      return {
+        period: "day",
+        columns: ["answering", ...bands.labels.map(column)],
+        keys: ["answering", ...bands.labels],
+        timestamps: bands.days.map((d) => Date.parse(`${d}T00:00:00Z`) / 1000),
+        rows: bands.days.map((_, j) => [bands.answering[j]!, ...bands.nodes.map((n) => n[j]!)]),
+      };
     }
     case "upgrade-readiness": {
       if (!data.releases) return null;

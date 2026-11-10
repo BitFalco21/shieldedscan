@@ -49,6 +49,13 @@ CREATE OR REPLACE VIEW opendata.node_releases_daily AS
 SELECT day, user_agent, protocol_version, nodes, behind_tip, tip_unknown
 FROM net_release_day;
 
+-- Block age on arrival, from the API's tracker. The export reads the every-block rows only: the
+-- per-pool rows rest on the site's reviewed pool labels, and the dataset carries no label.
+CREATE OR REPLACE VIEW opendata.block_arrival_daily AS
+SELECT day, grp, blocks, measured, late, p50_seconds, p90_seconds
+FROM block_arrival_day
+WHERE grp = 'all';
+
 CREATE OR REPLACE VIEW opendata.reorgs AS
 SELECT height, depth, orphaned_hash, replaced_by
 FROM reorg_event;

@@ -27,6 +27,7 @@ import type {
   NetNodePage,
   NetPeers,
   NetReleases,
+  NodeHosting,
   NetSummary,
   NetTopology,
   NetTopologyScope,
@@ -36,6 +37,7 @@ import type {
   NoteTreeDayPoint,
   ReorgWeekSeries,
   OrphanRateSeries,
+  BlockArrivalSeries,
   TransparentDayPoint,
   NetworkDayPoint,
   PoolMigrationDayPoint,
@@ -709,6 +711,48 @@ export function createChainApiSource(config: ChainApiConfig) {
         )
       ) {
         throw new Error("chain API returned an unrecognised orphan rate shape");
+      }
+      return series;
+    },
+
+    async getBlockArrival(): Promise<BlockArrivalSeries> {
+      const body = await json<unknown>(
+        await request(config, "/chain/miners/arrival", CACHE_MINUTE),
+        "block arrival",
+      );
+      const series = body as BlockArrivalSeries;
+      const orNull = (v: unknown) => v === null || typeof v === "number";
+      const cells = (groups: unknown) =>
+        Array.isArray(groups) &&
+        groups.every(
+          (g: Partial<BlockArrivalSeries["days"][number]["groups"][number]>) =>
+            typeof g?.group === "string" &&
+            typeof g.blocks === "number" &&
+            typeof g.measured === "number" &&
+            typeof g.late === "number" &&
+            orNull(g.p50Seconds) &&
+            orNull(g.p90Seconds),
+        );
+      if (
+        !(series?.recordingSince === null || typeof series?.recordingSince === "string") ||
+        typeof series.lateSeconds !== "number" ||
+        typeof series.minBlocks !== "number" ||
+        typeof series.asOf !== "number" ||
+        !Array.isArray(series.days) ||
+        !series.days.every(
+          (d) => typeof d.day === "string" && typeof d.partial === "boolean" && cells(d.groups),
+        ) ||
+        !Array.isArray(series.windows) ||
+        !series.windows.every(
+          (w) =>
+            typeof w.window === "string" &&
+            typeof w.fromDay === "string" &&
+            typeof w.toDay === "string" &&
+            typeof w.computedAt === "number" &&
+            cells(w.groups),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised block arrival shape");
       }
       return series;
     },
@@ -1585,6 +1629,42 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised network releases shape");
       }
       return body;
+    },
+
+    async getNodeHosting(): Promise<NodeHosting> {
+      const body = await json<unknown>(
+        await request(config, "/chain/network/hosting", CACHE_MINUTE),
+        "node hosting",
+      );
+      assertNoAddressLiterals(body, NETMAP_ADDRESS_GUARD);
+      const h = body as NodeHosting;
+      if (
+        h?.basis !== "floor" ||
+        typeof h.windowSeconds !== "number" ||
+        typeof h.minNodes !== "number" ||
+        !(h.recordingSince === null || typeof h.recordingSince === "string") ||
+        typeof h.asOf !== "number" ||
+        !Array.isArray(h.days) ||
+        !h.days.every(
+          (d) =>
+            typeof d.day === "string" &&
+            typeof d.answering === "number" &&
+            typeof d.other === "number" &&
+            typeof d.otherNetworks === "number" &&
+            typeof d.unknown === "number" &&
+            Array.isArray(d.networks) &&
+            d.networks.every(
+              (n) =>
+                typeof n.asn === "number" &&
+                typeof n.org === "string" &&
+                typeof n.nodes === "number" &&
+                n.nodes >= h.minNodes,
+            ),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised node hosting shape");
+      }
+      return h;
     },
 
     async listMempool(page: number, pageSize: number): Promise<Paginated<MempoolEntry>> {

@@ -20,6 +20,7 @@ import {
   toNsm,
 } from "./map";
 import { ParamError, rejectUnknown } from "./params";
+import { V1_BLOCK_ARRIVAL_PATH, parseArrivalWindow, toBlockArrival } from "./block-arrival";
 
 /**
  * The `/miners` page on the public API: who mined the last 7, 30, 90 or 365 days, or all of history, by reviewed mining pool,
@@ -44,11 +45,13 @@ export const V1_MINING_POOLS_PATH = "/v1/analytics/mining-pools";
 export const V1_MINING_POOL_SERIES_PATH = "/v1/analytics/mining-pools/series";
 export const V1_MINING_POOL_PATH = "/v1/analytics/mining-pools/{pool}";
 export const V1_NSM_PATH = "/v1/analytics/nsm";
+export { V1_BLOCK_ARRIVAL_PATH };
 
 /** Every path this group serves, as the descriptor lists them. */
 export const V1_MINING_POOL_PATHS = [
   V1_MINING_POOLS_PATH,
   V1_MINING_POOL_SERIES_PATH,
+  V1_BLOCK_ARRIVAL_PATH,
   V1_MINING_POOL_PATH,
   V1_NSM_PATH,
 ];
@@ -136,6 +139,16 @@ export function v1MiningPoolRoutes(deps: V1MiningPoolsDeps): Hono {
     const series = await deps.reader.series(interval);
     setCache(c, "series");
     return c.json(toMiningPoolSeries(series, group, SITE, asOf()));
+  });
+
+  // Before `{id}` too: "arrival" is a path, never a pool.
+  app.get(V1_BLOCK_ARRIVAL_PATH, async (c: Context) => {
+    const q = c.req.query();
+    rejectUnknown(q, ["window"]);
+    const window = parseArrivalWindow(q.window);
+    const series = await deps.reader.arrival();
+    setCache(c, "openWindow");
+    return c.json(toBlockArrival(series, window, SITE, asOf()));
   });
 
   app.get("/v1/analytics/mining-pools/:pool", async (c: Context) => {

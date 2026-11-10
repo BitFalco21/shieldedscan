@@ -81,6 +81,7 @@ export {
   getNetworkMap,
   getNetworkPeers,
   getNetworkReleases,
+  getNodeHosting,
   getNetworkSummary,
   getNetworkTopology,
   listNetworkNodes,

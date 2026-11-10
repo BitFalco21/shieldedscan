@@ -55,6 +55,7 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   },
   "nodes-geography": { tool: "chain_status", via: "nodes" },
   "nodes-concentration": { tool: "chain_status", via: "nodes" },
+  "nodes-history": { tool: "chain_status", via: "node-history" },
   "tx-privacy": { tool: "lookup_transaction" },
   transfers: { tool: "crosschain", via: "transfers" },
   "transfers-top": { tool: "crosschain", via: "transfers" },
@@ -85,6 +86,7 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   "mining-pool": { tool: "chain_activity", via: "mining-pools" },
   "mining-pools-series": { tool: "chain_activity", via: "mining-pools" },
   nsm: { tool: "chain_activity", via: "nsm" },
+  "mining-pools-arrival": { tool: "chain_activity", via: "block-arrival" },
 };
 
 /** Every string `enum` anywhere in a JSON schema. */

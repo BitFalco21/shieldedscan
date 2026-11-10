@@ -30,6 +30,11 @@ const CHART_ROUTES = [
   // The orphan rate: bars over unobserved lead slots, a partial day and an upgrade rule.
   "/charts/orphan-rate",
   "/reorgs",
+  // Block age on arrival: two lines over a day series, and per-pool range bars beside a null.
+  "/charts/block-arrival-age",
+  // Node history: stacked shares whose bands are ranked in the window (also on /network's tabs).
+  "/charts/node-releases",
+  "/charts/node-hosting",
   "/charts/inflow-by-chain",
   "/charts/outflow-by-chain",
   "/charts/volume-by-venue",

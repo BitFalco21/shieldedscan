@@ -102,4 +102,30 @@ export const PUBLISHED_SERIES: EvalCase[] = [
     mustContain: [/27(?:\.1\d?|,146)/],
     mustNotContain: [/\d\s*[KMGTP]?H\/s/],
   },
+  {
+    id: "nodes-history-upgrade-pace",
+    category: "insights",
+    world: "fixture",
+    /**
+     * The software record by release line, `chain_status` 'node-history'. In the fixture, Zakura
+     * 1.4 falls from 9 answering nodes on the first recorded day to 1 on the newest, as nodes move
+     * to 1.5 and 1.6.
+     */
+    question: "how has the number of nodes running Zakura 1.4 changed since you began recording?",
+    mustCall: ["chain_status"],
+    mustContain: [/Zakura 1\.4|1\.4/, /\b9\b/, /\b1\b/],
+  },
+  {
+    id: "nodes-history-hosting",
+    category: "insights",
+    world: "fixture",
+    /**
+     * The hosting record: DigitalOcean hosts the most answering nodes every day of the fixture, 16
+     * of 40 on the newest. A network under three nodes that day is folded, never named.
+     */
+    question:
+      "which network hosts the most Zcash nodes, and has that changed over the last two weeks?",
+    mustCall: ["chain_status"],
+    mustContain: [/DigitalOcean/, /\b16\b/],
+  },
 ];

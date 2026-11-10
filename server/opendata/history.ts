@@ -119,6 +119,7 @@ export function rowKey(path: string): readonly string[] {
     "hashrate_daily.parquet": ["day"],
     "supply_daily.parquet": ["day"],
     "nsm_daily.parquet": ["day"],
+    "block_arrival_daily.parquet": ["day"],
     "tx_versions_daily.parquet": ["day", "version"],
     "pool_flows_daily.parquet": ["day", "pool"],
     "coinbase_shielded_daily.parquet": ["day"],

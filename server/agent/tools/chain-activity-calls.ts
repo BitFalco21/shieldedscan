@@ -8,6 +8,7 @@ import {
 import { USD } from "../../fx-rates";
 import { MINERS_MAX_LIMIT, V1_MINERS_PATH } from "../../v1/miners";
 import {
+  V1_BLOCK_ARRIVAL_PATH,
   V1_MINING_POOL_SERIES_PATH,
   V1_MINING_POOLS_PATH,
   V1_NSM_PATH,
@@ -16,6 +17,7 @@ import { MAX_DAY_BUCKETS } from "../../v1/params";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { type ToolArgs, windowDays } from "./args";
 import {
+  compactBlockArrival,
   compactMiningSeries,
   priorPeriodStart,
   withMinerMiningPools,
@@ -32,6 +34,7 @@ import {
   CHAIN_WINDOW_MIGRATION_FILTER_NOTE,
   CHAIN_WINDOW_NOTE,
   CHAIN_WINDOW_RANKED_NOTE,
+  BLOCK_ARRIVAL_NOTE,
   MINERS_NOTE,
   MINING_POOLS_NOTE,
   NSM_NOTE,
@@ -414,6 +417,29 @@ export function chainActivityCalls(
             note: NSM_NOTE,
             emptyIsAnAnswer: true,
             enrich: withoutBasis,
+            verify: (payload) => verifyMiningEcho(payload, { window }),
+          },
+        },
+      ];
+    }
+    case "block-arrival": {
+      // The public `/v1/analytics/mining-pools/arrival`: its own three windows, every pool at once.
+      if (args.raw.from !== undefined || args.raw.to !== undefined || args.flag("allTime")) {
+        return "'block-arrival' takes lastDays 7, 30 or 90 (default 30), not from/to or allTime";
+      }
+      const days = args.raw.lastDays === undefined ? 30 : args.int("lastDays");
+      if (days !== 7 && days !== 30 && days !== 90) {
+        return "lastDays must be 7, 30 or 90 for 'block-arrival'";
+      }
+      const window = `${days}d`;
+      return [
+        {
+          path: `${V1_BLOCK_ARRIVAL_PATH}?window=${window}`,
+          surface: "v1",
+          aggregate: {
+            note: BLOCK_ARRIVAL_NOTE,
+            emptyIsAnAnswer: true,
+            enrich: compactBlockArrival,
             verify: (payload) => verifyMiningEcho(payload, { window }),
           },
         },

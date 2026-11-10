@@ -3,6 +3,7 @@ import { parseAsnFilter, parseNetClientFilter, type NetTopologyScope } from "@/d
 import {
   deriveCrawls,
   deriveHealth,
+  deriveHosting,
   deriveMap,
   deriveNodesPage,
   deriveReleases,
@@ -38,6 +39,7 @@ export const NETMAP_PATHS = {
   nodes: "/chain/network/nodes",
   crawls: "/chain/network/crawls",
   releases: "/chain/network/releases",
+  hosting: "/chain/network/hosting",
 } as const;
 
 const UNAVAILABLE = { error: "network map unavailable" } as const;
@@ -81,6 +83,7 @@ export function netmapRoutes(connection?: string, reader?: NetmapReader): Hono {
   });
   serve(NETMAP_PATHS.crawls, (snap) => deriveCrawls(snap));
   serve(NETMAP_PATHS.releases, (snap) => deriveReleases(snap));
+  serve(NETMAP_PATHS.hosting, (snap) => deriveHosting(snap));
 
   return app;
 }

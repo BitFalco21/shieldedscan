@@ -139,9 +139,11 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
   { tool: "chain_activity", args: { mode: "mining-pools", miningPool: "viabtc" } },
   { tool: "chain_activity", args: { mode: "mining-pools", groupBy: "month" } },
   { tool: "chain_activity", args: { mode: "nsm", lastDays: 30 } },
+  { tool: "chain_activity", args: { mode: "block-arrival", lastDays: 7 } },
   { tool: "chain_status", args: { include: ["records"] } },
   { tool: "chain_status", args: { include: ["mining"] } },
   { tool: "chain_status", args: { include: ["nodes"] } },
+  { tool: "chain_status", args: { include: ["node-history"] } },
   { tool: "chain_activity", args: { mode: "pools", from: "2026-07-01", to: "2026-08-01" } },
   {
     tool: "chain_activity",

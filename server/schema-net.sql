@@ -146,3 +146,17 @@ CREATE TABLE IF NOT EXISTS net_release_day (
   tip_unknown      INTEGER NOT NULL,
   PRIMARY KEY (day, user_agent, protocol_version)
 );
+
+-- One row per (UTC day, autonomous system, its GeoIP organisation name): how many nodes answered in
+-- the 24 hours before the day's last crawl, by the network that hosts them. Written beside
+-- `net_release_day` after every cycle, the day's rows replaced whole (`NetStore.recordHostingDay`),
+-- because `net_node` holds only current state. Stored whole; the API folds any network with fewer
+-- than three nodes into "other" before publishing. 0 and '' stand for "no AS found" (a Tor node,
+-- or an address not yet enriched): a primary key cannot hold a NULL. No address is stored here.
+CREATE TABLE IF NOT EXISTS net_asn_day (
+  day     DATE    NOT NULL,
+  asn     BIGINT  NOT NULL,
+  asn_org TEXT    NOT NULL,
+  nodes   INTEGER NOT NULL,
+  PRIMARY KEY (day, asn, asn_org)
+);

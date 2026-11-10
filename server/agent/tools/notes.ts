@@ -211,6 +211,15 @@ THE WINDOW is the last 7, 30, 90 or 365 whole UTC days or all of history, today 
 
 Published on /miners.`;
 
+/** Said of the 'block-arrival' payload: what an age adds up, and the rules its percentiles keep. */
+export const BLOCK_ARRIVAL_NOTE = `HOW OLD EACH MINING POOL'S BLOCKS ARE, BY THEIR OWN HEADER TIMESTAMP, WHEN THIS EXPLORER'S NODE STORES THEM — per UTC day and over the window, measured by our own follower.
+
+IT IS NOT CLOCK SKEW, and never call it that. An age adds up the miner's timestamp lag (a miner stamps a block template and keeps mining on it without moving the time forward), the network's propagation to our node, and our own poll and store latency of about 5 to 10 seconds, less any error between the two clocks. Mostly the first term differs by pool, so a pool with a higher median most likely stamps its blocks earlier than it finds them; say "most likely", because propagation to our node can differ by pool too and this figure cannot separate the two. Never say its clock is wrong. A NEGATIVE age is that pool's clock running ahead of ours, kept as measured.
+
+\`p50Seconds\` is the median and \`p90Seconds\` the 90th percentile, nearest-rank whole seconds over the group's \`measured\` blocks: quote them with that count. They are null below \`minBlocks\` measured blocks (reason \`unmeasured\`): too few to state, never zero. PERCENTILES DO NOT COMBINE: never average or add days' medians; for a period quote \`data.window\`, which is computed over the window's own blocks. \`late\` blocks were stored more than \`lateSeconds\` after their header time, almost always our own outage, and are left out; \`unstamped\` blocks carry no stamp of ours. Past a 7-day window each day carries only its \`all\` row: per-pool figures for the period are in \`data.window\`. Recording began on \`recordingSince\`; nothing earlier exists. A pool is this explorer's reviewed label on payout addresses; \`unattributed\` is every other block, never one miner.
+
+Published on /charts/block-arrival-age.`;
+
 /** Said of the 'nsm' payload: the balance's two parts, and the split of fees. */
 export const NSM_NOTE = `THE NSM (Network Sustainability Mechanism), from this explorer's index and its node — every figure computed already, so quote them and add nothing up yourself.
 
@@ -363,6 +372,11 @@ export const NODES_NOTE = `THE NETWORK'S LISTENING NODES, from this explorer's o
 "Answering" means a node answered the crawler within \`answeringWindowSeconds\` (the last day). \`knownAddresses\` is every address the network has ever advertised, and most of them never answered (\`neverAnswered\`): never call it the number of nodes. Every share carries its own denominator; quote it.
 
 A client and version are what a node DECLARES, not verified. A country or city comes from GeoIP: it is GeoIP's claim about an address, not a measurement. Hosting concentration is by network operator (an autonomous system), never by who runs a node, so never name a person or organisation as running one. No node address is published, and none may be inferred. The figures are on /network.`;
+
+/** Said of the 'node-history' payload: the two records, and what a day of each means. */
+export const NODE_HISTORY_NOTE = `HOW THE NETWORK'S ANSWERING NODES CHANGED, DAY BY DAY, from this explorer's crawler: \`software\` by client and release line (the major.minor a node DECLARED, unverified), \`hosting\` by the network operator (autonomous system) GeoIP names for each node's address. Each day is the network at that day's last crawl, nodes that answered in the 24 hours before it. Every count is a LOWER BOUND: nodes that accept no incoming connection cannot be counted, so say "at least". A share is of that day's \`answering\`; quote it with that denominator.
+
+A network operator hosting fewer than \`minNodes\` nodes that day is folded into \`other\` and is NEVER named; \`unknownOperator\` is nodes with no network found. Grouped by network, never by company, and never name who runs a node. The two records began on their own \`recordingSince\`; nothing earlier exists, so never describe a change from before it. Only the newest days are carried here, with the first recorded day kept so a change since recording began is answerable. Published on /charts/node-releases and /charts/node-hosting.`;
 
 /**
  * Said of every window: a window must state its own edges, and is anchored on the data, not on the

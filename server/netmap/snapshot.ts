@@ -1,3 +1,4 @@
+import type { HostingRecordRow } from "@/domain";
 import { createPool } from "../pg-pool";
 import { loadRecentBlocks, type StoredBlock } from "./releases";
 import "../pg-types";
@@ -103,6 +104,8 @@ export interface NetmapSnapshot {
   recentBlocks: StoredBlock[];
   /** Oldest first; empty until the crawler has created and written the table. */
   releaseDays: ReleaseDayRow[];
+  /** The hosting record, oldest first, stored whole; empty until the crawler writes it. */
+  hostingDays: HostingRecordRow[];
 }
 
 export interface NetmapReader {
@@ -190,15 +193,38 @@ async function loadReleaseDays(
   return rows;
 }
 
+/**
+ * The daily hosting record, oldest first. Like the release record, the table is the crawler's: an
+ * API that starts before a crawler new enough to create it reads an empty history.
+ */
+async function loadHostingDays(
+  pool: { query: ReturnType<typeof createPool>["query"] },
+  at: number,
+): Promise<HostingRecordRow[]> {
+  const exists = await pool.query<{ ok: boolean }>(
+    `SELECT to_regclass('public.net_asn_day') IS NOT NULL AS ok`,
+  );
+  if (!exists.rows[0]?.ok) return [];
+  const { rows } = await pool.query<{ day: string; asn: string; org: string; nodes: number }>(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, asn::text AS asn, asn_org AS org, nodes
+     FROM net_asn_day
+     WHERE day >= (to_timestamp($1) AT TIME ZONE 'UTC')::date - $2::int
+     ORDER BY day, nodes DESC, asn`,
+    [at, RELEASE_HISTORY_DAYS],
+  );
+  return rows.map((r) => ({ day: r.day, asn: Number(r.asn), org: r.org, nodes: r.nodes }));
+}
+
 export function createNetmapReader(connection?: string): NetmapReader {
   const POOL = { max: 2, statement_timeout: 20_000 } as const;
   const pool = createPool(connection, POOL);
   async function load(): Promise<NetmapSnapshot> {
     const at = Math.floor(Date.now() / 1000);
     const since = at - REACHABLE_WINDOW_SEC;
-    const [live, ghosts, links, crawls, crawlMeta, recentBlocks, releaseDays] = await Promise.all([
-      pool.query<LiveNodeRow>(
-        `SELECT n.host, n.port, n.network, n.user_agent, n.protocol_version, n.best_height,
+    const [live, ghosts, links, crawls, crawlMeta, recentBlocks, releaseDays, hostingDays] =
+      await Promise.all([
+        pool.query<LiveNodeRow>(
+          `SELECT n.host, n.port, n.network, n.user_agent, n.protocol_version, n.best_height,
                 n.ping_ms,
                 n.first_seen, n.last_reachable, n.country, n.city, n.lat, n.lon, n.asn, n.asn_org,
                 n.tor_exit, COALESCE(p.reached, 0) AS reached, COALESCE(p.attempted, 0) AS attempted
@@ -208,36 +234,37 @@ export function createNetmapReader(connection?: string): NetmapReader {
            FROM net_probe WHERE net_probe.host = n.host AND net_probe.port = n.port
          ) p ON true
          WHERE n.last_reachable IS NOT NULL AND n.last_reachable >= $1`,
-        [since],
-      ),
-      pool.query<GhostNodeRow>(
-        `SELECT host, port, network, tor_exit, country, lat, lon, last_error, last_attempt,
+          [since],
+        ),
+        pool.query<GhostNodeRow>(
+          `SELECT host, port, network, tor_exit, country, lat, lon, last_error, last_attempt,
                 last_reachable
          FROM net_node
          WHERE last_reachable IS NULL OR last_reachable < $1`,
-        [since],
-      ),
-      pool.query<LinkRow>(
-        `SELECT l.from_host, l.from_port, l.to_host, l.to_port
+          [since],
+        ),
+        pool.query<LinkRow>(
+          `SELECT l.from_host, l.from_port, l.to_host, l.to_port
          FROM net_link l
          JOIN net_node a ON a.host = l.from_host AND a.port = l.from_port
          JOIN net_node b ON b.host = l.to_host AND b.port = l.to_port
          WHERE a.last_reachable IS NOT NULL AND a.last_reachable >= $1`,
-        [since],
-      ),
-      pool.query<CrawlRow>(
-        `SELECT started_at, finished_at, attempted, reachable, new_nodes
+          [since],
+        ),
+        pool.query<CrawlRow>(
+          `SELECT started_at, finished_at, attempted, reachable, new_nodes
          FROM net_crawl WHERE finished_at IS NOT NULL
          ORDER BY id DESC LIMIT $1`,
-        [CRAWL_HISTORY_LIMIT],
-      ),
-      pool.query<{ total: number; first_started_at: number | null }>(
-        `SELECT count(*)::int AS total, min(started_at) AS first_started_at
+          [CRAWL_HISTORY_LIMIT],
+        ),
+        pool.query<{ total: number; first_started_at: number | null }>(
+          `SELECT count(*)::int AS total, min(started_at) AS first_started_at
          FROM net_crawl WHERE finished_at IS NOT NULL`,
-      ),
-      loadRecentBlocks(pool),
-      loadReleaseDays(pool, at),
-    ]);
+        ),
+        loadRecentBlocks(pool),
+        loadReleaseDays(pool, at),
+        loadHostingDays(pool, at),
+      ]);
     return {
       at,
       live: live.rows,
@@ -248,6 +275,7 @@ export function createNetmapReader(connection?: string): NetmapReader {
       firstCrawlStartedAt: crawlMeta.rows[0]?.first_started_at ?? null,
       recentBlocks,
       releaseDays,
+      hostingDays,
     };
   }
 

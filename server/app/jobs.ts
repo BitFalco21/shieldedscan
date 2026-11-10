@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { AddressCountTracker } from "../address-counts";
+import { BlockArrivalTracker } from "../block-arrival";
 import { backfillFxRates, refreshRecentFxRates } from "../fx-history";
 import { hostPacer } from "../job-pacer";
 import { HttpNodeRpc } from "../node-rpc";
@@ -87,6 +88,12 @@ export function startChainTrackers(databaseUrl: string | undefined, nodeRpcUrl: 
     log,
   }).start();
   log("pool usage tracker started");
+
+  // Block age on arrival per day and mining pool: small range reads of `block`, on two
+  // connections of its own so a slow window read never holds back the pool days.
+  const arrivalPool = createPool(databaseUrl, { max: 2, statement_timeout: 30_000 });
+  new BlockArrivalTracker({ pool: arrivalPool, pacer: pacerFor(arrivalPool), log }).start();
+  log("block arrival tracker started");
 
   // A tracker of its own, because its first pass is the whole chain and must not hold back the
   // pool days. The day statement sets its own longer bound.
