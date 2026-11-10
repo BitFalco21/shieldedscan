@@ -151,7 +151,7 @@ const toolNames = (t: AgentTools) => t.defs().map((d) => d.function.name);
  * data-file section and tool. Pinned so "off" is a text with a version a result can name; a prompt
  * or definition change re-pins these with its version bump.
  */
-const V52 = {
+const V53 = {
   prompt: "d50ab9e1e87c75eaf97c17d83d32d524588c4a2f2771a61b440f83fc206f9787",
   promptWithoutCharts: "eb9158310f8b8ff10123a5a371939b19ed228c94361d78613edbbaa215197f6b",
   defs: "26f52faec6ac9ea815529b236ee026886cedfc5dc86f64c26d277a52c158ee44",
@@ -166,16 +166,16 @@ describe("the off switch", () => {
     });
 
   it("leaves the prompt and the tool list exactly v52's", () => {
-    expect(sha(systemPromptFor({ charts: true, exports: false }))).toBe(V52.prompt);
-    expect(sha(systemPromptFor({ charts: false, exports: false }))).toBe(V52.promptWithoutCharts);
-    expect(sha(JSON.stringify(off().defs()))).toBe(V52.defs);
-    expect(sha(JSON.stringify(off(false).defs()))).toBe(V52.defsWithoutCharts);
-    expect(promptVersion(false)).toBe(52);
+    expect(sha(systemPromptFor({ charts: true, exports: false }))).toBe(V53.prompt);
+    expect(sha(systemPromptFor({ charts: false, exports: false }))).toBe(V53.promptWithoutCharts);
+    expect(sha(JSON.stringify(off().defs()))).toBe(V53.defs);
+    expect(sha(JSON.stringify(off(false).defs()))).toBe(V53.defsWithoutCharts);
+    expect(promptVersion(false)).toBe(53);
   });
 
   it("is a version bump only when on", () => {
     expect(promptVersion(true)).toBe(SYSTEM_PROMPT_VERSION);
-    expect(SYSTEM_PROMPT_VERSION).toBe(53);
+    expect(SYSTEM_PROMPT_VERSION).toBe(54);
     expect(systemPromptFor({ charts: true, exports: true })).toBe(SYSTEM_PROMPT);
     expect(SYSTEM_PROMPT.match(/## Data files/g)).toHaveLength(1);
     expect(systemPromptFor({ charts: true, exports: false })).not.toMatch(
@@ -209,7 +209,7 @@ describe("the off switch", () => {
       body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] }),
     });
     await res.text();
-    expect(sha(String(params[0]!.messages[0]!.content))).toBe(V52.prompt);
+    expect(sha(String(params[0]!.messages[0]!.content))).toBe(V53.prompt);
     expect(
       params[0]!.tools.map((t) => (t as { function: { name: string } }).function.name),
     ).not.toContain("export_data");
