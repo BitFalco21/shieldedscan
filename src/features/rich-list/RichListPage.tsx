@@ -1,5 +1,6 @@
 import Link from "@/components/Link";
-import type { RichListEntry, RichListSummary } from "@/domain";
+import type { ExchangeReserveSummary, RichListEntry, RichListSummary } from "@/domain";
+import { ExchangeReservesPanel } from "./ExchangeReservesPanel";
 import { BAND_BOUNDARIES_ZEC, addressLabel, shareOfTransparent } from "@/domain";
 import { CopyButton } from "@/components/CopyButton";
 import { CursorPagination } from "@/components/CursorPagination";
@@ -30,6 +31,11 @@ export interface RichListPageProps {
    * a worthless coin would be worse still.
    */
   priceUsd: number | null;
+  /**
+   * The exchanges' labelled balances. Absent on testnet, where the labels name nothing; null
+   * when the series could not be read, and the section says so.
+   */
+  exchangeReserves?: ExchangeReserveSummary | null;
   newerHref: string | null;
   olderHref: string | null;
   newestHref: string | null;
@@ -130,6 +136,7 @@ export function RichListPage({
   entries,
   summary,
   priceUsd,
+  exchangeReserves,
   newerHref,
   olderHref,
   newestHref,
@@ -241,6 +248,8 @@ export function RichListPage({
           </table>
         </div>
       </Panel>
+
+      {exchangeReserves === undefined ? null : <ExchangeReservesPanel summary={exchangeReserves} />}
 
       <Panel className="mt-3">
         <DataTable

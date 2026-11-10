@@ -20,6 +20,7 @@ export * from "./unified";
 export * from "./classify";
 export * from "./list";
 export * from "./address-label";
+export * from "./exchange-reserves";
 export * from "./halving";
 export * from "./issuance";
 export * from "./market";

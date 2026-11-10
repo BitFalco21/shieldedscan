@@ -52,6 +52,8 @@ const CHART_ROUTES = [
   "/charts/shielded-capable-by-chain",
   "/charts/pools-to-majority",
   "/miners",
+  // Four exchanges' lines, with a gap where one address is not computed yet.
+  "/charts/exchange-reserves",
   "/charts",
   // The stage is SVG end to end — boxes, ribbons and the heartbeat — and it is drawn from
   // runtime geometry rather than from a chart component, so the well-formedness invariant is

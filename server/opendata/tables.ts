@@ -438,6 +438,13 @@ export const MINING_PAYOUTS_DAILY_COLUMNS: readonly ColumnSpec[] = [
   c("fee_blocks", "int32"),
 ];
 
+export const ADDRESS_BALANCE_DAILY_COLUMNS: readonly ColumnSpec[] = [
+  c("address", "utf8"),
+  c("day", "date"),
+  c("balance_zat", "int64"),
+  c("close_height", "int32"),
+];
+
 /** The site's series, in the order they are written; each is also in `SMALL_TABLES`. */
 export const SITE_TABLES = [
   "tx_kinds_daily",
@@ -448,6 +455,7 @@ export const SITE_TABLES = [
   "fees_monthly",
   "shielding_records_daily",
   "mining_payouts_daily",
+  "address_balance_daily",
 ] as const;
 
 export type SiteTable = (typeof SITE_TABLES)[number];
@@ -480,6 +488,7 @@ export const SMALL_TABLES = {
   fees_monthly: FEES_MONTHLY_COLUMNS,
   shielding_records_daily: SHIELDING_RECORDS_DAILY_COLUMNS,
   mining_payouts_daily: MINING_PAYOUTS_DAILY_COLUMNS,
+  address_balance_daily: ADDRESS_BALANCE_DAILY_COLUMNS,
 } as const satisfies Record<string, readonly ColumnSpec[]>;
 
 export type SmallTable = keyof typeof SMALL_TABLES;

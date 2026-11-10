@@ -320,6 +320,11 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     tx_count:
       "Transactions it appears in, either side, up to the release height. NULL where not known: not yet counted, or the address emptied after the release height.",
   },
+  address_balance_daily: {
+    address: "Transparent address, t1… or t3….",
+    balance_zat: "Its balance at the day's highest block, zatoshis.",
+    close_height: "That block: the highest block stamped that UTC day.",
+  },
   mining_payouts_daily: {
     kind: "transparent, shielded (a shielded coinbase, ZIP 213) or unknown (the coinbase names no address).",
     address:
@@ -371,6 +376,8 @@ const TABLE_INTROS: Record<string, string> = {
     "The day's largest shielding, unshielding and pool migration per UTC day. A transaction is named only when it alone holds the maximum.",
   mining_payouts_daily:
     "Blocks per UTC day by miner kind and payout address, with what the miners were paid.",
+  address_balance_daily:
+    "The transparent addresses carrying an exchange label on the site, each one's balance at every UTC day's highest block from its first use, emptied days included. No label is published here.",
   addresses:
     "Every transparent address with a positive balance at the release height, in address order. A snapshot: each release replaces the file, and the repository's history keeps the earlier ones. For the site's rich-list order, sort by `balance_zat` descending, then `address`.",
   blocks: `Every block from genesis to the release height, one row per block, in files of ${BLOCKS_PER_FILE.toLocaleString("en-US")} heights.`,

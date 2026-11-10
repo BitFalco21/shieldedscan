@@ -69,6 +69,7 @@ import type {
   InflowKindMonthPoint,
   DestinationWindows,
   SupplyDayPoint,
+  ExchangeReserveDay,
   VenueMonthPoint,
   MinerShareMonth,
   NoteTreeDayPoint,
@@ -327,6 +328,8 @@ export interface ExplorerDataSource {
   getDestinationWindows(): Promise<DestinationWindows>;
   /** Every value pool's balance at each complete UTC day's close, all history. */
   getSupplyDays(): Promise<SupplyDayPoint[]>;
+  /** The labelled exchange addresses' balances per complete UTC day, summed by exchange. */
+  getExchangeReserves(): Promise<ExchangeReserveDay[]>;
   /** Each shielded pool's note commitment tree size at every day's close. */
   getNoteTrees(): Promise<NoteTreeDayPoint[]>;
   /** Transparent active addresses per complete day, with gaps where not computed. */

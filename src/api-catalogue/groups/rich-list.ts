@@ -129,6 +129,88 @@ export const RICH_LIST_GROUP: ApiGroup = {
       toolNotes: ["Third-party names, not verified here; one label, one address."],
     },
     {
+      id: "exchange-reserves",
+      method: "GET",
+      path: "/v1/labels/exchanges",
+      title: "ZEC on exchanges' labelled addresses",
+      description:
+        "ZEC on each exchange's labelled transparent addresses per day or month, at the period's highest block, and the window's change.",
+      params: [
+        {
+          name: "from",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "First UTC day.",
+          example: "2026-10-01",
+        },
+        {
+          name: "to",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "Day the window ends before.",
+        },
+        {
+          name: "interval",
+          kind: "query",
+          type: "day | month",
+          required: false,
+          description: "Default month; day: at most 366 days.",
+        },
+        {
+          name: "exchange",
+          kind: "query",
+          type: "binance | coinbase | gemini | kraken",
+          required: false,
+          description: "One exchange.",
+        },
+        {
+          name: "addresses",
+          kind: "query",
+          type: "boolean",
+          required: false,
+          description: "Add each address.",
+        },
+      ],
+      exampleResponse: `{
+  "query": { "from": "2026-10-01", "to": null, "interval": "month",
+             "exchange": "binance", "addresses": false },
+  "coverage": { "status": "partial",
+                "notes": ["The last point is today's unfinished UTC day, read at the newest block."] },
+  "source": { "name": "ShieldedScan", "url": "https://shieldedscan.xyz/charts/exchange-reserves" },
+  "basis": "transparent ZEC on each exchange's labelled addresses at the period's highest block; …",
+  "exchanges": [{ "id": "binance", "name": "Binance", "addresses": 5 }],
+  "data": {
+    "interval": "month",
+    "points": [
+      {
+        "periodStart": "2026-10-01",
+        "closing": { "day": "2026-10-31", "height": 3521874 },
+        "exchanges": { "binance": { "zat": 21360981740112, "zec": "213609.81740112" } },
+        "total": { "zat": 21360981740112, "zec": "213609.81740112" }
+      }
+    ],
+    "change": {
+      "from": { "day": "2026-09-30", "height": 3500813 },
+      "to": { "day": "2026-10-31", "height": 3521874 },
+      "exchanges": { "binance": { "zat": -1104230000000, "zec": "-11042.3" } },
+      "total": { "zat": -1104230000000, "zec": "-11042.3" }
+    }
+  },
+  "unknowns": {},
+  "asOf": 1793232000
+}`,
+      notes: [
+        "Grouping addresses by exchange is this explorer's own, from the labels at `/v1/labels`: each exchange's total sums the labelled addresses `exchanges[].addresses` counts, never its unlabelled wallets, so it is not the exchange's holdings. Bridges, funds and theft-flagged addresses are not counted.",
+        "A balance is a level: never add points together. `data.change` is the window's last close minus the close of the day before the window (or of its first day when nothing precedes it).",
+        "An exchange reads `null` where one of its addresses is not computed yet, with `unmeasured` in `unknowns`. `addresses=true` adds each address's balance at the last close and its change; the daily per-address series is the open dataset's `address_balance_daily`.",
+      ],
+      toolNotes: [
+        "Labelled addresses only, grouped by this explorer: not an exchange's holdings. Never sum points.",
+      ],
+    },
+    {
       id: "rich-list-distribution",
       method: "GET",
       path: "/v1/rich-list/distribution",

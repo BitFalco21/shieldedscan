@@ -1,4 +1,4 @@
-import type { ChartRange, NodeBands } from "@/domain";
+import type { ChartRange, ExchangeReserveDay, NodeBands } from "@/domain";
 import {
   chartRangeDays,
   destinationsByChain,
@@ -11,6 +11,7 @@ import {
   hostingBands,
   softwareBands,
   softwareHistory,
+  EXCHANGES,
   issuanceOutlook,
   poolsToMajority,
   netIssuedZat,
@@ -450,6 +451,20 @@ export function chartTable(
           { name: "blocks", value: (p) => p.blocks },
           { name: "target_blocks", value: (p) => blocksTargetForDay(p) },
           { name: "top_height", value: (p) => p.topHeight },
+        ],
+      );
+    }
+    case "exchange-reserves": {
+      if (!data.exchangeReserves) return null;
+      return table(
+        "day",
+        sliceRange(data.exchangeReserves, (p) => p.timestamp, range),
+        [
+          ...EXCHANGES.map((e) => ({
+            name: `${e}_zat`,
+            value: (p: ExchangeReserveDay) => p.zat[e],
+          })),
+          { name: "close_height", value: (p) => p.closeHeight },
         ],
       );
     }

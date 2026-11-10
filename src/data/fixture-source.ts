@@ -2,6 +2,7 @@ import { blockSummaryOf } from "@/domain";
 import * as fixtures from "@/fixtures";
 import * as chartSeries from "@/fixtures/chart-series";
 import { getBlockArrival } from "@/fixtures/block-arrival";
+import { getExchangeReserves } from "@/fixtures/exchange-reserves";
 import type { ExplorerDataSource } from "./source";
 
 /** The fixture source: typed static data, resolved immediately. */
@@ -158,6 +159,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   },
   async getSupplyDays() {
     return chartSeries.getSupplyDays();
+  },
+  async getExchangeReserves() {
+    return getExchangeReserves();
   },
   async getChainOutflow() {
     return chartSeries.getChainOutflow();

@@ -131,6 +131,7 @@ export function rowKey(path: string): readonly string[] {
     "fees_monthly.parquet": ["month", "kind"],
     "shielding_records_daily.parquet": ["day"],
     "mining_payouts_daily.parquet": ["day", "kind", "address"],
+    "address_balance_daily.parquet": ["address", "day"],
   };
   const k = keys[path];
   if (!k) throw new Error(`no row key for ${path}`);

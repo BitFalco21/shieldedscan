@@ -4,6 +4,7 @@ import { base58checkEncode } from "@/domain/encoding/base58check";
 import { blockSubsidyZat } from "@/domain/halving";
 import { computeBoundaryDay, upsertBoundaryDay } from "../../../boundary-daily";
 import { computeMiningDay } from "../../../mining-daily";
+import { ReserveTracker } from "../../../exchange-reserves";
 import { CONFIRMATIONS } from "../../read";
 
 /**
@@ -138,4 +139,26 @@ export async function seedChain(db: Client, url: URL): Promise<void> {
        FROM generate_series(101, $1::int) AS h`,
     [TIP],
   );
+  // The reserve tracker over the coinbase address, by its own code, then filed under a
+  // well-formed address so the published address check passes.
+  const reserves = new Pool({ connectionString: url.toString(), max: 2 });
+  try {
+    await new ReserveTracker({
+      pool: reserves,
+      network: "mainnet",
+      members: [{ address: "t1coinbase", exchange: "binance" }],
+      pacer: () => ({
+        preflight: async () => {},
+        afterUnit: async () => "continue",
+        stats: { sleptMs: 0, stallSamples: 0, maxBlocksBehind: 0 },
+      }),
+      log: () => {},
+      // Four blocks a day here, so the production settle of twelve blocks would be three days.
+      settleBlocks: 1,
+    }).refresh();
+  } finally {
+    await reserves.end();
+  }
+  await db.query("UPDATE address_balance_daily SET address = $1", [MINER]);
+  await db.query("UPDATE address_balance_daily_state SET address = $1", [MINER]);
 }

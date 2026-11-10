@@ -1,5 +1,6 @@
 import {
   type ChainWindowMeasure,
+  EXCHANGES,
   MINING_POOLS,
   POOL_MIGRATION_DESTINATIONS,
   POOL_MIGRATION_SOURCES,
@@ -15,6 +16,7 @@ import {
 } from "../../v1/mining-pools";
 import { MAX_DAY_BUCKETS } from "../../v1/params";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
+import { V1_EXCHANGE_RESERVES_PATH } from "../../v1/exchange-reserves";
 import { type ToolArgs, windowDays } from "./args";
 import {
   compactBlockArrival,
@@ -27,6 +29,7 @@ import {
   withPoolCountReason,
   withRanking,
   withThroughput,
+  withLastReservePoint,
 } from "./enrich";
 import { isOneOf, orList } from "./json";
 import {
@@ -35,6 +38,7 @@ import {
   CHAIN_WINDOW_NOTE,
   CHAIN_WINDOW_RANKED_NOTE,
   BLOCK_ARRIVAL_NOTE,
+  EXCHANGE_RESERVES_NOTE,
   MINERS_NOTE,
   MINING_POOLS_NOTE,
   NSM_NOTE,
@@ -69,6 +73,7 @@ import type { ToolCall } from "./types";
 import {
   verifyMinersEcho,
   verifyMiningEcho,
+  verifyExchangeReservesEcho,
   verifySeriesEcho,
   verifyTransparentEcho,
   verifyWindowEcho,
@@ -441,6 +446,39 @@ export function chainActivityCalls(
             emptyIsAnAnswer: true,
             enrich: compactBlockArrival,
             verify: (payload) => verifyMiningEcho(payload, { window }),
+          },
+        },
+      ];
+    }
+    case "exchange-reserves": {
+      // The public `/v1/labels/exchanges`. Ungrouped reads months and keeps the newest one beside
+      // the window's change; one exchange adds its addresses, at most a few dozen rows.
+      const days = windowDays(args, nowMs);
+      if (typeof days === "string") return days;
+      const groupBy = str("groupBy") ?? "none";
+      if (!isOneOf(WINDOW_GROUP_BY, groupBy)) return `groupBy must be ${orList(WINDOW_GROUP_BY)}`;
+      const exchange = str("exchange");
+      if (exchange !== null && !isOneOf(EXCHANGES, exchange)) {
+        return `exchange must be ${orList(EXCHANGES)}`;
+      }
+      const interval = groupBy === "day" ? "day" : "month";
+      const query = new URLSearchParams();
+      if (days.from !== null) query.set("from", days.from);
+      if (days.to !== null) query.set("to", days.to);
+      query.set("interval", interval);
+      if (exchange !== null) {
+        query.set("exchange", exchange);
+        query.set("addresses", "true");
+      }
+      return [
+        {
+          path: `${V1_EXCHANGE_RESERVES_PATH}?${query.toString()}`,
+          surface: "v1",
+          aggregate: {
+            note: EXCHANGE_RESERVES_NOTE,
+            emptyIsAnAnswer: true,
+            ...(groupBy === "none" ? { enrich: withLastReservePoint } : {}),
+            verify: (payload) => verifyExchangeReservesEcho(payload, days, interval, exchange),
           },
         },
       ];

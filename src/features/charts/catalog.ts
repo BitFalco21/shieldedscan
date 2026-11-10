@@ -52,7 +52,8 @@ export type ChartSlug =
   | "supply-issuance"
   | "pools-to-majority"
   | "shielded-capable-by-chain"
-  | "issuance-vs-nsm";
+  | "issuance-vs-nsm"
+  | "exchange-reserves";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -471,6 +472,17 @@ export const CHARTS: ChartEntry[] = [
       "A swap whose venue published no Zcash address is in neither share and counted beside it. The mix follows the venues: THORChain swaps begin on 2 October 2026, and Maya carried no ZEC from late August to 1 October 2026.",
     ],
   },
+  {
+    slug: "exchange-reserves",
+    title: "ZEC on exchange addresses",
+    category: "Market",
+    api: { docsId: "exchange-reserves", path: "/v1/labels/exchanges" },
+    blurb: "Transparent ZEC on each exchange's labelled addresses, daily.",
+    description: [
+      "The transparent balance of the addresses this explorer labels for Binance, Coinbase, Gemini and Kraken, summed per exchange at each day's highest block. The grouping is ours, and unlabelled exchange wallets are not counted, so a line is not an exchange's holdings.",
+      "A fall means ZEC left those addresses: to customers, to the exchange's other wallets or into a shielded pool. The chain does not say which.",
+    ],
+  },
 ];
 
 /**
@@ -508,6 +520,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   // The crawler is mainnet-only.
   "node-releases",
   "node-hosting",
+  // The labels name mainnet addresses.
+  "exchange-reserves",
 ]);
 
 /** The charts this deployment may honestly show. */

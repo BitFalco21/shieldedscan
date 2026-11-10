@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ChartRange, CrossChainProtocol } from "@/domain";
+import { EXCHANGES, EXCHANGE_NAMES } from "@/domain";
 import {
   feeTotalIsComplete,
   NU7,
@@ -43,6 +44,7 @@ import {
   monthShort,
 } from "@/lib/format";
 import { POOL_CLASSES } from "@/lib/pool-palette";
+import { EXCHANGE_CLASSES } from "@/lib/exchange-palette";
 import { useQueryParam } from "@/lib/use-query-param";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
@@ -638,6 +640,23 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           formatValue={wholeCount}
           ariaLabel="Blocks mined per day, against the protocol's daily target"
+        />
+      );
+    }
+    case "exchange-reserves": {
+      const t = chartTable(slug, data, range);
+      if (!t || t.rows.length < 2) return unavailable("The exchange balances series");
+      return (
+        <MultiLineChart
+          labels={tableLabels(t)}
+          series={EXCHANGES.map((e, i) => ({
+            name: EXCHANGE_NAMES[e],
+            values: column(t, i),
+            className: EXCHANGE_CLASSES[e],
+          }))}
+          formatValue={formatZecCompact}
+          formatTick={formatZecTick}
+          ariaLabel="Transparent ZEC on each exchange's labelled addresses, per day"
         />
       );
     }

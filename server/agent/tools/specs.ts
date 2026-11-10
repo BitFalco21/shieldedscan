@@ -200,6 +200,7 @@ export const CHAIN_ACTIVITY_MODES = [
   "mining-pools",
   "nsm",
   "block-arrival",
+  "exchange-reserves",
 ] as const;
 
 export type ChainActivityMode = (typeof CHAIN_ACTIVITY_MODES)[number];

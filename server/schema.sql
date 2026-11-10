@@ -413,3 +413,30 @@ CREATE TABLE IF NOT EXISTS block_arrival_window (
   computed_at BIGINT  NOT NULL,
   PRIMARY KEY (window_key, grp)
 );
+
+-- Each tracked address's balance at every UTC day's highest block, kept by `ReserveTracker` in
+-- `server/exchange-reserves.ts` for the addresses `EXCHANGE_MEMBERS` counts under an exchange
+-- (`src/domain/exchange-reserves.ts`). No names here: the grouping is read from that list.
+--
+-- A row a day from the address's first use, emptied days included. Only days whose highest block
+-- is at least the reorg depth below the tip are stored, so a row never needs taking back; the days
+-- above are computed live when read. The state row is each address's watermark, moved in the same
+-- transaction as the rows it covers and only from where it stood.
+CREATE TABLE IF NOT EXISTS address_balance_daily (
+  address      TEXT    NOT NULL,
+  day          DATE    NOT NULL,
+  balance_zat  BIGINT  NOT NULL,
+  close_height INTEGER NOT NULL,
+  PRIMARY KEY (address, day)
+);
+
+CREATE TABLE IF NOT EXISTS address_balance_daily_state (
+  address        TEXT    PRIMARY KEY,
+    -- The highest block covered: the close of `through_day`, or -1 before the first day.
+  through_height INTEGER NOT NULL,
+  through_day    DATE,
+  balance_zat    BIGINT  NOT NULL,
+    -- The first day with a row, or NULL while the address has not been used.
+  first_day      DATE,
+  updated_at     BIGINT  NOT NULL
+);

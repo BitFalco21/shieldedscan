@@ -24,6 +24,7 @@ const ALLOWED = new Set([
   "lib/mining-pool-palette.ts",
   // The node-history bands: release lines and hosting networks, by rank.
   "lib/node-band-palette.ts",
+  "lib/exchange-palette.ts",
   "features/network/topology/sky-palette.ts",
   "features/ecosystem/StageCard.tsx",
   "features/ecosystem/StageScene.tsx",

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
+import { EXCHANGE_MEMBERS, exchangeReserveDays, type ExchangeReserveDay } from "@/domain";
 import type {
   BlocksDayPoint,
   MinerShareMonth,
@@ -8,6 +9,7 @@ import type {
   TransparentDayPoint,
 } from "@/domain";
 import { Cached } from "./cached";
+import { loadReserveRows } from "./exchange-reserves";
 import { createPool } from "./pg-pool";
 import "./pg-types";
 
@@ -16,6 +18,7 @@ export const TRANSPARENT_DAYS_PATH = "/chain/analytics/transparent-days";
 export const MINER_SHARES_PATH = "/chain/analytics/miner-shares";
 export const BLOCKS_DAILY_PATH = "/chain/analytics/blocks-daily";
 export const SUPPLY_DAYS_PATH = "/chain/analytics/supply-days";
+export const EXCHANGE_RESERVES_PATH = "/chain/analytics/exchange-reserves";
 
 /**
  * The private series behind the chart library's newer charts, one route each.
@@ -34,6 +37,7 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   const minerShares = new Cached<MinerShareMonth[]>();
   const blocksDaily = new Cached<BlocksDayPoint[]>();
   const supplyDays = new Cached<SupplyDayPoint[]>();
+  const exchangeReserves = new Cached<ExchangeReserveDay[]>();
 
   /**
    * Each shielded pool's note commitment tree size at every complete day's close, all history.
@@ -221,6 +225,25 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
           ironwoodZat: zat(r.ironwood),
           lockboxZat: zat(r.lockbox),
         }));
+      }),
+    ),
+  );
+
+  /**
+   * The labelled exchange addresses' balances per complete UTC day, summed by exchange, as
+   * `/v1/labels/exchanges` reads them. Today is left out, as on every daily series here.
+   */
+  app.get(EXCHANGE_RESERVES_PATH, async (c) =>
+    c.json(
+      await exchangeReserves.get(async () => {
+        const loaded = await loadReserveRows(
+          pool,
+          EXCHANGE_MEMBERS.map((m) => m.address),
+        );
+        const today = Math.floor(Date.now() / 86_400_000) * 86_400;
+        return exchangeReserveDays(loaded.rows, EXCHANGE_MEMBERS, loaded.computedThrough).filter(
+          (d) => d.timestamp < today,
+        );
       }),
     ),
   );

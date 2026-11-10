@@ -142,7 +142,17 @@ describe.skipIf(!ADMIN_URL)("open data export", () => {
       "fees_monthly.parquet",
       "shielding_records_daily.parquet",
       "mining_payouts_daily.parquet",
+      "address_balance_daily.parquet",
       "mining_concentration_daily.parquet",
+    ]);
+    // The tracked address's balances, through the final day and at each day's highest block.
+    const balancesDaily = read(r, "address_balance_daily.parquet");
+    expect(balancesDaily.numRows).toBeGreaterThan(40);
+    expect(balancesDaily.schema.fields.map((f) => f.name)).toEqual([
+      "address",
+      "day",
+      "balance_zat",
+      "close_height",
     ]);
     expect(read(r, "transactions/0000000-0099999.parquet").numRows).toBe((RELEASE + 1) * 2 + 1);
     const balances = read(r, "transactions/0000000-0099999.parquet").getChild(

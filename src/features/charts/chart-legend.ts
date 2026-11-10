@@ -1,4 +1,5 @@
-import { NU7 } from "@/domain";
+import { EXCHANGES, EXCHANGE_NAMES, NU7, exchangeAddressCounts } from "@/domain";
+import { EXCHANGE_CLASSES } from "@/lib/exchange-palette";
 import type { LegendItem } from "@/components/ChartLegend";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
@@ -50,6 +51,13 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
         { label: "Migrated to Ironwood", className: POOL_CLASSES.ironwood, mark: "line" },
         { label: "Left in Orchard", className: POOL_CLASSES.orchard, mark: "line" },
       ];
+    case "exchange-reserves":
+      // Each total names how many labelled addresses it sums.
+      return EXCHANGES.map((e) => ({
+        label: `${EXCHANGE_NAMES[e]} · ${exchangeAddressCounts()[e]} addresses`,
+        className: EXCHANGE_CLASSES[e],
+        mark: "line" as const,
+      }));
     case "shielding-flow":
       return [
         { label: "Shielded", className: "text-series", mark: "bar" },

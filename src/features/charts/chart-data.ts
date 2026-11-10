@@ -29,6 +29,7 @@ import type {
   ShieldedSupplyPoint,
   ShieldingFlowPoint,
   SupplyBreakdown,
+  ExchangeReserveDay,
 } from "@/domain";
 
 /**
@@ -85,6 +86,8 @@ export interface ChartData {
   destinationWindows: DestinationWindows | null;
   /** The NSM's days since NU7, for issuance against what it removed. */
   nsm: NsmOverview | null;
+  /** The labelled exchange addresses' balances per day, summed by exchange. */
+  exchangeReserves: ExchangeReserveDay[] | null;
   /**
    * When these series were read, Unix seconds: what a period still running is measured against.
    * Stamped with the data rather than read in the browser, so a cached page never calls a month
@@ -129,6 +132,7 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     minerMonths: null,
     destinationWindows: null,
     nsm: null,
+    exchangeReserves: null,
     asOf: 0,
     ...partial,
   };
