@@ -1,3 +1,4 @@
+import { COIN_AGE_BANDS, type CoinAgePoint, type CoinAgeSeries } from "@/domain/coin-age";
 import type {
   ActivityPoint,
   AddressInfo,
@@ -776,6 +777,33 @@ export function createChainApiSource(config: ChainApiConfig) {
         )
       ) {
         throw new Error("chain API returned an unrecognised block arrival shape");
+      }
+      return series;
+    },
+
+    async getCoinAge(): Promise<CoinAgeSeries> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/coin-age", CACHE_FIVE_MINUTES),
+        "coin age",
+      );
+      const series = body as CoinAgeSeries;
+      const isPoint = (p: CoinAgePoint | null | undefined) =>
+        typeof p?.asOf === "string" &&
+        typeof p.height === "number" &&
+        Array.isArray(p.bands) &&
+        p.bands.length === COIN_AGE_BANDS.length &&
+        p.bands.every(
+          (b, i) =>
+            b.key === COIN_AGE_BANDS[i]!.key &&
+            typeof b.valueZat === "number" &&
+            typeof b.outputs === "number",
+        );
+      if (
+        !Array.isArray(series?.monthEnds) ||
+        !series.monthEnds.every(isPoint) ||
+        !(series.latest === null || isPoint(series.latest))
+      ) {
+        throw new Error("chain API returned an unrecognised coin age shape");
       }
       return series;
     },

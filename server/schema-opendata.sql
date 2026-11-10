@@ -39,6 +39,14 @@ SELECT day, outputs, unaddressed_outputs, out_transparent_zat, out_mixed_zat,
        active_addresses, sending_addresses, receiving_addresses
 FROM transparent_daily;
 
+-- Coin age at the latest applied height: the release cuts it at its final day (`read.ts`).
+CREATE OR REPLACE VIEW opendata.coin_age_matrix AS
+SELECT creation_day, spend_day, value_zat, outputs
+FROM coin_age_matrix WHERE outputs <> 0;
+
+CREATE OR REPLACE VIEW opendata.coin_age_day AS
+SELECT day, last_height FROM coin_age_day;
+
 CREATE OR REPLACE VIEW opendata.transparent_monthly AS
 SELECT month, active_addresses, sending_addresses, receiving_addresses, days, complete
 FROM transparent_monthly;

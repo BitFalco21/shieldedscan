@@ -248,6 +248,13 @@ Shielded activity has no address and is in NONE of these figures: never describe
 
 The endpoint is /v1/analytics/transparent.`;
 
+/** Said of 'coin-age': the bands are exact, the reading of them is where it goes wrong. */
+export const COIN_AGE_NOTE = `HOW LONG TRANSPARENT ZEC HAS SAT UNSPENT, from this explorer's full index of transparent outputs. \`monthEnds\` is each month's last day and \`latest\` the newest block covered; every point names its closing \`height\` and its \`totalZec\`, the whole transparent pool at that height. \`valueZec\` and \`sharePct\` are keyed by band: the ZEC in that band and its percentage OF THAT POINT'S \`totalZec\`, and the bands add up to the total to the zatoshi. Quote them, and add nothing up yourself.
+
+A band holds the outputs created that long before the day measured and not spent by its end (\`lt1w\` under a week … \`5y\` five years or more). An address is not a holder and an output is not a person: coins moved between one wallet's own addresses become young again, so say "unspent for", never "held by long-term holders", and never call old coins lost — the chain records that they have not moved, not why.
+
+The endpoint is /v1/analytics/coin-age.`;
+
 /** Said of 'pools': one population, three ways to misread it. */
 export const POOL_USAGE_NOTE = `HOW EACH SHIELDED POOL WAS USED in the period, from this explorer's index. Every figure is computed already; add nothing up yourself.
 

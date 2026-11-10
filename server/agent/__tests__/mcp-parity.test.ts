@@ -77,6 +77,7 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   "analytics-pools": { tool: "chain_activity", via: "pool-balances" },
   "analytics-pool-usage": { tool: "chain_activity", via: "pools" },
   "analytics-transparent": { tool: "chain_activity", via: "transparent" },
+  "analytics-coin-age": { tool: "chain_activity", via: "coin-age" },
   // Block-weighted difficulty and block size per period are 'window' measures.
   "analytics-network": { tool: "chain_activity", via: "window" },
   "analytics-miners": { tool: "chain_activity", via: "miners" },

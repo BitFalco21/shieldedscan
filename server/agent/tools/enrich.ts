@@ -932,6 +932,42 @@ export function compactMiningSeries(payload: unknown): unknown {
 }
 
 /**
+ * The coin-age payload as the model reads it. Served whole it is ~390 KB for all of history (nine
+ * bands a point, each with zatoshis, a decimal, an output count and a share's three terms), read
+ * twice a turn, and `capSeries` cannot window it because the month-ends sit under `data`. Each point
+ * keeps its total and, keyed by band, the band's ZEC and its share of that total; the month-ends move
+ * to the top level, where `capSeries` windows them to the newest with the true count beside them.
+ */
+export function compactCoinAge(payload: unknown): unknown {
+  const body = asRecord(payload);
+  const data = asRecord(body?.data);
+  if (body === null || data === null || !Array.isArray(data.monthEnds)) return payload;
+  const zatOf = (v: unknown) => {
+    const zat = asRecord(v)?.zat;
+    return typeof zat === "number" ? formatZecAmount(zat) : null;
+  };
+  const point = (raw: unknown) => {
+    const p = asRecord(raw) ?? {};
+    const bands = (Array.isArray(p.bands) ? p.bands : []).map((b: unknown) => asRecord(b) ?? {});
+    return {
+      asOf: p.asOf,
+      height: p.height,
+      totalZec: zatOf(p.total),
+      valueZec: Object.fromEntries(bands.map((b) => [b.key, zatOf(b.value)])),
+      sharePct: Object.fromEntries(bands.map((b) => [b.key, asRecord(b.share)?.pct ?? null])),
+    };
+  };
+  return {
+    query: body.query,
+    coverage: body.coverage,
+    unknowns: body.unknowns,
+    bands: data.bands,
+    latest: data.latest === null || data.latest === undefined ? null : point(data.latest),
+    monthEnds: data.monthEnds.map(point),
+  };
+}
+
+/**
  * The first day of the period before the one holding `day`: the baseline a pool-balance series
  * needs so its first asked period carries a change too.
  */

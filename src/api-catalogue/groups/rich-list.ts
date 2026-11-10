@@ -10,7 +10,7 @@ export const RICH_LIST_GROUP: ApiGroup = {
       path: "/v1/rich-list",
       title: "Every transparent address holding ZEC",
       description:
-        "Every transparent address with a positive balance, largest first. A balance is `sum(outputs) − sum(inputs)` over the chain index, exact to the zatoshi. Shielded value is absent by construction: this is the transparent share of supply and says nothing about who holds ZEC privately.",
+        "Every transparent address with a positive balance, largest first. A balance is `sum(outputs) − sum(inputs)` over the chain index, exact to the zatoshi.",
       params: [
         {
           name: "limit",
@@ -60,6 +60,7 @@ export const RICH_LIST_GROUP: ApiGroup = {
   "asOf": 1786873631
 }`,
       notes: [
+        "Shielded value is absent by construction: this is the transparent share of supply and says nothing about who holds ZEC privately.",
         "`height` is the height the BALANCES cover, not the chain tip — figures are dated by when they were computed, never by when you asked.",
         '`txCount` counts transactions the address appears in, either side, once per transaction. It is `null` on rows a backfill has not reached, with `unknowns.txCount: "unmeasured"` beside it — never 0, which is a value the truth cannot take for an address holding a balance.',
         "No label on a row and no entity grouping. One address is one address: an exchange holds thousands and one address holds thousands of people's coins. The addresses this explorer names are at `/v1/labels`, each with its source.",

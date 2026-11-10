@@ -789,6 +789,36 @@
     letter-spacing: 0.1em;
   }
 
+  /* Transparent coin age, youngest (1) to oldest (9): one hue stepped in lightness, hot for coins
+     that just moved and deep for coins that have sat for years, the /mining-cost ramp's method. */
+  .age-band-1 {
+    color: oklch(0.9 0.2 calc(var(--h) + 0.6));
+  }
+  .age-band-2 {
+    color: oklch(0.82 0.22 calc(var(--h) + 1));
+  }
+  .age-band-3 {
+    color: oklch(0.74 0.2 calc(var(--h) + 1.5));
+  }
+  .age-band-4 {
+    color: oklch(0.66 0.18 calc(var(--h) + 2));
+  }
+  .age-band-5 {
+    color: oklch(0.58 0.155 calc(var(--h) + 2.5));
+  }
+  .age-band-6 {
+    color: oklch(0.5 0.13 calc(var(--h) + 3));
+  }
+  .age-band-7 {
+    color: oklch(0.43 0.11 calc(var(--h) + 3.5));
+  }
+  .age-band-8 {
+    color: oklch(0.36 0.09 calc(var(--h) + 4));
+  }
+  .age-band-9 {
+    color: oklch(0.3 0.07 calc(var(--h) + 4));
+  }
+
   /* Privacy kinds in the ranked inks (`ranked-palette.ts`), private to public: the accent,
      then two that differ in lightness as well as hue. Shades of one green read as one series
      when the lines cross; these stay apart without colour vision. */

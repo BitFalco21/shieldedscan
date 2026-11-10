@@ -1,3 +1,5 @@
+import { COIN_AGE_BANDS, coinAgeTotalZat } from "@/domain/coin-age";
+import { AGE_BAND_CLASS, AGE_STACK } from "./coin-age-series";
 import {
   ARRIVAL_ALL_GROUP,
   EXCHANGES,
@@ -82,6 +84,15 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
       return { kind: "stack", series: pools() };
     case "pool-usage":
       return { kind: "lines", series: pools() };
+    case "transparent-coin-age":
+      // Columns: the close height, then the bands youngest first; the stack draws oldest first.
+      return {
+        kind: "stack",
+        series: AGE_STACK.map((key) => ({
+          values: col(1 + COIN_AGE_BANDS.findIndex((b) => b.key === key)),
+          className: AGE_BAND_CLASS[key],
+        })),
+      };
     case "shielding-flow":
     case "crosschain-volume":
       return { kind: "flow", inValues: col(0), outValues: col(1) };
@@ -525,6 +536,17 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
       return {
         value: `${formatCount(all.p50Seconds)} s`,
         caption: `median block age on arrival, last 30 days: ${formatCount(all.measured)} blocks`,
+      };
+    }
+    case "transparent-coin-age": {
+      const latest = data.coinAge?.latest;
+      if (!latest) return null;
+      const total = coinAgeTotalZat(latest);
+      const old = latest.bands.find((b) => b.key === "5y")?.valueZat ?? 0;
+      if (total === 0) return null;
+      return {
+        value: formatSharePct((old / total) * 100),
+        caption: `of transparent ZEC unspent 5+ years: ${formatZecWhole(old)} of ${formatZecWhole(total)}, block ${formatCount(latest.height)}`,
       };
     }
     case "orphan-rate": {

@@ -460,12 +460,26 @@ export const SITE_TABLES = [
 
 export type SiteTable = (typeof SITE_TABLES)[number];
 
+/**
+ * Every transparent output ever made, summed by the UTC day of the block that created it and the
+ * UTC day of the block that spent it (NULL: unspent at the release's final day). A snapshot:
+ * spends move value out of a creation day's NULL row, so each release replaces the file
+ * (`REPLACED` in `history.ts`).
+ */
+export const COIN_AGE_MATRIX_COLUMNS: readonly ColumnSpec[] = [
+  c("creation_day", "date"),
+  c("spend_day", "date", true),
+  c("value_zat", "int64"),
+  c("outputs", "int64"),
+];
+
 /** Every daily, event or reference table: its file and its published columns. */
 export const SMALL_TABLES = {
   pool_usage_daily: POOL_USAGE_DAILY_COLUMNS,
   shielding_daily: SHIELDING_DAILY_COLUMNS,
   transparent_daily: TRANSPARENT_DAILY_COLUMNS,
   transparent_monthly: TRANSPARENT_MONTHLY_COLUMNS,
+  coin_age_matrix: COIN_AGE_MATRIX_COLUMNS,
   node_releases_daily: NODE_RELEASES_DAILY_COLUMNS,
   nu7_capable_releases: NU7_CAPABLE_RELEASES_COLUMNS,
   reorgs: REORG_COLUMNS,

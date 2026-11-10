@@ -23,6 +23,7 @@ import { V1_NODES_PATHS, v1NodesRoutes } from "../v1/network-nodes";
 import { type V1ChainPort, type V1Extension, v1Routes } from "../v1/routes";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../v1/transparent-series";
 import { V1_EXCHANGE_RESERVES_PATH, v1ExchangeReservesRoutes } from "../v1/exchange-reserves";
+import { V1_COIN_AGE_PATH, v1CoinAgeRoutes } from "../v1/coin-age";
 import { PostgresAnalyticsData } from "../v1/windowed/data";
 import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../v1/windowed/routes";
 import {
@@ -125,6 +126,8 @@ function v1Extensions(
       routes: v1ExchangeReservesRoutes({ pool: seriesPool }),
       endpoints: [V1_EXCHANGE_RESERVES_PATH],
     });
+    // Coin age: memo-backed the same way, from the matrix the primary's coin-age tracker keeps.
+    out.push({ routes: v1CoinAgeRoutes({ pool: seriesPool }), endpoints: [V1_COIN_AGE_PATH] });
   }
   // The crawler is mainnet-only; the node list reads the snapshot the /network page reads.
   if (deps.netmapReader && !IS_TESTNET) {

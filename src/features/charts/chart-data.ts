@@ -1,3 +1,4 @@
+import type { CoinAgeSeries } from "@/domain/coin-age";
 import type {
   BlocksDayPoint,
   ChainInflowPoint,
@@ -68,6 +69,7 @@ export interface ChartData {
   orphanRate: OrphanRateSeries | null;
   blockArrival: BlockArrivalSeries | null;
   hosting: NodeHosting | null;
+  coinAge: CoinAgeSeries | null;
   chainInflow: ChainInflowPoint[] | null;
   chainOutflow: ChainOutflowPoint[] | null;
   venueMonths: VenueMonthPoint[] | null;
@@ -120,6 +122,7 @@ export function chartData(partial: Partial<ChartData>): ChartData {
     orphanRate: null,
     blockArrival: null,
     hosting: null,
+    coinAge: null,
     chainInflow: null,
     chainOutflow: null,
     venueMonths: null,

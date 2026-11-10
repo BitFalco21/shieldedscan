@@ -101,13 +101,18 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
   },
   {
     name: "rich_list",
-    title: "The transparent rich list, its distribution, or named addresses",
+    title: "Transparent rich list, distribution, named addresses, exchanges, coin age",
     summary: "Transparent balances only.",
     views: {
       list: "rich-list",
       distribution: "rich-list-distribution",
       labels: "labels",
       exchanges: "exchange-reserves",
+      age: "analytics-coin-age",
+    },
+    params: {
+      from: "First UTC day, YYYY-MM-DD (view=age: the first month-end).",
+      to: "Day the window ends before (view=age: month-ends before this day).",
     },
   },
   {

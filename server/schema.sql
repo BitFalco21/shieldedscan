@@ -440,3 +440,50 @@ CREATE TABLE IF NOT EXISTS address_balance_daily_state (
   first_day      DATE,
   updated_at     BIGINT  NOT NULL
 );
+
+-- Transparent coin age, kept by `CoinAgeTracker` in `server/coin-age.ts`: every transparent output
+-- ever made, summed by the UTC day of the block that created it and the UTC day of the block that
+-- spent it (NULL while unspent). Any day's age distribution is the rows created on or before it
+-- and not spent by its end, and those add up to the node's transparent pool at the day's closing
+-- block to the zatoshi; the tracker checks exactly that before every commit. Stored only through
+-- `coin_age_state.applied_height`, at least the reorg depth below the tip, so no row is ever taken
+-- back. A block's day is the latest header day at or below its height (`coin_age_day`), so a day is
+-- always a contiguous run of heights even where miner timestamps run backwards across midnight.
+CREATE TABLE IF NOT EXISTS coin_age_matrix (
+  creation_day DATE   NOT NULL,
+  spend_day    DATE,
+  value_zat    BIGINT NOT NULL,
+  outputs      BIGINT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS coin_age_matrix_key
+  ON coin_age_matrix (creation_day, spend_day) NULLS NOT DISTINCT;
+-- The unspent rows alone, one per creation day (~3,600 of ~2.9M): what every range's reconciliation
+-- and the newest point read, without a pass over the spent rows.
+CREATE INDEX IF NOT EXISTS coin_age_matrix_unspent
+  ON coin_age_matrix (creation_day) WHERE spend_day IS NULL;
+
+-- Each day's closing height under that rule: the highest block assigned to the day.
+CREATE TABLE IF NOT EXISTS coin_age_day (
+  day         DATE    PRIMARY KEY,
+  last_height INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS coin_age_day_height ON coin_age_day (last_height);
+
+-- Each closed month's last day, read once from the matrix: the value created on each day and still
+-- unspent at that day's end. Final once written: a later spend has a later spend day, so it never
+-- changes what was unspent at a past day's end. Serves `/v1/analytics/coin-age` without a scan of
+-- the matrix per month.
+CREATE TABLE IF NOT EXISTS coin_age_month_end (
+  as_of        DATE   NOT NULL,
+  creation_day DATE   NOT NULL,
+  value_zat    BIGINT NOT NULL,
+  outputs      BIGINT NOT NULL,
+  PRIMARY KEY (as_of, creation_day)
+);
+
+CREATE TABLE IF NOT EXISTS coin_age_state (
+  id             BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  applied_height INTEGER NOT NULL,
+  applied_day    DATE,
+  updated_at     BIGINT  NOT NULL
+);

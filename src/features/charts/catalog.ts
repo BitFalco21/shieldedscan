@@ -53,7 +53,8 @@ export type ChartSlug =
   | "pools-to-majority"
   | "shielded-capable-by-chain"
   | "issuance-vs-nsm"
-  | "exchange-reserves";
+  | "exchange-reserves"
+  | "transparent-coin-age";
 
 /** The library's filter chips, in display order. A chart sits in exactly one. */
 export const CHART_CATEGORIES = [
@@ -341,6 +342,17 @@ export const CHARTS: ChartEntry[] = [
     ],
   },
   {
+    slug: "transparent-coin-age",
+    title: "Transparent coin age",
+    category: "Supply",
+    api: { docsId: "analytics-coin-age", path: "/v1/analytics/coin-age" },
+    blurb: "How long transparent ZEC has sat unspent, at every month's end.",
+    description: [
+      "Every unspent transparent output at the end of each month, banded by how long before that day it was created. The bands add up to the transparent pool at the month's closing block, to the zatoshi.",
+      "An address is not a holder: a wallet moving coins between its own addresses makes them young again.",
+    ],
+  },
+  {
     slug: "upgrade-readiness",
     title: `${NU7.name} readiness`,
     category: "Network & nodes",
@@ -522,6 +534,8 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "node-hosting",
   // The labels name mainnet addresses.
   "exchange-reserves",
+  // The coin-age tracker runs on mainnet only.
+  "transparent-coin-age",
 ]);
 
 /** The charts this deployment may honestly show. */

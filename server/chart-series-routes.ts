@@ -8,8 +8,10 @@ import type {
   SupplyDayPoint,
   TransparentDayPoint,
 } from "@/domain";
+import type { CoinAgeSeries } from "@/domain/coin-age";
 import { Cached } from "./cached";
 import { loadReserveRows } from "./exchange-reserves";
+import { loadCoinAgeSeries } from "./v1/coin-age";
 import { createPool } from "./pg-pool";
 import "./pg-types";
 
@@ -19,6 +21,7 @@ export const MINER_SHARES_PATH = "/chain/analytics/miner-shares";
 export const BLOCKS_DAILY_PATH = "/chain/analytics/blocks-daily";
 export const SUPPLY_DAYS_PATH = "/chain/analytics/supply-days";
 export const EXCHANGE_RESERVES_PATH = "/chain/analytics/exchange-reserves";
+export const COIN_AGE_PATH = "/chain/analytics/coin-age";
 
 /**
  * The private series behind the chart library's newer charts, one route each.
@@ -38,6 +41,15 @@ export function chartSeriesRoutes(connection?: string, injected?: Pool): Hono {
   const blocksDaily = new Cached<BlocksDayPoint[]>();
   const supplyDays = new Cached<SupplyDayPoint[]>();
   const exchangeReserves = new Cached<ExchangeReserveDay[]>();
+  const coinAge = new Cached<CoinAgeSeries>();
+
+  /**
+   * Transparent coin age at every month-end and the newest block, the same read
+   * `/v1/analytics/coin-age` serves. Before the matrix is seeded it answers no month-ends and a null
+   * `latest`, which the pages render as unavailable: a 200, so a feature not yet seeded is not
+   * counted as the API failing.
+   */
+  app.get(COIN_AGE_PATH, async (c) => c.json(await coinAge.get(() => loadCoinAgeSeries(pool))));
 
   /**
    * Each shielded pool's note commitment tree size at every complete day's close, all history.

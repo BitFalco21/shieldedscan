@@ -95,7 +95,11 @@ export const DECLARED_HISTORY_CHANGES: readonly DeclaredHistoryChange[] = [
  * Snapshots: files replaced whole by each release, so the rule above cannot apply to their rows.
  * They are still never dropped, and the manifest records the height each one stands at.
  */
-export const REPLACED: ReadonlySet<string> = new Set(["addresses.parquet"]);
+export const REPLACED: ReadonlySet<string> = new Set([
+  "addresses.parquet",
+  // A spend moves value from (creation day, unspent) to (creation day, spend day).
+  "coin_age_matrix.parquet",
+]);
 
 /** The columns that identify a row in each file; a `blocks/` file is in height order. */
 export function rowKey(path: string): readonly string[] {
@@ -109,6 +113,7 @@ export function rowKey(path: string): readonly string[] {
     "shielding_daily.parquet": ["day"],
     "transparent_daily.parquet": ["day"],
     "transparent_monthly.parquet": ["month"],
+    "coin_age_matrix.parquet": ["creation_day", "spend_day"],
     "node_releases_daily.parquet": ["day", "client", "version", "protocol_version"],
     "nu7_capable_releases.parquet": ["client"],
     "reorgs.parquet": ["height", "orphaned_hash"],

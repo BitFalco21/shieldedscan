@@ -333,6 +333,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
         WHERE day <= $1 ORDER BY day`,
       [finalDay],
     );
+    const coinAge = await readCoinAge(snap, finalDay, failures);
     const monthly = await small(
       "transparent_monthly",
       `SELECT ${SMALL_TABLES.transparent_monthly.map((c) => c.name).join(", ")} FROM opendata.transparent_monthly
@@ -477,6 +478,7 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
       ["block_arrival_daily", arrival.columns, arrival.rows],
       ["nu7_capable_releases", SMALL_TABLES.nu7_capable_releases, NU7_CAPABLE_RELEASES],
     ];
+    if (coinAge !== null) tables.push(["coin_age_matrix", SMALL_TABLES.coin_age_matrix, coinAge]);
     writeTables(tables);
 
     // Transactions in their own snapshot at the same height, so neither transaction runs long.
@@ -619,4 +621,52 @@ export async function readRelease(opts: ReadOptions): Promise<Release> {
     await snap.end().catch(() => {});
     await probe.end().catch(() => {});
   }
+}
+
+/**
+ * The coin-age matrix cut at the release's final day: rows created after it dropped, spends after
+ * it folded back into unspent. Held to the chain before it is written: the unspent value must equal
+ * the transparent pool at the final day's closing block. Null (no file) before the matrix is
+ * seeded; a failure when it is seeded and has not passed that day.
+ */
+export async function readCoinAge(
+  snap: Pick<Client, "query">,
+  finalDay: string,
+  failures: string[],
+): Promise<Record<string, unknown>[] | null> {
+  const close = await snap.query<{ last_height: number | null; covered: boolean; seeded: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM opendata.coin_age_day) AS seeded,
+            (SELECT last_height FROM opendata.coin_age_day WHERE day <= $1 ORDER BY day DESC LIMIT 1) AS last_height,
+            EXISTS (SELECT 1 FROM opendata.coin_age_day WHERE day > $1) AS covered`,
+    [finalDay],
+  );
+  const c = close.rows[0];
+  if (!c?.seeded) return null;
+  if (c.last_height === null || !c.covered) {
+    failures.push(`coin age does not cover ${finalDay} yet`);
+    return [];
+  }
+  const { rows } = await snap.query<Record<string, unknown>>(
+    `SELECT creation_day, CASE WHEN spend_day <= $1 THEN spend_day END AS spend_day,
+            sum(value_zat)::bigint AS value_zat, sum(outputs)::bigint AS outputs
+       FROM opendata.coin_age_matrix WHERE creation_day <= $1
+      GROUP BY 1, 2 HAVING sum(outputs) <> 0
+      ORDER BY 1, 2 NULLS FIRST`,
+    [finalDay],
+  );
+  const pool = await snap.query<{ transparent_pool_zat: bigint | null }>(
+    "SELECT transparent_pool_zat FROM opendata.blocks WHERE height = $1",
+    [c.last_height],
+  );
+  const unspent = rows.reduce(
+    (s, r) => (r.spend_day === null ? s + BigInt(r.value_zat as bigint) : s),
+    0n,
+  );
+  const expected = pool.rows[0]?.transparent_pool_zat ?? null;
+  if (expected === null || BigInt(expected) !== unspent) {
+    failures.push(
+      `coin age unspent ${unspent} zat differs from the transparent pool ${String(expected)} at block ${c.last_height}`,
+    );
+  }
+  return rows;
 }

@@ -16,10 +16,12 @@ import {
 } from "../../v1/mining-pools";
 import { MAX_DAY_BUCKETS } from "../../v1/params";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
+import { V1_COIN_AGE_PATH } from "../../v1/coin-age";
 import { V1_EXCHANGE_RESERVES_PATH } from "../../v1/exchange-reserves";
 import { type ToolArgs, windowDays } from "./args";
 import {
   compactBlockArrival,
+  compactCoinAge,
   compactMiningSeries,
   priorPeriodStart,
   withMinerMiningPools,
@@ -34,6 +36,7 @@ import {
 import { isOneOf, orList } from "./json";
 import {
   CHAIN_WINDOW_FLOOR_NOTE,
+  COIN_AGE_NOTE,
   CHAIN_WINDOW_MIGRATION_FILTER_NOTE,
   CHAIN_WINDOW_NOTE,
   CHAIN_WINDOW_RANKED_NOTE,
@@ -71,6 +74,7 @@ import {
 } from "./specs";
 import type { ToolCall } from "./types";
 import {
+  verifyCoinAgeEcho,
   verifyMinersEcho,
   verifyMiningEcho,
   verifyExchangeReservesEcho,
@@ -78,6 +82,12 @@ import {
   verifyTransparentEcho,
   verifyWindowEcho,
 } from "./verify";
+
+/** The first day of the month a year before `nowMs`: twelve month-ends and the newest block. */
+export function coinAgeDefaultFrom(nowMs: number): string {
+  const d = new Date(nowMs);
+  return new Date(Date.UTC(d.getUTCFullYear() - 1, d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+}
 
 /**
  * The `chain_activity` tool's modes.
@@ -304,6 +314,36 @@ export function chainActivityCalls(
             note: TRANSPARENT_NOTE,
             emptyIsAnAnswer: true,
             verify: (payload) => verifyTransparentEcho(payload, days, interval),
+          },
+        },
+      ];
+    }
+    case "coin-age": {
+      // The public `/v1/analytics/coin-age`. Without a window only the last year of month-ends
+      // comes back beside the newest block: a decade of nine bands is long to read for "now".
+      // `allTime` asks for every month-end, so it sends no edge at all.
+      const days = windowDays(args, nowMs);
+      if (typeof days === "string") return days;
+      const allTime = args.flag("allTime");
+      if (allTime && (days.from !== null || days.to !== null)) {
+        return "pass allTime or a window (from/to or lastDays), not both";
+      }
+      const window =
+        days.from === null && days.to === null
+          ? { from: allTime ? null : coinAgeDefaultFrom(nowMs), to: null }
+          : days;
+      const query = new URLSearchParams();
+      if (window.from !== null) query.set("from", window.from);
+      if (window.to !== null) query.set("to", window.to);
+      const qs = query.toString();
+      return [
+        {
+          path: qs === "" ? V1_COIN_AGE_PATH : `${V1_COIN_AGE_PATH}?${qs}`,
+          surface: "v1",
+          aggregate: {
+            note: COIN_AGE_NOTE,
+            enrich: compactCoinAge,
+            verify: (payload) => verifyCoinAgeEcho(payload, window),
           },
         },
       ];

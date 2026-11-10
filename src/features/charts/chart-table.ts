@@ -1,4 +1,6 @@
 import type { ChartRange, ExchangeReserveDay, NodeBands } from "@/domain";
+import { COIN_AGE_BANDS, type CoinAgePoint } from "@/domain/coin-age";
+import { monthStartOf } from "./coin-age-series";
 import {
   chartRangeDays,
   destinationsByChain,
@@ -127,6 +129,8 @@ export const UNRANGED: ReadonlySet<ChartSlug> = new Set([
   "pools-to-majority",
   // From NU7, and read over its trailing 366 days at most.
   "issuance-vs-nsm",
+  // Month-ends only: thirty days would be one point.
+  "transparent-coin-age",
 ]);
 
 /** The span under which a series is drawn by day even at ALL: under four months, months are too few. */
@@ -554,6 +558,20 @@ export function chartTable(
         { name: "reorgs", value: (p) => p.reorgs },
         { name: "deepest", value: (p) => p.deepest },
       ]);
+    }
+    case "transparent-coin-age": {
+      if (!data.coinAge) return null;
+      return table(
+        "month",
+        data.coinAge.monthEnds.map((p) => ({ ...p, timestamp: monthStartOf(p.asOf) })),
+        [
+          { name: "close_height", value: (p) => p.height },
+          ...COIN_AGE_BANDS.map((b) => ({
+            name: `age_${b.key}_zat`,
+            value: (p: CoinAgePoint) => p.bands.find((x) => x.key === b.key)?.valueZat ?? null,
+          })),
+        ],
+      );
     }
     case "orphan-rate": {
       if (!data.orphanRate) return null;
