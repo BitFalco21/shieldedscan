@@ -522,8 +522,9 @@ const MAINNET_ONLY_CHARTS: ReadonlySet<ChartSlug> = new Set([
   "supply-issuance",
   // The NSM series is read from mainnet's NU7 height.
   "issuance-vs-nsm",
-  // Until the testnet API carries /chain/reorgs/orphan-rate; remove once it does.
-  "orphan-rate",
+  // Note commitment tree sizes come from the pool usage tracker, which runs on mainnet only.
+  "anonymity-set",
+  "notes-added",
   // Reviewed pool labels are mainnet payout addresses, and /miners is absent on testnet.
   "pools-to-majority",
   "shielded-capable-by-chain",
