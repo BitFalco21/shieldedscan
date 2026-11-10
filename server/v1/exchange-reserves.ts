@@ -6,6 +6,7 @@ import {
   EXCHANGE_NAMES,
   exchangeAddressCounts,
   exchangeReserveDays,
+  exchangeReserveTotal,
   type AddressDayBalance,
   type ExchangeId,
   type ExchangeMember,
@@ -56,9 +57,6 @@ function monthOf(ts: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
 }
 
-const sumOrNull = (values: readonly (number | null)[]): number | null =>
-  values.some((v) => v === null) ? null : values.reduce<number>((s, v) => s + (v ?? 0), 0);
-
 /** An address's balance at the end of `day`: its newest row at or before it, 0 before first use. */
 function addressAt(
   rows: readonly AddressDayBalance[],
@@ -101,7 +99,7 @@ export function buildExchangeReserves(
       out[e] = v === null ? null : amount(v);
       if (v === null) unknowns[`${key}.exchanges.${e}`] = "unmeasured";
     }
-    const total = sumOrNull(shown.map((e) => d.zat[e]));
+    const total = exchangeReserveTotal(d, shown);
     if (total === null) unknowns[`${key}.total`] = "unmeasured";
     return { exchanges: out, total: total === null ? null : amount(total) };
   };
@@ -128,8 +126,8 @@ export function buildExchangeReserves(
             exchanges[e] = a === null || b === null ? null : amount(b - a);
             if (exchanges[e] === null) unknowns[`data.change.exchanges.${e}`] = "unmeasured";
           }
-          const a = sumOrNull(shown.map((e) => opening.zat[e]));
-          const b = sumOrNull(shown.map((e) => closing.zat[e]));
+          const a = exchangeReserveTotal(opening, shown);
+          const b = exchangeReserveTotal(closing, shown);
           return {
             from: { day: utcDayFromSeconds(opening.timestamp), height: opening.closeHeight },
             to: { day: utcDayFromSeconds(closing.timestamp), height: closing.closeHeight },

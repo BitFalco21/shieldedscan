@@ -145,6 +145,24 @@ export interface ExchangeReserveDay {
 }
 
 /**
+ * The day's sum over `exchanges` (all four by default), or null when any of them is not computed
+ * through the day: a sum missing an exchange is not a total. The one definition the API, the
+ * chart's readout and every other surface use.
+ */
+export function exchangeReserveTotal(
+  day: Pick<ExchangeReserveDay, "zat">,
+  exchanges: readonly ExchangeId[] = EXCHANGES,
+): number | null {
+  let sum = 0;
+  for (const e of exchanges) {
+    const v = day.zat[e];
+    if (v === null) return null;
+    sum += v;
+  }
+  return sum;
+}
+
+/**
  * The exchanges' totals per day, from per-address rows. An exchange is stated for a day only when
  * every one of its addresses is computed through it (`computedThrough`, a day, or null when not
  * started); an address with no row yet that day was not used yet and holds 0.

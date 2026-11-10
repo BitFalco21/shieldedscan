@@ -44,14 +44,20 @@ describe("NodeBandsChart legend highlight", () => {
     }
   });
 
-  it("does the same from the keyboard", () => {
+  it("previews on focus, and pins on a click that leaving does not undo", () => {
     const container = draw();
     const zebra = screen.getByRole("button", { name: "Zebra 2.x" });
     fireEvent.focus(zebra);
     for (const r of segmentsOf(container, 1))
       expect(r.getAttribute("class")).toContain("opacity-15");
-    expect(zebra.getAttribute("aria-pressed")).toBe("true");
+    expect(zebra.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(zebra);
     fireEvent.blur(zebra);
+    fireEvent.pointerLeave(zebra);
+    expect(zebra.getAttribute("aria-pressed")).toBe("true");
+    for (const r of segmentsOf(container, 1))
+      expect(r.getAttribute("class")).toContain("opacity-15");
+    fireEvent.click(zebra);
     expect(container.querySelectorAll("rect.opacity-15")).toHaveLength(0);
   });
 });

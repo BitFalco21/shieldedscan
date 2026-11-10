@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ChartRange, CrossChainProtocol } from "@/domain";
-import { EXCHANGES, EXCHANGE_NAMES } from "@/domain";
+import { EXCHANGES, EXCHANGE_NAMES, exchangeReserveTotal, type ExchangeId } from "@/domain";
 import {
   feeTotalIsComplete,
   NU7,
@@ -45,6 +45,7 @@ import {
 } from "@/lib/format";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { EXCHANGE_CLASSES } from "@/lib/exchange-palette";
+import { useLegendHighlight } from "@/lib/use-legend-highlight";
 import { useQueryParam } from "@/lib/use-query-param";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
@@ -81,18 +82,15 @@ const unavailable = (what: string) => <DataUnavailable what={what} />;
 const column = (t: ChartTable, i: number) => t.rows.map((r) => r[i] ?? null);
 
 /**
- * Each point's sum of the given columns, or null where any term is null: a sum missing a term is
- * not a total.
+ * Each point's notes across the three pools that report a tree, or null where any is missing: a
+ * sum short of a pool is not a total.
  */
-const totalOrNull = (columns: (number | null)[][]): (number | null)[] =>
-  (columns[0] ?? []).map((_, i) => {
-    let sum = 0;
-    for (const c of columns) {
-      const v = c[i];
-      if (v === null || v === undefined) return null;
-      sum += v;
-    }
-    return sum;
+const noteTreeTotal = (t: ChartTable): (number | null)[] =>
+  t.rows.map((r) => {
+    const [sapling, orchard, ironwood] = [r[0] ?? null, r[1] ?? null, r[2] ?? null];
+    return sapling === null || orchard === null || ironwood === null
+      ? null
+      : sapling + orchard + ironwood;
   });
 
 /** Axis labels for a table's rows: days, Mondays or short months, by its period. */
@@ -153,8 +151,8 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
     : detail
       ? parseChartRange(urlRange ?? undefined)
       : localRange;
-  // A legend item pointed at or focused, brought forward on the chart. Only keyed legends set it.
-  const [highlighted, setHighlighted] = useState<string | null>(null);
+  // A legend item previewed or pinned, brought forward on the chart. Only keyed legends set it.
+  const highlight = useLegendHighlight();
   const legend = chartLegend(slug);
   const highlightable = legend.some((item) => item.key !== undefined);
   const setRange = (next: ChartRange) =>
@@ -171,12 +169,8 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
   return (
     <div>
       {(ranged || detail) && toolbar}
-      <Figure slug={slug} data={data} range={range} highlightKey={highlighted} />
-      <ChartLegend
-        items={legend}
-        highlighted={highlighted}
-        onHighlight={highlightable ? setHighlighted : undefined}
-      />
+      <Figure slug={slug} data={data} range={range} highlightKey={highlight.highlighted} />
+      <ChartLegend items={legend} highlight={highlightable ? highlight : undefined} />
     </div>
   );
 }
@@ -620,12 +614,11 @@ function Figure({
           formatValue={compactCount}
           formatTick={compactCountTick}
           // Sprout publishes no tree size, so the total names the three it sums, and a day
-          // missing one of them has none.
+          // missing one of them reads unmeasured like any other row.
           total={{
-            name: "Total, Sapling + Orchard + Ironwood",
-            values: totalOrNull([column(t, 0), column(t, 1), column(t, 2)]).map((v) =>
-              v === null ? null : compactCount(v),
-            ),
+            name: "Total, 3 pools",
+            description: "Sapling + Orchard + Ironwood",
+            values: noteTreeTotal(t).map((v) => (v === null ? "—" : compactCount(v))),
           }}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
         />
@@ -701,9 +694,11 @@ function Figure({
           // An exchange not computed through the day leaves the total unmeasured, never short.
           total={{
             name: "Total",
-            values: totalOrNull(EXCHANGES.map((_, i) => column(t, i))).map((v) =>
-              v === null ? "—" : formatZecCompact(v),
-            ),
+            values: t.rows.map((r) => {
+              const zat = Object.fromEntries(EXCHANGES.map((e, i) => [e, r[i] ?? null]));
+              const total = exchangeReserveTotal({ zat: zat as Record<ExchangeId, number | null> });
+              return total === null ? "—" : formatZecCompact(total);
+            }),
           }}
           ariaLabel="Transparent ZEC on each exchange's labelled addresses, per day"
         />

@@ -399,11 +399,14 @@ describe("anonymity-set total", () => {
       />,
     );
     const readout = readoutAtIndex("last");
-    expect(readout).toContain("Total, Sapling + Orchard + Ironwood");
+    expect(readout).toContain("Total, 3 pools");
     expect(readout).toContain("600");
+    // The short name keeps the readout narrow; what it sums is on hover and read aloud.
+    const name = screen.getByTitle("Sapling + Orchard + Ironwood");
+    expect(name.textContent).toContain("Sapling + Orchard + Ironwood");
   });
 
-  it("states no total on a day one of the three is missing, never a partial sum", () => {
+  it("reads unmeasured on a day one of the three is missing, never a partial sum", () => {
     render(
       <ChartFigure
         slug="anonymity-set"
@@ -413,7 +416,7 @@ describe("anonymity-set total", () => {
       />,
     );
     const readout = readoutAtIndex("first");
-    expect(readout).not.toContain("Total");
+    expect(readout).toMatch(/Total, 3 pools.*—/);
     expect(readout).not.toContain("300");
   });
 });

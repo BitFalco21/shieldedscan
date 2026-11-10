@@ -19,7 +19,7 @@ import { DAY_MS, NEXT_HALVING_HEIGHT, NU7_HEIGHT, utcDayFromMs } from "@/domain"
  * does, and eval results are recorded against this number: an unbumped change makes past results
  * unattributable.
  */
-export const SYSTEM_PROMPT_VERSION = 52;
+export const SYSTEM_PROMPT_VERSION = 53;
 
 /**
  * Two numbers, because `AGENT_EXPORTS_ENABLED` changes the prompt: an agent without `export_data`
@@ -34,9 +34,10 @@ export const SYSTEM_PROMPT_VERSION = 52;
  * Ironwood and each day's issuance net of the NSM; v50, and v49 without exports, add
  * `chain_activity` 'block-arrival' and `chain_status` 'node-history'; v51, and v50 without
  * exports, add the labelled exchange addresses' balances to `chain_activity`; v52, and v51
- * without exports, add transparent coin age to `chain_activity`.
+ * without exports, add transparent coin age to `chain_activity`; v53, and v52 without exports,
+ * let the pool-usage note state a sum across pools as a count of notes, never one anonymity set.
  */
-export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 51;
+export const SYSTEM_PROMPT_VERSION_WITHOUT_EXPORTS = 52;
 
 /** The version of the prompt an agent with or without `export_data` runs on. */
 export const promptVersion = (exports: boolean): number =>

@@ -57,9 +57,10 @@ export interface MultiLineChartProps {
   contextRows?: ChartHoverRow[];
   /**
    * An emphasised total under the series in the readout, pre-formatted per point. Only for
-   * series that add up to something a reader asks for, named by what it sums; `null` omits it.
+   * series that add up to something a reader asks for, named by what it sums (`description` when
+   * the name is short). A point missing a term passes "—", as an unmeasured series does.
    */
-  total?: { name: string; values: (string | null)[] };
+  total?: { name: string; description?: string; values: string[] };
   /**
    * Where the y-axis starts. `"zero"` is the default.
    *

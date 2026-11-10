@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import type { NodeBands } from "@/domain";
 import { ChartLegend } from "@/components/ChartLegend";
 import { StackedBarChart } from "@/components/StackedBarChart";
 import { formatCount, formatSharePct, formatShareTick } from "@/lib/format";
 import { nodeBandClass } from "@/lib/node-band-palette";
+import { useLegendHighlight } from "@/lib/use-legend-highlight";
 
 export interface NodeBandsChartProps {
   bands: NodeBands;
@@ -26,8 +26,8 @@ export function NodeBandsChart({ bands, what, recordingSince }: NodeBandsChartPr
     return whole > 0 ? (100 * n) / whole : 0;
   };
   const classes = bands.keys.map((k, i) => nodeBandClass(k, i));
-  // A band pointed at or focused in the legend, brought forward on the bars.
-  const [highlighted, setHighlighted] = useState<string | null>(null);
+  // A band previewed or pinned in the legend, brought forward on the bars.
+  const highlight = useLegendHighlight();
   return (
     <div>
       <StackedBarChart
@@ -42,7 +42,7 @@ export function NodeBandsChart({ bands, what, recordingSince }: NodeBandsChartPr
         ariaLabel={`Share of each day's answering nodes by ${what}`}
         formatValue={(v) => formatSharePct(v)}
         formatTick={formatShareTick}
-        highlightKey={highlighted}
+        highlightKey={highlight.highlighted}
         contextRows={[
           { name: "Answering nodes", values: bands.answering.map((n) => formatCount(n)) },
         ]}
@@ -54,8 +54,7 @@ export function NodeBandsChart({ bands, what, recordingSince }: NodeBandsChartPr
           mark: "bar",
           key: bands.keys[i]!,
         }))}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
+        highlight={highlight}
       />
       <p className="mt-3 text-xs text-ink-faint">
         Nodes that answered our crawler in each day&apos;s last 24 hours

@@ -1,3 +1,5 @@
+import type { LegendHighlight } from "@/lib/use-legend-highlight";
+
 /** How a series is drawn, so its swatch can be drawn the same way. */
 export type LegendMark = "line" | "dashed" | "dotted" | "area" | "bar";
 
@@ -14,13 +16,12 @@ export interface LegendItem {
 
 export interface ChartLegendProps {
   items: LegendItem[];
-  /** The key brought forward on the chart, if any; the other items fade with their series. */
-  highlighted?: string | null;
   /**
-   * Makes each keyed item a control: pointing at it or focusing it brings its series forward,
-   * leaving clears it. For a stack, where only the bottom band sits on a flat baseline.
+   * Makes each keyed item a control over its chart (`useLegendHighlight`): pointing at or
+   * focusing an item previews its series, a click, tap or Enter pins it, and a second one unpins.
+   * For a stack, where only the bottom band sits on a flat baseline.
    */
-  onHighlight?: (key: string | null) => void;
+  highlight?: LegendHighlight;
 }
 
 const WEIGHT = { dim: "opacity-55", faint: "opacity-35" } as const;
@@ -39,7 +40,7 @@ const SWATCH: Record<LegendMark, string> = {
  * series too, but only at the point under the cursor; a legend answers before anyone hovers, and
  * on a touch screen it is the only answer.
  */
-export function ChartLegend({ items, highlighted = null, onHighlight }: ChartLegendProps) {
+export function ChartLegend({ items, highlight }: ChartLegendProps) {
   if (items.length < 2) return null;
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-dim">
@@ -55,24 +56,27 @@ export function ChartLegend({ items, highlighted = null, onHighlight }: ChartLeg
           </>
         );
         const key = item.key;
-        if (!onHighlight || key === undefined) {
+        if (!highlight || key === undefined) {
           return (
             <li key={item.label} className="flex items-center gap-1.5">
               {swatch}
             </li>
           );
         }
+        const { highlighted, pinned } = highlight;
         const faded = highlighted !== null && highlighted !== key;
         return (
           <li key={key}>
             <button
               type="button"
-              aria-pressed={highlighted === key}
-              onPointerEnter={() => onHighlight(key)}
-              onPointerLeave={() => onHighlight(null)}
-              onFocus={() => onHighlight(key)}
-              onBlur={() => onHighlight(null)}
-              className={`flex items-center gap-1.5 transition-opacity hover:text-ink motion-reduce:transition-none ${
+              // Pressed means pinned: a preview is transient and never announced as a state.
+              aria-pressed={pinned === key}
+              onPointerEnter={() => highlight.preview(key)}
+              onPointerLeave={() => highlight.preview(null)}
+              onFocus={() => highlight.preview(key)}
+              onBlur={() => highlight.preview(null)}
+              onClick={() => highlight.togglePin(key)}
+              className={`flex cursor-pointer items-center gap-1.5 transition-opacity hover:text-ink motion-reduce:transition-none ${
                 faded ? "opacity-35" : highlighted === key ? "text-ink" : ""
               }`}
             >

@@ -31,9 +31,23 @@ describe("coin age ramp", () => {
     }
   });
 
-  it("keeps its darkest band visible on the panel, at 2:1 or more", () => {
-    const panel = luminance("#0a120a");
-    expect((luminance(ramp.at(-1)!) + 0.05) / (panel + 0.05)).toBeGreaterThanOrEqual(2);
+  it("clears 3:1 on the panel as drawn: each band at the chart's band opacity over the panel", () => {
+    // The opacity is read from the `.chart-band` rule, so the test follows the stylesheet.
+    const opacity = Number(/\.chart-band \{\s*opacity: ([\d.]+);/.exec(css)![1]);
+    expect(opacity).toBeGreaterThan(0);
+    const panel = css.match(/--panel: (#[0-9a-f]{6});/)![1]!;
+    const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const drawn = (hex: string) =>
+      "#" +
+      channels(hex)
+        .map((c, i) => Math.round(opacity * c + (1 - opacity) * channels(panel)[i]!))
+        .map((c) => c.toString(16).padStart(2, "0"))
+        .join("");
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi! + 0.05) / (lo! + 0.05);
+    };
+    for (const token of ramp) expect(ratio(drawn(token), panel)).toBeGreaterThanOrEqual(3);
   });
 
   it("colours every band class, legend swatch and area alike, from its token", () => {

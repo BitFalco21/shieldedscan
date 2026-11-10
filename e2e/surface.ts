@@ -97,6 +97,10 @@ export const ROUTES: readonly string[] = [
   "/rich-list",
   "/charts",
   "/charts/median-fee",
+  // Two charts whose legends are buttons (a stacked area and stacked bars), so the a11y, class and
+  // overflow sweeps see them.
+  "/charts/transparent-coin-age",
+  "/charts/node-hosting",
   // One entry: `filters.spec.ts` discovers the window chips from the DOM and exercises them, and
   // every route here is walked sequentially by several sweeps.
   "/miners",

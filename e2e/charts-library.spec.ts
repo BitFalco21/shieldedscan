@@ -76,3 +76,38 @@ test.describe("a chart's own page", () => {
     await expect(related).toHaveCount(3);
   });
 });
+
+test.describe("a stacked chart's legend", () => {
+  test("Tab reaches an item, Enter pins its band and fades the others, Enter again unpins", async ({
+    page,
+  }) => {
+    await page.goto("/charts/transparent-coin-age");
+    const items = page.locator("main ul button[aria-pressed]");
+    await expect(items.first()).toBeVisible();
+    // Tab from the top until focus lands in the legend, the way a keyboard reader gets there.
+    for (let i = 0; i < 80; i += 1) {
+      await page.keyboard.press("Tab");
+      const inLegend = await page.evaluate(
+        () => document.activeElement?.matches("main ul button[aria-pressed]") ?? false,
+      );
+      if (inLegend) break;
+    }
+    const focused = page.locator("main ul button[aria-pressed]:focus");
+    await expect(focused).toHaveCount(1);
+    await expect(focused).toHaveAttribute("aria-pressed", "false");
+
+    await page.keyboard.press("Enter");
+    await expect(focused).toHaveAttribute("aria-pressed", "true");
+    const bands = page.locator("main svg path.chart-band");
+    const count = await bands.count();
+    expect(count).toBeGreaterThan(1);
+    // Every band but the pinned one fades; the pin survives focus moving on.
+    await expect(page.locator("main svg path.chart-band.opacity-15")).toHaveCount(count - 1);
+    await page.keyboard.press("Tab");
+    await expect(page.locator("main svg path.chart-band.opacity-15")).toHaveCount(count - 1);
+
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Enter");
+    await expect(focused).toHaveAttribute("aria-pressed", "false");
+  });
+});
