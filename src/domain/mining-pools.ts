@@ -23,7 +23,10 @@ export type MiningPoolId =
   | "kryptex"
   | "nicehash"
   | "mining-dutch"
-  | "zec-mining-pool";
+  | "zec-mining-pool"
+  | "poolin"
+  | "flypool"
+  | "coinotron";
 
 export interface MiningPool {
   id: MiningPoolId;
@@ -49,6 +52,10 @@ export const MINING_POOLS: { readonly [K in MiningPoolId]: MiningPool & { id: K 
   nicehash: { id: "nicehash", name: "NiceHash", logo: "nicehash" },
   "mining-dutch": { id: "mining-dutch", name: "Mining-Dutch", logo: "mining-dutch" },
   "zec-mining-pool": { id: "zec-mining-pool", name: "ZEC Mining Pool", logo: null },
+  // Pools that mined Zcash in earlier years and no longer do.
+  poolin: { id: "poolin", name: "Poolin", logo: null },
+  flypool: { id: "flypool", name: "Flypool", logo: null },
+  coinotron: { id: "coinotron", name: "Coinotron", logo: null },
 };
 
 /**
@@ -184,6 +191,138 @@ export const MINING_POOL_LABELS: Readonly<Record<string, MiningPoolLabel>> = {
     miningPool: "zec-mining-pool",
     basis: "pool-published",
     evidence: "ZEC Mining Pool's own dashboard names this address as its pool (2026-11-06)",
+  },
+
+  // ---------------------------------------------------------------- earlier years
+  //
+  // Reviewed over each address's whole history in the chain index. Each coinbase-tag entry carries
+  // its pool's marker on at least 95% of its blocks and no other pool's marker, and keeps it to
+  // its last block: an address whose marker stopped while it kept mining is held back.
+
+  // Its tag stopped at 1,679,513 and it mined 23,012 more blocks; ViaBTC's own list claims those.
+  t1godRk4oKt689om4Q3CbmA9wsuhm1rUvLR: {
+    miningPool: "viabtc",
+    basis: "pool-published",
+    evidence:
+      "ViaBTC's own block list in nine windows, 223,971–1,741,699: it lists 784 of the 785 chain blocks paying this address, and no block the chain kept that pays anyone but ViaBTC; `/ViaBTC/` on 157,938 of 180,966 blocks, through 1,679,513 (2026-11-10)",
+  },
+  // The text after "Mined by" names F2Pool's customer, never another pool.
+  t1aZvxRLCGVeMPFXvqfnBgHVEbi4c6g8MVa: {
+    miningPool: "f2pool",
+    basis: "coinbase-tag",
+    evidence: "`七彩神仙鱼` on 132,904 of 132,904 blocks, heights 3,909–822,545 (2026-11-10)",
+  },
+  t1YN48pMwyG4aszU411jKdY7MHyPpJB8jPq: {
+    miningPool: "f2pool",
+    basis: "coinbase-tag",
+    evidence: "`七彩神仙鱼` on 295,999 of 295,999 blocks, heights 812,265–2,407,531 (2026-11-10)",
+  },
+  t1ZYZS6ynUDbvht7vH3dMiM3rsAJ1p6EGWC: {
+    miningPool: "antpool",
+    basis: "coinbase-tag",
+    evidence: "`Mined by AntPool` on 50,662 of 50,662 blocks, heights 4,435–673,228 (2026-11-10)",
+  },
+  t1a4eP8SuDGVizftxMcFh9DEDYi1XzKarfz: {
+    miningPool: "antpool",
+    basis: "coinbase-tag",
+    evidence: "`Mined by AntPool` on 2,030 of 2,030 blocks, heights 598,094–1,231,806 (2026-11-10)",
+  },
+  t1Xvjk8XQZ6S87n83ZCHRdoFJ8GZ7sq4FZN: {
+    miningPool: "antpool",
+    basis: "coinbase-tag",
+    evidence:
+      "`Mined by AntPool` on 77,309 of 77,309 blocks, heights 670,067–1,222,534 (2026-11-10)",
+  },
+  t1bo889qq1f24fEwEC5efozKWfAvWe3tEww: {
+    miningPool: "antpool",
+    basis: "coinbase-tag",
+    evidence:
+      "`Mined by AntPool` on 21,452 of 21,452 blocks, heights 1,231,807–1,354,216 (2026-11-10)",
+  },
+  t1L2rjgGrvEqfrA5zqUca4GGxAeQg47CTpG: {
+    miningPool: "luxor",
+    basis: "coinbase-tag",
+    evidence: "`\\LUXOR\\` on 38,822 of 38,822 blocks, heights 843,859–1,519,951 (2026-11-10)",
+  },
+  // Both 2Miners addresses wrote no tag on their first blocks, then the marker on every block.
+  t1dzbQ2bnAGwBVHZykfKYTQYyZY1AjrS1Mg: {
+    miningPool: "2miners",
+    basis: "coinbase-tag",
+    evidence:
+      "`2Miners https://2miners.com` on 21,667 of 21,834 blocks, every one from 343,715 to its last at 2,149,887; the 167 before carry no tag (2026-11-10)",
+  },
+  t1ajyFP7GnauoDFaM8MqJx9ouQjKS3tbA7g: {
+    miningPool: "2miners",
+    basis: "coinbase-tag",
+    evidence:
+      "`2Miners https://2miners.com` on 7,008 of 7,248 blocks, every one from 344,640 to its last at 2,149,478; the 240 before carry no tag (2026-11-10)",
+  },
+  // Poolin's addresses whose every block carries its marker. Others of its addresses lost the
+  // marker partway and stay unlabelled.
+  t1QmwNr6jNRqGSojh1yHjzfL3EhCsG6LxC7: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 9,392 of 9,392 blocks, heights 537,020–713,442 (2026-11-10)",
+  },
+  t1bJgWJgHgrs6K9L96T9tSK1EBs3iNSzfJq: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 1,110 of 1,110 blocks, heights 713,526–736,577 (2026-11-10)",
+  },
+  t1dDC48of9TQH2ewNb7za7x5ZiCT2Fo4xC6: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 714 of 714 blocks, heights 734,380–746,934 (2026-11-10)",
+  },
+  t1ZMXcX4ccb7DNoN2nPDEfhWqLtAGeQ2obE: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 12,170 of 12,170 blocks, heights 746,955–904,156 (2026-11-10)",
+  },
+  t1bzsJ7mRyHwsuXEPMud32SFTjLJ7FrWfpf: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 17,958 of 17,958 blocks, heights 871,064–981,651 (2026-11-10)",
+  },
+  t1fD2SKAFthHmZmGDfekQFW11M6m2kPYpe7: {
+    miningPool: "poolin",
+    basis: "coinbase-tag",
+    evidence: "`/poolin.com/` on 8,295 of 8,295 blocks, heights 904,169–1,040,417 (2026-11-10)",
+  },
+  t1XepX38RxS3o5hLioLbaNb6Fa2Y2Be55xw: {
+    miningPool: "flypool",
+    basis: "coinbase-tag",
+    evidence: "`/flypool/` on 2,116 of 2,116 blocks, heights 341–10,068 (2026-11-10)",
+  },
+  t1ZJQNuop1oytQ7ow4Kq8o9if3astavba5W: {
+    miningPool: "flypool",
+    basis: "coinbase-tag",
+    evidence: "`/flypool/` on 52,896 of 52,896 blocks, heights 10,078–138,646 (2026-11-10)",
+  },
+  t1VpYecBW4UudbGcy4ufh61eWxQCoFaUrPs: {
+    miningPool: "flypool",
+    basis: "coinbase-tag",
+    evidence: "`/flypool/` on 96,530 of 96,530 blocks, heights 138,555–314,492 (2026-11-10)",
+  },
+  t1Xk6GeseeV8FSDpgr359yL2LmaRtUdWgaq: {
+    miningPool: "coinotron",
+    basis: "coinbase-tag",
+    evidence: "`Coinotron` on 4,124 of 4,124 blocks, heights 32,104–132,221 (2026-11-10)",
+  },
+  t1Tqy2u2qgTdcVf7TRxC2KGrxwcuzfdgnSf: {
+    miningPool: "coinotron",
+    basis: "coinbase-tag",
+    evidence: "`Coinotron` on 8,263 of 8,263 blocks, heights 132,232–232,907 (2026-11-10)",
+  },
+  t1Z4fP81GQcwfpTYuRafeM1ACfyZUoNRKaB: {
+    miningPool: "coinotron",
+    basis: "coinbase-tag",
+    evidence: "`Coinotron` on 2,923 of 2,923 blocks, heights 233,209–493,667 (2026-11-10)",
+  },
+  t1fypqjbxSoiq27rFfXuE6iTHkoBXXpY1J4: {
+    miningPool: "coinotron",
+    basis: "coinbase-tag",
+    evidence: "`Coinotron` on 488 of 488 blocks, heights 496,196–1,049,441 (2026-11-10)",
   },
 };
 
