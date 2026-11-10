@@ -38,6 +38,7 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   "rich-list-distribution": { tool: "explorer_insights", via: "holder-distribution" },
   // The same names, sources, balances and ranks, read from the private route beside the label table.
   labels: { tool: "site_guide", via: "labels" },
+  "exchange-reserves": { tool: "chain_activity", via: "exchange-reserves" },
   descriptor: { tool: "site_guide", via: "api" },
   status: { tool: "chain_status", via: "status" },
   // The same committed corpus, served from the same module.

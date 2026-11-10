@@ -2,6 +2,7 @@ import { Findings, scanStrings } from "./checks";
 import { checkFresh, checkUtcMidnights, compareRows, daysOf, upTo } from "./site-checks";
 import { boundaryTables } from "./site-boundary-tables";
 import { miningPayouts } from "./site-mining";
+import { addressBalances } from "./site-balances";
 import type { SiteStream } from "./site-stream";
 import type { SiteViews } from "./site-views";
 import { POOL_COLUMNS, SMALL_TABLES, type SiteTable } from "./tables";
@@ -34,6 +35,7 @@ const FORMATTED: Partial<Record<SiteTable, readonly string[]>> = {
   pools_daily: ["hash"],
   shielding_records_daily: ["max_shielding_txid", "max_unshielding_txid", "max_migration_txid"],
   mining_payouts_daily: ["address"],
+  address_balance_daily: ["address"],
 };
 
 /** The stream's tables, held to `chain_day_rollup`, `chain_day_supply_close` and the supply audit. */
@@ -181,6 +183,7 @@ export function siteSeries(views: SiteViews, inputs: SiteInputs): SiteSeries {
     ...streamTables(f, views, inputs),
     ...boundaryTables(f, views, inputs),
     ["mining_payouts_daily", miningPayouts(f, views, inputs)],
+    ["address_balance_daily", addressBalances(f, views, inputs)],
   ];
   const failures = f.list();
   for (const [name, rows] of tables) {

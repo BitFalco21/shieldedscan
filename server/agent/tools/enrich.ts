@@ -1054,3 +1054,31 @@ export function recentNodeHistory(payload: unknown): unknown {
     data: { ...p.data, software: trim(p.data.software), hosting: trim(p.data.hosting) },
   };
 }
+
+/**
+ * An ungrouped exchange-reserves read: the newest point alone, beside the window's change. The
+ * other points are the series a grouped read asks for. `unknowns` follows: the kept point's keys
+ * move to index 0 and the dropped points' keys go, so no reason names a point that is not there.
+ */
+export function withLastReservePoint(payload: unknown): unknown {
+  const body = asRecord(payload);
+  const data = asRecord(body?.data);
+  if (body === null || data === null || !Array.isArray(data.points)) return payload;
+  const last = data.points.length - 1;
+  const unknowns = asRecord(body.unknowns);
+  const remapped =
+    unknowns === null
+      ? body.unknowns
+      : Object.fromEntries(
+          Object.entries(unknowns).flatMap(([key, reason]) => {
+            const m = /^data\.points\.(\d+)(\..*)?$/.exec(key);
+            if (m === null) return [[key, reason]];
+            return Number(m[1]) === last ? [[`data.points.0${m[2] ?? ""}`, reason]] : [];
+          }),
+        );
+  return {
+    ...body,
+    data: { ...data, points: data.points.slice(-1) },
+    ...(unknowns === null ? {} : { unknowns: remapped }),
+  };
+}

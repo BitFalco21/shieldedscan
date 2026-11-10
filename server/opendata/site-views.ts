@@ -42,6 +42,8 @@ export const SITE_VIEW_SQL = {
     FROM opendata.shielding_records_daily ORDER BY day`,
   mining_payouts_daily: `SELECT day, kind, address, blocks, reward_zat, fee_zat, fee_blocks
     FROM opendata.mining_payouts_daily ORDER BY day, kind COLLATE "C", address COLLATE "C" NULLS FIRST`,
+  address_balance_daily: `SELECT address, day, balance_zat, close_height
+    FROM opendata.address_balance_daily ORDER BY address COLLATE "C", day`,
 } as const;
 
 export type SiteView = keyof typeof SITE_VIEW_SQL;

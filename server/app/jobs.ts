@@ -1,10 +1,13 @@
 import type { Pool } from "pg";
 import { AddressCountTracker } from "../address-counts";
 import { BlockArrivalTracker } from "../block-arrival";
+import { ReserveTracker } from "../exchange-reserves";
+import { EXCHANGE_MEMBERS } from "@/domain";
 import { backfillFxRates, refreshRecentFxRates } from "../fx-history";
 import { hostPacer } from "../job-pacer";
 import { HttpNodeRpc } from "../node-rpc";
 import { createPool } from "../pg-pool";
+import { NETWORK } from "./config";
 import { PoolUsageTracker, chainDayExtent } from "../pool-usage";
 import { backfillPriceHistory, refreshRecentPrices } from "../price-history";
 import { TransparentTracker, transparentDaysToCompute } from "../transparent-daily";
@@ -117,4 +120,22 @@ export function startChainTrackers(databaseUrl: string | undefined, nodeRpcUrl: 
     },
   }).start();
   log("address count tracker started");
+
+  // The labelled exchange addresses' daily balances: a walk of ~35 addresses' rows, after the
+  // transparent backfill for the same reason as the counts. The labels are mainnet addresses, so
+  // the tracker itself refuses any other network, on top of this function being mainnet-only.
+  const reservePool = createPool(databaseUrl, { max: 2, statement_timeout: 60_000 });
+  new ReserveTracker({
+    pool: reservePool,
+    network: NETWORK,
+    members: EXCHANGE_MEMBERS,
+    pacer: pacerFor(reservePool),
+    log,
+    ready: async () => {
+      const extent = await chainDayExtent(reservePool, Math.floor(Date.now() / 1000));
+      if (extent === null) return true;
+      return (await transparentDaysToCompute(reservePool, extent.first, extent.last)).length <= 3;
+    },
+  }).start();
+  log("exchange reserve tracker started");
 }

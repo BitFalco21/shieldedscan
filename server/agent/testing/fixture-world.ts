@@ -42,6 +42,8 @@ import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "./miners-reader";
 import type { MinerWindow } from "../../mining-daily";
 import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
+import { V1_EXCHANGE_RESERVES_PATH, v1ExchangeReservesRoutes } from "../../v1/exchange-reserves";
+import { reserveFixture } from "@/fixtures/exchange-reserves";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
 import { CHART_SOURCE_PAYLOADS } from "./chart-fixtures";
@@ -535,6 +537,19 @@ export function makeV1(
           }),
         }),
         endpoints: [V1_TRANSPARENT_PATH],
+      },
+      // The labelled exchange addresses' balances, its 'exchange-reserves' mode, a year to now.
+      {
+        routes: v1ExchangeReservesRoutes({
+          pool: {} as Pool,
+          now: () => FIXTURE_NOW_MS,
+          load: async () => ({
+            ...reserveFixture(Math.floor(FIXTURE_NOW_MS / 86_400_000) * 86_400, 400, 3_429_000),
+            beyondLiveTail: [],
+            tipHeight: 3_429_000,
+          }),
+        }),
+        endpoints: [V1_EXCHANGE_RESERVES_PATH],
       },
       // The published series the records, mining, nodes and pool facets read.
       { routes: publishedSeriesRoutes(), endpoints: [...PUBLISHED_SERIES_PATHS] },

@@ -41,6 +41,7 @@ const NEEDS: Record<ChartSlug, (keyof ChartData)[]> = {
   "pools-to-majority": ["minerMonths"],
   "shielded-capable-by-chain": ["destinationWindows"],
   "issuance-vs-nsm": ["nsm"],
+  "exchange-reserves": ["exchangeReserves"],
 };
 
 /**
@@ -101,6 +102,7 @@ export async function loadChartData(
     minerMonths,
     destinationWindows,
     nsm,
+    exchangeReserves,
   ] = await Promise.all([
     wanted.has("months") ? guard(() => data.getMonthlySeries()) : null,
     wanted.has("flow") ? guard(() => data.getShieldingFlow()) : null,
@@ -135,6 +137,7 @@ export async function loadChartData(
     wanted.has("minerMonths") ? guard(() => data.getMinerSeries("month")) : null,
     wanted.has("destinationWindows") ? guard(() => data.getDestinationWindows()) : null,
     wanted.has("nsm") ? guard(() => data.getNsmOverview()) : null,
+    wanted.has("exchangeReserves") ? guard(() => data.getExchangeReserves()) : null,
   ]);
   return {
     months,
@@ -170,6 +173,7 @@ export async function loadChartData(
     minerMonths,
     destinationWindows,
     nsm,
+    exchangeReserves,
     asOf: nowSeconds(),
   };
 }

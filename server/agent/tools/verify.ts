@@ -273,3 +273,24 @@ export function thresholdNote(
  */
 const refuseWiderQuestion = (what: string): string =>
   `THIS READ CANNOT BE USED: the API did not apply the ${what} that was asked for, so these figures answer a WIDER question than the one put to you — they are not wrong numbers, they are the right numbers to a different question. Say the figure could not be read, give no number in its place, and do not describe this as a privacy property of Zcash.`;
+
+/**
+ * Why the exchange-reserves payload cannot be described as the answer asked for, or null: the
+ * endpoint echoes the window, interval and exchange, and one that differs answers another question.
+ */
+export function verifyExchangeReservesEcho(
+  payload: unknown,
+  days: Record<"from" | "to", string | null>,
+  interval: string,
+  exchange: string | null,
+): string | null {
+  const refuse = `THIS READ CANNOT BE USED: the API did not apply the window or exchange that was asked for, so these figures answer a different question. Say the figure could not be read and give no number in its place.`;
+  if (typeof payload !== "object" || payload === null) return refuse;
+  const q = (payload as { query?: Record<string, unknown> }).query;
+  if (typeof q !== "object" || q === null) return refuse;
+  if ((q.from ?? null) !== days.from || (q.to ?? null) !== days.to || q.interval !== interval) {
+    return refuse;
+  }
+  if ((q.exchange ?? null) !== exchange) return refuse;
+  return null;
+}

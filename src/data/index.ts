@@ -118,6 +118,7 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getBlockArrival: () => chain.getBlockArrival(),
     getBlocksDaily: () => chain.getBlocksDaily(),
     getSupplyDays: () => chain.getSupplyDays(),
+    getExchangeReserves: () => chain.getExchangeReserves(),
     getMinersOverview: (window) => chain.getMinersOverview(window),
     getMinerSeries: (interval) => chain.getMinerSeries(interval),
     getMiningPoolBlocks: (id) => chain.getMiningPoolBlocks(id),

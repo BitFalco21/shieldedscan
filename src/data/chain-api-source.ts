@@ -33,6 +33,7 @@ import type {
   NetTopologyScope,
   BlocksDayPoint,
   SupplyDayPoint,
+  ExchangeReserveDay,
   MinerShareMonth,
   NoteTreeDayPoint,
   ReorgWeekSeries,
@@ -64,6 +65,7 @@ import type {
   ZnsLookup,
 } from "@/domain";
 import {
+  EXCHANGES,
   isMixedDirectionFilter,
   PULSE_RIBBON_WINDOW_NAMES,
   STATS_RANGES,
@@ -656,6 +658,27 @@ export function createChainApiSource(config: ChainApiConfig) {
         throw new Error("chain API returned an unrecognised supply days shape");
       }
       return body as SupplyDayPoint[];
+    },
+
+    async getExchangeReserves(): Promise<ExchangeReserveDay[]> {
+      const body = await json<unknown>(
+        await request(config, "/chain/analytics/exchange-reserves", CACHE_QUARTER_HOUR),
+        "exchange reserves",
+      );
+      if (
+        !Array.isArray(body) ||
+        !body.every(
+          (p: ExchangeReserveDay) =>
+            typeof p.timestamp === "number" &&
+            typeof p.closeHeight === "number" &&
+            typeof p.zat === "object" &&
+            p.zat !== null &&
+            EXCHANGES.every((e) => p.zat[e] === null || typeof p.zat[e] === "number"),
+        )
+      ) {
+        throw new Error("chain API returned an unrecognised exchange reserves shape");
+      }
+      return body as ExchangeReserveDay[];
     },
 
     async getReorgWeeks(): Promise<ReorgWeekSeries> {

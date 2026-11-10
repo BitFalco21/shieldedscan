@@ -182,8 +182,7 @@ export const CROSSCHAIN_GROUP: ApiGroup = {
           kind: "query",
           type: "YYYY-MM-DD",
           required: true,
-          description:
-            "UTC day the window ends BEFORE — exclusive, so to=2026-10-01 ends on 30 September.",
+          description: "Exclusive: to=2026-10-01 ends on 30 September.",
           example: "2026-10-01",
         },
         {

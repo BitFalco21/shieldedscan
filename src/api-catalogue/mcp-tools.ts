@@ -103,7 +103,12 @@ export const MCP_VIEW_TOOLS: readonly McpViewTool[] = [
     name: "rich_list",
     title: "The transparent rich list, its distribution, or named addresses",
     summary: "Transparent balances only.",
-    views: { list: "rich-list", distribution: "rich-list-distribution", labels: "labels" },
+    views: {
+      list: "rich-list",
+      distribution: "rich-list-distribution",
+      labels: "labels",
+      exchanges: "exchange-reserves",
+    },
   },
   {
     name: "miners",

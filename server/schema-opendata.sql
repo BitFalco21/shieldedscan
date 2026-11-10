@@ -180,6 +180,13 @@ CREATE OR REPLACE VIEW opendata.mining_payouts_daily AS
 SELECT day, kind, NULLIF(address, '') AS address, blocks, reward_zat, fee_zat, fee_blocks
 FROM mining_day_payout;
 
+-- The daily balances of the addresses carrying an exchange label on the site, from its own table
+-- (an address taken off the list is deleted by its tracker). No label and no
+-- grouping: an address is its own name here, as everywhere in this dataset.
+CREATE OR REPLACE VIEW opendata.address_balance_daily AS
+SELECT address, day, balance_zat, close_height
+FROM address_balance_daily;
+
 -- The transparent balances behind the site's rich list, published as `addresses`: a snapshot
 -- replaced by each release. No `rank`: it is derived (a position in this very table), not stored.
 -- `tx_count` is NULL on rows the backfill has not counted yet.

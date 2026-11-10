@@ -72,8 +72,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "YYYY-MM-DD",
           required: true,
-          description:
-            "UTC day the window ends BEFORE — exclusive, so to=2026-10-01 ends on 30 September.",
+          description: "Exclusive: to=2026-10-01 ends on 30 September.",
           example: "2026-10-01",
         },
         {
@@ -81,8 +80,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "none | day | month",
           required: false,
-          description:
-            "Buckets beside the window totals. `day` covers at most 366 days per request; `month` and `none` take any range.",
+          description: "Buckets beside the totals; `day` covers at most 366 days.",
           example: "month",
         },
         {
@@ -247,8 +245,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "YYYY-MM-DD",
           required: true,
-          description:
-            "UTC day the window ends BEFORE — exclusive, so to=2026-10-01 ends on 30 September.",
+          description: "Exclusive: to=2026-10-01 ends on 30 September.",
           example: "2026-10-01",
         },
         {
@@ -256,8 +253,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "none | day | month",
           required: false,
-          description:
-            "Buckets beside the window totals. `day` covers at most 366 days per request; `month` and `none` take any range.",
+          description: "Buckets beside the totals; `day` covers at most 366 days.",
           example: "month",
         },
         {
@@ -392,8 +388,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "YYYY-MM-DD",
           required: true,
-          description:
-            "UTC day the window ends BEFORE — exclusive, so to=2026-10-01 ends on 30 September.",
+          description: "Exclusive: to=2026-10-01 ends on 30 September.",
           example: "2026-10-01",
         },
         {
@@ -401,8 +396,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "none | day | month",
           required: false,
-          description:
-            "Buckets beside the window totals. `day` covers at most 366 days per request; `month` and `none` take any range.",
+          description: "Buckets beside the totals; `day` covers at most 366 days.",
         },
         {
           name: "source",
@@ -596,7 +590,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "day | month",
           required: false,
-          description: "Default month. `day` needs from and to at most 366 days apart.",
+          description: "Default month; `day` spans at most 366 days.",
         },
         ...RANKING_PARAMS,
       ],
@@ -686,7 +680,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "day | month",
           required: false,
-          description: "Default month. `day` needs from and to at most 366 days apart.",
+          description: "Default month; `day` spans at most 366 days.",
         },
         {
           name: "pool",
@@ -788,7 +782,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "day | month",
           required: false,
-          description: "Default month. `day` needs from and to at most 366 days apart.",
+          description: "Default month; `day` spans at most 366 days.",
         },
         ...RANKING_PARAMS,
       ],
@@ -975,7 +969,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "day | month",
           required: false,
-          description: "Default month. `day` needs from and to at most 366 days apart.",
+          description: "Default month; `day` spans at most 366 days.",
         },
         ...RANKING_PARAMS,
       ],
@@ -1163,7 +1157,7 @@ export const ANALYTICS_GROUP: ApiGroup = {
           kind: "query",
           type: "day | month",
           required: false,
-          description: "Default month. `day` needs from and to at most 366 days apart.",
+          description: "Default month; `day` spans at most 366 days.",
         },
         ...RANKING_PARAMS,
       ],

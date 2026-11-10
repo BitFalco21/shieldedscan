@@ -1,5 +1,6 @@
 import {
   ARRIVAL_ALL_GROUP,
+  EXCHANGES,
   MAX_SUPPLY_ZAT,
   allPoolsSupply,
   feeTotalIsComplete,
@@ -12,6 +13,7 @@ import {
 } from "@/domain";
 import type { ChartThumb, ThumbSeries } from "@/components/ChartThumbnail";
 import { POOL_CLASSES } from "@/lib/pool-palette";
+import { EXCHANGE_CLASSES } from "@/lib/exchange-palette";
 import { FOLDED_FLOW_CLASS, flowPaletteClass, VENUE_CLASSES } from "@/lib/flow-palette";
 import {
   formatCount,
@@ -170,6 +172,11 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
           { values: col(1), className: RANKED_LINES[0], opacity: 0.45 },
           { values: col(0), className: RANKED_LINES[0] },
         ],
+      };
+    case "exchange-reserves":
+      return {
+        kind: "lines",
+        series: EXCHANGES.map((e, i) => ({ values: col(i), className: EXCHANGE_CLASSES[e] })),
       };
     case "upgrade-readiness": {
       const pct = (part: number | null, whole: number | null) =>
@@ -447,6 +454,21 @@ function headline(slug: ChartSlug, data: ChartData, nowSec: number): ChartPrevie
           target === null || target === undefined ? "" : `, target ${formatCount(target)}`
         }`,
       };
+    }
+    case "exchange-reserves": {
+      // The newest day with every exchange stated: their sum, and the day it is read at.
+      const t = chartTable(slug, data, "30d");
+      if (!t) return null;
+      for (let i = t.rows.length - 1; i >= 0; i -= 1) {
+        const row = t.rows[i]!.slice(0, EXCHANGES.length);
+        if (row.some((v) => v === null || v === undefined)) continue;
+        const sum = row.reduce<number>((s, v) => s + (v ?? 0), 0);
+        return {
+          value: formatZecWhole(sum),
+          caption: `on ${EXCHANGES.length} exchanges' labelled addresses, ${utcDayFromSeconds(t.timestamps[i]!)}`,
+        };
+      }
+      return null;
     }
     case "transparent-activity": {
       const t = chartTable(slug, data, "30d");

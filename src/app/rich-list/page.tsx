@@ -3,6 +3,8 @@ import { getDataSource } from "@/data";
 import { cursorNavHrefs } from "@/app/_shared/cursor-nav";
 import { RichListPage } from "@/features/rich-list/RichListPage";
 import { nullIfTransient } from "@/lib/transient-upstream";
+import { isTestnet } from "@/lib/network";
+import { exchangeReserveSummary } from "@/domain";
 
 // Tip-sensitive: skip Next's fetch Data Cache (ARCHITECTURE.md, "Caching and freshness").
 export const fetchCache = "force-no-store";
@@ -21,13 +23,15 @@ export default async function Page({
 }) {
   const { before, after } = await searchParams;
   const data = getDataSource();
-  const [page, summary, priceUsd] = await Promise.all([
+  const [page, summary, priceUsd, reserves] = await Promise.all([
     data.listRichList({ before, after, limit: PAGE_SIZE }),
     data.getRichListSummary(),
     // The dollar column is a convenience beside the fact, so an unreadable price costs the
     // column and not the page. Only a transient failure is swallowed: a shape error still
     // propagates, so the version-skew tripwire keeps failing the build.
     nullIfTransient(() => data.getChainInfo().then((info) => info.priceUsd)),
+    // Optional too: an unreadable series costs its section. Mainnet only, where the labels apply.
+    isTestnet ? Promise.resolve(undefined) : nullIfTransient(() => data.getExchangeReserves()),
   ]);
 
   return (
@@ -35,6 +39,9 @@ export default async function Page({
       entries={page.items}
       summary={summary}
       priceUsd={priceUsd}
+      exchangeReserves={
+        reserves === undefined ? undefined : reserves && exchangeReserveSummary(reserves)
+      }
       {...cursorNavHrefs(page, (step) =>
         step
           ? `/rich-list?${new URLSearchParams({ [step.name]: step.value }).toString()}`

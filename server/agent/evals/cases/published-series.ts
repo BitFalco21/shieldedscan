@@ -128,4 +128,27 @@ export const PUBLISHED_SERIES: EvalCase[] = [
     mustCall: ["chain_status"],
     mustContain: [/DigitalOcean/, /\b16\b/],
   },
+  {
+    id: "exchange-reserves-binance-month",
+    category: "insights",
+    world: "fixture",
+    /*
+     * The figures are the fixture world's (`reserveFixture`): Binance's five labelled addresses on
+     * 2026-08-03, and their change from July's close. The answer must say it is the labelled
+     * addresses only, never Binance's holdings.
+     */
+    question:
+      "how much ZEC does Binance hold on its labelled transparent addresses, and how did it change this month?",
+    mustCall: ["chain_activity"],
+    mustContain: [/120,?491/, /653/, /label/i],
+  },
+  {
+    id: "exchange-reserves-not-holdings",
+    category: "insights",
+    world: "fixture",
+    question: "how much ZEC does Kraken hold right now?",
+    mustCall: ["chain_activity"],
+    mustContain: [/label/i],
+    mustNotContain: [/Kraken(?:'s)? (?:total )?holdings? (?:is|are|of)/i],
+  },
 ];

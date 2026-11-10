@@ -22,6 +22,7 @@ import { V1_MINING_PATH, v1MiningRoutes } from "../v1/mining";
 import { V1_NODES_PATHS, v1NodesRoutes } from "../v1/network-nodes";
 import { type V1ChainPort, type V1Extension, v1Routes } from "../v1/routes";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../v1/transparent-series";
+import { V1_EXCHANGE_RESERVES_PATH, v1ExchangeReservesRoutes } from "../v1/exchange-reserves";
 import { PostgresAnalyticsData } from "../v1/windowed/data";
 import { WINDOWED_ANALYTICS_PATHS, windowedAnalyticsRoutes } from "../v1/windowed/routes";
 import {
@@ -117,6 +118,12 @@ function v1Extensions(
     out.push({
       routes: v1TransparentRoutes({ pool: seriesPool }),
       endpoints: [V1_TRANSPARENT_PATH],
+    });
+    // The labelled exchange addresses' daily balances, from the table the primary's reserve
+    // tracker keeps, plus the days above its watermark read live: memo-backed the same way.
+    out.push({
+      routes: v1ExchangeReservesRoutes({ pool: seriesPool }),
+      endpoints: [V1_EXCHANGE_RESERVES_PATH],
     });
   }
   // The crawler is mainnet-only; the node list reads the snapshot the /network page reads.

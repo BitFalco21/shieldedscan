@@ -11,8 +11,7 @@ export const RANKING_PARAMS: ApiParam[] = [
     kind: "query",
     type: "field path",
     required: false,
-    description:
-      "Rank the periods by this numeric field; a wrong path is a 400 listing the valid ones.",
+    description: "Rank the periods by this numeric field.",
   },
   {
     name: "order",

@@ -171,6 +171,13 @@ function chain() {
       fee_zat: b.fees_zat,
       fee_blocks: b.blocks_with_fees,
     })),
+    // One tracked address over every day, each read at the day's highest block (two blocks a day).
+    address_balance_daily: DAYS.map((day, d) => ({
+      address: MINER,
+      day,
+      balance_zat: 100n * BigInt(d + 1),
+      close_height: 2 * d + 1,
+    })),
   };
   return { views, inputs };
 }
@@ -453,6 +460,57 @@ describe("the site's series, malformed", () => {
   it("fails a published string that looks like an address", () => {
     expect(broken((v) => void (v.pool_boundary_daily![0]!.pool = "http://evil.example"))).toMatch(
       /pool_boundary_daily.pool: a value looks like an address/,
+    );
+  });
+});
+
+describe("address_balance_daily", () => {
+  it("publishes each address's days through the final day", () => {
+    const { views, inputs } = chain();
+    const rows = new Map(siteSeries(views, inputs).tables).get("address_balance_daily")!;
+    expect(rows.map((r) => [r.day, r.close_height])).toEqual([
+      [DAYS[0], 1],
+      [FINAL, 3],
+    ]);
+  });
+
+  it("fails a close that is not the day's highest block", () => {
+    expect(broken((v) => void (on(v.address_balance_daily, FINAL).close_height = 2))).toMatch(
+      /close_height is not the day's highest block/,
+    );
+  });
+
+  it("fails an address with a day missing, or one that stops before the final day", () => {
+    expect(broken((v) => drop(v, "address_balance_daily", DAYS[0]!))).toEqual("");
+    expect(
+      broken((v) => {
+        v.address_balance_daily!.push({
+          address: MINER.replace(/.$/, (c) => (c === "a" ? "b" : "a")),
+          day: DAYS[0],
+          balance_zat: 1n,
+          close_height: 1,
+        });
+      }),
+    ).toMatch(/not a mainnet t-address/);
+    expect(broken((v) => drop(v, "address_balance_daily", FINAL))).toMatch(
+      /no row for the final day: 1 \(e\.g\. address_balance_daily\)/,
+    );
+    const second = base58checkEncode(
+      Uint8Array.from([0x1c, 0xb8, ...new Array<number>(20).fill(7)]),
+    );
+    expect(
+      broken((v) => {
+        v.address_balance_daily!.push(
+          { address: second, day: DAYS[0], balance_zat: 5n, close_height: 1 },
+          { address: second, day: DAYS[2], balance_zat: 5n, close_height: 5 },
+        );
+      }),
+    ).toMatch(/stops before the final day/);
+  });
+
+  it("fails a balance below zero", () => {
+    expect(broken((v) => void (on(v.address_balance_daily, FINAL).balance_zat = -1n))).toMatch(
+      /balance below zero/,
     );
   });
 });

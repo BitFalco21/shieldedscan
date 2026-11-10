@@ -153,6 +153,14 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
     tool: "chain_activity",
     args: { mode: "pool-balances", from: "2026-01-01", to: "2026-08-01", groupBy: "month" },
   },
+  { tool: "chain_activity", args: { mode: "exchange-reserves", from: "2026-07-01" } },
+  {
+    tool: "chain_activity",
+    args: { mode: "exchange-reserves", exchange: "binance", lastDays: 30, groupBy: "day" },
+  },
+  { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "coinbase" } },
+  { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "gemini" } },
+  { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "kraken" } },
   {
     tool: "chain_activity",
     args: { mode: "transparent", from: "2026-07-01", to: "2026-08-01", groupBy: "day" },
