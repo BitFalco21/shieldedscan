@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Hono } from "hono";
 import { Pool } from "pg";
-import { ADDRESS_LABELS } from "@/domain";
+import { ADDRESS_LABELS, MINING_POOL_LABELS } from "@/domain";
 import { loadLabelledBalances } from "../network-routes";
 import { MemoryStorePort } from "../crosschain-store";
 import { v1Routes } from "../v1/routes";
@@ -97,7 +97,11 @@ describeDb("labelled-address balances", () => {
     const response = await v1.request("/v1/labels");
     expect(response.status).toBe(200);
     const body = (await response.json()) as V1Labels;
-    expect(body.labels.map((label) => label.address)).toEqual(Object.keys(ADDRESS_LABELS));
+    // Every labelled address, then every mining-pool payout address, as the route lists them.
+    expect(body.labels.map((label) => label.address)).toEqual([
+      ...Object.keys(ADDRESS_LABELS),
+      ...Object.keys(MINING_POOL_LABELS),
+    ]);
     const byAddress = new Map(body.labels.map((label) => [label.address, label]));
     expect(byAddress.get(ranked)).toMatchObject({ balanceZat: 43_892_090_013_445, rank: 1 });
     expect(byAddress.get(behind)).toMatchObject({ rank: 3 });

@@ -1664,60 +1664,142 @@ export const ANALYTICS_GROUP: ApiGroup = {
     "name": "ShieldedScan",
     "url": "https://shieldedscan.xyz/shielded"
   },
-  "basis": "every term is the counterparty's own published value balance, netted across every transaction since activation; nothing is apportioned. balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid",
+  "basis": "every term is the counterparty's own published value balance, netted across every transaction since activation; nothing is apportioned. balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid. \`orchard\` follows Orchard emptying into Ironwood per complete UTC day: \`migrated\` is the day's migrations from Orchard alone (the rule /v1/analytics/migrations applies, as Ironwood received them), \`remaining\` Orchard's balance at the day's last block, and \`shareMigrated\` everything migrated through the day as a share of Orchard's balance at the block before activation (\`beforeActivation\`). Migrations drawing on two or more pools at once, not necessarily Orchard, are counted apart in \`migratedFromSeveralPools\`, never apportioned.",
   "data": {
     "activationHeight": 3428143,
-    "readAtHeight": 3505056,
+    "readAtHeight": 3558182,
     "balance": {
-      "zat": 406001511033807,
-      "zec": "4060015.11033807"
+      "zat": 423480586675869,
+      "zec": "4234805.86675869"
     },
     "sources": {
       "fromOrchard": {
-        "zat": 325418249281501,
-        "zec": "3254182.49281501"
+        "zat": 330657423177817,
+        "zec": "3306574.23177817"
       },
       "fromSapling": {
-        "zat": 10616145562846,
-        "zec": "106161.45562846"
+        "zat": 17119085832050,
+        "zec": "171190.85832050"
       },
       "fromSprout": {
         "zat": 0,
         "zec": "0.00000000"
       },
       "fromTransparent": {
-        "zat": 69618883303296,
-        "zec": "696188.83303296"
+        "zat": 75090616796806,
+        "zec": "750906.16796806"
       },
       "mined": {
-        "zat": 353456321164,
-        "zec": "3534.56321164"
+        "zat": 620587881592,
+        "zec": "6205.87881592"
       },
       "feesPaid": {
-        "zat": 5223435000,
-        "zec": "52.23435000"
+        "zat": 7127012396,
+        "zec": "71.27012396"
       }
     },
     "migrated": {
-      "zat": 336034394844347,
-      "zec": "3360343.94844347"
+      "zat": 347776509009867,
+      "zec": "3477765.09009867"
     },
     "residual": {
       "zat": 0,
       "zec": "0.00000000"
     },
     "transactions": {
-      "withIronwoodBundle": 267760,
-      "shieldedFromTransparent": 69395
+      "withIronwoodBundle": 443258,
+      "shieldedFromTransparent": 96051
+    },
+    "orchard": {
+      "beforeActivation": {
+        "height": 3428142,
+        "balance": {
+          "zat": 366123341339978,
+          "zec": "3661233.41339978"
+        }
+      },
+      "latest": {
+        "day": "2026-11-09",
+        "closeHeight": 3556671,
+        "remaining": {
+          "zat": 32288292460656,
+          "zec": "322882.92460656"
+        },
+        "migratedToIronwood": {
+          "zat": 330088581555134,
+          "zec": "3300885.81555134"
+        },
+        "migratedFromSeveralPools": {
+          "zat": 457917400832,
+          "zec": "4579.17400832"
+        },
+        "shareMigrated": {
+          "pct": 90.16,
+          "numerator": 330088581555134,
+          "denominator": 366123341339978
+        }
+      },
+      "days": [
+        {
+          "day": "2026-11-08",
+          "closeHeight": 3553223,
+          "remaining": {
+            "zat": 32315446790549,
+            "zec": "323154.46790549"
+          },
+          "migrated": {
+            "zat": 4161165424,
+            "zec": "41.61165424"
+          },
+          "migratedFromSeveralPools": {
+            "zat": 0,
+            "zec": "0.00000000"
+          },
+          "cumulative": {
+            "zat": 330065884773336,
+            "zec": "3300658.84773336"
+          },
+          "shareMigrated": {
+            "pct": 90.15,
+            "numerator": 330065884773336,
+            "denominator": 366123341339978
+          }
+        },
+        {
+          "day": "2026-11-09",
+          "closeHeight": 3556671,
+          "remaining": {
+            "zat": 32288292460656,
+            "zec": "322882.92460656"
+          },
+          "migrated": {
+            "zat": 22696781798,
+            "zec": "226.96781798"
+          },
+          "migratedFromSeveralPools": {
+            "zat": 0,
+            "zec": "0.00000000"
+          },
+          "cumulative": {
+            "zat": 330088581555134,
+            "zec": "3300885.81555134"
+          },
+          "shareMigrated": {
+            "pct": 90.16,
+            "numerator": 330088581555134,
+            "denominator": 366123341339978
+          }
+        }
+      ]
     }
   },
   "unknowns": {},
-  "asOf": 1791043751
+  "asOf": 1794306416
 }`,
       notes: [
         "`residual` is zero by construction and published so the identity can be checked: balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid.",
         "Each term is a counterparty's own published value balance, netted over every transaction since activation. Nothing is apportioned between pools.",
-        "`orchard` follows Orchard emptying into Ironwood per complete UTC day: `migrated` is the day's migrations from Orchard alone, as Ironwood received them; `cumulative` their running total; `remaining` Orchard's balance at the day's last block (`closeHeight`). `latest.shareMigrated` is `cumulative` as a share of `beforeActivation.balance`, Orchard's balance at block 3,428,142, the block before NU6.3. `shareMigrated` is the same per day. Orchard also shrinks by unshielding, fees and migrations into other pools, so `cumulative` + `remaining` does not equal the base. Migrations drawing on two or more pools at once, not necessarily Orchard, are in `migratedFromSeveralPools`, never in the share. The example predates the section and omits it.",
+        "`orchard` follows Orchard emptying into Ironwood per complete UTC day: `migrated` is the day's migrations from Orchard alone, as Ironwood received them; `cumulative` their running total; `remaining` Orchard's balance at the day's last block (`closeHeight`). `latest.shareMigrated` is `migratedToIronwood` (the last day's `cumulative`) as a share of `beforeActivation.balance`, Orchard's balance at block 3,428,142, the block before NU6.3. `shareMigrated` is the same per day. Orchard also shrinks by unshielding, fees and migrations into other pools, so `cumulative` + `remaining` does not equal the base. Migrations drawing on two or more pools at once, not necessarily Orchard, are in `migratedFromSeveralPools`, never in the share. The example response is abridged to the last two days.",
       ],
       toolNotes: [
         "balance = fromOrchard + fromSapling + fromSprout + fromTransparent + mined − feesPaid (`residual` 0); nothing is apportioned.",

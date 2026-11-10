@@ -817,8 +817,9 @@ export function v1Routes(deps: V1Deps): Hono {
 
   /**
    * Every address this explorer names, with whose claim each name is, its current balance and its
-   * rank. No parameters: the set is the label table, 45 rows, one indexed read. The names leave
-   * this API only here, beside their source and a notice that travels on every response.
+   * rank. No parameters: the set is the label table plus the pool payout addresses, one indexed
+   * read. The names leave this API only here, beside their source and a notice that travels on
+   * every response.
    */
   app.get("/v1/labels", async (c) => {
     rejectUnknownParams(c, []);
