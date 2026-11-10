@@ -80,6 +80,21 @@
   --flow-9: #79c7ff;
   /* The folded tail is not a chain; a quiet slate keeps it from competing with one. */
   --flow-rest: #94a3b8;
+  /* Transparent coin age, youngest (1) to oldest (9): the accent green through teal and blue to
+     deep violet, lightness falling at every step so the order reads without the hue. A fixed
+     ramp, not following --h: it is a sequence whose ends mean young and old, and a rotated
+     ramp would give the same band a different meaning per theme. Checked with the dataviz
+     validator against the panel: adjacent CVD separation 6.4 (the floor band, legal because the
+     legend, the readout and the band gaps name every band), darkest 2:1 on the panel. */
+  --age-1: #2bff64;
+  --age-2: #56e1a3;
+  --age-3: #06cead;
+  --age-4: #0bb7b0;
+  --age-5: #03a1ae;
+  --age-6: #028ba9;
+  --age-7: #0371b7;
+  --age-8: #404bbf;
+  --age-9: #5e269d;
 
   --edge: oklch(0.874 0.252 var(--h) / 0.28);
   --edge-strong: oklch(0.874 0.252 var(--h) / 0.45);

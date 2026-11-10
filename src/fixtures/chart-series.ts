@@ -29,15 +29,19 @@ import { getDailySeries, getMonthlySeries, getReorgSummary, listReorgEvents } fr
 
 const DAY = 86_400;
 
-/** Sapling from its 2018 activation, Orchard from 2022, Ironwood over the last weeks. */
+/**
+ * Sapling from its 2018 activation, Orchard from 2022, Ironwood over the second half of the
+ * series: absent then present, so a preview draws both the pool's activation and the days the
+ * readout can total all three.
+ */
 export function getNoteTrees(): NoteTreeDayPoint[] {
   const days = getDailySeries();
-  const first = days[0]?.timestamp ?? 0;
+  const half = Math.floor(days.length / 2);
   return days.map((d, i) => ({
     timestamp: d.timestamp,
     saplingNotes: 73_000_000 + i * 2_700,
     orchardNotes: 49_500_000 + i * 2_600,
-    ironwoodNotes: d.timestamp - first >= 300 * DAY ? (i - 300) * 9_000 + 4_000 : null,
+    ironwoodNotes: i >= half ? (i - half) * 9_000 + 4_000 : null,
   }));
 }
 

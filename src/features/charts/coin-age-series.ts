@@ -3,8 +3,9 @@ import type { AreaSeries } from "@/components/StackedAreaChart";
 
 /**
  * The coin-age chart's bands, oldest at the bottom: the coins that have not moved in years are
- * the base the younger, moving ones sit on. One hue stepped in lightness, deep for the oldest and
- * hot for the youngest, so age reads as a sequence rather than as categories.
+ * the base the younger, moving ones sit on. A fixed ramp (`--age-*`): the accent green for the
+ * youngest through teal and blue to deep violet for the oldest, darker at every step, so age reads
+ * as a sequence rather than as categories.
  */
 export const AGE_STACK: readonly CoinAgeBandKey[] = [...COIN_AGE_BANDS].reverse().map((b) => b.key);
 

@@ -26,8 +26,11 @@ export interface ChartHoverProps {
   /**
    * An extra emphasised row, for a stacked chart's total. Stacked bands are read from the top
    * edge, so the total is the number the reader is actually looking at.
+   *
+   * `null` at an index omits the row there, as for `rows`: a total with a missing term is no
+   * total, and a caller that means "unmeasured" passes its own "—".
    */
-  total?: { name: string; values: string[] };
+  total?: { name: string; values: (string | null)[] };
   /**
    * Where the plot area starts and ends as a fraction of the rendered width. Charts with a
    * y-axis gutter must pass it, or the crosshair lands slightly off every point.
@@ -195,7 +198,7 @@ export function ChartHover({
                     <dd className="text-ink tabular-nums">{row.values[active] ?? "—"}</dd>
                   </div>
                 ))}
-              {total ? (
+              {total && total.values[active] !== null ? (
                 <div className="mt-1 flex items-center justify-between gap-3 border-t border-edge-faint pt-1">
                   <dt className="text-ink-dim">{total.name}</dt>
                   <dd className="text-ink-bright tabular-nums">{total.values[active] ?? "—"}</dd>

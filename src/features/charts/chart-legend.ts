@@ -45,6 +45,8 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
         label: COIN_AGE_BANDS.find((b) => b.key === key)!.short,
         className: AGE_BAND_CLASS[key],
         mark: "area" as const,
+        // Keyed, so the legend can bring a band forward: only the oldest sits on the baseline.
+        key,
       }));
     case "anonymity-set":
     case "notes-added":

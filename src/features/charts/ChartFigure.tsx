@@ -80,6 +80,21 @@ const unavailable = (what: string) => <DataUnavailable what={what} />;
 /** One column of a table, as a series' values. */
 const column = (t: ChartTable, i: number) => t.rows.map((r) => r[i] ?? null);
 
+/**
+ * Each point's sum of the given columns, or null where any term is null: a sum missing a term is
+ * not a total.
+ */
+const totalOrNull = (columns: (number | null)[][]): (number | null)[] =>
+  (columns[0] ?? []).map((_, i) => {
+    let sum = 0;
+    for (const c of columns) {
+      const v = c[i];
+      if (v === null || v === undefined) return null;
+      sum += v;
+    }
+    return sum;
+  });
+
 /** Axis labels for a table's rows: days, Mondays or short months, by its period. */
 const tableLabels = (t: ChartTable) =>
   t.timestamps.map((ts) => (t.period === "month" ? monthShort(ts) : utcDayFromSeconds(ts)));
@@ -138,6 +153,10 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
     : detail
       ? parseChartRange(urlRange ?? undefined)
       : localRange;
+  // A legend item pointed at or focused, brought forward on the chart. Only keyed legends set it.
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const legend = chartLegend(slug);
+  const highlightable = legend.some((item) => item.key !== undefined);
   const setRange = (next: ChartRange) =>
     detail ? setUrlRange(next === "all" ? null : next) : setLocalRange(next);
 
@@ -152,13 +171,27 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
   return (
     <div>
       {(ranged || detail) && toolbar}
-      <Figure slug={slug} data={data} range={range} />
-      <ChartLegend items={chartLegend(slug)} />
+      <Figure slug={slug} data={data} range={range} highlightKey={highlighted} />
+      <ChartLegend
+        items={legend}
+        highlighted={highlighted}
+        onHighlight={highlightable ? setHighlighted : undefined}
+      />
     </div>
   );
 }
 
-function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range: ChartRange }) {
+function Figure({
+  slug,
+  data,
+  range,
+  highlightKey,
+}: {
+  slug: ChartSlug;
+  data: ChartData;
+  range: ChartRange;
+  highlightKey: string | null;
+}) {
   // The monthly charts read their daily sibling for every range short of ALL.
   const daily = range !== "all";
   switch (slug) {
@@ -586,6 +619,14 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           formatValue={compactCount}
           formatTick={compactCountTick}
+          // Sprout publishes no tree size, so the total names the three it sums, and a day
+          // missing one of them has none.
+          total={{
+            name: "Total, Sapling + Orchard + Ironwood",
+            values: totalOrNull([column(t, 0), column(t, 1), column(t, 2)]).map((v) =>
+              v === null ? null : compactCount(v),
+            ),
+          }}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
         />
       );
@@ -657,6 +698,13 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           }))}
           formatValue={formatZecCompact}
           formatTick={formatZecTick}
+          // An exchange not computed through the day leaves the total unmeasured, never short.
+          total={{
+            name: "Total",
+            values: totalOrNull(EXCHANGES.map((_, i) => column(t, i))).map((v) =>
+              v === null ? "—" : formatZecCompact(v),
+            ),
+          }}
           ariaLabel="Transparent ZEC on each exchange's labelled addresses, per day"
         />
       );
@@ -789,6 +837,8 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           readoutLabels={points.map((p) => `end of ${monthLong(monthStartOf(p.asOf))}`)}
           formatValue={formatZecCompact}
           formatTick={formatZecTick}
+          highlightKey={highlightKey}
+          bandGaps
           ariaLabel="Transparent ZEC by how long it has sat unspent, at each month's end"
         />
       );

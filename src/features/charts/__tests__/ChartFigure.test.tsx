@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ChainMonthPoint } from "@/domain";
 import { ChartFigure } from "../ChartFigure";
 import { chartData } from "../chart-data";
+import { COIN_AGE_BANDS, type CoinAgeBandKey } from "@/domain/coin-age";
+import { AGE_BAND_CLASS } from "../coin-age-series";
 
 const DAY = 86_400;
 
@@ -368,5 +370,162 @@ describe("ChartFigure on a chart's own page", () => {
     unmount();
     render(<ChartFigure slug="transactions-by-kind" data={chartData({ months, days })} />);
     expect(screen.queryByRole("button", { name: /csv/i })).toBeNull();
+  });
+});
+
+/** The readout at a point, opened the keyboard way (jsdom has no layout for a pointer). */
+function readoutAtIndex(index: "first" | "last"): string {
+  const group = screen.getByRole("group", { name: /use the arrow keys/i });
+  fireEvent.focus(group);
+  fireEvent.keyDown(group, { key: index === "last" ? "End" : "Home" });
+  return screen.getByRole("status").textContent ?? "";
+}
+
+describe("anonymity-set total", () => {
+  const tree = (
+    timestamp: number,
+    saplingNotes: number | null,
+    orchardNotes: number | null,
+    ironwoodNotes: number | null,
+  ) => ({ timestamp, saplingNotes, orchardNotes, ironwoodNotes });
+
+  it("totals the three pools that publish a tree size, and names them", () => {
+    render(
+      <ChartFigure
+        slug="anonymity-set"
+        data={chartData({
+          noteTrees: [tree(1_785_000_000, 100, 200, null), tree(1_785_086_400, 100, 200, 300)],
+        })}
+      />,
+    );
+    const readout = readoutAtIndex("last");
+    expect(readout).toContain("Total, Sapling + Orchard + Ironwood");
+    expect(readout).toContain("600");
+  });
+
+  it("states no total on a day one of the three is missing, never a partial sum", () => {
+    render(
+      <ChartFigure
+        slug="anonymity-set"
+        data={chartData({
+          noteTrees: [tree(1_785_000_000, 100, 200, null), tree(1_785_086_400, 100, 200, 300)],
+        })}
+      />,
+    );
+    const readout = readoutAtIndex("first");
+    expect(readout).not.toContain("Total");
+    expect(readout).not.toContain("300");
+  });
+});
+
+describe("exchange-reserves total", () => {
+  const day = (timestamp: number, kraken: number | null) => ({
+    timestamp,
+    closeHeight: 3_000_000,
+    zat: { binance: 100e8, coinbase: 200e8, gemini: 300e8, kraken },
+  });
+
+  it("adds the four exchanges at a point", () => {
+    render(
+      <ChartFigure
+        slug="exchange-reserves"
+        data={chartData({
+          exchangeReserves: [day(1_785_000_000, null), day(1_785_086_400, 400e8)],
+        })}
+      />,
+    );
+    expect(readoutAtIndex("last")).toMatch(/Total\s*1,000/);
+  });
+
+  it("reads unmeasured where one exchange is not computed through the day", () => {
+    render(
+      <ChartFigure
+        slug="exchange-reserves"
+        data={chartData({
+          exchangeReserves: [day(1_785_000_000, null), day(1_785_086_400, 400e8)],
+        })}
+      />,
+    );
+    const readout = readoutAtIndex("first");
+    expect(readout).toMatch(/Total\s*—/);
+    expect(readout).not.toContain("600");
+  });
+});
+
+describe("transparent-coin-age legend highlight", () => {
+  const monthEnd = (asOf: string) => ({
+    asOf,
+    height: 3_000_000,
+    bands: COIN_AGE_BANDS.map((b, i) => ({ key: b.key, valueZat: (i + 1) * 1e8, outputs: 1 })),
+  });
+  const draw = () =>
+    render(
+      <ChartFigure
+        slug="transparent-coin-age"
+        data={chartData({
+          coinAge: { monthEnds: [monthEnd("2026-09-30"), monthEnd("2026-10-31")], latest: null },
+        })}
+      />,
+    ).container;
+
+  const band = (container: HTMLElement, key: string) =>
+    [...container.querySelectorAll("path.chart-band")].find((p) =>
+      p.classList.contains(AGE_BAND_CLASS[key as CoinAgeBandKey]),
+    )!;
+
+  it("brings the pointed band forward, fades the rest, and restores on leaving", () => {
+    const container = draw();
+    const item = screen.getByRole("button", { name: "1–2y" });
+    fireEvent.pointerEnter(item);
+    expect(band(container, "1y2y").getAttribute("class")).not.toContain("opacity-15");
+    expect(band(container, "5y").getAttribute("class")).toContain("opacity-15");
+    expect(band(container, "lt1w").getAttribute("class")).toContain("opacity-15");
+    fireEvent.pointerLeave(item);
+    expect(container.querySelectorAll("path.opacity-15")).toHaveLength(0);
+  });
+
+  it("answers focus as well as the pointer", () => {
+    const container = draw();
+    const item = screen.getByRole("button", { name: "5y+" });
+    fireEvent.focus(item);
+    expect(band(container, "5y").getAttribute("class")).not.toContain("opacity-15");
+    expect(band(container, "3y5y").getAttribute("class")).toContain("opacity-15");
+    fireEvent.blur(item);
+    expect(container.querySelectorAll("path.opacity-15")).toHaveLength(0);
+  });
+
+  it("leaves a legend without keys as a plain list", () => {
+    render(<ChartFigure slug="pool-usage" data={chartData({})} />);
+    expect(screen.queryByRole("button", { name: "Sapling" })).toBeNull();
+  });
+});
+
+describe("transparent-coin-age band gaps", () => {
+  it("edges every band in the panel colour, so neighbouring bands stay apart", () => {
+    const monthEnd = (asOf: string) => ({
+      asOf,
+      height: 3_000_000,
+      bands: COIN_AGE_BANDS.map((b) => ({ key: b.key, valueZat: 1e8, outputs: 1 })),
+    });
+    const { container } = render(
+      <ChartFigure
+        slug="transparent-coin-age"
+        data={chartData({
+          coinAge: { monthEnds: [monthEnd("2026-09-30"), monthEnd("2026-10-31")], latest: null },
+        })}
+      />,
+    );
+    const bands = container.querySelectorAll("path.chart-band");
+    expect(bands).toHaveLength(COIN_AGE_BANDS.length);
+    for (const b of bands) expect(b.getAttribute("class")).toContain("stroke-panel");
+  });
+
+  it("draws no edges on a stack that did not ask for them", () => {
+    const { container } = render(
+      <ChartFigure slug="pool-balances" data={chartData({ months, days: months })} />,
+    );
+    for (const b of container.querySelectorAll("path.chart-band")) {
+      expect(b.getAttribute("class")).not.toContain("stroke-panel");
+    }
   });
 });

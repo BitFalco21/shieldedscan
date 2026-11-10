@@ -305,7 +305,7 @@ export const CHARTS: ChartEntry[] = [
     blurb: "Notes in each pool's commitment tree: what a shielded spend hides among.",
     description: [
       "Each shielded pool keeps a tree of every note ever created in it, spent or not. A spend proves its note is somewhere in that tree without saying where, so the tree's size is the crowd the spend hides in.",
-      "Pools are drawn separately and never added: a spend hides only among its own pool's notes. The node does not report Sprout's tree size, so Sprout is not drawn.",
+      "Pools are drawn separately: a spend hides only among its own pool's notes, so the readout's total counts notes, not a crowd any one spend hides in. The node does not report Sprout's tree size, so Sprout is not drawn.",
     ],
   },
   {

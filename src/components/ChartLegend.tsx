@@ -8,10 +8,19 @@ export interface LegendItem {
   mark: LegendMark;
   /** The series' ink weight: `dim` for the 0.55 steps, `faint` for 0.35, as the chart draws it. */
   weight?: "dim" | "faint";
+  /** The series' key on the chart, for a legend that can bring it forward (`onHighlight`). */
+  key?: string;
 }
 
 export interface ChartLegendProps {
   items: LegendItem[];
+  /** The key brought forward on the chart, if any; the other items fade with their series. */
+  highlighted?: string | null;
+  /**
+   * Makes each keyed item a control: pointing at it or focusing it brings its series forward,
+   * leaving clears it. For a stack, where only the bottom band sits on a flat baseline.
+   */
+  onHighlight?: (key: string | null) => void;
 }
 
 const WEIGHT = { dim: "opacity-55", faint: "opacity-35" } as const;
@@ -30,20 +39,48 @@ const SWATCH: Record<LegendMark, string> = {
  * series too, but only at the point under the cursor; a legend answers before anyone hovers, and
  * on a touch screen it is the only answer.
  */
-export function ChartLegend({ items }: ChartLegendProps) {
+export function ChartLegend({ items, highlighted = null, onHighlight }: ChartLegendProps) {
   if (items.length < 2) return null;
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-dim">
-      {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-1.5">
-          <span aria-hidden className={`inline-flex items-center ${item.className}`}>
-            <span
-              className={`inline-block ${SWATCH[item.mark]} ${item.weight ? WEIGHT[item.weight] : ""}`}
-            />
-          </span>
-          {item.label}
-        </li>
-      ))}
+      {items.map((item) => {
+        const swatch = (
+          <>
+            <span aria-hidden className={`inline-flex items-center ${item.className}`}>
+              <span
+                className={`inline-block ${SWATCH[item.mark]} ${item.weight ? WEIGHT[item.weight] : ""}`}
+              />
+            </span>
+            {item.label}
+          </>
+        );
+        const key = item.key;
+        if (!onHighlight || key === undefined) {
+          return (
+            <li key={item.label} className="flex items-center gap-1.5">
+              {swatch}
+            </li>
+          );
+        }
+        const faded = highlighted !== null && highlighted !== key;
+        return (
+          <li key={key}>
+            <button
+              type="button"
+              aria-pressed={highlighted === key}
+              onPointerEnter={() => onHighlight(key)}
+              onPointerLeave={() => onHighlight(null)}
+              onFocus={() => onHighlight(key)}
+              onBlur={() => onHighlight(null)}
+              className={`flex items-center gap-1.5 transition-opacity hover:text-ink motion-reduce:transition-none ${
+                faded ? "opacity-35" : highlighted === key ? "text-ink" : ""
+              }`}
+            >
+              {swatch}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
