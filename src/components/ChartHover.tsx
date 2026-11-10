@@ -26,8 +26,11 @@ export interface ChartHoverProps {
   /**
    * An extra emphasised row, for a stacked chart's total. Stacked bands are read from the top
    * edge, so the total is the number the reader is actually looking at.
+   *
+   * `description` says what a short `name` sums, on hover and to a screen reader, where the
+   * whole phrase would wrap the readout.
    */
-  total?: { name: string; values: string[] };
+  total?: { name: string; description?: string; values: string[] };
   /**
    * Where the plot area starts and ends as a fraction of the rendered width. Charts with a
    * y-axis gutter must pass it, or the crosshair lands slightly off every point.
@@ -197,7 +200,12 @@ export function ChartHover({
                 ))}
               {total ? (
                 <div className="mt-1 flex items-center justify-between gap-3 border-t border-edge-faint pt-1">
-                  <dt className="text-ink-dim">{total.name}</dt>
+                  <dt className="text-ink-dim" title={total.description}>
+                    {total.name}
+                    {total.description ? (
+                      <span className="sr-only">, {total.description}</span>
+                    ) : null}
+                  </dt>
                   <dd className="text-ink-bright tabular-nums">{total.values[active] ?? "—"}</dd>
                 </div>
               ) : null}

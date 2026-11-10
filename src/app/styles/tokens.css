@@ -80,6 +80,21 @@
   --flow-9: #79c7ff;
   /* The folded tail is not a chain; a quiet slate keeps it from competing with one. */
   --flow-rest: #94a3b8;
+  /* Transparent coin age, youngest (1) to oldest (9): green through teal and blue to violet,
+     lightness falling at every step so the order reads without the hue. The owner's chosen ramp,
+     kept fixed across hue themes like the flow palette. As drawn (a band is at 0.82 opacity over
+     the panel) the oldest still clears 3:1; the price is adjacent bands closer for colour-blind
+     readers than a categorical palette would be, which the legend, the readout and the gaps
+     between bands make up for. */
+  --age-1: #2bff64;
+  --age-2: #59e9ae;
+  --age-3: #08dec3;
+  --age-4: #10ced0;
+  --age-5: #0cbeda;
+  --age-6: #0aaee5;
+  --age-7: #4295fe;
+  --age-8: #7c73fe;
+  --age-9: #a452df;
 
   --edge: oklch(0.874 0.252 var(--h) / 0.28);
   --edge-strong: oklch(0.874 0.252 var(--h) / 0.45);

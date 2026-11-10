@@ -151,7 +151,9 @@ with `explain-rollups` (read-only).
 ## Interface rules
 
 - One dark, terminal-style design ("Phosphor"). Colours are OKLCH tokens in `src/app/styles/tokens.css` derived
-  from one hue, so themes change one number; every content token clears WCAG AA.
+  from one hue, so themes change one number; every content token clears WCAG AA. Three sets are
+  fixed hex and do not follow the theme hue: third parties' brand marks, the categorical flow
+  palette and the coin-age ramp.
 - Styling goes through Tailwind tokens. Inline `style` props are not allowed in `src/` except the
   two geometry values in `components/ChartHover.tsx`.
 - Privacy is shown by shape first and colour second (the shield grammar: full, half, outline).

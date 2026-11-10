@@ -9,9 +9,10 @@ import { targetSpacingAt } from "./halving";
 
 /**
  * Each pool's note commitment tree size at the day's last block, as the node reports it: every
- * note ever created in the pool, spent or not. A level, not a flow: never summed across days, and
- * never across pools either, since a spend hides only among its own pool's notes. Null before a
- * pool activated. Sprout's size is not reported by the node, so it has no field.
+ * note ever created in the pool, spent or not. A level, not a flow: never summed across days. A
+ * sum across pools is a count of notes, never one crowd: a spend hides only among its own pool's
+ * notes. Null before a pool activated. Sprout's size is not reported by the node, so it has no
+ * field.
  */
 export interface NoteTreeDayPoint {
   timestamp: number;

@@ -56,6 +56,12 @@ export interface MultiLineChartProps {
    */
   contextRows?: ChartHoverRow[];
   /**
+   * An emphasised total under the series in the readout, pre-formatted per point. Only for
+   * series that add up to something a reader asks for, named by what it sums (`description` when
+   * the name is short). A point missing a term passes "—", as an unmeasured series does.
+   */
+  total?: { name: string; description?: string; values: string[] };
+  /**
    * Where the y-axis starts. `"zero"` is the default.
    *
    * `"data"` clips the axis to the range present, and is only correct for a series whose
@@ -123,6 +129,7 @@ export function MultiLineChart({
   formatTick = formatValue,
   readoutLabels,
   contextRows = [],
+  total,
   baseline = "zero",
   phone = false,
   renderedWidth,
@@ -199,6 +206,7 @@ export function MultiLineChart({
         // denominator second.
         ...contextRows,
       ]}
+      total={total}
       /*
         Points, because that is how the lines are drawn: index 0 on the left edge of the plot,
         the last index on the right (`frame.x`). "bands" would put the crosshair half a slice

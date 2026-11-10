@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ChartRange, CrossChainProtocol } from "@/domain";
-import { EXCHANGES, EXCHANGE_NAMES } from "@/domain";
+import { EXCHANGES, EXCHANGE_NAMES, exchangeReserveTotal, type ExchangeId } from "@/domain";
 import {
   feeTotalIsComplete,
   NU7,
@@ -45,6 +45,7 @@ import {
 } from "@/lib/format";
 import { POOL_CLASSES } from "@/lib/pool-palette";
 import { EXCHANGE_CLASSES } from "@/lib/exchange-palette";
+import { useLegendHighlight } from "@/lib/use-legend-highlight";
 import { useQueryParam } from "@/lib/use-query-param";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
@@ -79,6 +80,18 @@ const unavailable = (what: string) => <DataUnavailable what={what} />;
 
 /** One column of a table, as a series' values. */
 const column = (t: ChartTable, i: number) => t.rows.map((r) => r[i] ?? null);
+
+/**
+ * Each point's notes across the three pools that report a tree, or null where any is missing: a
+ * sum short of a pool is not a total.
+ */
+const noteTreeTotal = (t: ChartTable): (number | null)[] =>
+  t.rows.map((r) => {
+    const [sapling, orchard, ironwood] = [r[0] ?? null, r[1] ?? null, r[2] ?? null];
+    return sapling === null || orchard === null || ironwood === null
+      ? null
+      : sapling + orchard + ironwood;
+  });
 
 /** Axis labels for a table's rows: days, Mondays or short months, by its period. */
 const tableLabels = (t: ChartTable) =>
@@ -138,6 +151,10 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
     : detail
       ? parseChartRange(urlRange ?? undefined)
       : localRange;
+  // A legend item previewed or pinned, brought forward on the chart. Only keyed legends set it.
+  const highlight = useLegendHighlight();
+  const legend = chartLegend(slug);
+  const highlightable = legend.some((item) => item.key !== undefined);
   const setRange = (next: ChartRange) =>
     detail ? setUrlRange(next === "all" ? null : next) : setLocalRange(next);
 
@@ -152,13 +169,23 @@ export function ChartFigure({ slug, data, detail = false }: ChartFigureProps) {
   return (
     <div>
       {(ranged || detail) && toolbar}
-      <Figure slug={slug} data={data} range={range} />
-      <ChartLegend items={chartLegend(slug)} />
+      <Figure slug={slug} data={data} range={range} highlightKey={highlight.highlighted} />
+      <ChartLegend items={legend} highlight={highlightable ? highlight : undefined} />
     </div>
   );
 }
 
-function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range: ChartRange }) {
+function Figure({
+  slug,
+  data,
+  range,
+  highlightKey,
+}: {
+  slug: ChartSlug;
+  data: ChartData;
+  range: ChartRange;
+  highlightKey: string | null;
+}) {
   // The monthly charts read their daily sibling for every range short of ALL.
   const daily = range !== "all";
   switch (slug) {
@@ -586,6 +613,13 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           ]}
           formatValue={compactCount}
           formatTick={compactCountTick}
+          // Sprout publishes no tree size, so the total names the three it sums, and a day
+          // missing one of them reads unmeasured like any other row.
+          total={{
+            name: "Total, 3 pools",
+            description: "Sapling + Orchard + Ironwood",
+            values: noteTreeTotal(t).map((v) => (v === null ? "—" : compactCount(v))),
+          }}
           ariaLabel="Notes in each shielded pool's commitment tree, per day"
         />
       );
@@ -657,6 +691,15 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           }))}
           formatValue={formatZecCompact}
           formatTick={formatZecTick}
+          // An exchange not computed through the day leaves the total unmeasured, never short.
+          total={{
+            name: "Total",
+            values: t.rows.map((r) => {
+              const zat = Object.fromEntries(EXCHANGES.map((e, i) => [e, r[i] ?? null]));
+              const total = exchangeReserveTotal({ zat: zat as Record<ExchangeId, number | null> });
+              return total === null ? "—" : formatZecCompact(total);
+            }),
+          }}
           ariaLabel="Transparent ZEC on each exchange's labelled addresses, per day"
         />
       );
@@ -789,6 +832,8 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
           readoutLabels={points.map((p) => `end of ${monthLong(monthStartOf(p.asOf))}`)}
           formatValue={formatZecCompact}
           formatTick={formatZecTick}
+          highlightKey={highlightKey}
+          bandGaps
           ariaLabel="Transparent ZEC by how long it has sat unspent, at each month's end"
         />
       );

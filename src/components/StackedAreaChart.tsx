@@ -52,6 +52,13 @@ export interface StackedAreaChartProps {
    * rather than the axis's cramped "Jun 22". Falls back to `labels`.
    */
   readoutLabels?: string[];
+  /** A band brought forward, the rest faded: the way to read a band above the bottom one. */
+  highlightKey?: string | null;
+  /**
+   * A thin line in the panel colour along each band's edges, for a ramp whose neighbouring bands
+   * sit close in colour: the edge between them is then drawn rather than inferred.
+   */
+  bandGaps?: boolean;
 }
 
 /**
@@ -80,6 +87,8 @@ export function StackedAreaChart({
   formatValue,
   formatTick = formatValue,
   readoutLabels,
+  highlightKey = null,
+  bandGaps = false,
 }: StackedAreaChartProps) {
   const n = labels.length;
   if (n < 2 || series.length === 0) return null;
@@ -184,7 +193,12 @@ export function StackedAreaChart({
               key={s.key}
               d={`${up.join(" ")} ${down.join(" ")} Z`}
               fill="currentColor"
-              className={`chart-band ${s.colorClass}`}
+              {...(bandGaps
+                ? { strokeWidth: 1, vectorEffect: "non-scaling-stroke", strokeLinejoin: "round" }
+                : {})}
+              className={`chart-band ${s.colorClass} ${bandGaps ? "stroke-panel" : ""} transition-opacity motion-reduce:transition-none ${
+                highlightKey !== null && s.key !== highlightKey ? "opacity-15" : ""
+              }`}
             />
           );
         })}

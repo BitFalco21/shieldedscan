@@ -8,6 +8,7 @@ import {
   exchangeMembers,
   exchangeReserveDays,
   exchangeReserveSummary,
+  exchangeReserveTotal,
   type ExchangeMember,
 } from "../exchange-reserves";
 
@@ -203,5 +204,18 @@ describe("exchangeReserveSummary", () => {
     const s = exchangeReserveSummary([day(31, 70, 4)], [{ address: "tK", exchange: "kraken" }])!;
     expect(s.rows.find((r) => r.exchange === "kraken")!.changeZat).toBeNull();
     expect(exchangeReserveSummary([])).toBeNull();
+  });
+});
+
+describe("exchangeReserveTotal", () => {
+  const day = { zat: { binance: 1, coinbase: 2, gemini: 3, kraken: null } };
+
+  it("sums the exchanges asked for", () => {
+    expect(exchangeReserveTotal(day, ["binance", "coinbase", "gemini"])).toBe(6);
+  });
+
+  it("is null when any exchange in the sum is not computed through the day", () => {
+    expect(exchangeReserveTotal(day)).toBeNull();
+    expect(exchangeReserveTotal({ zat: { ...day.zat, kraken: 4 } })).toBe(10);
   });
 });
