@@ -29,6 +29,7 @@ const CHART_ROUTES = [
   "/charts/reorgs",
   // The orphan rate: bars over unobserved lead slots, a partial day and an upgrade rule.
   "/charts/orphan-rate",
+  "/charts/transparent-coin-age",
   "/reorgs",
   // Block age on arrival: two lines over a day series, and per-pool range bars beside a null.
   "/charts/block-arrival-age",

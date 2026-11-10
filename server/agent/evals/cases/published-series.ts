@@ -151,4 +151,27 @@ export const PUBLISHED_SERIES: EvalCase[] = [
     mustContain: [/label/i],
     mustNotContain: [/Kraken(?:'s)? (?:total )?holdings? (?:is|are|of)/i],
   },
+  {
+    id: "coin-age-dormant",
+    category: "insights",
+    world: "fixture",
+    /*
+     * The figure is the newest block's 5-years-or-more band. The forbids are the two misreadings
+     * the note warns about: an output read as a holder, and an unmoved coin read as a lost one.
+     */
+    question: "how much transparent ZEC has not moved in five years or more?",
+    mustCall: ["chain_activity"],
+    mustContain: [/940,?755|940\.8 ?(?:thousand|K)|941(?:,000| ?thousand|K)/i, /16\.8\d? ?%/],
+    mustNotContain: [
+      /long-term holders?|(?<!not |n't |never )\b(?:are|were|is) (?:probably |likely )?lost\b/i,
+    ],
+  },
+  {
+    id: "coin-age-month-end",
+    category: "insights",
+    world: "fixture",
+    question: "at the end of March 2026, how much transparent ZEC was less than a week old?",
+    mustCall: ["chain_activity"],
+    mustContain: [/30,?624/],
+  },
 ];

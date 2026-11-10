@@ -314,6 +314,13 @@ const TABLE_DESCRIPTIONS: Record<string, Record<string, string>> = {
     max_migration_ties: "Transactions sharing that largest value.",
     max_migration_txid: "That transaction when it alone holds the maximum; NULL otherwise.",
   },
+  coin_age_matrix: {
+    creation_day: "UTC day of the block that created the outputs.",
+    spend_day:
+      "UTC day of the block that spent them; NULL while unspent at the release's final day.",
+    value_zat: "Their value, zatoshis.",
+    outputs: "How many outputs.",
+  },
   addresses: {
     address: "Transparent address, t1… or t3….",
     balance_zat: "Its balance at the release height, zatoshis; always positive.",
@@ -388,6 +395,8 @@ const TABLE_INTROS: Record<string, string> = {
     "Value crossing between the transparent and shielded sides, counted per UTC day.",
   transparent_daily: "Transparent activity per UTC day.",
   transparent_monthly: "Distinct transparent addresses per complete UTC month.",
+  coin_age_matrix:
+    "Every transparent output, summed by the UTC day it was created and the UTC day it was spent. Any day's coin age is the rows created on or before it and not spent by its end; they add up to the transparent pool at that day's closing block. A block's day is the latest header day at or below its height. `outputs` includes unspendable zero-value OP_RETURN outputs, which are never spent and so only grow older; value is unaffected. Replaced whole by each release.",
   node_releases_daily:
     "Answering nodes per day by software release, from this project's crawler. A floor: nodes that accept no incoming connections cannot be counted.",
   reorgs: "Chain reorganisations this indexer observed.",

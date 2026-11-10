@@ -3,6 +3,7 @@ import { AddressCountTracker } from "../address-counts";
 import { BlockArrivalTracker } from "../block-arrival";
 import { ReserveTracker } from "../exchange-reserves";
 import { EXCHANGE_MEMBERS } from "@/domain";
+import { CoinAgeTracker } from "../coin-age";
 import { backfillFxRates, refreshRecentFxRates } from "../fx-history";
 import { hostPacer } from "../job-pacer";
 import { HttpNodeRpc } from "../node-rpc";
@@ -138,4 +139,9 @@ export function startChainTrackers(databaseUrl: string | undefined, nodeRpcUrl: 
     },
   }).start();
   log("exchange reserve tracker started");
+
+  // Coin age keeps a seeded matrix current, one probe per input: it does nothing until seeded.
+  const coinAgePool = createPool(databaseUrl, { max: 2, statement_timeout: 60_000 });
+  new CoinAgeTracker({ pool: coinAgePool, pacer: pacerFor(coinAgePool), log }).start();
+  log("coin age tracker started");
 }

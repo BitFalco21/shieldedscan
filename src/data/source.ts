@@ -79,6 +79,7 @@ import type {
   BlockArrivalSeries,
 } from "@/domain";
 // Not part of the `@/domain` barrel; every consumer imports it from its own module.
+import type { CoinAgeSeries } from "@/domain/coin-age";
 import type { SocialPost, SocialSnapshot } from "@/domain/social";
 import type { SwapFigures } from "@/domain/swap";
 import type { BoundaryFigures } from "@/domain/boundary";
@@ -344,6 +345,8 @@ export interface ExplorerDataSource {
   getOrphanRate(): Promise<OrphanRateSeries>;
   /** How old each pool's blocks are on arrival at our node, per day and over trailing windows. */
   getBlockArrival(): Promise<BlockArrivalSeries>;
+  /** Transparent coin age at every month-end and the newest block the table covers. */
+  getCoinAge(): Promise<CoinAgeSeries>;
   /** The mempool is unbounded on a busy chain — always paginated. */
   listMempool(page: number, pageSize: number): Promise<Paginated<MempoolEntry>>;
   /** Reorgs our own node observed, newest first — keyset over (detectedAt, id). */

@@ -51,6 +51,19 @@ export function verifyTransparentEcho(
   return null;
 }
 
+/** Why the coin-age payload cannot be used as the window asked for, or null: the echo must match. */
+export function verifyCoinAgeEcho(
+  payload: unknown,
+  days: Record<"from" | "to", string | null>,
+): string | null {
+  const refuse = `THIS READ CANNOT BE USED: the API did not apply the window that was asked for, so these figures answer a different period. Say the figure could not be read, give no number in its place, and do not describe this as a privacy property of Zcash.`;
+  if (typeof payload !== "object" || payload === null) return refuse;
+  const q = (payload as { query?: { from?: unknown; to?: unknown } }).query;
+  if (typeof q !== "object" || q === null) return refuse;
+  if (q.from !== days.from || q.to !== days.to) return refuse;
+  return null;
+}
+
 /**
  * Why the miners payload cannot be described as the answer asked for, or null. The endpoint echoes
  * the window and limit in `query`; an echo that differs or is missing (what a deployment without the

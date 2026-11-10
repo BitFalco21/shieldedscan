@@ -941,6 +941,351 @@ export const ANALYTICS_GROUP: ApiGroup = {
       ],
     },
     {
+      id: "analytics-coin-age",
+      method: "GET",
+      path: "/v1/analytics/coin-age",
+      title: "Transparent coin age",
+      description:
+        "Transparent ZEC by how long it has sat unspent, under a week to 5+ years, at each month's end and the newest block.",
+      params: [
+        {
+          name: "from",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "First month-end day, inclusive. Absent means October 2016.",
+          example: "2025-10-01",
+        },
+        {
+          name: "to",
+          kind: "query",
+          type: "YYYY-MM-DD",
+          required: false,
+          description: "Day the month-ends stop BEFORE (exclusive). `latest` is always included.",
+          example: "2025-11-01",
+        },
+      ],
+      exampleResponse: `{
+  "query": {
+    "from": "2026-10-01",
+    "to": "2026-11-01"
+  },
+  "coverage": {
+    "status": "complete",
+    "notes": []
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/api-docs#analytics-coin-age"
+  },
+  "basis": "every transparent output this explorer indexes, by the UTC day of the block that created it and whether a block had spent it by the end of the day measured. A block's day is the latest header day at or below its height, so each day ends at one height (\`height\`) and the bands at a point add up to the node's transparent pool at that height, to the zatoshi. Bands are calendar spans back from the day measured: \`1m3m\` is created after the same date three months earlier and on or before the same date one month earlier. An address is not a holder: one wallet moving coins between its own addresses resets their age. \`outputs\` includes unspendable zero-value OP_RETURN outputs, which are never spent and so end in the oldest band; value is unaffected.",
+  "data": {
+    "bands": [
+      {
+        "key": "lt1w",
+        "label": "< 1 week"
+      },
+      {
+        "key": "1w1m",
+        "label": "1 week – 1 month"
+      },
+      {
+        "key": "1m3m",
+        "label": "1–3 months"
+      },
+      {
+        "key": "3m6m",
+        "label": "3–6 months"
+      },
+      {
+        "key": "6m1y",
+        "label": "6 months – 1 year"
+      },
+      {
+        "key": "1y2y",
+        "label": "1–2 years"
+      },
+      {
+        "key": "2y3y",
+        "label": "2–3 years"
+      },
+      {
+        "key": "3y5y",
+        "label": "3–5 years"
+      },
+      {
+        "key": "5y",
+        "label": "5 years or more"
+      }
+    ],
+    "monthEnds": [
+      {
+        "asOf": "2026-10-31",
+        "height": 3537546,
+        "total": {
+          "zat": 1197388475267494,
+          "zec": "11973884.75267494"
+        },
+        "bands": [
+          {
+            "key": "lt1w",
+            "value": {
+              "zat": 168812694777479,
+              "zec": "1688126.94777479"
+            },
+            "outputs": 26740,
+            "share": {
+              "pct": 14.1,
+              "numerator": 168812694777479,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "1w1m",
+            "value": {
+              "zat": 112033750745129,
+              "zec": "1120337.50745129"
+            },
+            "outputs": 42862,
+            "share": {
+              "pct": 9.36,
+              "numerator": 112033750745129,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "1m3m",
+            "value": {
+              "zat": 198687379324724,
+              "zec": "1986873.79324724"
+            },
+            "outputs": 99847,
+            "share": {
+              "pct": 16.59,
+              "numerator": 198687379324724,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "3m6m",
+            "value": {
+              "zat": 208380758662469,
+              "zec": "2083807.58662469"
+            },
+            "outputs": 85653,
+            "share": {
+              "pct": 17.4,
+              "numerator": 208380758662469,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "6m1y",
+            "value": {
+              "zat": 262957986865682,
+              "zec": "2629579.86865682"
+            },
+            "outputs": 302617,
+            "share": {
+              "pct": 21.96,
+              "numerator": 262957986865682,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "1y2y",
+            "value": {
+              "zat": 67269969255987,
+              "zec": "672699.69255987"
+            },
+            "outputs": 250128,
+            "share": {
+              "pct": 5.62,
+              "numerator": 67269969255987,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "2y3y",
+            "value": {
+              "zat": 28875264855810,
+              "zec": "288752.64855810"
+            },
+            "outputs": 9013925,
+            "share": {
+              "pct": 2.41,
+              "numerator": 28875264855810,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "3y5y",
+            "value": {
+              "zat": 45641158543256,
+              "zec": "456411.58543256"
+            },
+            "outputs": 8042831,
+            "share": {
+              "pct": 3.81,
+              "numerator": 45641158543256,
+              "denominator": 1197388475267494
+            }
+          },
+          {
+            "key": "5y",
+            "value": {
+              "zat": 104729512236958,
+              "zec": "1047295.12236958"
+            },
+            "outputs": 9422784,
+            "share": {
+              "pct": 8.75,
+              "numerator": 104729512236958,
+              "denominator": 1197388475267494
+            }
+          }
+        ]
+      }
+    ],
+    "latest": {
+      "asOf": "2026-11-08",
+      "height": 3550353,
+      "total": {
+        "zat": 1196847986636360,
+        "zec": "11968479.86636360"
+      },
+      "bands": [
+        {
+          "key": "lt1w",
+          "value": {
+            "zat": 180245129004066,
+            "zec": "1802451.29004066"
+          },
+          "outputs": 34014,
+          "share": {
+            "pct": 15.06,
+            "numerator": 180245129004066,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "1w1m",
+          "value": {
+            "zat": 170287989769756,
+            "zec": "1702879.89769756"
+          },
+          "outputs": 48279,
+          "share": {
+            "pct": 14.23,
+            "numerator": 170287989769756,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "1m3m",
+          "value": {
+            "zat": 181795278228178,
+            "zec": "1817952.78228178"
+          },
+          "outputs": 106181,
+          "share": {
+            "pct": 15.19,
+            "numerator": 181795278228178,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "3m6m",
+          "value": {
+            "zat": 171139433718450,
+            "zec": "1711394.33718450"
+          },
+          "outputs": 77766,
+          "share": {
+            "pct": 14.3,
+            "numerator": 171139433718450,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "6m1y",
+          "value": {
+            "zat": 211375516042524,
+            "zec": "2113755.16042524"
+          },
+          "outputs": 305509,
+          "share": {
+            "pct": 17.66,
+            "numerator": 211375516042524,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "1y2y",
+          "value": {
+            "zat": 102227695109512,
+            "zec": "1022276.95109512"
+          },
+          "outputs": 88190,
+          "share": {
+            "pct": 8.54,
+            "numerator": 102227695109512,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "2y3y",
+          "value": {
+            "zat": 29648808761021,
+            "zec": "296488.08761021"
+          },
+          "outputs": 8727648,
+          "share": {
+            "pct": 2.48,
+            "numerator": 29648808761021,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "3y5y",
+          "value": {
+            "zat": 45241568177372,
+            "zec": "452415.68177372"
+          },
+          "outputs": 8400907,
+          "share": {
+            "pct": 3.78,
+            "numerator": 45241568177372,
+            "denominator": 1196847986636360
+          }
+        },
+        {
+          "key": "5y",
+          "value": {
+            "zat": 104886567825481,
+            "zec": "1048865.67825481"
+          },
+          "outputs": 9480947,
+          "share": {
+            "pct": 8.76,
+            "numerator": 104886567825481,
+            "denominator": 1196847986636360
+          }
+        }
+      ]
+    }
+  },
+  "unknowns": {},
+  "asOf": 1794259200
+}`,
+      notes: [
+        "A block's day is the latest UTC header day at or below its height, so each day ends at one height even where miner timestamps run backwards across midnight. `height` is that closing block, and the bands sum to the node's transparent pool there, to the zatoshi.",
+        "Bands are calendar spans back from the day measured: `1m3m` is created after the same date three months earlier and on or before the same date one month earlier. `latest` is measured mid-day, at the newest block at least 100 blocks below the tip.",
+        "An address is not a holder: one wallet moving coins between its own addresses makes them young again, so old bands count coins left alone, not owners who held.",
+      ],
+      toolNotes: ["Bands sum to the transparent pool at `height`; a self-transfer resets age."],
+    },
+    {
       id: "analytics-network",
       method: "GET",
       path: "/v1/analytics/network",

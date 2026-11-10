@@ -44,6 +44,8 @@ import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
 import { V1_EXCHANGE_RESERVES_PATH, v1ExchangeReservesRoutes } from "../../v1/exchange-reserves";
 import { reserveFixture } from "@/fixtures/exchange-reserves";
+import { V1_COIN_AGE_PATH, v1CoinAgeRoutes } from "../../v1/coin-age";
+import { getCoinAge } from "@/fixtures/coin-age";
 import { INSIGHT_TOPICS, type ChainRequester } from "../tools";
 import PUBLISHED from "./__fixtures__/v1-published-series.json";
 import { CHART_SOURCE_PAYLOADS } from "./chart-fixtures";
@@ -550,6 +552,16 @@ export function makeV1(
           }),
         }),
         endpoints: [V1_EXCHANGE_RESERVES_PATH],
+      },
+      // And the one its 'coin-age' mode reads.
+      {
+        routes: v1CoinAgeRoutes({
+          pool: {} as Pool,
+          now: () => FIXTURE_NOW_MS,
+          load: async () => getCoinAge(),
+          tip: async () => getCoinAge().latest?.height ?? null,
+        }),
+        endpoints: [V1_COIN_AGE_PATH],
       },
       // The published series the records, mining, nodes and pool facets read.
       { routes: publishedSeriesRoutes(), endpoints: [...PUBLISHED_SERIES_PATHS] },

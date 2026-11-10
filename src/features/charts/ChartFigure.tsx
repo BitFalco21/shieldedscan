@@ -63,6 +63,7 @@ import {
 } from "./chart-table";
 import { BlockArrivalChart } from "./BlockArrivalChart";
 import { NodeBandsChart } from "./NodeBandsChart";
+import { ageBands, monthStartOf } from "./coin-age-series";
 import { OrphanRateChart } from "./OrphanRateChart";
 import { RankedBarsChart } from "./RankedBarsChart";
 import { poolBands, poolLines } from "./pool-series";
@@ -777,6 +778,20 @@ function Figure({ slug, data, range }: { slug: ChartSlug; data: ChartData; range
         return unavailable("Block age on arrival");
       }
       return <BlockArrivalChart series={data.blockArrival} table={t} />;
+    }
+    case "transparent-coin-age": {
+      const points = data.coinAge?.monthEnds ?? [];
+      if (points.length < 2) return unavailable("The coin age series");
+      return (
+        <StackedAreaChart
+          series={ageBands(points)}
+          labels={points.map((p) => monthShort(monthStartOf(p.asOf)))}
+          readoutLabels={points.map((p) => `end of ${monthLong(monthStartOf(p.asOf))}`)}
+          formatValue={formatZecCompact}
+          formatTick={formatZecTick}
+          ariaLabel="Transparent ZEC by how long it has sat unspent, at each month's end"
+        />
+      );
     }
     case "orphan-rate": {
       if (!data.orphanRate || data.orphanRate.days.length === 0) {

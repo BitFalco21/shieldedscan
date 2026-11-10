@@ -165,6 +165,7 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
     tool: "chain_activity",
     args: { mode: "transparent", from: "2026-07-01", to: "2026-08-01", groupBy: "day" },
   },
+  { tool: "chain_activity", args: { mode: "coin-age", from: "2026-01-01", to: "2026-07-01" } },
   {
     tool: "chain_activity",
     args: {

@@ -5,6 +5,8 @@ import { POOL_CLASSES } from "@/lib/pool-palette";
 import { BESIDE_RANKED_LINE, KIND_CLASSES, RANKED_LINES } from "@/lib/ranked-palette";
 import type { ChartSlug } from "./catalog";
 import { POOL_STACK } from "./pool-series";
+import { AGE_BAND_CLASS, AGE_STACK } from "./coin-age-series";
+import { COIN_AGE_BANDS } from "@/domain/coin-age";
 import { capitalise } from "@/lib/format";
 
 /** The three privacy kinds in the ink grammar every kind chart draws them in. */
@@ -38,6 +40,12 @@ export function chartLegend(slug: ChartSlug): LegendItem[] {
       return pools("area");
     case "pool-usage":
       return pools("line");
+    case "transparent-coin-age":
+      return AGE_STACK.map((key) => ({
+        label: COIN_AGE_BANDS.find((b) => b.key === key)!.short,
+        className: AGE_BAND_CLASS[key],
+        mark: "area" as const,
+      }));
     case "anonymity-set":
     case "notes-added":
       return pools("line", ["sapling", "orchard", "ironwood"]);

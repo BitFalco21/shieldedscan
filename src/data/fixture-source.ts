@@ -1,4 +1,5 @@
 import { blockSummaryOf } from "@/domain";
+import { getCoinAge } from "@/fixtures/coin-age";
 import * as fixtures from "@/fixtures";
 import * as chartSeries from "@/fixtures/chart-series";
 import { getBlockArrival } from "@/fixtures/block-arrival";
@@ -183,6 +184,9 @@ export const fixtureDataSource: ExplorerDataSource = {
   },
   async getBlockArrival() {
     return getBlockArrival();
+  },
+  async getCoinAge() {
+    return getCoinAge();
   },
   async listMempool(page, pageSize) {
     const { entries, totalPages } = fixtures.listMempool(page, pageSize);
