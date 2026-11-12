@@ -335,6 +335,20 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "sells ZEC for fiat through peer.xyz · coinholder grant application #60 · approved",
   },
   {
+    id: "templar",
+    name: "Templar Protocol",
+    category: "exchange",
+    url: "https://www.templarfi.org/",
+    source: "borrow USDC against native ZEC · templarfi.org",
+  },
+  {
+    id: "sapling-cash",
+    name: "Sapling.cash",
+    category: "exchange",
+    url: "https://sapling.cash/",
+    source: "launch and trade Solana coins and stocks from a Zcash wallet",
+  },
+  {
     id: "btcpay-server",
     name: "BTCPay Server",
     category: "payments",
@@ -438,6 +452,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "payments",
     url: "https://crowdstore.net/",
     source: "coinholder grant application #5 · P2P marketplace",
+  },
+  {
+    id: "zcashier",
+    name: "Zcashier",
+    category: "payments",
+    url: "https://zcashier.shop/",
+    source: "gift cards bought with ZEC",
   },
   {
     id: "foundry",
@@ -830,6 +851,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "organisation",
     url: "https://tachyon.z.cash/",
     source: "coinholder grant application #50",
+  },
+  {
+    id: "cypherpunk",
+    name: "Cypherpunk Technologies",
+    category: "organisation",
+    url: "https://www.cypherpunk.com/",
+    source: "Nasdaq-listed company holding ZEC in treasury, and mining it",
   },
   {
     id: "zcash-community",
