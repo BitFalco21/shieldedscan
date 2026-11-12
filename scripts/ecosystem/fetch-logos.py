@@ -155,6 +155,9 @@ HAND_SUPPLIED = {
     "zecpy": "supplied by hand: zecpy.pages.dev serves no icon",
     "zec-world": "supplied by hand: zecworld.app serves no icon, only a wide share image",
     "free2z": "supplied by hand: the 2Z mark from free2z.cash/docs, chosen over the site's favicon",
+    "templar": "supplied by hand",
+    "sapling-cash": "supplied by hand",
+    "zcashier": "supplied by hand",
 }
 
 _exchange_images: dict[str, str] | None = None
