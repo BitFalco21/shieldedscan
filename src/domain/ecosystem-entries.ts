@@ -283,7 +283,8 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     name: "Gemini",
     category: "exchange",
     url: "https://gemini.com/",
-    source: "ZEC/USD market · Gemini's own API",
+    source:
+      "ZEC/USD market · Gemini's own API · licensed ZEC exchange since 2018 · shielded withdrawals since 2020",
   },
   {
     id: "bitget",
