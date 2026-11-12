@@ -159,6 +159,9 @@ HAND_SUPPLIED = {
     "sapling-cash": "supplied by hand",
     "zcashier": "supplied by hand: zcashier.shop/logo.png, the round mark the site serves",
     "cypherpunk": "supplied by hand",
+    "zealz": "supplied by hand",
+    "grayscale-zcash-etf": "supplied by hand: the site sits behind a browser check",
+    "zcash-invest": "supplied by hand: the site sits behind a browser check",
 }
 
 _exchange_images: dict[str, str] | None = None

@@ -350,6 +350,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "launch and trade Solana coins and stocks from a Zcash wallet",
   },
   {
+    id: "zealz",
+    name: "zealz.fun",
+    category: "exchange",
+    url: "https://zealz.fun/",
+    source: "token launchpad paired with wrapped ZEC, with wrap and redeem",
+  },
+  {
     id: "btcpay-server",
     name: "BTCPay Server",
     category: "payments",
@@ -861,6 +868,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "Nasdaq-listed company holding ZEC in treasury, and mining it",
   },
   {
+    id: "grayscale-zcash-etf",
+    name: "Grayscale Zcash ETF (ZCSH)",
+    category: "organisation",
+    url: "https://etfs.grayscale.com/zcsh",
+    source: "spot ZEC exchange-traded product on NYSE Arca",
+  },
+  {
     id: "zcash-community",
     name: "Zcash Community",
     category: "community",
@@ -950,5 +964,12 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "community",
     url: "https://free2z.cash/",
     source: "independent publishing, creators supported in ZEC",
+  },
+  {
+    id: "zcash-invest",
+    name: "Zcash Invest",
+    category: "community",
+    url: "https://www.grayscale.com/zcash-invest",
+    source: "Grayscale's Zcash education platform for investors",
   },
 ];
