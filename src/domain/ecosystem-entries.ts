@@ -346,7 +346,7 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     name: "Sapling.cash",
     category: "exchange",
     url: "https://sapling.cash/",
-    source: "trade Solana coins and stocks from a Zcash wallet",
+    source: "launch and trade Solana coins and stocks from a Zcash wallet",
   },
   {
     id: "btcpay-server",
