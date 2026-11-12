@@ -853,6 +853,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "coinholder grant application #50",
   },
   {
+    id: "cypherpunk",
+    name: "Cypherpunk Technologies",
+    category: "organisation",
+    url: "https://www.cypherpunk.com/",
+    source: "Nasdaq-listed company holding ZEC in treasury, and mining it",
+  },
+  {
     id: "zcash-community",
     name: "Zcash Community",
     category: "community",

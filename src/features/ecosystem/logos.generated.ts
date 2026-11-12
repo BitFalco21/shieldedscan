@@ -20,6 +20,7 @@ export const ECOSYSTEM_LOGOS: ReadonlySet<string> = new Set([
   "coinbase",
   "coinomi",
   "crowdstore",
+  "cypherpunk",
   "cypherschool",
   "cyphzec",
   "edge",

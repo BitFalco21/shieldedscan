@@ -158,6 +158,7 @@ HAND_SUPPLIED = {
     "templar": "supplied by hand",
     "sapling-cash": "supplied by hand",
     "zcashier": "supplied by hand",
+    "cypherpunk": "supplied by hand",
 }
 
 _exchange_images: dict[str, str] | None = None
