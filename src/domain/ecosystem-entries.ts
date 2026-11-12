@@ -9,7 +9,7 @@ import type { EcosystemEntry } from "./ecosystem";
  * The day the list last changed, printed on the page as "Last updated on". Bump it in the
  * commit that adds, removes or rewrites an entry.
  */
-export const ECOSYSTEM_UPDATED_ON = "2026-10-03";
+export const ECOSYSTEM_UPDATED_ON = "2026-11-12";
 
 export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
   {
@@ -762,6 +762,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "coinholder grant application #28",
   },
   {
+    id: "zecpy",
+    name: "ZecPy",
+    category: "developer",
+    url: "https://zecpy.pages.dev/",
+    source: "Python SDK for shielded ZEC, built on librustzcash",
+  },
+  {
     id: "electric-coin-company",
     name: "Electric Coin Company",
     category: "organisation",
@@ -900,5 +907,19 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "community",
     url: "https://gleyo.app/",
     source: "coinholder grant application #43",
+  },
+  {
+    id: "zec-world",
+    name: "Zec World",
+    category: "community",
+    url: "https://zecworld.app/",
+    source: "virtual city where plots are bought and sold in ZEC",
+  },
+  {
+    id: "zcash-korea-guide",
+    name: "Zcash Korea Guide",
+    category: "community",
+    url: "https://zcash-korea-guide.vercel.app/",
+    source: "Korean-language Zcash guide and news",
   },
 ];
