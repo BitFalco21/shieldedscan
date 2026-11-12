@@ -65,15 +65,24 @@ test.describe("a chart's own page", () => {
     await page.goto("/charts/median-fee");
     const api = page.getByRole("link", { name: "GET /v1/analytics/fees" });
     await expect(api).toHaveAttribute("href", "/api-docs#analytics-fees");
-    await expect(page.getByText(/curl "https:\/\/.+\/v1\/analytics\/fees"/)).toBeVisible();
+    await expect(page.getByText(/curl https:\/\/.+\/v1\/analytics\/fees/)).toBeVisible();
     // The command copies whole, exactly as shown.
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.getByRole("button", { name: /curl command/i }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
-      /^curl "https:\/\/.+\/v1\/analytics\/fees"$/,
+      /^curl https:\/\/.+\/v1\/analytics\/fees$/,
     );
     const related = page.locator("section", { hasText: "Related charts" }).locator("a");
     await expect(related).toHaveCount(3);
+  });
+  // A windowed endpoint answers 400 without its window, so the command carries one, quoted.
+  test("a windowed endpoint's command carries its required window", async ({ page }) => {
+    await page.goto("/charts/pool-migrations");
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: /curl command/i }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+      /^curl 'https:\/\/.+\/v1\/analytics\/migrations\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}'$/,
+    );
   });
 });
 

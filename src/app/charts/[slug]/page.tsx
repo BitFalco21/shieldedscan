@@ -9,9 +9,9 @@ import { ChartCard } from "@/features/charts/ChartCard";
 import { ChartFigure } from "@/features/charts/ChartFigure";
 import { chartBySlug, relatedCharts } from "@/features/charts/catalog";
 import { chartPreview } from "@/features/charts/chart-preview";
+import { chartCurl } from "@/features/charts/chart-curl";
 import { nowSeconds } from "@/lib/clock";
 import { chartDataFor, loadChartData } from "@/app/_shared/load-chart-data";
-import { apiBaseUrl } from "@/lib/site";
 
 export async function generateMetadata({
   params,
@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     ...related.map((c) => c.slug),
   ]);
   const nowSec = nowSeconds();
-  const curl = chart.api ? `curl "${apiBaseUrl}${chart.api.path}"` : null;
+  const curl = chartCurl(chart);
   return (
     <>
       <PageHeader
