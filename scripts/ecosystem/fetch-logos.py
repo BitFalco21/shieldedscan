@@ -152,6 +152,8 @@ HAND_SUPPLIED = {
     "zingo": "supplied by hand: zingolabs.org serves no usable icon",
     "foundry": "supplied by hand: foundrydigital.com offers no usable icon",
     "cypherschool": "supplied by hand",
+    "zecpy": "supplied by hand: zecpy.pages.dev serves no icon",
+    "zec-world": "supplied by hand: zecworld.app serves no icon, only a wide share image",
 }
 
 _exchange_images: dict[str, str] | None = None
