@@ -970,6 +970,6 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     name: "Zcash Invest",
     category: "community",
     url: "https://www.grayscale.com/zcash-invest",
-    source: "Grayscale's Zcash education and investor campaign",
+    source: "Grayscale's Zcash education platform for investors",
   },
 ];
