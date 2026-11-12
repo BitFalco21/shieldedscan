@@ -384,13 +384,6 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     source: "Zcash payments app for merchants",
   },
   {
-    id: "free2z",
-    name: "Free2z",
-    category: "payments",
-    url: "https://free2z.cash/",
-    source: "creator platform paid in ZEC",
-  },
-  {
     id: "tipz",
     name: "tipz",
     category: "payments",
@@ -921,5 +914,12 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "community",
     url: "https://zcash-korea-guide.vercel.app/",
     source: "Korean-language Zcash guide and news",
+  },
+  {
+    id: "free2z",
+    name: "Free2Z",
+    category: "community",
+    url: "https://free2z.cash/",
+    source: "independent publishing, creators supported in ZEC",
   },
 ];

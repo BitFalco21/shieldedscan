@@ -154,6 +154,7 @@ HAND_SUPPLIED = {
     "cypherschool": "supplied by hand",
     "zecpy": "supplied by hand: zecpy.pages.dev serves no icon",
     "zec-world": "supplied by hand: zecworld.app serves no icon, only a wide share image",
+    "free2z": "supplied by hand: replaces an older mark the site no longer uses",
 }
 
 _exchange_images: dict[str, str] | None = None
