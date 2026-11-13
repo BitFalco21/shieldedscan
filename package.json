@@ -63,7 +63,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
-    "hono": "^4.12.32",
+    "hono": "^4.13.18",
     "jsdom": "^29.1.1",
     "pg": "^8.23.1",
     "pg-copy-streams": "^7.0.0",
