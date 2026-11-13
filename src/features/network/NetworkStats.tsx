@@ -1,5 +1,4 @@
 import type { NetPeers, NetSummary } from "@/domain";
-import { formatWindow } from "./net-format";
 import { formatCount } from "@/lib/format";
 
 export interface NetworkStatsProps {
