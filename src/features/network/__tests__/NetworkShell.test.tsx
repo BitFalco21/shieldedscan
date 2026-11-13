@@ -34,7 +34,7 @@ describe("NetworkShell", () => {
     expect(summary.full).toBeGreaterThan(0);
     const lede = screen.getByText(/addresses the network has ever advertised/).textContent!;
     expect(lede).toContain(`${summary.reachable} answered our handshake`);
-    expect(lede).toContain(`${summary.full} were running but full`);
+    expect(lede).toContain(`${summary.full} were most likely full`);
     expect(lede).toContain(summary.known.toLocaleString("en-US"));
   });
 

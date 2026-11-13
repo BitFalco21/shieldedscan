@@ -10,8 +10,8 @@ export interface NetworkHeaderProps {
 
 /**
  * The page's one sentence and its one chart. The figure in the h1 counts active nodes: those that
- * answered, plus those running but full (they accepted and closed the connection, and answered a
- * handshake within the past week). Still a floor, and the lede says why in the same breath.
+ * answered, plus those most likely full (they accepted the connection and closed it without a
+ * handshake, and answered one within 72 hours). Still a floor; the lede says why in the same breath.
  *
  * Its own layout rather than `PageHeader`, because the crawl sparkline sits beside the
  * statement; the spacing and lede width match `PageHeader`'s.
@@ -27,7 +27,7 @@ export function NetworkHeader({ summary, crawls }: NetworkHeaderProps) {
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-dim">
           {formatCount(summary.reachable)} answered our handshake and {formatCount(summary.full)}{" "}
-          were running but full, with no free connection slot. Out of {formatCount(summary.known)}{" "}
+          were most likely full, with no free connection slot. Out of {formatCount(summary.known)}{" "}
           addresses the network has ever advertised to us. We can only count nodes that accept
           connections: a node behind a router is invisible to any crawler, so the real network is
           bigger.
