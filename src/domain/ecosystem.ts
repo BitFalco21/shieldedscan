@@ -35,7 +35,7 @@ export const ECOSYSTEM_CATEGORIES: readonly EcosystemCategoryMeta[] = [
   { id: "wallet", label: "wallets", blurb: "Apps and devices that hold ZEC." },
   { id: "exchange", label: "exchanges & swaps", blurb: "Where ZEC is bought, sold and swapped." },
   { id: "payments", label: "payments", blurb: "Accept, tip and spend ZEC." },
-  { id: "mining", label: "mining", blurb: "Pools that mine Zcash blocks." },
+  { id: "mining", label: "mining", blurb: "Pools and companies that mine Zcash blocks." },
   {
     id: "infrastructure",
     label: "nodes & infrastructure",

@@ -29,6 +29,7 @@ export const ECOSYSTEM_LOGOS: ReadonlySet<string> = new Set([
   "f2pool",
   "financial-privacy-foundation",
   "flexa",
+  "fortitude",
   "foundry",
   "free2z",
   "gate",

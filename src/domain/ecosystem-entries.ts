@@ -9,7 +9,7 @@ import type { EcosystemEntry } from "./ecosystem";
  * The day the list last changed, printed on the page as "Last updated on". Bump it in the
  * commit that adds, removes or rewrites an entry.
  */
-export const ECOSYSTEM_UPDATED_ON = "2026-11-12";
+export const ECOSYSTEM_UPDATED_ON = "2026-11-13";
 
 export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
   {
@@ -565,6 +565,13 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "mining",
     url: "https://pool.zecminingpool.com/",
     source: "ZEC pool · named in 6 of 2,000 recent coinbases",
+  },
+  {
+    id: "fortitude",
+    name: "Fortitude",
+    category: "mining",
+    url: "https://fortitudemining.com/",
+    source: "company mining ZEC on its own fleet, spun out of Foundry",
   },
   {
     id: "zebra",
