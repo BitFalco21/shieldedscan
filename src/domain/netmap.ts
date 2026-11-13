@@ -98,11 +98,11 @@ export interface NetSummary {
   /** Nodes that answered a handshake within `windowSeconds` of the read. */
   reachable: number;
   /**
-   * Nodes running but full within `windowSeconds`: they accepted the connection and closed it
-   * with nothing sent, and completed a real handshake within the past week.
+   * Nodes that, within `windowSeconds`, accepted the connection and closed it without a handshake
+   * (most likely full: no free inbound slot) and completed a real handshake within 72 hours.
    */
   full: number;
-  /** `reachable` + `full`: every node we know to be running. */
+  /** `reachable` + `full`: the best count of running nodes. */
   active: number;
   windowSeconds: number;
   /** Every address the network has ever advertised to us. */

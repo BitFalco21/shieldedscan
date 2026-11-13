@@ -23,11 +23,12 @@ import "../pg-types";
  */
 export const REACHABLE_WINDOW_SEC = 24 * 60 * 60;
 /**
- * A node that refused us because it was full (accepted, then closed with nothing sent) counts as
- * active only if it completed a real handshake within this window: that handshake is what shows
- * the program on the port is a Zcash node, since a full refusal sends no bytes at all.
+ * A node that accepted and then closed with nothing sent (most likely full) counts as active only
+ * if it completed a real handshake within this window. The handshake shows the program on the port
+ * is a Zcash node; keeping the window short limits the count of a node that died behind a port
+ * forwarder, which looks the same from outside.
  */
-export const FULL_PROOF_WINDOW_SEC = 7 * 24 * 60 * 60;
+export const FULL_PROOF_WINDOW_SEC = 72 * 60 * 60;
 /** Enough finished crawls for seven days at a 10-minute cadence — the maturity rule's horizon. */
 export const CRAWL_HISTORY_LIMIT = 1_008;
 

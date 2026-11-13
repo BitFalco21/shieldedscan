@@ -44,8 +44,8 @@ function snapshotOf(ghosts: GhostNodeRow[]): NetmapSnapshot {
 const counted = (g: GhostNodeRow) => fullNodes(snapshotOf([g])).length === 1;
 
 describe("full nodes", () => {
-  it("counts a node full within the day and proven by a handshake within the week", () => {
-    expect(counted(ghost("a", { last_full: NOW - 600, last_reachable: NOW - 3 * DAY }))).toBe(true);
+  it("counts a node full within the day and proven by a handshake within the proof window", () => {
+    expect(counted(ghost("a", { last_full: NOW - 600, last_reachable: NOW - 2 * DAY }))).toBe(true);
   });
 
   it("does not count a full refusal from a node that never completed a handshake", () => {
