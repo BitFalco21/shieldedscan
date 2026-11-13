@@ -69,7 +69,9 @@ export function v1NodesRoutes(reader: NetmapReader): Hono {
       source: { name: "ShieldedScan", url: `${SITE}/network` },
       data: {
         answeringWindowSeconds: s.windowSeconds,
+        active: s.active,
         answering: s.reachable,
+        full: s.full,
         knownAddresses: s.known,
         everAnswered: s.everReachable,
         neverAnswered: s.neverAnswered,

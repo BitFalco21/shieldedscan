@@ -376,7 +376,7 @@ export const MINING_TERMS_NOTE = `MINING TERMS AT THE TIP, read at \`readAtHeigh
 /** Said of all three node-map payloads; printed once per call. */
 export const NODES_NOTE = `THE NETWORK'S LISTENING NODES, from this explorer's own crawler. Every count is a FLOOR: only nodes that accept incoming connections can be crawled, so a node behind a router is invisible and the real network is larger. Say so beside any count.
 
-"Answering" means a node answered the crawler within \`answeringWindowSeconds\` (the last day). \`knownAddresses\` is every address the network has ever advertised, and most of them never answered (\`neverAnswered\`): never call it the number of nodes. Every share carries its own denominator; quote it.
+"Answering" means a node answered the crawler within \`answeringWindowSeconds\` (the last day). \`full\` counts nodes that were running but had no free inbound slot (they accepted and closed the connection) in that day, and completed a real handshake within the past week; \`active\` is answering plus full, the best count of running nodes. \`knownAddresses\` is every address the network has ever advertised, and most of them never answered (\`neverAnswered\`): never call it the number of nodes. Every share carries its own denominator; quote it.
 
 A client and version are what a node DECLARES, not verified. A country or city comes from GeoIP: it is GeoIP's claim about an address, not a measurement. Hosting concentration is by network operator (an autonomous system), never by who runs a node, so never name a person or organisation as running one. No node address is published, and none may be inferred. The figures are on /network.`;
 

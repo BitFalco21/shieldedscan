@@ -72,6 +72,7 @@ function snapshot(): NetmapSnapshot {
         last_error: "connect ETIMEDOUT",
         last_attempt: NOW - 300,
         last_reachable: null,
+        last_full: null,
       },
     ],
     links: [{ from_host: "203.0.113.7", from_port: 8233, to_host: "198.51.100.9", to_port: 8233 }],

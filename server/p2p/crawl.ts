@@ -62,7 +62,16 @@ export interface ProbeResult {
   version: ParsedVersion | null;
   advertised: AddrEntry[];
   error: string | null;
+  /**
+   * The peer accepted the connection, sent nothing, and closed it. That is how Zebra and Zakura
+   * refuse a caller when their inbound slots are full (125 and 300 by default), or when the same
+   * address connected within the last ~2 minutes: a running node with no room, not an absent one.
+   */
+  full: boolean;
 }
+
+/** The `error` text recorded for a `full` probe, so the node table says why it did not answer. */
+export const FULL_ERROR = "full: closed on connect";
 
 /**
  * Gossip carries garbage — private ranges, loopback, multicast — and probing those from a
@@ -140,12 +149,14 @@ export function probePeer(
     let pingMs: number | null = null;
     let sawVerack = false;
     let settled = false;
+    let connected = false;
+    let receivedBytes = 0;
     let lingerTimer: NodeJS.Timeout | undefined;
 
     const socket = net.connect({ host: node.host, port: node.port });
     socket.setNoDelay(true);
 
-    const finish = (error: string | null): void => {
+    const finish = (error: string | null, full = false): void => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
@@ -160,6 +171,7 @@ export function probePeer(
         // A handshake that completed and then timed out collecting gossip is still a
         // reachable node — the error slot is for the probes that never got there.
         error: ok ? null : (error ?? "handshake incomplete"),
+        full: !ok && full,
       });
     };
 
@@ -167,8 +179,13 @@ export function probePeer(
     deadline.unref();
 
     socket.on("error", (error) => finish(error.message));
-    socket.on("close", () => finish(null));
+    // A clean close with nothing received after connecting is a node refusing for want of room;
+    // an error, a timeout or any byte received keeps the old reading.
+    socket.on("close", () =>
+      connected && receivedBytes === 0 ? finish(FULL_ERROR, true) : finish(null),
+    );
     socket.on("connect", () => {
+      connected = true;
       // The version message alone during the handshake. BIP 155 puts sendaddrv2 before verack,
       // but Zebra does not implement ZIP 155 and a strict handshake may treat any unexpected
       // pre-verack message as a violation, so it goes out after verack (below), where a peer that
@@ -176,6 +193,7 @@ export function probePeer(
       socket.write(encodeVersionMessage(magic, opts.bestHeight ?? 0));
     });
     socket.on("data", (chunk) => {
+      receivedBytes += chunk.length;
       try {
         for (const message of reader.push(chunk)) {
           switch (message.command) {
@@ -305,6 +323,7 @@ export async function crawlOnce(deps: CrawlDeps): Promise<CrawlTotals> {
           pingMs: result.pingMs,
           version: result.version,
           error: result.error,
+          full: result.full,
         };
         await deps.store.recordProbe(crawlId, node, nowSec(), outcome);
         if (result.ok && result.advertised.length > 0) {

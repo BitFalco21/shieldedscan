@@ -97,6 +97,13 @@ export interface NetSummary {
   basis: "floor";
   /** Nodes that answered a handshake within `windowSeconds` of the read. */
   reachable: number;
+  /**
+   * Nodes running but full within `windowSeconds`: they accepted the connection and closed it
+   * with nothing sent, and completed a real handshake within the past week.
+   */
+  full: number;
+  /** `reachable` + `full`: every node we know to be running. */
+  active: number;
   windowSeconds: number;
   /** Every address the network has ever advertised to us. */
   known: number;

@@ -22,6 +22,12 @@ import "../pg-types";
  * that means never.
  */
 export const REACHABLE_WINDOW_SEC = 24 * 60 * 60;
+/**
+ * A node that refused us because it was full (accepted, then closed with nothing sent) counts as
+ * active only if it completed a real handshake within this window: that handshake is what shows
+ * the program on the port is a Zcash node, since a full refusal sends no bytes at all.
+ */
+export const FULL_PROOF_WINDOW_SEC = 7 * 24 * 60 * 60;
 /** Enough finished crawls for seven days at a 10-minute cadence — the maturity rule's horizon. */
 export const CRAWL_HISTORY_LIMIT = 1_008;
 
@@ -59,6 +65,8 @@ export interface GhostNodeRow {
   last_attempt: number | null;
   /** Non-null on a node that answered once and has since gone quiet past the window. */
   last_reachable: number | null;
+  /** When a probe last found it running but full; null if never. */
+  last_full: number | null;
 }
 
 export interface LinkRow {
@@ -238,7 +246,7 @@ export function createNetmapReader(connection?: string): NetmapReader {
         ),
         pool.query<GhostNodeRow>(
           `SELECT host, port, network, tor_exit, country, lat, lon, last_error, last_attempt,
-                last_reachable
+                last_reachable, last_full
          FROM net_node
          WHERE last_reachable IS NULL OR last_reachable < $1`,
           [since],
