@@ -38,6 +38,7 @@ import {
 } from "./releases";
 import {
   CRAWL_HISTORY_LIMIT,
+  FULL_PROOF_WINDOW_SEC,
   REACHABLE_WINDOW_SEC,
   type GhostNodeRow,
   type LiveNodeRow,
@@ -105,6 +106,22 @@ export function deriveCrawls(snap: NetmapSnapshot): NetCrawlHistory {
   };
 }
 
+/**
+ * Nodes that are running but full: outside the answering window, refused us for want of room
+ * within it, and proven to be Zcash nodes by a real handshake within FULL_PROOF_WINDOW_SEC.
+ */
+export function fullNodes(snap: NetmapSnapshot): NetmapSnapshot["ghosts"] {
+  const since = snap.at - REACHABLE_WINDOW_SEC;
+  const proven = snap.at - FULL_PROOF_WINDOW_SEC;
+  return snap.ghosts.filter(
+    (g) =>
+      g.last_full !== null &&
+      g.last_full >= since &&
+      g.last_reachable !== null &&
+      g.last_reachable >= proven,
+  );
+}
+
 export function deriveSummary(snap: NetmapSnapshot): NetSummary {
   const live = snap.live;
   const total = live.length;
@@ -131,6 +148,7 @@ export function deriveSummary(snap: NetmapSnapshot): NetSummary {
   }
   const pings = live.map((n) => n.ping_ms).filter((p): p is number => p !== null);
   const everReachable = total + snap.ghosts.filter((g) => g.last_reachable !== null).length;
+  const full = fullNodes(snap).length;
   const known = total + snap.ghosts.length;
   const ipv6Known =
     live.filter((n) => n.network === "ipv6").length +
@@ -145,6 +163,8 @@ export function deriveSummary(snap: NetmapSnapshot): NetSummary {
   return {
     basis: "floor",
     reachable: total,
+    full,
+    active: total + full,
     windowSeconds: REACHABLE_WINDOW_SEC,
     known,
     everReachable,

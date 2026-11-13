@@ -52,6 +52,11 @@ CREATE INDEX IF NOT EXISTS net_node_reachable_idx ON net_node (last_reachable DE
 -- a success. Diagnostic, never published: it distinguishes a dead backend behind a NAT
 -- (accept-then-close) from a firewalled host (timeout) from nothing listening (refused).
 ALTER TABLE net_node ADD COLUMN IF NOT EXISTS last_error TEXT;
+-- When a probe last saw accept-then-close with nothing sent. On a node that completed a handshake
+-- recently that is almost always a full node refusing at accept (Zebra and Zakura do this when
+-- their inbound slots are taken); it can also be the dead backend above, which is why the summary
+-- only counts it beside a recent handshake. Nullable and additive: rewrites no row, resets nothing.
+ALTER TABLE net_node ADD COLUMN IF NOT EXISTS last_full BIGINT;
 
 -- The gossip graph: who advertised whom. This is the topology view, and the UI says so:
 -- addresses a peer advertised, never live connections, which are not observable from outside.

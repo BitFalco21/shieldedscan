@@ -25,7 +25,9 @@ export const NODES_GROUP: ApiGroup = {
   },
   "data": {
     "answeringWindowSeconds": 86400,
+    "active": 241,
     "answering": 157,
+    "full": 84,
     "knownAddresses": 5109,
     "everAnswered": 646,
     "neverAnswered": 4463,

@@ -290,6 +290,8 @@ const CRAWLS: NetCrawl[] = REACHABLE_PER_CRAWL.map((reachable, i) => {
 });
 
 const KNOWN = HUBS.length + GHOSTS.length;
+/** Of the twelve fixture nodes that answered once and went quiet, those running but full. */
+const FULL = 9;
 
 /** What leaves for the wire: the coordinates stay here, a placed hub is a cell, never a point. */
 function nodeRowOnWire(h: FixtureHub): NetNodeRow {
@@ -359,6 +361,10 @@ export function getNetworkSummary(): NetSummary {
   return {
     basis: "floor",
     reachable: total,
+    // Nine of the twelve that answered once and went quiet are running but full: the share the
+    // live network shows, so the active figure renders as more than the answering one.
+    full: FULL,
+    active: total + FULL,
     windowSeconds: REACHABLE_WINDOW_SEC,
     known: KNOWN,
     everReachable: total + 12,

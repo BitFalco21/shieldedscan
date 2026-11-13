@@ -28,6 +28,8 @@ export interface ProbeOutcome {
   version: ParsedVersion | null;
   /** Why a failed probe failed (socket error text / "timed out"); null on success. */
   error?: string | null;
+  /** Accepted, then closed with nothing sent: a running node with no free inbound slot. */
+  full?: boolean;
 }
 
 export interface CrawlTotals {
@@ -191,9 +193,17 @@ export class NetStore {
     } else {
       await retryOnDeadlock(() =>
         this.#pool.query(
-          `UPDATE net_node SET last_attempt = $3, last_error = $4 WHERE host = $1 AND port = $2`,
+          `UPDATE net_node SET last_attempt = $3, last_error = $4,
+           last_full = CASE WHEN $5::boolean THEN $3 ELSE last_full END
+         WHERE host = $1 AND port = $2`,
           // Socket error text is OS-generated, not peer-chosen, but it is capped anyway.
-          [node.host, node.port, at, (outcome.error ?? "handshake incomplete").slice(0, 120)],
+          [
+            node.host,
+            node.port,
+            at,
+            (outcome.error ?? "handshake incomplete").slice(0, 120),
+            outcome.full === true,
+          ],
         ),
       );
     }

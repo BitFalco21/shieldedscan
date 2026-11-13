@@ -131,6 +131,47 @@ describeDb("NetStore", () => {
     expect(again.rows[0]!.last_error).toBeNull();
   });
 
+  it("a full refusal stamps last_full; later probes and a re-applied schema never erase it", async () => {
+    await store.recordSeen(100, [node("9.9.9.9")]);
+    const crawl = await store.beginCrawl(150);
+    await store.recordProbe(crawl, node("9.9.9.9"), 160, {
+      ok: false,
+      pingMs: null,
+      version: null,
+      error: "full: closed on connect",
+      full: true,
+    });
+    const read = async () =>
+      (
+        await pool.query(
+          `SELECT last_full, last_error, last_reachable FROM net_node WHERE host = '9.9.9.9'`,
+        )
+      ).rows[0];
+    expect(await read()).toEqual({
+      last_full: 160,
+      last_error: "full: closed on connect",
+      last_reachable: null,
+    });
+    // A later ordinary failure records its own error and keeps when the node was last full.
+    await store.recordProbe(crawl + 1, node("9.9.9.9"), 170, {
+      ok: false,
+      pingMs: null,
+      version: null,
+      error: "timed out",
+    });
+    expect(await read()).toMatchObject({ last_full: 160, last_error: "timed out" });
+    // A success keeps it too: the column says when it was last full, not what it is now.
+    await store.recordProbe(crawl + 2, node("9.9.9.9"), 180, {
+      ok: true,
+      pingMs: 7,
+      version: version(),
+    });
+    expect(await read()).toMatchObject({ last_full: 160, last_reachable: 180 });
+    // The crawler re-applies the schema on every start; that must leave the data alone.
+    await store.applySchema(join(process.cwd(), "server", "schema-net.sql"));
+    expect(await read()).toMatchObject({ last_full: 160, last_reachable: 180 });
+  });
+
   it("uptime is reached/attempted out of net_probe — one fact, one place", async () => {
     await store.recordSeen(100, [node("8.8.8.8")]);
     for (let i = 0; i < 4; i += 1) {

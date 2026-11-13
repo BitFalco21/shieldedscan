@@ -11,6 +11,7 @@ import {
   addrToIdentity,
   crawlOnce,
   isRoutableHost,
+  FULL_ERROR,
   probePeer,
   type ProbeResult,
 } from "../p2p/crawl";
@@ -29,6 +30,10 @@ function loopbackPeer(behaviour: {
   answerGetaddr?: Buffer[];
   pingMidGossip?: boolean;
   silent?: boolean;
+  /** Accept, then close at once without a byte: how a full Zebra or Zakura node refuses. */
+  refuseFull?: boolean;
+  /** Accept, send one byte that is not a message, then close: not a full refusal. */
+  byteThenClose?: boolean;
 }): Promise<{ port: number; close: () => Promise<void>; pongs: Buffer[] }> {
   const pongs: Buffer[] = [];
   const sockets = new Set<net.Socket>();
@@ -36,6 +41,14 @@ function loopbackPeer(behaviour: {
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
     if (behaviour.silent) return; // accept and say nothing — a timeout, not a refusal
+    if (behaviour.refuseFull) {
+      socket.end();
+      return;
+    }
+    if (behaviour.byteThenClose) {
+      socket.end(Buffer.from([0]));
+      return;
+    }
     const reader = new MessageReader(MAGIC);
     socket.on("data", (chunk) => {
       for (const message of reader.push(chunk)) {
@@ -149,6 +162,50 @@ describe("probePeer over a real socket", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.error).toBeTruthy();
+    expect(result.full).toBe(false);
+  });
+
+  it("reads accepted-then-closed with nothing sent as a full node", async () => {
+    const peer = await loopbackPeer({ refuseFull: true });
+    cleanups.push(peer.close);
+    const result = await probePeer({ host: "127.0.0.1", port: peer.port, network: "ipv4" }, MAGIC, {
+      timeoutMs: 2_000,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.full).toBe(true);
+    expect(result.error).toBe(FULL_ERROR);
+    expect(result.version).toBeNull();
+  });
+
+  it("does not read a peer that sent anything before closing as full", async () => {
+    const peer = await loopbackPeer({ byteThenClose: true });
+    cleanups.push(peer.close);
+    const result = await probePeer({ host: "127.0.0.1", port: peer.port, network: "ipv4" }, MAGIC, {
+      timeoutMs: 2_000,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.full).toBe(false);
+  });
+
+  it("does not read a refused connection or a completed handshake as full", async () => {
+    const dead = await loopbackPeer({ silent: true });
+    await dead.close();
+    const refused = await probePeer(
+      { host: "127.0.0.1", port: dead.port, network: "ipv4" },
+      MAGIC,
+      {
+        timeoutMs: 2_000,
+      },
+    );
+    expect(refused.full).toBe(false);
+    const live = await loopbackPeer({});
+    cleanups.push(live.close);
+    const ok = await probePeer({ host: "127.0.0.1", port: live.port, network: "ipv4" }, MAGIC, {
+      timeoutMs: 2_000,
+      gossipLingerMs: 50,
+    });
+    expect(ok.ok).toBe(true);
+    expect(ok.full).toBe(false);
   });
 });
 
@@ -220,7 +277,7 @@ describe("crawlOnce", () => {
         peak = Math.max(peak, inFlight);
         await new Promise((r) => setTimeout(r, 5));
         inFlight -= 1;
-        return { ok: false, pingMs: null, version: null, advertised: [], error: "x" };
+        return { ok: false, pingMs: null, version: null, advertised: [], error: "x", full: false };
       },
       now: () => 1_757_000_000_000,
       log: () => {},
@@ -236,7 +293,14 @@ describe("crawlOnce", () => {
     await crawlOnce({
       store: fake.store,
       resolveSeeds: async () => [],
-      probe: async () => ({ ok: false, pingMs: null, version: null, advertised: [], error: "x" }),
+      probe: async () => ({
+        ok: false,
+        pingMs: null,
+        version: null,
+        advertised: [],
+        error: "x",
+        full: false,
+      }),
       now: () => 1_757_000_000_000,
       log: () => {},
     });
@@ -256,7 +320,14 @@ describe("crawlOnce", () => {
         },
       },
       resolveSeeds: async () => [],
-      probe: async () => ({ ok: false, pingMs: null, version: null, advertised: [], error: "x" }),
+      probe: async () => ({
+        ok: false,
+        pingMs: null,
+        version: null,
+        advertised: [],
+        error: "x",
+        full: false,
+      }),
       now: () => 1_757_000_000_000,
       log: (line) => lines.push(line),
     });
@@ -286,6 +357,7 @@ describe("crawlOnce", () => {
         { timestampSec: 1, services: 1n, network: "ipv4", host: "1.1.1.1", port: 50198 },
       ],
       error: null,
+      full: false,
     });
     await crawlOnce({
       store: fake.store,
@@ -309,7 +381,14 @@ describe("crawlOnce", () => {
       resolveSeeds: async () => {
         throw new Error("dns down");
       },
-      probe: async () => ({ ok: false, pingMs: null, version: null, advertised: [], error: "x" }),
+      probe: async () => ({
+        ok: false,
+        pingMs: null,
+        version: null,
+        advertised: [],
+        error: "x",
+        full: false,
+      }),
       now: () => 1_757_000_000_000,
       log: () => {},
     });
