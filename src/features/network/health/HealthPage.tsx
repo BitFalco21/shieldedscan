@@ -67,8 +67,8 @@ export function HealthPage({ health, peers, hosting }: HealthPageProps) {
           />
           <p className="mt-3.5 text-xs text-ink-faint">
             Share of our crawls a node answered since we first saw it; the count above each bar is
-            nodes. Nodes already connected to our own node turn our crawler away, because the two
-            share an address, so most nodes score low here without being down.
+            nodes. A busy node turns new connections away while its slots are full, so most nodes
+            score low here without being down.
           </p>
         </Panel>
       </div>

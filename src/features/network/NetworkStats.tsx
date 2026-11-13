@@ -35,7 +35,7 @@ export function NetworkStats({ summary, peers }: NetworkStatsProps) {
       label: "active",
       value: formatCount(summary.active),
       tag: "reachable",
-      sub: `${formatCount(summary.reachable)} answered · ${formatCount(summary.full)} full`,
+      sub: `${formatCount(summary.reachable)} answered · ${formatCount(summary.full)} likely full`,
     },
     {
       key: "known",
