@@ -162,6 +162,7 @@ HAND_SUPPLIED = {
     "zealz": "supplied by hand",
     "grayscale-zcash-etf": "supplied by hand: the site sits behind a browser check",
     "zcash-invest": "supplied by hand: the site sits behind a browser check",
+    "fortitude": "supplied by hand: the site sits behind a browser check",
 }
 
 _exchange_images: dict[str, str] | None = None
