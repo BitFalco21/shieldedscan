@@ -183,8 +183,8 @@ export function NodesListPage({
       <p className="text-xs text-ink-faint">
         Every answering node, one row each. A row is a one-way hash of the address and nothing on it
         can be reversed into one. Answered is our crawls it answered over those that tried it, since
-        we first saw it. Nodes already connected to our own node turn our crawler away, because the
-        two share an address, so most nodes score low here without being down.
+        we first saw it. A busy node turns new connections away while its slots are full, so most
+        nodes score low here without being down.
       </p>
     </div>
   );

@@ -152,7 +152,7 @@ export function v1NodesRoutes(reader: NetmapReader): Hono {
       notes: [
         "id is a one-way hash; no address is published.",
         "pingMs is a handshake round trip from our crawler in Vienna — a fact about that path, not about the node.",
-        "crawlsAnswered mostly reflects whether the node accepted OUR crawler's connection (many nodes accept one connection per address, and ours is shared with our own node); it is not a reliability score.",
+        "crawlsAnswered mostly reflects whether the node had a free connection slot when our crawler called (busy nodes turn new connections away while full); it is not a reliability score.",
         "country, city and network operator are GeoIP's claim about the address, not a measurement.",
       ],
       asOf: Math.floor(Date.now() / 1000),

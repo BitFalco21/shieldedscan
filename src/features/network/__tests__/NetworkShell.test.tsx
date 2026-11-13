@@ -24,14 +24,18 @@ function renderShell(peersArg = peers) {
 }
 
 describe("NetworkShell", () => {
-  it("states the answering count as the h1 and the known set in the lede", () => {
+  it("states the active count as the h1, its breakdown and the known set in the lede", () => {
     renderShell();
     const h1 = screen.getByRole("heading", { level: 1 });
-    expect(h1.textContent).toContain(`${summary.reachable} nodes answered our handshake`);
+    expect(h1.textContent).toContain(`${summary.active} nodes active`);
     expect(h1.textContent).toContain("24 hours");
-    expect(screen.getByText(/addresses the network has ever advertised/).textContent).toContain(
-      summary.known.toLocaleString("en-US"),
-    );
+    // Active is answering plus full, and the lede names both parts so neither is hidden.
+    expect(summary.active).toBe(summary.reachable + summary.full);
+    expect(summary.full).toBeGreaterThan(0);
+    const lede = screen.getByText(/addresses the network has ever advertised/).textContent!;
+    expect(lede).toContain(`${summary.reachable} answered our handshake`);
+    expect(lede).toContain(`${summary.full} were most likely full`);
+    expect(lede).toContain(summary.known.toLocaleString("en-US"));
   });
 
   it("marks our node's peers as OURS and never lets them read as a crawl figure", () => {

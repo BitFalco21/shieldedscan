@@ -377,6 +377,8 @@ export function isNetSummary(value: unknown): value is NetSummary {
   return (
     s.basis === "floor" &&
     isFiniteNumber(s.reachable) &&
+    isFiniteNumber(s.full) &&
+    isFiniteNumber(s.active) &&
     isFiniteNumber(s.windowSeconds) &&
     isFiniteNumber(s.known) &&
     isFiniteNumber(s.everReachable) &&

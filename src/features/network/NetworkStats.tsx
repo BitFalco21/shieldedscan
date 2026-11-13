@@ -1,5 +1,4 @@
 import type { NetPeers, NetSummary } from "@/domain";
-import { formatWindow } from "./net-format";
 import { formatCount } from "@/lib/format";
 
 export interface NetworkStatsProps {
@@ -25,18 +24,18 @@ interface Tile {
  * counts the network's listening nodes, a node counts who is connected to it, and the second is
  * larger where many nodes sit behind a router.
  *
- * No "answered every crawl" tile: nodes already connected to our own node turn the crawler away
- * (one shared address), so it would measure our setup rather than the network. An unread node
- * prints "not read", never 0 — zero peers is a claim about us.
+ * No "answered every crawl" tile: a busy node refuses whenever its inbound slots are full, so it
+ * would measure how crowded nodes are at the moment we call rather than whether they run. An
+ * unread node prints "not read", never 0 — zero peers is a claim about us.
  */
 export function NetworkStats({ summary, peers }: NetworkStatsProps) {
   const tiles: Tile[] = [
     {
-      key: "answered",
-      label: "answered",
-      value: formatCount(summary.reachable),
+      key: "active",
+      label: "active",
+      value: formatCount(summary.active),
       tag: "reachable",
-      sub: `handshake within ${formatWindow(summary.windowSeconds)}`,
+      sub: `${formatCount(summary.reachable)} answered · ${formatCount(summary.full)} likely full`,
     },
     {
       key: "known",
