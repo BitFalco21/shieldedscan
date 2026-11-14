@@ -1,7 +1,7 @@
 import type { LegendHighlight } from "@/lib/use-legend-highlight";
 
 /** How a series is drawn, so its swatch can be drawn the same way. */
-export type LegendMark = "line" | "dashed" | "dotted" | "area" | "bar";
+export type LegendMark = "line" | "dashed" | "dotted" | "area" | "bar" | "hollow";
 
 export interface LegendItem {
   label: string;
@@ -33,6 +33,8 @@ const SWATCH: Record<LegendMark, string> = {
   dotted: "w-3 border-t-2 border-dotted border-current",
   area: "chart-band h-2.5 w-3 bg-current",
   bar: "h-2.5 w-2 bg-current",
+  // A marker drawn as an outline only, like the dashed box a chart puts where it states no value.
+  hollow: "h-2 w-3 border border-dashed border-current",
 };
 
 /**
