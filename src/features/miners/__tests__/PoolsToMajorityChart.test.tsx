@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { poolsToMajority } from "@/domain";
 import { getMinerSeries } from "@/fixtures/miners";
 import { PoolsToMajorityChart } from "../PoolsToMajorityChart";
 
@@ -38,5 +39,19 @@ describe("PoolsToMajorityChart", () => {
     expect(
       screen.getByRole("img", { name: /reviewed mining pools, largest first, mined 51%/ }),
     ).toBeTruthy();
+  });
+
+  it("draws a month one pool carried alone in the warning ink, and every other month in neutral ink", () => {
+    const series = getMinerSeries("month");
+    const months = poolsToMajority(series);
+    const single = months.filter((m) => m.pools === 1).length;
+    const several = months.filter((m) => m.pools !== null && m.pools > 1).length;
+    // The fixture must hold both, or this test asserts one branch only.
+    expect(single).toBeGreaterThan(0);
+    expect(several).toBeGreaterThan(0);
+    const { container } = render(<PoolsToMajorityChart series={series} />);
+    expect(container.querySelectorAll("svg rect.text-warn")).toHaveLength(single);
+    expect(container.querySelectorAll("svg rect.chart-band.text-ink-dim")).toHaveLength(several);
+    expect(screen.getByText("One pool held a majority")).toBeTruthy();
   });
 });

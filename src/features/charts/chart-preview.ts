@@ -236,8 +236,20 @@ function thumbOf(slug: ChartSlug, t: ChartTable, data: ChartData): ChartThumb {
       };
     case "shielded-share":
       return { kind: "lines", series: [{ values: col(0), className: KIND_CLASSES.shielded }] };
-    case "pools-to-majority":
-      return { kind: "bars", series: { values: col(0), className: "text-series" } };
+    case "pools-to-majority": {
+      // The chart's two inks: a month one pool carried alone in the warning ink, the rest neutral.
+      const pools = col(0);
+      return {
+        kind: "stacked-bars",
+        series: [
+          { values: pools.map((v) => (v === 1 ? 1 : 0)), className: "text-warn" },
+          {
+            values: pools.map((v) => (v === null || v === 1 ? 0 : v)),
+            className: "text-ink-dim",
+          },
+        ],
+      };
+    }
     case "shielded-capable-by-chain":
       // Each chain's share, largest chain first: the bars the chart draws, as bars.
       return { kind: "bars", series: { values: col(1), className: "text-green" } };

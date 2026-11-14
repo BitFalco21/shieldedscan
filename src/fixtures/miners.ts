@@ -132,11 +132,15 @@ const POOL_GROUPS = [
 /**
  * A group's share of a period. The oldest month is mostly unattributed (more than half its blocks
  * on addresses no label names), as Zcash's early years are: the month no count of reviewed pools
- * reaches a majority in, which the pools-to-51% chart must state rather than draw.
+ * reaches a majority in, which the pools-to-51% chart must state rather than draw. The second
+ * month has one pool past half the blocks, as ViaBTC was through 2025, so the chart's single-pool
+ * bar is drawn somewhere.
  */
 function mixOf(interval: "month" | "day", k: number, group: string, share: number): number {
-  if (interval !== "month" || k !== 0 || group === SHIELDED_GROUP) return share;
-  return group === UNATTRIBUTED_GROUP ? 0.53 : share * 0.45;
+  if (interval !== "month" || group === SHIELDED_GROUP) return share;
+  if (k === 0) return group === UNATTRIBUTED_GROUP ? 0.53 : share * 0.45;
+  if (k === 1) return group === "viabtc" ? 0.62 : share * 0.5;
+  return share;
 }
 
 /** Twelve months, or the trailing 90 days, with shares drifting a little period to period. */

@@ -114,15 +114,14 @@ export function MinersPage({ overview, terms, months, days, nsm, windowHref }: M
         )}
       </Panel>
 
-      <Panel title="POOLS TO 51%" className="mt-3">
+      <Panel title="POOLS NEEDED FOR 51%" className="mt-3">
         {months === null ? (
           <DataUnavailable what="The monthly series" inset />
         ) : (
           <PoolsToMajorityChart series={months} withTable />
         )}
         <p className="mt-3 text-xs text-ink-faint">
-          Reviewed pools, largest first, that mined 51% of each month&apos;s blocks. Unattributed
-          blocks stay in the total, so the real number cannot be higher.
+          Fewest reviewed pools that together mined 51% of the month&apos;s blocks.
         </p>
       </Panel>
 
