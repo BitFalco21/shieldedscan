@@ -14,19 +14,25 @@ export function payloadCarries(
   const value = row[c.expect.column];
   if (value === null || value === undefined) return null;
   const text = payloads.join("\n");
-  const hasDigits = (digits: string) => new RegExp(`(?<![\\d.])${digits}(?![\\d])`).test(text);
+  const bounded = (needle: string) =>
+    new RegExp(`(?<![\\d.,])${needle.replace(/[.,]/g, (c) => `\\${c}`)}(?![\\d]|[.,]\\d)`).test(
+      text,
+    );
+  const hasDigits = (digits: string) => bounded(digits);
   const grouped = (n: number) => Math.trunc(n).toLocaleString("en-US");
   switch (c.expect.unit) {
     case "count": {
-      if (typeof value !== "number") return null;
-      return hasDigits(String(value)) || text.includes(grouped(value));
+      // A small count ("3") is found in any payload, which proves nothing.
+      if (typeof value !== "number" || Math.abs(value) < 1000) return null;
+      return hasDigits(String(value)) || bounded(grouped(value));
     }
     case "zec": {
       if (typeof value !== "number") return null;
       const zec = (value / 1e8).toFixed(8).replace(/\.?0+$/, "");
       const [whole, frac] = zec.split(".");
       const groupedZec = `${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
-      return hasDigits(String(value)) || text.includes(zec) || text.includes(groupedZec);
+      if (zec.replace(/^0\.?0*/, "").replace(".", "").length < 4) return null;
+      return hasDigits(String(value)) || bounded(zec) || bounded(groupedZec);
     }
     case "day":
       return typeof value === "string" ? text.includes(value) : null;

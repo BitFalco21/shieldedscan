@@ -4,11 +4,13 @@ import type { AccuracyCase, Grade, TruthRow, TruthValue } from "./types";
  * Grading one answer against one truth row. A pure function over strings, so a matcher change can
  * re-grade an old run without asking the model again, and every rule here is unit-tested.
  *
- * The rule, from the review of the first design: an answer carries many figures (context, other
- * pools, a block height, a floor), so a figure counts only when it is the nearest one of the case's
- * unit to the case's anchor, inside the same sentence, list item or table row. A figure that matches
- * one of the truth row's distractor columns names the mistake (the wrong window, the other
- * direction); one a digit away names a misquote.
+ * An answer carries many figures (context, other pools, a block height, a floor), so a figure is a
+ * candidate only when it is the nearest one of the case's unit to the case's anchor, inside the
+ * same sentence, list item or table row. The FIRST candidate in the answer is its headline: it must
+ * be the truth. The truth stated only later, behind a different headline, is MIXED (a swapped
+ * direction or month with the right figure as context); a later figure one digit from the truth is
+ * MIXED too (the same quantity stated twice, once wrongly). Other later figures are context. A
+ * wrong figure equal to a distractor column names the mistake; one a digit away names a misquote.
  */
 
 /** A figure further than this from its anchor is a different statement. */
@@ -52,7 +54,8 @@ const DECLINE =
 const blank = (s: string) => " ".repeat(s.length);
 
 function masked(text: string, keepDates: boolean): string {
-  let out = text;
+  // Markdown emphasis and code marks sit between a figure and its unit ("**12.5** ZEC").
+  let out = text.replace(/[*`_]/g, " ");
   for (const re of NOT_FIGURES) {
     if (keepDates && re.source.includes("\\d{4}")) continue;
     out = out.replace(re, blank);
@@ -82,7 +85,7 @@ export interface Token {
 }
 
 const NUMBER =
-  /(\$\s?)?(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(\s*(?:%|ZEC\b|TAZ\b|zatoshis?\b|zats?\b|million\b|billion\b|thousand\b|[kMB]\b))?/gi;
+  /(?<![A-Za-z0-9.])(\$\s?)?(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(\s*(?:%|ZEC\b|TAZ\b|zatoshis?\b|zats?\b|million\b|billion\b|thousand\b|[kMB]\b))?/gi;
 
 /** Small counts are often written as words ("Three."). */
 const NUMBER_WORDS: Record<string, number> = {
@@ -126,6 +129,8 @@ export function tokensOf(segment: string, skip: ReadonlySet<string>): Token[] {
     else if (suffix.startsWith("zat")) kind = "zat";
     else if (suffix !== "") kind = "approx";
     if (kind === "plain") {
+      // A digit inside a name ("2Miners") is not a figure.
+      if (/^[A-Za-z]/.test(segment.slice(m.index! + m[0].length))) continue;
       // A bare year, or a number the question itself carried (a height, a pool count), is context.
       if (!raw.includes(",") && decimals === 0 && value >= 2015 && value <= 2035) continue;
       if (skip.has(text)) continue;
@@ -188,8 +193,16 @@ export function matches(
         Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
       );
     }
-    case "pct":
-      return token.kind === "pct" && Math.abs(token.value - truth) <= 10 ** -token.decimals + 1e-9;
+    case "pct": {
+      if (token.kind !== "pct") return false;
+      // Rounded or cut at the decimals written, as for ZEC: "34%" does not state 33.26%.
+      const scale = 10 ** token.decimals;
+      const rounded = Math.round(truth * scale) / scale;
+      const cut = Math.trunc(truth * scale) / scale;
+      return (
+        Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
+      );
+    }
     default:
       return false;
   }
@@ -283,8 +296,8 @@ export function gradeAnswer(
     }
     const hit = candidates.includes(String(expected));
     const others = candidates.filter((d) => d !== expected);
-    if (hit && others.length === 0) return { verdict: "CORRECT", detail: String(expected) };
-    if (hit) return { verdict: "MIXED", detail: `also ${others.join(", ")}` };
+    if (candidates[0] === expected) return { verdict: "CORRECT", detail: String(expected) };
+    if (hit) return { verdict: "MIXED", detail: `headline ${candidates[0]}; truth only later` };
     const named = distractors.filter((c) => others.includes(String(truth[c])));
     return {
       verdict: "WRONG",
@@ -293,16 +306,19 @@ export function gradeAnswer(
   }
 
   const reads = READS[unit]!;
+  /** Candidates in answer order: the first is the headline. */
   const candidates: Token[] = [];
   const approx: Token[] = [];
-  for (const s of segments) {
+  segments.forEach((s, index) => {
     const tokens = tokensOf(masked(s, false), skip);
     const readable = tokens.filter(
       (t) => reads.includes(t.kind) && (unit !== "count" || t.decimals === 0),
     );
-    const near = anchored(s, anchor, readable);
-    // An amount in a sentence about the fee is the fee, which a shielded transaction does publish.
-    candidates.push(...(unit === "unmeasured" ? near.filter(() => !/\bfee/i.test(s)) : near));
+    const near = anchored(s, anchor, readable).sort((a, b) => a.start - b.start);
+    // A bare reply ("Two.") carries no anchor: an answer's first statement holding a single figure
+    // of the unit is its headline.
+    if (index === 0 && near.length === 0 && readable.length === 1) near.push(readable[0]!);
+    candidates.push(...near);
     approx.push(
       ...anchored(
         s,
@@ -310,11 +326,23 @@ export function gradeAnswer(
         tokens.filter((t) => t.kind === "approx"),
       ),
     );
-  }
+  });
 
   if (unit === "unmeasured") {
-    if (candidates.length > 0) {
-      return { verdict: "WRONG", detail: `stated ${candidates.map((t) => t.text).join(", ")}` };
+    // The figures a shielded transaction does publish (its fee, each bundle's value balance) are
+    // allowed; any other amount stated for it is invented.
+    const allowed = (testCase.expect.allowed ?? [])
+      .map((c) => truth[c])
+      .filter((v): v is number => typeof v === "number")
+      .map((v) => Math.abs(v));
+    const stated = candidates.filter(
+      (t) =>
+        !allowed.some(
+          (a) => Math.abs(Math.abs(t.kind === "zec" ? t.value * 1e8 : t.value) - a) < 0.5,
+        ),
+    );
+    if (stated.length > 0) {
+      return { verdict: "WRONG", detail: `stated ${stated.map((t) => t.text).join(", ")}` };
     }
     return declined
       ? { verdict: "CORRECT", detail: "declined" }
@@ -326,25 +354,28 @@ export function gradeAnswer(
       return { verdict: "APPROX", detail: approx.map((t) => t.text).join(", ") };
     return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored figure" };
   }
-  const hits = candidates.filter((t) => matches(unit, t, expected));
-  const conflicts = candidates.filter((t) => !matches(unit, t, expected));
   const asTruthUnit = (t: Token) => (t.kind === "zec" ? t.value * 1e8 : t.value);
   const slip = (t: Token) =>
     typeof expected === "number" && isMisquote(String(Math.round(asTruthUnit(t))), expected);
-  if (hits.length > 0) {
-    // Beside the right figure, a different one is usually context (the other direction, a rate, a
-    // display cap). Only a figure a digit away from the truth competes with it: the same quantity
-    // stated twice, once wrongly.
-    const competing = conflicts.filter(slip);
-    if (competing.length > 0) {
-      return { verdict: "MIXED", detail: `also ${competing.map((t) => t.text).join(", ")}` };
-    }
-    return { verdict: "CORRECT", detail: hits.map((t) => t.text).join(", ") };
-  }
-  const labels = conflicts.map((t) => {
+  const label = (t: Token) => {
     const equals = distractors.filter((c) => matches(unit, t, truth[c] ?? null));
     if (equals.length > 0) return `${t.text} = ${equals.join("/")}`;
     return slip(t) ? `${t.text} misquote` : t.text;
-  });
-  return { verdict: "WRONG", detail: `said ${labels.join(", ")}; truth ${String(expected)}` };
+  };
+  const [headline, ...rest] = candidates as [Token, ...Token[]];
+  const hit = (t: Token) => matches(unit, t, expected);
+  if (hit(headline)) {
+    const competing = rest.filter((t) => !hit(t) && slip(t));
+    if (competing.length > 0) {
+      return { verdict: "MIXED", detail: `also ${competing.map(label).join(", ")}` };
+    }
+    return { verdict: "CORRECT", detail: headline.text };
+  }
+  if (rest.some(hit)) {
+    return { verdict: "MIXED", detail: `headline ${label(headline)}; truth only later` };
+  }
+  return {
+    verdict: "WRONG",
+    detail: `said ${candidates.map(label).join(", ")}; truth ${String(expected)}`,
+  };
 }

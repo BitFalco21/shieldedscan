@@ -32,9 +32,23 @@ const option = (name: string) => (args.includes(name) ? args[args.indexOf(name) 
 function selected(): AccuracyCase[] {
   const only = option("--only")?.split(",");
   const area = option("--area");
-  return ACCURACY_CASES.filter(
+  const unknown = (only ?? []).filter((id) => !ACCURACY_CASES.some((c) => c.id === id));
+  if (unknown.length > 0) throw new Error(`no such case: ${unknown.join(", ")}`);
+  const cases = ACCURACY_CASES.filter(
     (c) => (only === undefined || only.includes(c.id)) && (area === undefined || c.area === area),
   );
+  if (cases.length === 0) throw new Error("no case selected");
+  return cases;
+}
+
+/**
+ * An error as one line, without what a provider's response body might echo: its message starts
+ * "<provider> answered <status>: <body>", and only the status is kept.
+ */
+function errorLine(error: unknown): string {
+  const text = String(error).replace(/\s+/g, " ");
+  const status = /answered (\d{3})/.exec(text);
+  return status ? `provider answered ${status[1]}` : text.slice(0, 160);
 }
 
 // ── truth ─────────────────────────────────────────────────────────────────────────────────
@@ -77,8 +91,8 @@ async function truth(): Promise<void> {
         console.log(`${c.id}: ${JSON.stringify(rows[c.id])}`);
       } catch (error) {
         await client.query("ROLLBACK").catch(() => undefined);
-        rows[c.id] = { error: String(error) };
-        console.log(`${c.id}: ERROR ${String(error)}`);
+        rows[c.id] = { error: errorLine(error) };
+        console.log(`${c.id}: ERROR ${errorLine(error)}`);
       } finally {
         client.release();
       }
@@ -100,6 +114,8 @@ interface AnswerRecord {
   variant: boolean;
   run: number;
   answer: string;
+  /** How the turn ended: an empty round closed in our own words is not the model's answer. */
+  ending?: string;
   toolsCalled: string[];
   /** Everything the tools returned, for "was the figure in the payload". Truncated per call. */
   payloads: string[];
@@ -110,6 +126,8 @@ interface AnswerRecord {
 interface AnswersFile {
   askedAt: string;
   promptVersion: number;
+  /** The model the answers came from, so two runs can be compared. */
+  model: string;
   routesOnly: boolean;
   answers: AnswerRecord[];
 }
@@ -123,13 +141,14 @@ function liveTools(now: () => number): AgentTools {
   };
   const chainBase = process.env.EVAL_CHAIN_BASE_URL;
   const token = process.env.EVAL_CHAIN_TOKEN;
+  // Without the private surface every analytics read would answer "unavailable", which would be
+  // graded against the agent. Refuse to run instead, naming the variables only.
+  if (!chainBase || !token) throw new Error("EVAL_CHAIN_BASE_URL and EVAL_CHAIN_TOKEN must be set");
   const chain: ChainRequester = {
     request: (path) =>
-      chainBase && token
-        ? fetch(`${chainBase}${path}`, {
-            headers: { Accept: "application/json", authorization: `Bearer ${token}` },
-          })
-        : new Response(JSON.stringify({ error: { code: "unavailable" } }), { status: 503 }),
+      fetch(`${chainBase}${path}`, {
+        headers: { Accept: "application/json", authorization: `Bearer ${token}` },
+      }),
   };
   return new AgentTools(v1, chain, now);
 }
@@ -164,6 +183,7 @@ async function askOne(
   const key = process.env[provider.keyEnv];
   if (!key) throw new Error(`${provider.keyEnv} is not set`);
   let answer = "";
+  let ending = "incomplete";
   const events: AsyncGenerator<AgentEvent> = runAgentTurn(
     { streamer: streamerFor(provider, key), tools, now: Date.now },
     [{ role: "user", content: question }],
@@ -175,17 +195,20 @@ async function askOne(
       else if (event.event === "reset" || event.event === "narration") answer = "";
       else if (event.event === "status" && event.data.state === "looking-up") {
         base.toolsCalled.push(event.data.tool);
+      } else if (event.event === "done") {
+        ending = event.data.unanswered ? "unanswered" : event.data.stopReason;
       }
     }
   } catch (error) {
-    return { ...base, answer, error: String(error), ms: Date.now() - started };
+    return { ...base, answer, ending, error: errorLine(error), ms: Date.now() - started };
   }
-  return { ...base, answer, ms: Date.now() - started };
+  return { ...base, answer, ending, ms: Date.now() - started };
 }
 
 async function ask(): Promise<void> {
   const routesOnly = flag("--routes-only");
   const repeat = Number(option("--repeat") ?? "1");
+  if (!Number.isInteger(repeat) || repeat < 1) throw new Error("--repeat takes a whole number");
   const answers: AnswerRecord[] = [];
   for (const c of selected()) {
     if (routesOnly && !c.route) continue;
@@ -208,6 +231,7 @@ async function ask(): Promise<void> {
   const file: AnswersFile = {
     askedAt: new Date().toISOString(),
     promptVersion: SYSTEM_PROMPT_VERSION,
+    model: routesOnly ? "none" : resolveProvider().model,
     routesOnly,
     answers,
   };
@@ -240,8 +264,10 @@ function grade(): void {
   const graded: GradedAnswer[] = [];
   for (const a of answersFile.answers) {
     const c = byId.get(a.id);
-    const row = truthFile.rows[a.id];
-    if (!c || !row) continue;
+    const row = truthFile.rows[a.id] ?? {
+      error: "no truth for this case (a stale or partial truth file)",
+    };
+    if (!c) continue;
     const common = {
       id: a.id,
       area: c.area,
@@ -250,6 +276,15 @@ function grade(): void {
       run: a.run,
       answer: a.answer,
     };
+    if (a.ending === "unanswered" && !a.error) {
+      graded.push({
+        ...common,
+        verdict: "ERROR",
+        detail: "the turn ended unanswered (an empty round), not an answer to grade",
+        inPayload: null,
+      });
+      continue;
+    }
     if ("error" in row || a.error) {
       graded.push({
         ...common,
@@ -288,7 +323,7 @@ function grade(): void {
     }
   };
   console.log(
-    `truth read ${truthFile.readAt}; answers ${answersFile.askedAt}, prompt v${answersFile.promptVersion}\n`,
+    `truth read ${truthFile.readAt}; answers ${answersFile.askedAt}, prompt v${answersFile.promptVersion}, model ${answersFile.model ?? "unrecorded"}\n`,
   );
   for (const g of graded) {
     console.log(
@@ -306,12 +341,18 @@ function grade(): void {
 }
 
 async function main(): Promise<void> {
-  if (command === "truth") await truth();
-  else if (command === "ask") await ask();
-  else if (command === "grade") grade();
-  else {
-    console.error("usage: eval-accuracy.mjs truth|ask|grade [options]");
-    process.exitCode = 2;
+  try {
+    if (command === "truth") await truth();
+    else if (command === "ask") await ask();
+    else if (command === "grade") grade();
+    else {
+      console.error("usage: eval-accuracy.mjs truth|ask|grade [options]");
+      process.exitCode = 2;
+    }
+  } catch (error) {
+    // One line: an unhandled rejection would print a connection's host and a stack.
+    console.error(`FATAL ${errorLine(error)}`);
+    process.exitCode = 1;
   }
 }
 

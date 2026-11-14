@@ -50,17 +50,21 @@ export interface AccuracyCase {
     anchor: RegExp;
     /** Truth columns a wrong answer is likely to state instead (a different window, the other direction). */
     distractors?: string[];
+    /** For `unmeasured`: truth columns holding figures the answer may state (a fee, a value balance). */
+    allowed?: string[];
+    /** Words that satisfy `anchor`, for the tests that build answers around a case. */
+    label: string;
   };
   /** The calls a well-routed answer makes, dispatched without a model to check the figure reaches it. */
   route?: { name: ToolName; args: Record<string, unknown> }[];
 }
 
 export type Verdict =
-  /** The figure is stated and matches; no anchored figure contradicts it. */
+  /** The answer's first anchored figure is the truth, and no later one is a near-copy of it. */
   | "CORRECT"
-  /** A figure of the unit is stated beside the anchor and does not match. */
+  /** No anchored figure is the truth. */
   | "WRONG"
-  /** Both the right figure and a conflicting one beside the anchor. */
+  /** The truth appears, but behind a different headline, or beside a near-copy of itself. */
   | "MIXED"
   /** Only a rounded form ("about 1.4 million"). */
   | "APPROX"

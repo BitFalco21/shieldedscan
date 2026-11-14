@@ -1,9 +1,11 @@
+import { MAJORITY_PCT } from "@/domain/miners";
 import { MINING_POOL_LABELS } from "@/domain/mining-pools";
 import type { AccuracyCase } from "./types";
 
 /**
- * The accuracy questions. Every period is closed (a past month or day, a block height, an all-time
- * record read before and after the turn), so the truth and Zeno's read cannot straddle a block.
+ * The accuracy questions. Every period is closed (a past month or day, a block height), so the truth
+ * and Zeno's read cannot straddle a block. The two all-time records can move only when a larger
+ * crossing lands, which is rare; a record case that grades WRONG is re-read before it is believed.
  * Truth reads `opendata.*` only, through the read-only role; a query that scans `tx` by time is
  * not allowed here (a month of it took 17 s on the box), so transaction-level truths are per txid
  * or per block, and period truths read the day tables.
@@ -40,8 +42,9 @@ export const ACCURACY_CASES: AccuracyCase[] = [
   {
     id: "tx-month-total",
     area: "transactions",
-    question: "How many transactions were there on Zcash in October 2026?",
-    variants: ["how many txns in october 2026"],
+    question:
+      "How many transactions, not counting coinbase transactions, were there on Zcash in October 2026?",
+    variants: ["how many txns in october 2026, excluding coinbase"],
     independence: "same-rollup",
     truth: {
       sql: `SELECT sum(transparent + mixed + shielded)::bigint AS n,
@@ -59,6 +62,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "count",
       column: "n",
       anchor: /transactions?|txns?/i,
+      label: "transactions",
       distractors: ["n_previous_month", "n_with_coinbase", "coinbase"],
     },
     route: [window(OCT)],
@@ -78,7 +82,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "count",
       column: "n",
-      anchor: /shielded/i,
+      anchor: /(?<!un)shielded/i,
+      label: "fully shielded transactions",
       distractors: ["n_to_today", "n_october"],
     },
   },
@@ -91,7 +96,13 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       sql: `SELECT sum(shielding_txs)::bigint AS n, sum(unshielding_txs)::bigint AS n_unshielding
               FROM opendata.shielding_daily WHERE day >= '${SEP.from}' AND day < '${SEP.to}'`,
     },
-    expect: { unit: "count", column: "n", anchor: /shielding/i, distractors: ["n_unshielding"] },
+    expect: {
+      unit: "count",
+      column: "n",
+      anchor: /(?<!un)shielding/i,
+      label: "shielding transactions",
+      distractors: ["n_unshielding"],
+    },
     route: [window(SEP)],
   },
   {
@@ -103,7 +114,13 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       sql: `SELECT sum(unshielding_txs)::bigint AS n, sum(shielding_txs)::bigint AS n_shielding
               FROM opendata.shielding_daily WHERE day >= '${SEP.from}' AND day < '${SEP.to}'`,
     },
-    expect: { unit: "count", column: "n", anchor: /unshielding/i, distractors: ["n_shielding"] },
+    expect: {
+      unit: "count",
+      column: "n",
+      anchor: /unshielding/i,
+      label: "unshielding transactions",
+      distractors: ["n_shielding"],
+    },
     route: [window(SEP)],
   },
   {
@@ -120,11 +137,17 @@ export const ACCURACY_CASES: AccuracyCase[] = [
                    to_char((SELECT day FROM v ORDER BY shielded_zat DESC, day LIMIT 1), 'YYYY-MM-DD')
                      AS volume_day,
                    (SELECT count(*) FROM d WHERE n = (SELECT max(n) FROM d))::int AS ties`,
+      derive: (row) => {
+        // A tie has no single busiest day to name; the case would need a different expectation.
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} days tie for the most`);
+        return row;
+      },
     },
     expect: {
       unit: "day",
       column: "day",
       anchor: /most|busiest|highest|peak|top|record/i,
+      label: "the busiest day",
       distractors: ["volume_day"],
     },
   },
@@ -146,6 +169,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "count",
       column: "n",
       anchor: /orchard/i,
+      label: "Orchard transactions",
       distractors: ["n_ironwood", "n_sapling"],
     },
   },
@@ -164,6 +188,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "count",
       column: "n",
       anchor: /migrat|orchard|ironwood/i,
+      label: "migrations from Orchard to Ironwood",
       distractors: ["n_all_time"],
     },
   },
@@ -185,6 +210,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "zec",
       column: "zat",
       anchor: /sapling/i,
+      label: "the Sapling pool held",
       distractors: ["zat_latest", "zat_orchard"],
     },
   },
@@ -203,6 +229,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "zec",
       column: "zat",
       anchor: /orchard|balance/i,
+      label: "the Orchard pool held",
       distractors: ["zat_latest", "zat_sapling"],
     },
   },
@@ -220,7 +247,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "zec",
       column: "zat",
-      anchor: /shielded|shielding|into/i,
+      anchor: /(?<!un)shield|into the shielded/i,
+      label: "was shielded",
       distractors: ["zat_unshielded"],
     },
   },
@@ -236,7 +264,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "zec",
       column: "zat",
-      anchor: /unshield|out of/i,
+      anchor: /unshield|out of the shielded/i,
+      label: "was unshielded",
       distractors: ["zat_shielded"],
     },
   },
@@ -251,10 +280,10 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       sql: `SELECT sum(total_fee_zat)::bigint AS zat, count(*)::int AS blocks,
                    count(total_fee_zat)::int AS covered
               FROM opendata.blocks
-             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')
-               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')`,
+             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')::bigint
+               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')::bigint`,
     },
-    expect: { unit: "zec", column: "zat", anchor: /fee/i },
+    expect: { unit: "zec", column: "zat", anchor: /fee/i, label: "fees paid" },
     route: [window(OCT)],
   },
   {
@@ -268,14 +297,20 @@ export const ACCURACY_CASES: AccuracyCase[] = [
                      WHERE month = '${SEP.from}' AND kind = 'transparent') AS zat_transparent
               FROM opendata.fees_monthly WHERE month = '${SEP.from}' AND kind = 'shielded'`,
     },
-    expect: { unit: "zec", column: "zat", anchor: /median|fee/i, distractors: ["zat_transparent"] },
+    expect: {
+      unit: "zec",
+      column: "zat",
+      anchor: /median|fee/i,
+      label: "the median fee",
+      distractors: ["zat_transparent"],
+    },
   },
 
   // ── blocks and transactions by id ───────────────────────────────────────────────────────
   {
     id: "block-tx-count",
     area: "blocks",
-    question: "How many transactions are in block 3,133,528?",
+    question: "How many transactions, including the coinbase, are in block 3,133,528?",
     independence: "base",
     truth: {
       sql: `SELECT tx_count AS n,
@@ -286,6 +321,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "count",
       column: "n",
       anchor: /transactions?/i,
+      label: "transactions",
       distractors: ["n_without_coinbase"],
     },
     route: [{ name: "lookup_block", args: { heightOrHash: "3133528" } }],
@@ -298,7 +334,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     truth: {
       sql: `SELECT total_fee_zat AS zat FROM opendata.blocks WHERE height = 3133528`,
     },
-    expect: { unit: "zec", column: "zat", anchor: /fee/i },
+    expect: { unit: "zec", column: "zat", anchor: /fee/i, label: "fees" },
     route: [{ name: "lookup_block", args: { heightOrHash: "3133528" } }],
   },
   {
@@ -318,6 +354,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       unit: "count",
       column: "n",
       anchor: /inputs?/i,
+      label: "transparent inputs",
       distractors: ["n_outputs", "api_page_cap"],
     },
     route: [
@@ -334,10 +371,29 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       "How much ZEC did transaction cff333b87f391fbb40c2e2ad4352b61265c9f3ac7356f39f2dd8d9515d7bf561 send?",
     independence: "base",
     truth: {
-      sql: `SELECT kind, fee_zat FROM opendata.transactions
+      sql: `SELECT kind, fee_zat, sapling_value_balance_zat, orchard_value_balance_zat,
+                   ironwood_value_balance_zat
+              FROM opendata.transactions
              WHERE txid = 'cff333b87f391fbb40c2e2ad4352b61265c9f3ac7356f39f2dd8d9515d7bf561'`,
+      derive: (row) => {
+        if (row.kind !== "shielded") {
+          throw new Error(`expected a fully shielded transaction, got ${String(row.kind)}`);
+        }
+        return row;
+      },
     },
-    expect: { unit: "unmeasured", column: "kind", anchor: /ZEC|zatoshi/i },
+    expect: {
+      unit: "unmeasured",
+      allowed: [
+        "fee_zat",
+        "sapling_value_balance_zat",
+        "orchard_value_balance_zat",
+        "ironwood_value_balance_zat",
+      ],
+      column: "kind",
+      anchor: /ZEC|zatoshi/i,
+      label: "ZEC",
+    },
     route: [
       {
         name: "lookup_transaction",
@@ -354,10 +410,10 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     independence: "base",
     truth: {
       sql: `SELECT count(*)::int AS n FROM opendata.blocks
-             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')
-               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')`,
+             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')::bigint
+               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')::bigint`,
     },
-    expect: { unit: "count", column: "n", anchor: /blocks?/i },
+    expect: { unit: "count", column: "n", anchor: /blocks?/i, label: "blocks" },
     route: [window(OCT)],
   },
   {
@@ -371,8 +427,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
                    count(*)::int AS blocks,
                    count(*) FILTER (WHERE miner_address = ANY($2))::int AS reviewed_blocks
               FROM opendata.block_miners
-             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')
-               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')`,
+             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')::bigint
+               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')::bigint`,
       params: () => [poolAddresses("viabtc"), registry()[0]],
       derive: (row) => ({
         ...row,
@@ -380,7 +436,13 @@ export const ACCURACY_CASES: AccuracyCase[] = [
         pct_of_reviewed: (100 * Number(row.pool_blocks)) / Number(row.reviewed_blocks),
       }),
     },
-    expect: { unit: "pct", column: "pct", anchor: /viabtc/i, distractors: ["pct_of_reviewed"] },
+    expect: {
+      unit: "pct",
+      column: "pct",
+      anchor: /viabtc/i,
+      label: "ViaBTC mined",
+      distractors: ["pct_of_reviewed"],
+    },
   },
   {
     id: "mining-viabtc-blocks",
@@ -390,11 +452,11 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     truth: {
       sql: `SELECT count(*) FILTER (WHERE miner_address = ANY($1))::int AS n
               FROM opendata.block_miners
-             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')
-               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')`,
+             WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')::bigint
+               AND timestamp < extract(epoch FROM timestamp '${OCT.to}')::bigint`,
       params: () => [poolAddresses("viabtc")],
     },
-    expect: { unit: "count", column: "n", anchor: /viabtc/i },
+    expect: { unit: "count", column: "n", anchor: /viabtc/i, label: "ViaBTC mined" },
   },
   {
     id: "mining-pools-to-majority",
@@ -404,17 +466,17 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     truth: {
       sql: `WITH reg AS (SELECT * FROM unnest($1::text[], $2::text[]) AS r(address, pool)),
                  m AS (SELECT miner_address FROM opendata.block_miners
-                        WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')
-                          AND timestamp < extract(epoch FROM timestamp '${OCT.to}')),
+                        WHERE timestamp >= extract(epoch FROM timestamp '${OCT.from}')::bigint
+                          AND timestamp < extract(epoch FROM timestamp '${OCT.to}')::bigint),
                  total AS (SELECT count(*) AS n FROM m),
                  per AS (SELECT reg.pool, count(*) AS n FROM m JOIN reg ON reg.address = m.miner_address
                           GROUP BY reg.pool),
                  run AS (SELECT n, sum(n) OVER (ORDER BY n DESC, pool) AS running,
                                 row_number() OVER (ORDER BY n DESC, pool) AS k FROM per)
-            SELECT (SELECT min(k) FROM run, total WHERE 100 * running >= 51 * total.n)::int AS n`,
-      params: () => registry(),
+            SELECT (SELECT min(k) FROM run, total WHERE 100 * running >= $3 * total.n)::int AS n`,
+      params: () => [...registry(), MAJORITY_PCT],
     },
-    expect: { unit: "count", column: "n", anchor: /pools?/i },
+    expect: { unit: "count", column: "n", anchor: /\bpools?\b/i, label: "pools" },
   },
 
   // ── records ─────────────────────────────────────────────────────────────────────────────
@@ -431,7 +493,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "zec",
       column: "zat",
-      anchor: /shield|largest|ZEC/i,
+      anchor: /(?<!un)shielding/i,
+      label: "the largest shielding",
       distractors: ["zat_unshielding"],
     },
     route: [{ name: "chain_status", args: { include: ["records"] } }],
@@ -449,7 +512,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "zec",
       column: "zat",
-      anchor: /unshield|largest|ZEC/i,
+      anchor: /unshielding/i,
+      label: "the largest unshielding",
       distractors: ["zat_shielding"],
     },
     route: [{ name: "chain_status", args: { include: ["records"] } }],
@@ -462,13 +526,20 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     truth: {
       sql: `SELECT (SELECT active_addresses FROM opendata.transparent_monthly
                      WHERE month = '${OCT.from}') AS n,
+                   (SELECT complete FROM opendata.transparent_monthly
+                     WHERE month = '${OCT.from}')::text AS complete,
                    (SELECT sum(active_addresses) FROM opendata.transparent_daily
                      WHERE day >= '${OCT.from}' AND day < '${OCT.to}')::bigint AS n_summed_days`,
+      derive: (row) => {
+        if (row.complete !== "true") throw new Error("October's distinct count is not complete");
+        return row;
+      },
     },
     expect: {
       unit: "count",
       column: "n",
       anchor: /active|addresses/i,
+      label: "active addresses",
       distractors: ["n_summed_days"],
     },
   },

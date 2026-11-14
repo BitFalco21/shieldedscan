@@ -171,6 +171,136 @@ describe("accuracy grader", () => {
   });
 });
 
+describe("accuracy grader, against the answers a review built to fool it", () => {
+  it("takes the headline, not the truth stated later as context", () => {
+    const shielding = caseOf("tx-shielding-count");
+    const row: TruthRow = { n: 55678, n_unshielding: 52130 };
+    const swapped = gradeAnswer(
+      shielding,
+      row,
+      "There were 52,130 shielding transactions. That compares with 55,678 unshielding transactions.",
+    );
+    expect(swapped.verdict).not.toBe("CORRECT");
+    const month = gradeAnswer(
+      caseOf("tx-month-total"),
+      { n: 234434, n_previous_month: 228102 },
+      "October had 228,102 transactions. The month before had 234,434 transactions.",
+    );
+    expect(month.verdict).toBe("MIXED");
+  });
+
+  it("reads an amount through markdown, and allows only what the chain publishes", () => {
+    const shielded = caseOf("tx-shielded-amount");
+    const row: TruthRow = {
+      kind: "shielded",
+      fee_zat: 20000,
+      sapling_value_balance_zat: 1,
+      orchard_value_balance_zat: 0,
+      ironwood_value_balance_zat: -20001,
+    };
+    for (const answer of [
+      "It sent `12.5` ZEC, which is private.",
+      "It sent **12.5** ZEC, which is private.",
+      "It sent 12.5 ZEC and paid a fee of 0.0002 ZEC; the rest is encrypted.",
+    ]) {
+      expect(gradeAnswer(shielded, row, answer).verdict, answer).toBe("WRONG");
+    }
+    expect(
+      gradeAnswer(
+        shielded,
+        row,
+        "The amount is encrypted. Ironwood: -0.00020001 ZEC, Sapling: 0.00000001 ZEC, fee 0.0002 ZEC.",
+      ).verdict,
+    ).toBe("CORRECT");
+  });
+
+  it("does not read a digit inside a pool's name, and reads a bare count", () => {
+    const majority = caseOf("mining-pools-to-majority");
+    expect(
+      gradeAnswer(
+        majority,
+        { n: 2 },
+        "Four pools were needed: ViaBTC, Foundry USA, F2Pool and 2Miners.",
+      ).verdict,
+    ).toBe("WRONG");
+    expect(
+      gradeAnswer(majority, { n: 3 }, "Two. The three largest pools mined 65.37%.").verdict,
+    ).not.toBe("CORRECT");
+  });
+
+  it("does not let a percentage rounded away from the truth pass", () => {
+    const share = caseOf("mining-viabtc-share");
+    const row: TruthRow = { pct: 33.2649 };
+    expect(gradeAnswer(share, row, "ViaBTC mined 34% of the blocks.").verdict).toBe("WRONG");
+    expect(gradeAnswer(share, row, "ViaBTC mined 33.27% of the blocks.").verdict).toBe("WRONG");
+    expect(gradeAnswer(share, row, "ViaBTC mined 33% of the blocks.").verdict).toBe("CORRECT");
+  });
+
+  // Derived for every case with a distractor: the distractor as the headline, the truth after it
+  // as context. A grader that passes this is the one the review found.
+  const written = (c: AccuracyCase, v: number | string): string => {
+    if (typeof v === "string") return v;
+    if (c.expect.unit === "zec") return `${(v / 1e8).toFixed(8)} ZEC`;
+    if (c.expect.unit === "pct") return `${v.toFixed(2)}%`;
+    return v.toLocaleString("en-US");
+  };
+  const samples: Record<string, TruthRow> = {
+    "tx-month-total": {
+      n: 234434,
+      n_previous_month: 363162,
+      coinbase: 35551,
+      n_with_coinbase: 269985,
+    },
+    "tx-fully-shielded-through": { n: 1600732, n_to_today: 1659973, n_october: 78887 },
+    "tx-shielding-count": { n: 55678, n_unshielding: 52130 },
+    "tx-unshielding-count": { n: 52130, n_shielding: 55678 },
+    "shielding-busiest-day": { day: "2024-05-28", volume_day: "2024-07-13", ties: 1 },
+    "pool-orchard-month": { n: 2252, n_ironwood: 133172, n_sapling: 6215 },
+    "pool-migration-orchard-ironwood": { n: 1553, n_all_time: 26122 },
+    "supply-sapling-at-day": {
+      zat: 62102684037615,
+      zat_latest: 41796734592521,
+      zat_orchard: 377313767196780,
+    },
+    "supply-orchard-at-day": {
+      zat: 441294210313716,
+      zat_sapling: 62910782041747,
+      zat_latest: 32094997629524,
+    },
+    "shielding-zec-month": { zat: 93836939135324, zat_unshielded: 39419185645658 },
+    "unshielding-zec-month": { zat: 39419185645658, zat_shielded: 93836939135324 },
+    "fees-median-shielded": { zat: 10000, zat_transparent: 17000 },
+    "block-tx-count": { n: 2450, n_without_coinbase: 2449 },
+    "tx-wide-inputs": { n: 13538, n_outputs: 1, api_page_cap: 1000 },
+    "mining-viabtc-share": { pct: 33.2649, pct_of_reviewed: 35.6613 },
+    "record-largest-shielding": { zat: 29999999985000, zat_unshielding: 20207620725000 },
+    "record-largest-unshielding": { zat: 20207620725000, zat_shielding: 29999999985000 },
+    "transparent-active-addresses": { n: 95999, n_summed_days: 197259 },
+  };
+
+  it("has a sample truth row for every case with a distractor", () => {
+    const withDistractors = ACCURACY_CASES.filter((c) => (c.expect.distractors ?? []).length > 0);
+    expect(withDistractors.map((c) => c.id).sort()).toEqual(Object.keys(samples).sort());
+  });
+
+  for (const c of ACCURACY_CASES) {
+    const row = samples[c.id];
+    if (!row) continue;
+    it(`${c.id}: its label satisfies its anchor, and a distractor headline is never CORRECT`, () => {
+      expect(c.expect.anchor.test(c.expect.label)).toBe(true);
+      const truth = row[c.expect.column]!;
+      for (const d of c.expect.distractors ?? []) {
+        const wrong = row[d];
+        if (wrong === null || wrong === undefined || wrong === truth) continue;
+        const answer = `The ${c.expect.label}: ${written(c, wrong)}. For comparison, ${c.expect.label}: ${written(c, truth)}.`;
+        expect(gradeAnswer(c, row, answer).verdict, `${d}: ${answer}`).not.toBe("CORRECT");
+        const right = `The ${c.expect.label}: ${written(c, truth)}.`;
+        expect(gradeAnswer(c, row, right).verdict, right).toBe("CORRECT");
+      }
+    });
+  }
+});
+
 describe("payload search", () => {
   it("finds a count raw or grouped, and ZEC as zatoshis or a decimal", () => {
     const tx = caseOf("tx-month-total");
