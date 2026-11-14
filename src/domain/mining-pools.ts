@@ -131,6 +131,12 @@ export const MINING_POOL_LABELS: Readonly<Record<string, MiningPoolLabel>> = {
     basis: "coinbase-tag",
     evidence: "`/Mined by Luxor/` on 467 of 467 sampled blocks (2026-11-06)",
   },
+  // Luxor's payout between its previous address (to 3,522,962) and its current one (from 3,524,453).
+  t1Zdu26WGAzCJR1waaTUNMRx57nHbwdjTd2: {
+    miningPool: "luxor",
+    basis: "coinbase-tag",
+    evidence: "`/Mined by Luxor/` on 181 of 181 blocks, heights 3,523,047–3,524,433 (2026-11-14)",
+  },
   // Luxor's previous address, retired at 3,522,962.
   t1XQZdZMnzXBcL8yx2PR27dSNrqctgwLgux: {
     miningPool: "luxor",
@@ -256,6 +262,25 @@ export const MINING_POOL_LABELS: Readonly<Record<string, MiningPoolLabel>> = {
     basis: "coinbase-tag",
     evidence:
       "`2Miners https://2miners.com` on 7,008 of 7,248 blocks, every one from 344,640 to its last at 2,149,478; the 240 before carry no tag (2026-11-10)",
+  },
+  // 2Miners' addresses beside t1dzbQ2b… and t1ajyFP7…, from their handover at 2,149,9xx.
+  t1NSiJnvv1A6uUfkLj4Zi6cLMqQ44SC8ja4: {
+    miningPool: "2miners",
+    basis: "coinbase-tag",
+    evidence:
+      "`2Miners https://2miners.com` on 11,416 of 11,416 blocks, heights 2,149,920–2,510,274 (2026-11-14)",
+  },
+  t1LRTUjrLE2RHsS75cjCrxB7xaLTwaVkwao: {
+    miningPool: "2miners",
+    basis: "coinbase-tag",
+    evidence:
+      "`2Miners https://2miners.com` on 3,475 of 3,475 blocks, heights 2,149,993–3,366,122 (2026-11-14)",
+  },
+  t1Pxv9u2jWySHJPFpKimYMAtEbdHEvuYdS2: {
+    miningPool: "2miners",
+    basis: "coinbase-tag",
+    evidence:
+      "`2Miners https://2miners.com` on 119 of 119 blocks, heights 3,366,503–3,414,154, after t1LRTUjr… and before t1VTjv7X… (2026-11-14)",
   },
   // Poolin's addresses whose every block carries its marker. Others of its addresses lost the
   // marker partway and stay unlabelled.
