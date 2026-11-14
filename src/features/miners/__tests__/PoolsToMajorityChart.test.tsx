@@ -17,13 +17,13 @@ describe("PoolsToMajorityChart", () => {
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(series.periods.length);
     const oldest = rows[0]!.textContent ?? "";
-    expect(oldest).toContain("not stated");
+    expect(oldest).toContain("unknown");
     expect(oldest).not.toMatch(/\b0\b(?!\.)/);
     // The reviewed share it fell short with, under 51%.
     const reviewed = Number(/([\d.]+)%\s*$/.exec(oldest)?.[1]);
     expect(reviewed).toBeLessThan(51);
     expect(rows[1]!.textContent).toMatch(/^\D+\d{4}\d/);
-    expect(rows[1]!.textContent).not.toContain("not stated");
+    expect(rows[1]!.textContent).not.toContain("unknown");
   });
 
   it("marks each month with no count by the same hollow box, and no other", () => {

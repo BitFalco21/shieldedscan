@@ -45,7 +45,7 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
     return p === null ? "—" : formatSharePct(p);
   };
   const count = (v: number) =>
-    v === NO_COUNT ? `not stated: reviewed pools under ${MAJORITY_PCT}%` : formatCount(v);
+    v === NO_COUNT ? `unknown: too many unnamed blocks` : formatCount(v);
   return (
     <div>
       <StackedBarChart
@@ -98,7 +98,7 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
           rows={months.map((m) => ({
             label: monthLabel(m.period, true) + (m.partial ? " (so far)" : ""),
             cells: [
-              m.pools === null ? "not stated" : formatCount(m.pools),
+              m.pools === null ? "unknown" : formatCount(m.pools),
               pct(m.top1Blocks, m.blocks),
               pct(m.top3Blocks, m.blocks),
               pct(m.reviewedBlocks, m.blocks),
