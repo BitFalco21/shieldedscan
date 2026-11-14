@@ -23,7 +23,6 @@ export function ZenoDisclosures() {
             which output of a transparent transaction was the payment and which was change. That
             inference is not chain fact.
           </li>
-          <li>It will not name the person, company or exchange behind an address.</li>
           <li>No privacy scores, no price predictions, and no investment advice of any kind.</li>
           <li>It will not help you build, sign or broadcast a transaction.</li>
         </ul>
