@@ -53,5 +53,6 @@ describe("PoolsToMajorityChart", () => {
     expect(container.querySelectorAll("svg rect.text-warn")).toHaveLength(single);
     expect(container.querySelectorAll("svg rect.chart-band.text-ink-dim")).toHaveLength(several);
     expect(screen.getByText("One pool held a majority")).toBeTruthy();
+    expect(screen.getByText("Unknown: too many unnamed blocks")).toBeTruthy();
   });
 });

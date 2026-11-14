@@ -83,7 +83,11 @@ export function PoolsToMajorityChart({ series, withTable = false }: PoolsToMajor
         items={[
           { label: "One pool held a majority", className: SINGLE_POOL_CLASS, mark: "bar" },
           { label: "Pools needed", className: POOLS_CLASS, mark: "bar" },
-          { label: "Reviewed pools under 51%", className: "text-ink-faint", mark: "dashed" },
+          {
+            label: "Unknown: too many unnamed blocks",
+            className: "text-ink-faint",
+            mark: "hollow",
+          },
         ]}
       />
       {withTable ? (
