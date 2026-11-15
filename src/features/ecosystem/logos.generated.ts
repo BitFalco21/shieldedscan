@@ -111,6 +111,7 @@ export const ECOSYSTEM_LOGOS: ReadonlySet<string> = new Set([
   "zealz",
   "zebra",
   "zec-bounties",
+  "zec-info",
   "zec-market",
   "zec-pay",
   "zec-stats",

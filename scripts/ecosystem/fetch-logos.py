@@ -154,6 +154,7 @@ HAND_SUPPLIED = {
     "cypherschool": "supplied by hand",
     "zecpy": "supplied by hand: zecpy.pages.dev serves no icon",
     "zec-world": "supplied by hand: zecworld.app serves no icon, only a wide share image",
+    "zec-info": "supplied by hand by the owner (2026-11-15)",
     "free2z": "supplied by hand: the 2Z mark from free2z.cash/docs, chosen over the site's favicon",
     "templar": "supplied by hand",
     "sapling-cash": "supplied by hand",
