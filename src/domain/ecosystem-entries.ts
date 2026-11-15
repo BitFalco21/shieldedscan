@@ -9,7 +9,7 @@ import type { EcosystemEntry } from "./ecosystem";
  * The day the list last changed, printed on the page as "Last updated on". Bump it in the
  * commit that adds, removes or rewrites an entry.
  */
-export const ECOSYSTEM_UPDATED_ON = "2026-11-13";
+export const ECOSYSTEM_UPDATED_ON = "2026-11-15";
 
 export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
   {
@@ -978,5 +978,26 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     category: "community",
     url: "https://www.grayscale.com/zcash-invest",
     source: "Grayscale's Zcash education platform for investors",
+  },
+  {
+    id: "zec-info",
+    name: "Zec Info",
+    category: "community",
+    url: "https://zec.info/",
+    source: "curated directory of Zcash wallets, exchanges, tools and community projects",
+  },
+  {
+    id: "zcash-magazine",
+    name: "Zcash Magazine",
+    category: "community",
+    url: "https://www.zcashmag.com/",
+    source: "independent quarterly print magazine on Zcash and financial privacy",
+  },
+  {
+    id: "mastering-zcash",
+    name: "Mastering Zcash",
+    category: "community",
+    url: "https://maxdesalle.com/mastering-zcash/",
+    source: "free long-form book on Zcash's privacy technology, by Maxime Desalle",
   },
 ];
