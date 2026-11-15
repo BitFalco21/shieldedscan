@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { unframe } from "../status-collector/grpc";
 import { fields, parseBlockId, parseLightdInfo } from "../status-collector/protobuf";
+import { decimalToUnits, unitsToDecimal } from "../status-collector/chains";
 import { JSON_TARGETS } from "../status-collector/targets";
 
 const fixture = (name: string) => readFileSync(join(__dirname, "__fixtures__", "status", name));
@@ -132,8 +133,10 @@ describe("day files", () => {
     await writeFile(join(dir, "status-2026-11-13.jsonl"), '{"a":1}\n');
     await writeFile(join(dir, "status-2026-11-14.jsonl"), '{"b":2}\n');
     await writeFile(join(dir, "status-2026-11-15.jsonl"), '{"c":3}\n');
+    await writeFile(join(dir, "markets-2026-11-13.jsonl"), '{"m":1}\n');
     await compressFinishedDays(new Date("2026-11-15T00:00:30Z"));
     expect((await readdir(dir)).sort()).toEqual([
+      "markets-2026-11-13.jsonl.gz",
       "status-2026-11-13.jsonl.gz",
       "status-2026-11-14.jsonl",
       "status-2026-11-15.jsonl",
@@ -151,5 +154,42 @@ describe("day files", () => {
     expect(gunzipSync(await readFile(join(dir, "status-2026-11-13.jsonl.gz"))).toString()).toBe(
       '{"a":1}\n{"late":1}\n',
     );
+  });
+});
+
+describe("supply arithmetic", () => {
+  it("moves between units and decimals without a float", () => {
+    expect(unitsToDecimal("219999998672872241403848", 18)).toBe("219999.998672872241403848");
+    expect(unitsToDecimal("0", 8)).toBe("0");
+    expect(unitsToDecimal("16097471", 8)).toBe("0.16097471");
+    expect(unitsToDecimal("2500000000", 8)).toBe("25");
+    expect(decimalToUnits("21000000", 9)).toBe("21000000000000000");
+    expect(decimalToUnits("20854656.6121147349", 9)).toBe("20854656612114734");
+    expect(() => decimalToUnits("1e5", 8)).toThrow("not a decimal");
+  });
+});
+
+describe("streams", () => {
+  it("files market observations apart from service health", async () => {
+    const { streamOf, dayFile } = await import("../status-collector/main");
+    expect(streamOf("wallet")).toBe("status");
+    expect(streamOf("supply")).toBe("markets");
+    expect(streamOf("cex-daily")).toBe("markets");
+    expect(dayFile(new Date("2026-11-15T12:00:00Z"), "markets")).toBe("markets-2026-11-15.jsonl");
+  });
+});
+
+describe("daily candles", () => {
+  it("keeps only days that have ended", async () => {
+    const { closedCandles } = await import("../status-collector/markets");
+    const now = Date.parse("2026-11-15T00:15:00Z") / 1000;
+    const rows = [
+      [Date.parse("2026-11-13T00:00:00Z") / 1000, "1", "1", "1", "1", "5"],
+      [Date.parse("2026-11-14T00:00:00Z") / 1000, "1", "1", "1", "1", "6"],
+      [Date.parse("2026-11-15T00:00:00Z") / 1000, "1", "1", "1", "1", "0.2"],
+      // A day that starts at 16:00 UTC ends at 16:00 the next day.
+      [Date.parse("2026-11-14T16:00:00Z") / 1000, "1", "1", "1", "1", "3"],
+    ];
+    expect(closedCandles(rows, now).map((r) => r[5])).toEqual(["5", "6"]);
   });
 });
