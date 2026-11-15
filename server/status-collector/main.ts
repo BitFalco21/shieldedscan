@@ -6,7 +6,15 @@ import { gunzip, gzip } from "node:zlib";
 import { observeSeeder } from "./dns-seeders";
 import { grpcUnary } from "./grpc";
 import { parseBlockId, parseLightdInfo } from "./protobuf";
+import { CEX, DEX_TOKENS, coingeckoTickers, geckoPools, hyperliquidZecBooks } from "./markets";
 import { JSON_TARGETS, SEEDERS, WALLET_SERVERS, type JsonTarget } from "./targets";
+import {
+  HOLDINGS,
+  SUPPLY_TOKENS,
+  UNIT_ZCASH_RESERVE,
+  readOmniReserve,
+  readSupply,
+} from "./wrapped";
 
 /**
  * The ecosystem status collector. Once a minute it asks the services in `targets.ts` how they are
@@ -26,7 +34,17 @@ const USER_AGENT = "shieldedscan-status/1 (+https://shieldedscan.xyz)";
 export interface Observation {
   /** ISO time the observation started. */
   t: string;
-  kind: "wallet" | "seeder" | "json";
+  kind:
+    | "wallet"
+    | "seeder"
+    | "json"
+    | "supply"
+    | "holding"
+    | "reserve"
+    | "dex"
+    | "cex"
+    | "cex-daily"
+    | "cex-aggregate";
   id: string;
   ok: boolean;
   ms: number;
@@ -34,13 +52,23 @@ export interface Observation {
   error?: string;
 }
 
+/** Service health goes to `status-` files; ZEC on other chains and its markets to `markets-`. */
+export type Stream = "status" | "markets";
+
+const STATUS_KINDS: ReadonlySet<Observation["kind"]> = new Set(["wallet", "seeder", "json"]);
+
+export function streamOf(kind: Observation["kind"]): Stream {
+  return STATUS_KINDS.has(kind) ? "status" : "markets";
+}
+
 /** The day file an observation belongs to, by the UTC day it started. */
-export function dayFile(t: Date): string {
-  return `status-${t.toISOString().slice(0, 10)}.jsonl`;
+export function dayFile(t: Date, stream: Stream = "status"): string {
+  return `${stream}-${t.toISOString().slice(0, 10)}.jsonl`;
 }
 
 async function record(o: Observation): Promise<void> {
-  await appendFile(join(DATA_DIR, dayFile(new Date(o.t))), `${JSON.stringify(o)}\n`);
+  const file = dayFile(new Date(o.t), streamOf(o.kind));
+  await appendFile(join(DATA_DIR, file), `${JSON.stringify(o)}\n`);
 }
 
 const gzipAsync = promisify(gzip);
@@ -56,9 +84,10 @@ const gunzipAsync = promisify(gunzip);
  * the rename, recognised because the `.gz` already ends with it, and simply removed.
  */
 export async function compressFinishedDays(now: Date): Promise<void> {
-  const yesterday = dayFile(new Date(now.getTime() - 86_400_000));
+  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
   for (const name of await readdir(DATA_DIR)) {
-    if (!/^status-\d{4}-\d{2}-\d{2}\.jsonl$/.test(name) || name >= yesterday) continue;
+    const m = /^(?:status|markets)-(\d{4}-\d{2}-\d{2})\.jsonl$/.exec(name);
+    if (!m || m[1]! >= yesterday) continue;
     const path = join(DATA_DIR, name);
     const plain = await readFile(path);
     let existing: Buffer = Buffer.alloc(0);
@@ -209,6 +238,91 @@ function logWriteError(err: unknown): void {
   console.error(`write: ${(err as Error).message}`);
 }
 
+/** One observation of `fn`, timed, with any failure recorded as the observation's error. */
+async function observe(
+  kind: Observation["kind"],
+  id: string,
+  fn: () => Promise<unknown>,
+): Promise<Observation> {
+  const started = Date.now();
+  const t = new Date(started).toISOString();
+  try {
+    const data = await fn();
+    return { t, kind, id, ok: true, ms: Date.now() - started, data };
+  } catch (err) {
+    const e = err as Error;
+    const cause = (e.cause as { code?: string } | undefined)?.code;
+    const error =
+      e.name === "TimeoutError" ? "timeout" : [e.message, cause].filter(Boolean).join(": ");
+    return { t, kind, id, ok: false, ms: Date.now() - started, error };
+  }
+}
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** GeckoTerminal allows about 30 calls a minute without a key: one token every four seconds. */
+async function observeDexPools(): Promise<void> {
+  for (const [id, network, address] of DEX_TOKENS) {
+    await record(await observe("dex", `geckoterminal:${id}`, () => geckoPools(network, address)));
+    await pause(4_000);
+  }
+}
+
+/** Minute of the hour each markets job runs at, spread so they never start together. */
+const AT = { supply: 7, reserve: 8, dex: 20, hyperliquid: 25, cex: 30, aggregate: 35 } as const;
+/** Minute of the UTC day for the once-a-day jobs: closed daily candles and every reserve coin. */
+const DAILY_AT = { candles: 15, reserveCoins: 9 } as const;
+
+function marketsTick(minute: number): void {
+  const ofHour = minute % 60;
+  const ofDay = minute % 1440;
+  if (ofHour === AT.supply) {
+    for (const tok of SUPPLY_TOKENS)
+      run("supply", tok.id, () => observe("supply", tok.id, () => readSupply(tok)));
+    for (const h of HOLDINGS) run("holding", h.id, () => observe("holding", h.id, h.read));
+  }
+  if (ofHour === AT.reserve) {
+    run("reserve", "near-omni", () =>
+      observe("reserve", "near-omni", () => readOmniReserve(false)),
+    );
+    run("reserve", "hyperliquid-unit", () =>
+      observe("reserve", "hyperliquid-unit", async () => {
+        // Our own index, through the public API in-network: the same figure any visitor can read.
+        const res = await fetch(
+          `http://explorer-api-public:8080/v1/addresses/${UNIT_ZCASH_RESERVE}`,
+          {
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+          },
+        );
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        const o = (await res.json()) as { balanceZat?: unknown };
+        if (typeof o.balanceZat !== "number") throw new Error("unexpected shape: balanceZat");
+        return { address: UNIT_ZCASH_RESERVE, zat: String(o.balanceZat) };
+      }),
+    );
+  }
+  if (ofDay === DAILY_AT.reserveCoins)
+    run("reserve", "near-omni:coins", () =>
+      observe("reserve", "near-omni:coins", () => readOmniReserve(true)),
+    );
+  if (ofHour === AT.dex && !inFlight.has("dex geckoterminal")) {
+    inFlight.add("dex geckoterminal");
+    observeDexPools()
+      .catch(logWriteError)
+      .finally(() => inFlight.delete("dex geckoterminal"));
+  }
+  if (ofHour === AT.hyperliquid)
+    run("dex", "hyperliquid", () => observe("dex", "hyperliquid", hyperliquidZecBooks));
+  if (ofHour === AT.cex)
+    for (const v of CEX) run("cex", v.id, () => observe("cex", v.id, v.ticker));
+  if (ofDay === DAILY_AT.candles)
+    for (const v of CEX) run("cex-daily", v.id, () => observe("cex-daily", v.id, v.candles));
+  if (ofHour === AT.aggregate)
+    run("cex-aggregate", "coingecko", () =>
+      observe("cex-aggregate", "coingecko", coingeckoTickers),
+    );
+}
+
 let lastDay = "";
 let lastMinute = 0;
 let compressing = false;
@@ -237,12 +351,13 @@ function tick(): void {
   if (minute % SEEDERS_EVERY_MINUTES === 0) {
     for (const s of SEEDERS) run("seeder", s.name, () => observeSeederLine(s.name));
   }
+  marketsTick(minute);
 }
 
 async function main(): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
   console.log(
-    `status collector: ${WALLET_SERVERS.length} wallet servers, ${SEEDERS.length} seeders, ${JSON_TARGETS.length} JSON targets → ${DATA_DIR}`,
+    `status collector: ${WALLET_SERVERS.length} wallet servers, ${SEEDERS.length} seeders, ${JSON_TARGETS.length} JSON targets, ${SUPPLY_TOKENS.length} ZEC tokens, ${CEX.length} exchanges → ${DATA_DIR}`,
   );
   process.on("SIGTERM", () => process.exit(0));
   process.on("SIGINT", () => process.exit(0));
