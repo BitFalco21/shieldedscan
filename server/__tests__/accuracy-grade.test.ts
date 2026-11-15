@@ -276,6 +276,14 @@ describe("accuracy grader, against the answers a review built to fool it", () =>
     "record-largest-shielding": { zat: 29999999985000, zat_unshielding: 20207620725000 },
     "record-largest-unshielding": { zat: 20207620725000, zat_shielding: 29999999985000 },
     "transparent-active-addresses": { n: 95999, n_summed_days: 197259 },
+    "rank-shielded-month-2025": { month: "2025-10", runner_up: "2025-11" },
+    "rank-busiest-day-october": { day: "2026-10-25", runner_up: "2026-10-24", ties: 1 },
+    "rank-sapling-peak-2025": { day: "2025-01-03", runner_up: "2025-01-04" },
+    "cmp-tx-drop-pct": { sep: 363162, oct: 234434, pct: 35.446, pct_of_october: 54.91 },
+    "derive-shielded-share-october": { pct: 33.65, pct_with_coinbase: 29.22 },
+    "derive-tx-per-block-october": { per_block: 6.594, per_block_with_coinbase: 7.594 },
+    "zec-migration-october": { zat: 3293032178142, zat_all_time: 40000000000000 },
+    "fees-median-transparent": { zat: 17000, zat_shielded: 10000 },
   };
 
   it("has a sample truth row for every case with a distractor", () => {
@@ -301,6 +309,78 @@ describe("accuracy grader, against the answers a review built to fool it", () =>
   }
 });
 
+describe("accuracy grader, round 2 units", () => {
+  it("reads a month in prose or as YYYY-MM, headline first", () => {
+    const c = caseOf("rank-shielded-month-2025");
+    const row: TruthRow = { month: "2025-10", runner_up: "2025-11" };
+    expect(gradeAnswer(c, row, "October 2025 had the most, with 12,575.").verdict).toBe("CORRECT");
+    expect(gradeAnswer(c, row, "The most was in 2025-10.").verdict).toBe("CORRECT");
+    const g = gradeAnswer(c, row, "November 2025 had the most; October 2025 was close.");
+    expect(g.verdict).not.toBe("CORRECT");
+  });
+
+  it("takes the first allowed name as the headline", () => {
+    const c = caseOf("rank-shielded-pool-october");
+    expect(
+      gradeAnswer(c, { pool: "ironwood" }, "Ironwood, by far: 133,172 against Sapling's 6,215.")
+        .verdict,
+    ).toBe("CORRECT");
+    expect(gradeAnswer(c, { pool: "ironwood" }, "Sapling led, with Ironwood second.").verdict).toBe(
+      "MIXED",
+    );
+    const m = caseOf("rank-mining-pool-september");
+    expect(gradeAnswer(m, { pool: "viabtc" }, "ViaBTC mined the most blocks.").verdict).toBe(
+      "CORRECT",
+    );
+    expect(gradeAnswer(m, { pool: "viabtc" }, "Foundry USA mined the most.").verdict).toBe("WRONG");
+  });
+
+  it("reads a decimal at the decimals written, never a single digit", () => {
+    const c = caseOf("derive-tx-per-block-october");
+    const row: TruthRow = { per_block: 6.5943, per_block_with_coinbase: 7.5943 };
+    expect(gradeAnswer(c, row, "About 6.59 transactions per block.").verdict).toBe("CORRECT");
+    expect(gradeAnswer(c, row, "6.6 transactions per block on average.").verdict).toBe("CORRECT");
+    expect(gradeAnswer(c, row, "7.59 transactions per block on average.").verdict).toBe("WRONG");
+    expect(gradeAnswer(c, row, "7 transactions per block on average.").verdict).not.toBe("CORRECT");
+  });
+});
+
+describe("accuracy grader, from round 2's live answers", () => {
+  it("takes a winner stated alone in the first sentence", () => {
+    const month = caseOf("rank-shielded-month-2025");
+    expect(
+      gradeAnswer(
+        month,
+        { month: "2025-10", runner_up: "2025-11" },
+        "**October 2025**, with 12,575 fully shielded transactions. Runners-up: November 2025 with 9,401.",
+      ).verdict,
+    ).toBe("CORRECT");
+    const day = caseOf("rank-busiest-day-october");
+    expect(
+      gradeAnswer(
+        day,
+        { day: "2026-10-25", runner_up: "2026-10-24", ties: 1 },
+        "2026-10-25, with 19,299 transactions. For context, the next busiest days were 2026-10-24 at 18,896.",
+      ).verdict,
+    ).toBe("CORRECT");
+  });
+
+  it("lets a difference state its inputs first, and fails one that states only them", () => {
+    const c = caseOf("cmp-viabtc-minus-foundry");
+    const row: TruthRow = { viabtc: 11826, foundry: 5939, n: 5887 };
+    expect(
+      gradeAnswer(
+        c,
+        row,
+        "ViaBTC mined 11,826 blocks and Foundry USA mined 5,939 — a difference of **5,887 blocks**.",
+      ).verdict,
+    ).toBe("CORRECT");
+    expect(
+      gradeAnswer(c, row, "ViaBTC mined 11,826 blocks, more than Foundry USA's 5,939.").verdict,
+    ).toBe("WRONG");
+  });
+});
+
 describe("payload search", () => {
   it("finds a count raw or grouped, and ZEC as zatoshis or a decimal", () => {
     const tx = caseOf("tx-month-total");
@@ -319,8 +399,13 @@ describe("accuracy cases", () => {
       expect(sql, c.id).toMatch(/^(SELECT|WITH)\b/i);
       expect(sql, c.id).not.toMatch(/;\s*\S/);
       expect(sql, c.id).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|GRANT)\b/i);
+      // A query's own CTEs are not tables.
+      const ctes = new Set(
+        [...sql.matchAll(/(?:WITH|,)\s*([a-z_]+)\s+AS\s*\(/gi)].map((m) => m[1]!),
+      );
       for (const table of sql.matchAll(/\b(?:FROM|JOIN)\s+([a-z_.]+)/gi)) {
         const name = table[1]!;
+        if (ctes.has(name)) continue;
         if (["unnest", "d", "v", "m", "per", "run", "total", "reg", "timestamp"].includes(name))
           continue;
         expect(name, c.id).toMatch(/^opendata\./);

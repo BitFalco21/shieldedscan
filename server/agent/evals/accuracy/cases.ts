@@ -1,5 +1,5 @@
 import { MAJORITY_PCT } from "@/domain/miners";
-import { MINING_POOL_LABELS } from "@/domain/mining-pools";
+import { MINING_POOL_LABELS, MINING_POOLS } from "@/domain/mining-pools";
 import type { AccuracyCase } from "./types";
 
 /**
@@ -31,6 +31,33 @@ function registry(): [string[], string[]] {
   const entries = Object.entries(MINING_POOL_LABELS);
   return [entries.map(([a]) => a), entries.map(([, l]) => l.miningPool)];
 }
+
+/** Each mining pool's display name as a pattern, keyed by its id: the choices of a "which pool" case. */
+function miningPoolChoices(): Record<string, RegExp> {
+  return Object.fromEntries(
+    Object.values(MINING_POOLS).map((p) => [
+      p.id,
+      new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+    ]),
+  );
+}
+
+/** The four shielded pools, as named in prose. */
+const SHIELDED_POOL_CHOICES: Record<string, RegExp> = {
+  sprout: /\bsprout\b/i,
+  sapling: /\bsapling\b/i,
+  orchard: /\borchard\b/i,
+  ironwood: /\bironwood\b/i,
+};
+
+/** Blocks per reviewed mining pool in a window, ranked: the shape two cases read. */
+const POOL_BLOCKS_SQL = (from: string, to: string) => `
+  WITH reg AS (SELECT * FROM unnest($1::text[], $2::text[]) AS r(address, pool)),
+       per AS (SELECT reg.pool, count(*) AS n
+                 FROM opendata.block_miners m JOIN reg ON reg.address = m.miner_address
+                WHERE m.timestamp >= extract(epoch FROM timestamp '${from}')::bigint
+                  AND m.timestamp < extract(epoch FROM timestamp '${to}')::bigint
+                GROUP BY reg.pool)`;
 
 const window = (w: { from: string; to: string }, groupBy?: string) => ({
   name: "chain_activity" as const,
@@ -541,6 +568,292 @@ export const ACCURACY_CASES: AccuracyCase[] = [
       anchor: /active|addresses/i,
       label: "active addresses",
       distractors: ["n_summed_days"],
+    },
+  },
+  // ── round 2: rankings ───────────────────────────────────────────────────────────────────
+  {
+    id: "rank-shielded-month-2025",
+    area: "transactions",
+    question: "Which month of 2025 had the most fully shielded transactions?",
+    variants: ["best month for fully shielded txs in 2025?"],
+    independence: "same-rollup",
+    truth: {
+      sql: `WITH m AS (SELECT to_char(date_trunc('month', day), 'YYYY-MM') AS month, sum(shielded) AS n
+                         FROM opendata.check_day_rollup
+                        WHERE day >= '2025-01-01' AND day < '2026-01-01' GROUP BY 1)
+            SELECT (SELECT month FROM m ORDER BY n DESC, month LIMIT 1) AS month,
+                   (SELECT month FROM m ORDER BY n DESC, month OFFSET 1 LIMIT 1) AS runner_up`,
+    },
+    expect: {
+      unit: "month",
+      column: "month",
+      anchor: /most|highest|busiest|top|peak|record/i,
+      label: "the most",
+      distractors: ["runner_up"],
+    },
+  },
+  {
+    id: "rank-busiest-day-october",
+    area: "transactions",
+    question:
+      "Which day in October 2026 had the most transactions, not counting coinbase transactions?",
+    independence: "same-rollup",
+    truth: {
+      sql: `WITH d AS (SELECT day, transparent + mixed + shielded AS n FROM opendata.check_day_rollup
+                        WHERE day >= '${OCT.from}' AND day < '${OCT.to}')
+            SELECT to_char((SELECT day FROM d ORDER BY n DESC, day LIMIT 1), 'YYYY-MM-DD') AS day,
+                   to_char((SELECT day FROM d ORDER BY n DESC, day OFFSET 1 LIMIT 1), 'YYYY-MM-DD')
+                     AS runner_up,
+                   (SELECT count(*) FROM d WHERE n = (SELECT max(n) FROM d))::int AS ties`,
+      derive: (row) => {
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} days tie for the most`);
+        return row;
+      },
+    },
+    expect: {
+      unit: "day",
+      column: "day",
+      anchor: /most|busiest|highest|peak|top|record/i,
+      label: "the busiest day",
+      distractors: ["runner_up"],
+    },
+  },
+  {
+    id: "rank-shielded-pool-october",
+    area: "pools",
+    question: "Which shielded pool was used by the most transactions in October 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `WITH p AS (SELECT pool, sum(txs) AS n FROM opendata.check_day_pool_tx
+                        WHERE day >= '${OCT.from}' AND day < '${OCT.to}' GROUP BY pool)
+            SELECT (SELECT pool FROM p ORDER BY n DESC, pool LIMIT 1) AS pool`,
+    },
+    expect: {
+      unit: "name",
+      column: "pool",
+      anchor: /\S/,
+      label: "the pool",
+      choices: SHIELDED_POOL_CHOICES,
+    },
+  },
+  {
+    id: "rank-mining-pool-september",
+    area: "mining",
+    question: "Which mining pool mined the most blocks in September 2026?",
+    variants: ["top mining pool in sept 2026?"],
+    independence: "base",
+    truth: {
+      sql: `${POOL_BLOCKS_SQL(SEP.from, SEP.to)}
+            SELECT (SELECT pool FROM per ORDER BY n DESC, pool LIMIT 1) AS pool`,
+      params: () => registry(),
+    },
+    expect: {
+      unit: "name",
+      column: "pool",
+      anchor: /\S/,
+      label: "the pool",
+      choices: miningPoolChoices(),
+    },
+  },
+  {
+    id: "rank-sapling-peak-2025",
+    area: "supply",
+    question: "On which day of 2025 did the Sapling pool hold the most ZEC?",
+    independence: "same-rollup",
+    truth: {
+      sql: `WITH d AS (SELECT day, sapling_pool_zat AS z FROM opendata.check_day_supply_close
+                        WHERE day >= '2025-01-01' AND day < '2026-01-01')
+            SELECT to_char((SELECT day FROM d ORDER BY z DESC, day LIMIT 1), 'YYYY-MM-DD') AS day,
+                   to_char((SELECT day FROM d ORDER BY z DESC, day OFFSET 1 LIMIT 1), 'YYYY-MM-DD')
+                     AS runner_up`,
+    },
+    expect: {
+      unit: "day",
+      column: "day",
+      anchor: /most|highest|peak|top|record|largest|maximum/i,
+      label: "the highest",
+      distractors: ["runner_up"],
+    },
+  },
+
+  // ── round 2: comparisons and derived figures ────────────────────────────────────────────
+  {
+    id: "cmp-shielding-sep-vs-aug",
+    area: "shielding",
+    question:
+      "How many more shielding transactions were there in September 2026 than in August 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT (SELECT sum(shielding_txs) FROM opendata.shielding_daily
+                     WHERE day >= '${SEP.from}' AND day < '${SEP.to}')::bigint AS sep,
+                   (SELECT sum(shielding_txs) FROM opendata.shielding_daily
+                     WHERE day >= '${AUG.from}' AND day < '${AUG.to}')::bigint AS aug`,
+      derive: (row) => ({ ...row, n: Number(row.sep) - Number(row.aug) }),
+    },
+    expect: {
+      unit: "count",
+      column: "n",
+      anchor: /more|difference|increase|higher|up by/i,
+      label: "more",
+      inputs: ["sep", "aug"],
+    },
+  },
+  {
+    id: "cmp-tx-drop-pct",
+    area: "transactions",
+    question:
+      "By what percentage did the number of transactions, not counting coinbase, fall from September 2026 to October 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT (SELECT sum(transparent + mixed + shielded) FROM opendata.check_day_rollup
+                     WHERE day >= '${SEP.from}' AND day < '${SEP.to}')::bigint AS sep,
+                   (SELECT sum(transparent + mixed + shielded) FROM opendata.check_day_rollup
+                     WHERE day >= '${OCT.from}' AND day < '${OCT.to}')::bigint AS oct`,
+      derive: (row) => {
+        const sep = Number(row.sep);
+        const oct = Number(row.oct);
+        if (!(oct < sep)) throw new Error("October is not below September: reword the question");
+        return {
+          ...row,
+          pct: (100 * (sep - oct)) / sep,
+          // The wrong base: the drop measured against October.
+          pct_of_october: (100 * (sep - oct)) / oct,
+        };
+      },
+    },
+    expect: {
+      unit: "pct",
+      column: "pct",
+      anchor: /fell|fall|drop|decline|decrease|down|lower|less/i,
+      label: "fell",
+      distractors: ["pct_of_october"],
+    },
+  },
+  {
+    id: "derive-shielded-share-october",
+    area: "transactions",
+    question:
+      "What percentage of October 2026's transactions, not counting coinbase, were fully shielded?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT sum(shielded)::bigint AS shielded, sum(transparent + mixed + shielded)::bigint AS n,
+                   (SELECT sum(blocks) FROM opendata.check_mining_day
+                     WHERE day >= '${OCT.from}' AND day < '${OCT.to}')::bigint AS coinbase
+              FROM opendata.check_day_rollup WHERE day >= '${OCT.from}' AND day < '${OCT.to}'`,
+      derive: (row) => ({
+        ...row,
+        pct: (100 * Number(row.shielded)) / Number(row.n),
+        pct_with_coinbase: (100 * Number(row.shielded)) / (Number(row.n) + Number(row.coinbase)),
+      }),
+    },
+    expect: {
+      unit: "pct",
+      column: "pct",
+      anchor: /(?<!un)shielded|share|percent/i,
+      label: "fully shielded",
+      distractors: ["pct_with_coinbase"],
+    },
+  },
+  {
+    id: "derive-tx-per-block-october",
+    area: "blocks",
+    question:
+      "On average, how many transactions, not counting the coinbase, were in each block in October 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT sum(transparent + mixed + shielded)::bigint AS n,
+                   (SELECT sum(blocks) FROM opendata.check_mining_day
+                     WHERE day >= '${OCT.from}' AND day < '${OCT.to}')::bigint AS blocks
+              FROM opendata.check_day_rollup WHERE day >= '${OCT.from}' AND day < '${OCT.to}'`,
+      derive: (row) => ({
+        ...row,
+        per_block: Number(row.n) / Number(row.blocks),
+        per_block_with_coinbase: Number(row.n) / Number(row.blocks) + 1,
+      }),
+    },
+    expect: {
+      unit: "number",
+      column: "per_block",
+      anchor: /per block|each block|average|averaged|mean/i,
+      label: "per block",
+      distractors: ["per_block_with_coinbase"],
+    },
+  },
+  {
+    id: "zec-migration-october",
+    area: "pools",
+    question: "How much ZEC moved from Orchard into Ironwood in October 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT sum(zat) FILTER (WHERE day >= '${OCT.from}' AND day < '${OCT.to}')::bigint AS zat,
+                   sum(zat)::bigint AS zat_all_time
+              FROM opendata.pool_migration_daily
+             WHERE source = 'orchard' AND destination = 'ironwood'`,
+    },
+    expect: {
+      unit: "zec",
+      column: "zat",
+      anchor: /moved|migrat|orchard|ironwood/i,
+      label: "moved from Orchard into Ironwood",
+      distractors: ["zat_all_time"],
+    },
+  },
+  {
+    id: "cmp-viabtc-minus-foundry",
+    area: "mining",
+    question: "How many more blocks did ViaBTC mine than Foundry USA in October 2026?",
+    independence: "base",
+    truth: {
+      sql: `${POOL_BLOCKS_SQL(OCT.from, OCT.to)}
+            SELECT (SELECT n FROM per WHERE pool = 'viabtc')::int AS viabtc,
+                   (SELECT n FROM per WHERE pool = 'foundry')::int AS foundry`,
+      params: () => registry(),
+      derive: (row) => ({ ...row, n: Number(row.viabtc) - Number(row.foundry) }),
+    },
+    expect: {
+      unit: "count",
+      column: "n",
+      anchor: /more|difference|ahead|than/i,
+      label: "more",
+      inputs: ["viabtc", "foundry"],
+    },
+  },
+  {
+    id: "fees-median-transparent",
+    area: "fees",
+    question: "What was the median fee of a transparent transaction in September 2026?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT median_zat AS zat,
+                   (SELECT median_zat FROM opendata.fees_monthly
+                     WHERE month = '${SEP.from}' AND kind = 'shielded') AS zat_shielded
+              FROM opendata.fees_monthly WHERE month = '${SEP.from}' AND kind = 'transparent'`,
+    },
+    expect: {
+      unit: "zec",
+      column: "zat",
+      anchor: /median|fee/i,
+      label: "the median fee",
+      distractors: ["zat_shielded"],
+    },
+  },
+  {
+    id: "cmp-orchard-minus-sapling",
+    area: "supply",
+    question:
+      "How much more ZEC did the Orchard pool hold than the Sapling pool at the end of 2025-12-31?",
+    independence: "same-rollup",
+    truth: {
+      sql: `SELECT orchard_pool_zat AS orchard, sapling_pool_zat AS sapling
+              FROM opendata.check_day_supply_close WHERE day = '2025-12-31'`,
+      derive: (row) => ({ ...row, zat: Number(row.orchard) - Number(row.sapling) }),
+    },
+    expect: {
+      unit: "zec",
+      column: "zat",
+      anchor: /more|difference|than|gap/i,
+      label: "more",
+      inputs: ["orchard", "sapling"],
     },
   },
 ];

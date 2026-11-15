@@ -7,7 +7,18 @@ import type { ToolName } from "../../tools/names";
  */
 
 /** What the answer's figure is written in. A ZEC truth is stored in zatoshis. */
-export type AccuracyUnit = "count" | "zec" | "pct" | "day" | "unmeasured";
+export type AccuracyUnit =
+  | "count"
+  /** A figure that may have decimals (transactions per block), read at the decimals written. */
+  | "number"
+  | "zec"
+  | "pct"
+  | "day"
+  /** A calendar month, truth `YYYY-MM`. */
+  | "month"
+  /** One of `choices` (a pool, a mining pool); the truth is its key. */
+  | "name"
+  | "unmeasured";
 
 /** How a case's truth relates to what Zeno reads. Reported separately: they measure different things. */
 export type Independence =
@@ -50,10 +61,21 @@ export interface AccuracyCase {
     anchor: RegExp;
     /** Truth columns a wrong answer is likely to state instead (a different window, the other direction). */
     distractors?: string[];
+    /**
+     * For a figure worked out from others (a difference, a share): truth columns holding its
+     * inputs. Stating them before the result is how a careful answer reads, so a figure equal to
+     * one is set aside when choosing the headline; an answer that states only inputs is WRONG.
+     */
+    inputs?: string[];
     /** For `unmeasured`: truth columns holding figures the answer may state (a fee, a value balance). */
     allowed?: string[];
     /** Words that satisfy `anchor`, for the tests that build answers around a case. */
     label: string;
+    /**
+     * For `name`: every answer the question allows, keyed by the truth value, each with the
+     * pattern that recognises it in prose. The first one named in the answer is its headline.
+     */
+    choices?: Record<string, RegExp>;
   };
   /** The calls a well-routed answer makes, dispatched without a model to check the figure reaches it. */
   route?: { name: ToolName; args: Record<string, unknown> }[];

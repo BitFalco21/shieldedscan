@@ -141,6 +141,24 @@ export function tokensOf(segment: string, skip: ReadonlySet<string>): Token[] {
   return tokens;
 }
 
+/** Months written in a segment, as `YYYY-MM`: "October 2025", "Oct 2025", "2025-10". */
+export function monthsOf(segment: string): { month: string; start: number; end: number }[] {
+  const out: { month: string; start: number; end: number }[] = [];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const monthOf = (s: string) => MONTH_INDEX[s.slice(0, 3).toLowerCase()] ?? 0;
+  for (const m of segment.matchAll(new RegExp(`\\b(${MONTH}),? (\\d{4})\\b`, "gi"))) {
+    const mo = monthOf(m[1]!);
+    if (mo > 0)
+      out.push({ month: `${m[2]}-${pad(mo)}`, start: m.index!, end: m.index! + m[0].length });
+  }
+  for (const m of segment.matchAll(/\b(\d{4})-(\d{2})\b(?!-\d)/g)) {
+    const mo = Number(m[2]);
+    if (mo >= 1 && mo <= 12)
+      out.push({ month: `${m[1]}-${m[2]}`, start: m.index!, end: m.index! + m[0].length });
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
 /** Days written in a segment, as `YYYY-MM-DD`. */
 export function daysOf(segment: string): { day: string; start: number; end: number }[] {
   const out: { day: string; start: number; end: number }[] = [];
@@ -163,7 +181,7 @@ export function daysOf(segment: string): { day: string; start: number; end: numb
   )) {
     push(Number(m[3]), monthOf(m[2]!), Number(m[1]), m.index!, m.index! + m[0].length);
   }
-  return out;
+  return out.sort((a, b) => a.start - b.start);
 }
 
 const significantDigits = (text: string) => text.replace(/^-?0*\.?0*/, "").replace(".", "").length;
@@ -193,8 +211,11 @@ export function matches(
         Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
       );
     }
+    case "number":
     case "pct": {
-      if (token.kind !== "pct") return false;
+      if (token.kind !== (unit === "pct" ? "pct" : "plain")) return false;
+      // A decimal needs two significant digits to state anything.
+      if (unit === "number" && significantDigits(token.text) < 2) return false;
       // Rounded or cut at the decimals written, as for ZEC: "34%" does not state 33.26%.
       const scale = 10 ** token.decimals;
       const rounded = Math.round(truth * scale) / scale;
@@ -211,6 +232,7 @@ export function matches(
 /** The kinds of written figure a unit reads. */
 const READS: Record<string, readonly TokenKind[]> = {
   count: ["plain"],
+  number: ["plain"],
   zec: ["zec", "zat"],
   pct: ["pct"],
   unmeasured: ["zec", "zat"],
@@ -289,8 +311,40 @@ export function gradeAnswer(
   const segments = segmentsOf(answer);
   const declined = DECLINE.test(answer);
 
-  if (unit === "day") {
-    const candidates = segments.flatMap((s) => anchored(s, anchor, daysOf(s))).map((d) => d.day);
+  if (unit === "name") {
+    // The first allowed name the answer mentions is its headline, wherever it is.
+    const choices = Object.entries(testCase.expect.choices ?? {});
+    const named: { key: string; at: number }[] = [];
+    for (const [key, pattern] of choices) {
+      const re = new RegExp(
+        pattern.source,
+        pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+      );
+      for (const m of answer.matchAll(re)) named.push({ key, at: m.index! });
+    }
+    named.sort((a, b) => a.at - b.at);
+    if (named.length === 0) {
+      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no allowed name" };
+    }
+    if (named[0]!.key === expected) return { verdict: "CORRECT", detail: String(expected) };
+    const later = named.some((n) => n.key === expected);
+    return {
+      verdict: later ? "MIXED" : "WRONG",
+      detail: `headline ${named[0]!.key}${later ? "; truth only later" : `; truth ${String(expected)}`}`,
+    };
+  }
+
+  if (unit === "day" || unit === "month") {
+    // A ranking answer names the winner first and the runner-up after it, often in the same
+    // sentence and nearer the anchor word ("November had the most; October was close"). So every
+    // day or month in a sentence that carries the anchor is a candidate, in the order written.
+    // The first sentence counts too: a ranking answer often opens with the winner alone.
+    const re = new RegExp(anchor.source, anchor.flags.replace("g", ""));
+    const candidates = segments
+      .filter((s, index) => index === 0 || re.test(s))
+      .flatMap((s) =>
+        unit === "day" ? daysOf(s).map((d) => d.day) : monthsOf(s).map((d) => d.month),
+      );
     if (candidates.length === 0) {
       return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored day" };
     }
@@ -308,16 +362,23 @@ export function gradeAnswer(
   const reads = READS[unit]!;
   /** Candidates in answer order: the first is the headline. */
   const candidates: Token[] = [];
+  const inputsSeen: Token[] = [];
+  const isInput = (t: Token) =>
+    !matches(unit, t, expected) &&
+    (testCase.expect.inputs ?? []).some((c) => matches(unit, t, truth[c] ?? null));
   const approx: Token[] = [];
   segments.forEach((s, index) => {
     const tokens = tokensOf(masked(s, false), skip);
     const readable = tokens.filter(
       (t) => reads.includes(t.kind) && (unit !== "count" || t.decimals === 0),
     );
-    const near = anchored(s, anchor, readable).sort((a, b) => a.start - b.start);
+    // A difference's inputs, stated before it, are not candidates for its headline.
+    const notInputs = readable.filter((t) => !isInput(t));
+    inputsSeen.push(...readable.filter(isInput));
+    const near = anchored(s, anchor, notInputs).sort((a, b) => a.start - b.start);
     // A bare reply ("Two.") carries no anchor: an answer's first statement holding a single figure
     // of the unit is its headline.
-    if (index === 0 && near.length === 0 && readable.length === 1) near.push(readable[0]!);
+    if (index === 0 && near.length === 0 && notInputs.length === 1) near.push(notInputs[0]!);
     candidates.push(...near);
     approx.push(
       ...anchored(
@@ -349,6 +410,12 @@ export function gradeAnswer(
       : { verdict: "NO_FIGURE", detail: "neither a figure nor a decline" };
   }
 
+  if (candidates.length === 0 && inputsSeen.length > 0) {
+    return {
+      verdict: "WRONG",
+      detail: `stated only the inputs ${inputsSeen.map((t) => t.text).join(", ")}`,
+    };
+  }
   if (candidates.length === 0) {
     if (approx.length > 0)
       return { verdict: "APPROX", detail: approx.map((t) => t.text).join(", ") };
@@ -362,8 +429,8 @@ export function gradeAnswer(
     if (equals.length > 0) return `${t.text} = ${equals.join("/")}`;
     return slip(t) ? `${t.text} misquote` : t.text;
   };
-  const [headline, ...rest] = candidates as [Token, ...Token[]];
   const hit = (t: Token) => matches(unit, t, expected);
+  const [headline, ...rest] = candidates as [Token, ...Token[]];
   if (hit(headline)) {
     const competing = rest.filter((t) => !hit(t) && slip(t));
     if (competing.length > 0) {
