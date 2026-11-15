@@ -155,6 +155,8 @@ HAND_SUPPLIED = {
     "zecpy": "supplied by hand: zecpy.pages.dev serves no icon",
     "zec-world": "supplied by hand: zecworld.app serves no icon, only a wide share image",
     "zec-info": "supplied by hand by the owner (2026-11-15)",
+    "zcash-magazine": "supplied by hand by the owner (2026-11-15)",
+    "mastering-zcash": "the author's profile photo, supplied by the owner (2026-11-15): the book has no mark",
     "free2z": "supplied by hand: the 2Z mark from free2z.cash/docs, chosen over the site's favicon",
     "templar": "supplied by hand",
     "sapling-cash": "supplied by hand",

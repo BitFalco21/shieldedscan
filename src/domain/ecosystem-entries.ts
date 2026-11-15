@@ -986,4 +986,18 @@ export const ECOSYSTEM_ENTRIES: readonly EcosystemEntry[] = [
     url: "https://zec.info/",
     source: "curated directory of Zcash wallets, exchanges, tools and community projects",
   },
+  {
+    id: "zcash-magazine",
+    name: "Zcash Magazine",
+    category: "community",
+    url: "https://www.zcashmag.com/",
+    source: "independent quarterly print magazine on Zcash and financial privacy",
+  },
+  {
+    id: "mastering-zcash",
+    name: "Mastering Zcash",
+    category: "community",
+    url: "https://maxdesalle.com/mastering-zcash/",
+    source: "free long-form book on Zcash's privacy technology, by Maxime Desalle",
+  },
 ];
