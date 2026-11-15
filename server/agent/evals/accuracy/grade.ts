@@ -48,7 +48,7 @@ const NOT_FIGURES: RegExp[] = [
 
 /** The answer says the figure is not to be had, in any of the ways Zeno puts it. */
 const DECLINE =
-  /\b(?:not (?:available|measured|published|computed|recorded|public|knowable|stated|visible)|unavailable|unmeasured|unknown|can(?:no|')t (?:say|tell|state|see|be (?:seen|read|known))|isn't (?:public|recorded|visible|something)|no (?:figure|record|way to)|private|encrypted|hidden by design|does not record|doesn't record)\b/i;
+  /\b(?:not (?:available|measured|published|computed|recorded|public|knowable|stated|visible)|unavailable|unmeasured|unknown|can(?:no|')t (?:say|tell|state|see|be (?:seen|read|known))|(?:isn't|is not|not) (?:public|recorded|visible|something)|no (?:figure|record|way to)|private|encrypted|hidden by design|does not record|doesn't record)\b/i;
 
 /** Blank a span, keeping offsets so distances still mean characters of the answer. */
 const blank = (s: string) => " ".repeat(s.length);
@@ -220,6 +220,8 @@ export function matches(
       const scale = 10 ** token.decimals;
       const rounded = Math.round(truth * scale) / scale;
       const cut = Math.trunc(truth * scale) / scale;
+      // A decimal figure is rounded, never cut: 6.5943 is 6.59 or 6.6, not 6.5.
+      if (unit === "number") return Math.abs(token.value - rounded) < 0.5 / scale;
       return (
         Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
       );
@@ -276,6 +278,7 @@ function anchored<T extends { start: number; end: number }>(
   segment: string,
   anchor: RegExp,
   items: T[],
+  clauses = false,
 ): T[] {
   const found: T[] = [];
   const re = new RegExp(
@@ -288,7 +291,12 @@ function anchored<T extends { start: number; end: number }>(
     let best: T | null = null;
     let bestDistance = Infinity;
     for (const item of items) {
-      const distance = item.start >= a1 ? item.start - a1 : item.end <= a0 ? a0 - item.end : 0;
+      let distance = item.start >= a1 ? item.start - a1 : item.end <= a0 ? a0 - item.end : 0;
+      // For a ranking, an item across a clause break ("November had the most; October was
+      // close") belongs to the next statement, however near it sits.
+      const between =
+        item.start >= a1 ? segment.slice(a1, item.start) : segment.slice(item.end, a0);
+      if (clauses && /[;:—(]|,\s/.test(between)) distance += MAX_ANCHOR_DISTANCE / 2;
       if (distance < bestDistance) {
         best = item;
         bestDistance = distance;
@@ -311,51 +319,47 @@ export function gradeAnswer(
   const segments = segmentsOf(answer);
   const declined = DECLINE.test(answer);
 
-  if (unit === "name") {
-    // The first allowed name the answer mentions is its headline, wherever it is.
-    const choices = Object.entries(testCase.expect.choices ?? {});
-    const named: { key: string; at: number }[] = [];
-    for (const [key, pattern] of choices) {
-      const re = new RegExp(
-        pattern.source,
-        pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
-      );
-      for (const m of answer.matchAll(re)) named.push({ key, at: m.index! });
-    }
-    named.sort((a, b) => a.at - b.at);
-    if (named.length === 0) {
-      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no allowed name" };
-    }
-    if (named[0]!.key === expected) return { verdict: "CORRECT", detail: String(expected) };
-    const later = named.some((n) => n.key === expected);
-    return {
-      verdict: later ? "MIXED" : "WRONG",
-      detail: `headline ${named[0]!.key}${later ? "; truth only later" : `; truth ${String(expected)}`}`,
+  if (unit === "name" || unit === "day" || unit === "month") {
+    // A ranking answer names a winner and often a runner-up or context beside it ("October 25 had
+    // 19,299, second only to October 24, the busiest day"), so position alone says nothing. As for
+    // figures, a candidate is the item nearest a ranking word, in the sentence that carries it.
+    // A bare reply ("**October 2025**, with 12,575") carries no ranking word at all: only when no
+    // sentence has an anchored item is the first sentence's first item the headline.
+    const itemsOf = (s: string): { value: string; start: number; end: number }[] => {
+      if (unit === "day")
+        return daysOf(s).map((d) => ({ value: d.day, start: d.start, end: d.end }));
+      if (unit === "month") {
+        return monthsOf(s).map((d) => ({ value: d.month, start: d.start, end: d.end }));
+      }
+      const found: { value: string; start: number; end: number }[] = [];
+      for (const [key, pattern] of Object.entries(testCase.expect.choices ?? {})) {
+        const re = new RegExp(
+          pattern.source,
+          pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+        );
+        for (const m of s.matchAll(re)) {
+          found.push({ value: key, start: m.index!, end: m.index! + m[0].length });
+        }
+      }
+      return found.sort((a, b) => a.start - b.start);
     };
-  }
-
-  if (unit === "day" || unit === "month") {
-    // A ranking answer names the winner first and the runner-up after it, often in the same
-    // sentence and nearer the anchor word ("November had the most; October was close"). So every
-    // day or month in a sentence that carries the anchor is a candidate, in the order written.
-    // The first sentence counts too: a ranking answer often opens with the winner alone.
-    const re = new RegExp(anchor.source, anchor.flags.replace("g", ""));
-    const candidates = segments
-      .filter((s, index) => index === 0 || re.test(s))
-      .flatMap((s) =>
-        unit === "day" ? daysOf(s).map((d) => d.day) : monthsOf(s).map((d) => d.month),
-      );
+    const anchoredItems = segments.flatMap((s) =>
+      anchored(s, anchor, itemsOf(s), true).sort((a, b) => a.start - b.start),
+    );
+    const candidates = (
+      anchoredItems.length > 0 ? anchoredItems : itemsOf(segments[0] ?? "").slice(0, 1)
+    ).map((c) => c.value);
     if (candidates.length === 0) {
-      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored day" };
+      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: `no anchored ${unit}` };
     }
-    const hit = candidates.includes(String(expected));
-    const others = candidates.filter((d) => d !== expected);
     if (candidates[0] === expected) return { verdict: "CORRECT", detail: String(expected) };
-    if (hit) return { verdict: "MIXED", detail: `headline ${candidates[0]}; truth only later` };
-    const named = distractors.filter((c) => others.includes(String(truth[c])));
+    const named = distractors.filter((c) => candidates[0] === String(truth[c]));
+    if (candidates.includes(String(expected))) {
+      return { verdict: "MIXED", detail: `headline ${candidates[0]}; truth only later` };
+    }
     return {
       verdict: "WRONG",
-      detail: `said ${others.join(", ")}, truth ${String(expected)}${named.length ? `; equals ${named.join(", ")}` : ""}`,
+      detail: `said ${candidates.join(", ")}, truth ${String(expected)}${named.length ? `; equals ${named.join(", ")}` : ""}`,
     };
   }
 
@@ -372,9 +376,15 @@ export function gradeAnswer(
     const readable = tokens.filter(
       (t) => reads.includes(t.kind) && (unit !== "count" || t.decimals === 0),
     );
-    // A difference's inputs, stated before it, are not candidates for its headline.
-    const notInputs = readable.filter((t) => !isInput(t));
-    inputsSeen.push(...readable.filter(isInput));
+    // A difference's inputs, stated before it, are not candidates for its headline, unless the
+    // comparison word follows straight after ("55,678 more"): then that input is the claim.
+    const claimed = (t: Token) => {
+      const re = new RegExp(anchor.source, anchor.flags.replace("g", ""));
+      return re.test(s.slice(t.end, t.end + 12));
+    };
+    const setAside = (t: Token) => isInput(t) && !claimed(t);
+    const notInputs = readable.filter((t) => !setAside(t));
+    inputsSeen.push(...readable.filter(setAside));
     const near = anchored(s, anchor, notInputs).sort((a, b) => a.start - b.start);
     // A bare reply ("Two.") carries no anchor: an answer's first statement holding a single figure
     // of the unit is its headline.
@@ -410,16 +420,17 @@ export function gradeAnswer(
       : { verdict: "NO_FIGURE", detail: "neither a figure nor a decline" };
   }
 
-  if (candidates.length === 0 && inputsSeen.length > 0) {
-    return {
-      verdict: "WRONG",
-      detail: `stated only the inputs ${inputsSeen.map((t) => t.text).join(", ")}`,
-    };
-  }
   if (candidates.length === 0) {
     if (approx.length > 0)
       return { verdict: "APPROX", detail: approx.map((t) => t.text).join(", ") };
-    return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored figure" };
+    if (declined) return { verdict: "DECLINED", detail: "no anchored figure" };
+    if (inputsSeen.length > 0) {
+      return {
+        verdict: "WRONG",
+        detail: `stated only the inputs ${inputsSeen.map((t) => t.text).join(", ")}`,
+      };
+    }
+    return { verdict: "NO_FIGURE", detail: "no anchored figure" };
   }
   const asTruthUnit = (t: Token) => (t.kind === "zec" ? t.value * 1e8 : t.value);
   const slip = (t: Token) =>

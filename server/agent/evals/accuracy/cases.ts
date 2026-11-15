@@ -11,8 +11,16 @@ import type { AccuracyCase } from "./types";
  * or per block, and period truths read the day tables.
  *
  * Distractor columns are the figures a wrong answer is likely to state instead, so a WRONG names
- * the mistake. Days are text, `$n` parameters are bound, and nothing is spliced into the SQL.
+ * the mistake. Days are text and `$n` parameters are bound; the only text spliced into the SQL
+ * is this file's own constant dates.
  */
+
+/**
+ * A ranking word, whole words only ("recorded" is not "record"), and never the runner-up's
+ * ("next busiest", "second highest").
+ */
+const RANKING =
+  /(?<!next |second |second-)\b(?:most|busiest|highest|largest|biggest|peak|top|record|maximum|winner|led|leading)\b/i;
 
 /** A month's edges as `YYYY-MM-DD`, half-open. */
 const OCT = { from: "2026-10-01", to: "2026-11-01" };
@@ -37,7 +45,8 @@ function miningPoolChoices(): Record<string, RegExp> {
   return Object.fromEntries(
     Object.values(MINING_POOLS).map((p) => [
       p.id,
-      new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+      // Case-sensitive: "the largest ZEC mining pool" is prose, "ZEC Mining Pool" is a name.
+      new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`),
     ]),
   );
 }
@@ -173,7 +182,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "day",
       column: "day",
-      anchor: /most|busiest|highest|peak|top|record/i,
+      anchor: RANKING,
       label: "the busiest day",
       distractors: ["volume_day"],
     },
@@ -582,12 +591,17 @@ export const ACCURACY_CASES: AccuracyCase[] = [
                          FROM opendata.check_day_rollup
                         WHERE day >= '2025-01-01' AND day < '2026-01-01' GROUP BY 1)
             SELECT (SELECT month FROM m ORDER BY n DESC, month LIMIT 1) AS month,
-                   (SELECT month FROM m ORDER BY n DESC, month OFFSET 1 LIMIT 1) AS runner_up`,
+                   (SELECT month FROM m ORDER BY n DESC, month OFFSET 1 LIMIT 1) AS runner_up,
+                   (SELECT count(*) FROM m WHERE n = (SELECT max(n) FROM m))::int AS ties`,
+      derive: (row) => {
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} tie for the top`);
+        return row;
+      },
     },
     expect: {
       unit: "month",
       column: "month",
-      anchor: /most|highest|busiest|top|peak|record/i,
+      anchor: RANKING,
       label: "the most",
       distractors: ["runner_up"],
     },
@@ -613,7 +627,7 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     expect: {
       unit: "day",
       column: "day",
-      anchor: /most|busiest|highest|peak|top|record/i,
+      anchor: RANKING,
       label: "the busiest day",
       distractors: ["runner_up"],
     },
@@ -626,13 +640,18 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     truth: {
       sql: `WITH p AS (SELECT pool, sum(txs) AS n FROM opendata.check_day_pool_tx
                         WHERE day >= '${OCT.from}' AND day < '${OCT.to}' GROUP BY pool)
-            SELECT (SELECT pool FROM p ORDER BY n DESC, pool LIMIT 1) AS pool`,
+            SELECT (SELECT pool FROM p ORDER BY n DESC, pool LIMIT 1) AS pool,
+                   (SELECT count(*) FROM p WHERE n = (SELECT max(n) FROM p))::int AS ties`,
+      derive: (row) => {
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} tie for the top`);
+        return row;
+      },
     },
     expect: {
       unit: "name",
       column: "pool",
-      anchor: /\S/,
-      label: "the pool",
+      anchor: RANKING,
+      label: "the most",
       choices: SHIELDED_POOL_CHOICES,
     },
   },
@@ -644,33 +663,43 @@ export const ACCURACY_CASES: AccuracyCase[] = [
     independence: "base",
     truth: {
       sql: `${POOL_BLOCKS_SQL(SEP.from, SEP.to)}
-            SELECT (SELECT pool FROM per ORDER BY n DESC, pool LIMIT 1) AS pool`,
+            SELECT (SELECT pool FROM per ORDER BY n DESC, pool LIMIT 1) AS pool,
+                   (SELECT count(*) FROM per WHERE n = (SELECT max(n) FROM per))::int AS ties`,
+      derive: (row) => {
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} tie for the top`);
+        return row;
+      },
       params: () => registry(),
     },
     expect: {
       unit: "name",
       column: "pool",
-      anchor: /\S/,
-      label: "the pool",
+      anchor: RANKING,
+      label: "the most",
       choices: miningPoolChoices(),
     },
   },
   {
     id: "rank-sapling-peak-2025",
     area: "supply",
-    question: "On which day of 2025 did the Sapling pool hold the most ZEC?",
+    question: "On which day of 2025 was the Sapling pool's closing balance highest?",
     independence: "same-rollup",
     truth: {
       sql: `WITH d AS (SELECT day, sapling_pool_zat AS z FROM opendata.check_day_supply_close
                         WHERE day >= '2025-01-01' AND day < '2026-01-01')
             SELECT to_char((SELECT day FROM d ORDER BY z DESC, day LIMIT 1), 'YYYY-MM-DD') AS day,
                    to_char((SELECT day FROM d ORDER BY z DESC, day OFFSET 1 LIMIT 1), 'YYYY-MM-DD')
-                     AS runner_up`,
+                     AS runner_up,
+                   (SELECT count(*) FROM d WHERE z = (SELECT max(z) FROM d))::int AS ties`,
+      derive: (row) => {
+        if (row.ties !== 1) throw new Error(`${String(row.ties)} tie for the top`);
+        return row;
+      },
     },
     expect: {
       unit: "day",
       column: "day",
-      anchor: /most|highest|peak|top|record|largest|maximum/i,
+      anchor: RANKING,
       label: "the highest",
       distractors: ["runner_up"],
     },
@@ -782,6 +811,8 @@ export const ACCURACY_CASES: AccuracyCase[] = [
   {
     id: "zec-migration-october",
     area: "pools",
+    // Single-source migrations only: a migration from Orchard AND Sapling together publishes only
+    // the destination's balance, so Orchard's part of it cannot be separated.
     question: "How much ZEC moved from Orchard into Ironwood in October 2026?",
     independence: "same-rollup",
     truth: {

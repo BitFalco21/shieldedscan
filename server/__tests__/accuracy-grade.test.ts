@@ -326,7 +326,7 @@ describe("accuracy grader, round 2 units", () => {
         .verdict,
     ).toBe("CORRECT");
     expect(gradeAnswer(c, { pool: "ironwood" }, "Sapling led, with Ironwood second.").verdict).toBe(
-      "MIXED",
+      "WRONG",
     );
     const m = caseOf("rank-mining-pool-september");
     expect(gradeAnswer(m, { pool: "viabtc" }, "ViaBTC mined the most blocks.").verdict).toBe(
@@ -378,6 +378,103 @@ describe("accuracy grader, from round 2's live answers", () => {
     expect(
       gradeAnswer(c, row, "ViaBTC mined 11,826 blocks, more than Foundry USA's 5,939.").verdict,
     ).toBe("WRONG");
+  });
+});
+
+describe("accuracy grader, against the round-2 review's answers", () => {
+  const day = caseOf("rank-busiest-day-october");
+  const dayRow: TruthRow = { day: "2026-10-25", runner_up: "2026-10-24", ties: 1 };
+  const month = caseOf("rank-shielded-month-2025");
+  const monthRow: TruthRow = { month: "2025-10", runner_up: "2025-11" };
+  const pool = caseOf("rank-shielded-pool-october");
+  const miner = caseOf("rank-mining-pool-september");
+
+  it("never takes the right date mentioned as context for a wrong winner", () => {
+    for (const answer of [
+      "Unlike 2026-10-25, which had 19,299 including a spike, the busiest day was 2026-10-24.",
+      "October 25, 2026 had 19,299 transactions, second only to October 24, 2026, the busiest day.",
+      "I checked 2026-10-25 and its neighbours. The busiest day was 2026-10-24.",
+      "This explorer recorded 19,299 on 2026-10-25 and 18,896 on 2026-10-24. The busiest was 2026-10-24.",
+    ]) {
+      expect(gradeAnswer(day, dayRow, answer).verdict, answer).not.toBe("CORRECT");
+    }
+    for (const answer of [
+      "October 2025 had 12,575. November 2025 had the most with 13,000.",
+      "Looking at 2025-10 through 2025-12. The most was November 2025.",
+      "November 2025 had the most; October 2025 was close.",
+    ]) {
+      expect(gradeAnswer(month, monthRow, answer).verdict, answer).not.toBe("CORRECT");
+    }
+  });
+
+  it("still passes a winner named next to its ranking word, or alone", () => {
+    expect(
+      gradeAnswer(
+        day,
+        dayRow,
+        "2026-10-25, with 19,299. It is a unique maximum. For context, the next busiest days were 2026-10-24 at 18,896.",
+      ).verdict,
+    ).toBe("CORRECT");
+    expect(
+      gradeAnswer(month, monthRow, "January 2025 to December 2025. October 2025 had the most.")
+        .verdict,
+    ).toBe("CORRECT");
+  });
+
+  it("anchors a name to the ranking word, not to its first mention", () => {
+    for (const answer of [
+      "Ironwood's turnstile drained Orchard, but Sapling was used by the most transactions in October 2026.",
+      "Looking at Ironwood, Orchard, Sapling and Sprout: Sapling was used by the most transactions.",
+    ]) {
+      expect(gradeAnswer(pool, { pool: "ironwood" }, answer).verdict, answer).not.toBe("CORRECT");
+    }
+    for (const answer of [
+      "Not ViaBTC: F2Pool mined the most blocks in September 2026.",
+      "ViaBTC was second; F2Pool mined the most blocks.",
+    ]) {
+      expect(gradeAnswer(miner, { pool: "viabtc" }, answer).verdict, answer).not.toBe("CORRECT");
+    }
+    expect(
+      gradeAnswer(
+        miner,
+        { pool: "viabtc" },
+        "The largest ZEC mining pool in September 2026 was ViaBTC.",
+      ).verdict,
+    ).toBe("CORRECT");
+  });
+
+  it("keeps an input stated as the difference, and labels approximate and declined differences", () => {
+    const c = caseOf("cmp-shielding-sep-vs-aug");
+    const row: TruthRow = { sep: 55678, aug: 17374, n: 38304 };
+    expect(
+      gradeAnswer(
+        c,
+        row,
+        "September had 55,678 more shielding transactions than August — 38,304 more by the difference.",
+      ).verdict,
+    ).not.toBe("CORRECT");
+    const v = caseOf("cmp-viabtc-minus-foundry");
+    const vrow: TruthRow = { viabtc: 11826, foundry: 5939, n: 5887 };
+    expect(
+      gradeAnswer(
+        v,
+        vrow,
+        "ViaBTC mined 11,826 and Foundry 5,939; the gap is about 5.9 thousand more blocks.",
+      ).verdict,
+    ).toBe("APPROX");
+    expect(
+      gradeAnswer(
+        v,
+        vrow,
+        "ViaBTC mined 11,826 and Foundry 5,939; the difference is not something I can compute.",
+      ).verdict,
+    ).toBe("DECLINED");
+  });
+
+  it("rounds a decimal, never cuts it", () => {
+    const c = caseOf("derive-tx-per-block-october");
+    const row: TruthRow = { per_block: 6.5943, per_block_with_coinbase: 7.5943 };
+    expect(gradeAnswer(c, row, "6.5 transactions per block on average.").verdict).toBe("WRONG");
   });
 });
 
