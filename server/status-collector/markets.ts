@@ -46,10 +46,26 @@ export const DEX_TOKENS: readonly [string, string, string][] = [
   ["aptos-omni", "aptos", "0x261c85bc1bb5acc3ffcf769530c732d4182c3bbd84936d427125fcd4732e9879"],
 ];
 
+/** GET once, and once more after a 429, waiting what the venue asks (at most 60 s). */
+async function getJsonPolite(url: string): Promise<unknown> {
+  const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(20_000) });
+  if (res.status === 429) {
+    await res.body?.cancel();
+    const wait = Math.min(60, Number(res.headers.get("retry-after")) || 30);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+    return getJson(url);
+  }
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`http ${res.status}`);
+  }
+  return res.json();
+}
+
 /** The top pools holding one token, as GeckoTerminal reports them (USD, venue-computed). */
 export async function geckoPools(network: string, address: string): Promise<Row[]> {
   const body = obj(
-    await getJson(
+    await getJsonPolite(
       `https://api.geckoterminal.com/api/v2/networks/${network}/tokens/${address}/pools?page=1`,
     ),
     "body",
@@ -108,8 +124,18 @@ export async function hyperliquidZecBooks(): Promise<Row[]> {
 export interface CexVenue {
   id: string;
   ticker: () => Promise<Row[]>;
-  /** The last few closed daily candles: [day start (unix s), open, high, low, close, ZEC volume]. */
-  candles: () => Promise<(string | number)[][]>;
+  /** The last few daily candles, as given: [start (unix s), open, high, low, close, ZEC volume]. */
+  candles: () => Promise<Candle[]>;
+}
+
+export type Candle = (string | number)[];
+
+/**
+ * Only candles whose day has ended. Most venues include today's, still open, among the last few;
+ * storing it would record a partial day as a whole one.
+ */
+export function closedCandles(rows: Candle[], nowSec: number): Candle[] {
+  return rows.filter((r) => Number(r[0]) + 86_400 <= nowSec);
 }
 
 const n = (v: unknown): string => {
@@ -310,7 +336,7 @@ export const CEX: readonly CexVenue[] = [
     candles: async () => {
       const o = obj(
         await getJson(
-          "https://api.bitget.com/api/v2/spot/market/candles?symbol=ZECUSDT&granularity=1day&limit=4",
+          "https://api.bitget.com/api/v2/spot/market/candles?symbol=ZECUSDT&granularity=1Dutc&limit=4",
         ),
         "body",
       );

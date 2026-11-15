@@ -178,3 +178,18 @@ describe("streams", () => {
     expect(dayFile(new Date("2026-11-15T12:00:00Z"), "markets")).toBe("markets-2026-11-15.jsonl");
   });
 });
+
+describe("daily candles", () => {
+  it("keeps only days that have ended", async () => {
+    const { closedCandles } = await import("../status-collector/markets");
+    const now = Date.parse("2026-11-15T00:15:00Z") / 1000;
+    const rows = [
+      [Date.parse("2026-11-13T00:00:00Z") / 1000, "1", "1", "1", "1", "5"],
+      [Date.parse("2026-11-14T00:00:00Z") / 1000, "1", "1", "1", "1", "6"],
+      [Date.parse("2026-11-15T00:00:00Z") / 1000, "1", "1", "1", "1", "0.2"],
+      // A day that starts at 16:00 UTC ends at 16:00 the next day.
+      [Date.parse("2026-11-14T16:00:00Z") / 1000, "1", "1", "1", "1", "3"],
+    ];
+    expect(closedCandles(rows, now).map((r) => r[5])).toEqual(["5", "6"]);
+  });
+});

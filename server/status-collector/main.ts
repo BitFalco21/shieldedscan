@@ -6,7 +6,14 @@ import { gunzip, gzip } from "node:zlib";
 import { observeSeeder } from "./dns-seeders";
 import { grpcUnary } from "./grpc";
 import { parseBlockId, parseLightdInfo } from "./protobuf";
-import { CEX, DEX_TOKENS, coingeckoTickers, geckoPools, hyperliquidZecBooks } from "./markets";
+import {
+  CEX,
+  DEX_TOKENS,
+  closedCandles,
+  coingeckoTickers,
+  geckoPools,
+  hyperliquidZecBooks,
+} from "./markets";
 import { JSON_TARGETS, SEEDERS, WALLET_SERVERS, type JsonTarget } from "./targets";
 import {
   HOLDINGS,
@@ -260,11 +267,15 @@ async function observe(
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** GeckoTerminal allows about 30 calls a minute without a key: one token every four seconds. */
+/**
+ * GeckoTerminal answers about five quick calls without a key, then refuses: one token every
+ * 15 seconds, ten tokens in two and a half minutes.
+ */
 async function observeDexPools(): Promise<void> {
   for (const [id, network, address] of DEX_TOKENS) {
-    await record(await observe("dex", `geckoterminal:${id}`, () => geckoPools(network, address)));
-    await pause(4_000);
+    const o = await observe("dex", `geckoterminal:${id}`, () => geckoPools(network, address));
+    await record(o).catch(logWriteError);
+    await pause(15_000);
   }
 }
 
@@ -316,7 +327,10 @@ function marketsTick(minute: number): void {
   if (ofHour === AT.cex)
     for (const v of CEX) run("cex", v.id, () => observe("cex", v.id, v.ticker));
   if (ofDay === DAILY_AT.candles)
-    for (const v of CEX) run("cex-daily", v.id, () => observe("cex-daily", v.id, v.candles));
+    for (const v of CEX)
+      run("cex-daily", v.id, () =>
+        observe("cex-daily", v.id, async () => closedCandles(await v.candles(), Date.now() / 1000)),
+      );
   if (ofHour === AT.aggregate)
     run("cex-aggregate", "coingecko", () =>
       observe("cex-aggregate", "coingecko", coingeckoTickers),

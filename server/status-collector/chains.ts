@@ -86,32 +86,53 @@ export async function evmBalanceOf(
   return hexToDec(await rpc(RPC[chain], "eth_call", [{ to: token, data }, "latest"]));
 }
 
-/** SPL token supply. */
-export async function solanaSupply(mint: string): Promise<string> {
-  const r = (await rpc(RPC.solana, "getTokenSupply", [mint])) as { value?: { amount?: string } };
-  if (typeof r.value?.amount !== "string") throw new Error("solana: no amount");
-  return r.value.amount;
+/** SPL token supply, refused when the mint's decimals differ from `decimals`. */
+export async function solanaSupply(mint: string, decimals: number): Promise<string> {
+  const r = (await rpc(RPC.solana, "getTokenSupply", [mint])) as {
+    value?: { amount?: string; decimals?: number };
+  };
+  if (r.value?.decimals !== decimals)
+    throw new Error(`decimals: mint says ${r.value?.decimals}, list says ${decimals}`);
+  return digits(r.value.amount, "amount");
 }
 
-/** A NEAR view call, parsed as JSON. */
-export async function nearView(account: string, method: string, args: unknown): Promise<unknown> {
+/**
+ * A NEAR view call, parsed as JSON, with the block it was read at. Pass `blockHeight` to read
+ * several calls at one block, so a paged answer cannot change between pages.
+ */
+export async function nearViewAt(
+  account: string,
+  method: string,
+  args: unknown,
+  blockHeight?: number,
+): Promise<{ value: unknown; blockHeight: number }> {
   const r = (await rpc(RPC.near, "query", {
     request_type: "call_function",
-    finality: "final",
+    ...(blockHeight === undefined ? { finality: "final" } : { block_id: blockHeight }),
     account_id: account,
     method_name: method,
     args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-  })) as { result?: number[] };
+  })) as { result?: number[]; block_height?: number };
   if (!Array.isArray(r.result)) throw new Error("near: no result bytes");
-  return JSON.parse(Buffer.from(r.result).toString("utf8"));
+  if (typeof r.block_height !== "number") throw new Error("near: no block height");
+  return { value: JSON.parse(Buffer.from(r.result).toString("utf8")), blockHeight: r.block_height };
 }
 
+export async function nearView(account: string, method: string, args: unknown): Promise<unknown> {
+  return (await nearViewAt(account, method, args)).value;
+}
+
+const digits = (v: unknown, what: string): string => {
+  if (typeof v !== "string" || !/^\d+$/.test(v)) throw new Error(`unexpected shape: ${what}`);
+  return v;
+};
+
 export async function nearFtSupply(token: string): Promise<string> {
-  return String(await nearView(token, "ft_total_supply", {}));
+  return digits(await nearView(token, "ft_total_supply", {}), "ft_total_supply");
 }
 
 export async function nearFtBalance(token: string, account: string): Promise<string> {
-  return String(await nearView(token, "ft_balance_of", { account_id: account }));
+  return digits(await nearView(token, "ft_balance_of", { account_id: account }), "ft_balance_of");
 }
 
 /** Cairo `total_supply`, a u256 returned as [low, high]. */
@@ -145,13 +166,26 @@ export function hyperliquid(body: unknown): Promise<unknown> {
   return postJson(RPC.hyperliquid, body);
 }
 
-/** A Hyperliquid account's spot balance of one token, as a decimal string. */
+/**
+ * A Hyperliquid account's spot balance of one token, as a decimal string. An account that holds
+ * none of it throws: for an issuer's reserve that means the reserve moved, and reading it as 0
+ * would report the whole issue as outstanding.
+ */
 export async function hyperliquidBalance(user: string, coin: string): Promise<string> {
   const s = (await hyperliquid({ type: "spotClearinghouseState", user })) as {
     balances?: { coin: string; total: string }[];
   };
   if (!Array.isArray(s.balances)) throw new Error("hyperliquid: no balances");
-  return s.balances.find((b) => b.coin === coin)?.total ?? "0";
+  const b = s.balances.find((x) => x.coin === coin);
+  if (!b) throw new Error(`hyperliquid: ${user} holds no ${coin}`);
+  return b.total;
+}
+
+/** A Hyperliquid token's total supply (issued minus burned), as a decimal string. */
+export async function hyperliquidTotalSupply(tokenId: string): Promise<string> {
+  const d = (await hyperliquid({ type: "tokenDetails", tokenId })) as { totalSupply?: unknown };
+  if (typeof d.totalSupply !== "string") throw new Error("hyperliquid: no totalSupply");
+  return d.totalSupply;
 }
 
 /** `units` as an integer string scaled by `decimals`, from a decimal string like "123.45". */

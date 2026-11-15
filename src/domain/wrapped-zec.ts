@@ -402,8 +402,10 @@ export function wrappedToken(id: string): WrappedToken | undefined {
 }
 
 /**
- * Whether a token's supply is counted in a total. A token locked to issue another is counted once,
- * at the bottom: its locked balance is subtracted where the total is computed, never here.
+ * Whether a token's supply is counted at all. Totals are kept per status and never added across
+ * statuses: orphaned renZEC is counted under "orphaned", never as backed ZEC. A token locked to
+ * issue another is counted once, at the bottom: its locked balance is subtracted where a total is
+ * computed, never here.
  */
 export function countsTowardTotals(t: WrappedToken): boolean {
   return t.status !== "excluded";
