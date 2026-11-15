@@ -48,7 +48,7 @@ const NOT_FIGURES: RegExp[] = [
 
 /** The answer says the figure is not to be had, in any of the ways Zeno puts it. */
 const DECLINE =
-  /\b(?:not (?:available|measured|published|computed|recorded|public|knowable|stated|visible)|unavailable|unmeasured|unknown|can(?:no|')t (?:say|tell|state|see|be (?:seen|read|known))|isn't (?:public|recorded|visible|something)|no (?:figure|record|way to)|private|encrypted|hidden by design|does not record|doesn't record)\b/i;
+  /\b(?:not (?:available|measured|published|computed|recorded|public|knowable|stated|visible)|unavailable|unmeasured|unknown|can(?:no|')t (?:say|tell|state|see|be (?:seen|read|known))|(?:isn't|is not|not) (?:public|recorded|visible|something)|no (?:figure|record|way to)|private|encrypted|hidden by design|does not record|doesn't record)\b/i;
 
 /** Blank a span, keeping offsets so distances still mean characters of the answer. */
 const blank = (s: string) => " ".repeat(s.length);
@@ -141,6 +141,24 @@ export function tokensOf(segment: string, skip: ReadonlySet<string>): Token[] {
   return tokens;
 }
 
+/** Months written in a segment, as `YYYY-MM`: "October 2025", "Oct 2025", "2025-10". */
+export function monthsOf(segment: string): { month: string; start: number; end: number }[] {
+  const out: { month: string; start: number; end: number }[] = [];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const monthOf = (s: string) => MONTH_INDEX[s.slice(0, 3).toLowerCase()] ?? 0;
+  for (const m of segment.matchAll(new RegExp(`\\b(${MONTH}),? (\\d{4})\\b`, "gi"))) {
+    const mo = monthOf(m[1]!);
+    if (mo > 0)
+      out.push({ month: `${m[2]}-${pad(mo)}`, start: m.index!, end: m.index! + m[0].length });
+  }
+  for (const m of segment.matchAll(/\b(\d{4})-(\d{2})\b(?!-\d)/g)) {
+    const mo = Number(m[2]);
+    if (mo >= 1 && mo <= 12)
+      out.push({ month: `${m[1]}-${m[2]}`, start: m.index!, end: m.index! + m[0].length });
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
 /** Days written in a segment, as `YYYY-MM-DD`. */
 export function daysOf(segment: string): { day: string; start: number; end: number }[] {
   const out: { day: string; start: number; end: number }[] = [];
@@ -163,7 +181,7 @@ export function daysOf(segment: string): { day: string; start: number; end: numb
   )) {
     push(Number(m[3]), monthOf(m[2]!), Number(m[1]), m.index!, m.index! + m[0].length);
   }
-  return out;
+  return out.sort((a, b) => a.start - b.start);
 }
 
 const significantDigits = (text: string) => text.replace(/^-?0*\.?0*/, "").replace(".", "").length;
@@ -193,12 +211,17 @@ export function matches(
         Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
       );
     }
+    case "number":
     case "pct": {
-      if (token.kind !== "pct") return false;
+      if (token.kind !== (unit === "pct" ? "pct" : "plain")) return false;
+      // A decimal needs two significant digits to state anything.
+      if (unit === "number" && significantDigits(token.text) < 2) return false;
       // Rounded or cut at the decimals written, as for ZEC: "34%" does not state 33.26%.
       const scale = 10 ** token.decimals;
       const rounded = Math.round(truth * scale) / scale;
       const cut = Math.trunc(truth * scale) / scale;
+      // A decimal figure is rounded, never cut: 6.5943 is 6.59 or 6.6, not 6.5.
+      if (unit === "number") return Math.abs(token.value - rounded) < 0.5 / scale;
       return (
         Math.abs(token.value - rounded) < 0.5 / scale || Math.abs(token.value - cut) < 0.5 / scale
       );
@@ -211,6 +234,7 @@ export function matches(
 /** The kinds of written figure a unit reads. */
 const READS: Record<string, readonly TokenKind[]> = {
   count: ["plain"],
+  number: ["plain"],
   zec: ["zec", "zat"],
   pct: ["pct"],
   unmeasured: ["zec", "zat"],
@@ -254,6 +278,7 @@ function anchored<T extends { start: number; end: number }>(
   segment: string,
   anchor: RegExp,
   items: T[],
+  clauses = false,
 ): T[] {
   const found: T[] = [];
   const re = new RegExp(
@@ -266,7 +291,12 @@ function anchored<T extends { start: number; end: number }>(
     let best: T | null = null;
     let bestDistance = Infinity;
     for (const item of items) {
-      const distance = item.start >= a1 ? item.start - a1 : item.end <= a0 ? a0 - item.end : 0;
+      let distance = item.start >= a1 ? item.start - a1 : item.end <= a0 ? a0 - item.end : 0;
+      // For a ranking, an item across a clause break ("November had the most; October was
+      // close") belongs to the next statement, however near it sits.
+      const between =
+        item.start >= a1 ? segment.slice(a1, item.start) : segment.slice(item.end, a0);
+      if (clauses && /[;:—(]|,\s/.test(between)) distance += MAX_ANCHOR_DISTANCE / 2;
       if (distance < bestDistance) {
         best = item;
         bestDistance = distance;
@@ -289,35 +319,76 @@ export function gradeAnswer(
   const segments = segmentsOf(answer);
   const declined = DECLINE.test(answer);
 
-  if (unit === "day") {
-    const candidates = segments.flatMap((s) => anchored(s, anchor, daysOf(s))).map((d) => d.day);
+  if (unit === "name" || unit === "day" || unit === "month") {
+    // A ranking answer names a winner and often a runner-up or context beside it ("October 25 had
+    // 19,299, second only to October 24, the busiest day"), so position alone says nothing. As for
+    // figures, a candidate is the item nearest a ranking word, in the sentence that carries it.
+    // A bare reply ("**October 2025**, with 12,575") carries no ranking word at all: only when no
+    // sentence has an anchored item is the first sentence's first item the headline.
+    const itemsOf = (s: string): { value: string; start: number; end: number }[] => {
+      if (unit === "day")
+        return daysOf(s).map((d) => ({ value: d.day, start: d.start, end: d.end }));
+      if (unit === "month") {
+        return monthsOf(s).map((d) => ({ value: d.month, start: d.start, end: d.end }));
+      }
+      const found: { value: string; start: number; end: number }[] = [];
+      for (const [key, pattern] of Object.entries(testCase.expect.choices ?? {})) {
+        const re = new RegExp(
+          pattern.source,
+          pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+        );
+        for (const m of s.matchAll(re)) {
+          found.push({ value: key, start: m.index!, end: m.index! + m[0].length });
+        }
+      }
+      return found.sort((a, b) => a.start - b.start);
+    };
+    const anchoredItems = segments.flatMap((s) =>
+      anchored(s, anchor, itemsOf(s), true).sort((a, b) => a.start - b.start),
+    );
+    const candidates = (
+      anchoredItems.length > 0 ? anchoredItems : itemsOf(segments[0] ?? "").slice(0, 1)
+    ).map((c) => c.value);
     if (candidates.length === 0) {
-      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored day" };
+      return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: `no anchored ${unit}` };
     }
-    const hit = candidates.includes(String(expected));
-    const others = candidates.filter((d) => d !== expected);
     if (candidates[0] === expected) return { verdict: "CORRECT", detail: String(expected) };
-    if (hit) return { verdict: "MIXED", detail: `headline ${candidates[0]}; truth only later` };
-    const named = distractors.filter((c) => others.includes(String(truth[c])));
+    const named = distractors.filter((c) => candidates[0] === String(truth[c]));
+    if (candidates.includes(String(expected))) {
+      return { verdict: "MIXED", detail: `headline ${candidates[0]}; truth only later` };
+    }
     return {
       verdict: "WRONG",
-      detail: `said ${others.join(", ")}, truth ${String(expected)}${named.length ? `; equals ${named.join(", ")}` : ""}`,
+      detail: `said ${candidates.join(", ")}, truth ${String(expected)}${named.length ? `; equals ${named.join(", ")}` : ""}`,
     };
   }
 
   const reads = READS[unit]!;
   /** Candidates in answer order: the first is the headline. */
   const candidates: Token[] = [];
+  const inputsSeen: Token[] = [];
+  const isInput = (t: Token) =>
+    !matches(unit, t, expected) &&
+    (testCase.expect.inputs ?? []).some((c) => matches(unit, t, truth[c] ?? null));
   const approx: Token[] = [];
   segments.forEach((s, index) => {
     const tokens = tokensOf(masked(s, false), skip);
     const readable = tokens.filter(
       (t) => reads.includes(t.kind) && (unit !== "count" || t.decimals === 0),
     );
-    const near = anchored(s, anchor, readable).sort((a, b) => a.start - b.start);
+    // A difference's inputs, stated before it, are not candidates for its headline, unless the
+    // comparison word follows straight after ("55,678 more"): then that input is the claim.
+    const claimed = (t: Token) => {
+      const re = new RegExp(anchor.source, anchor.flags.replace("g", ""));
+      return re.test(s.slice(t.end, t.end + 12));
+    };
+    const setAside = (t: Token) => isInput(t) && !claimed(t);
+    const notInputs = readable.filter((t) => !setAside(t));
+    inputsSeen.push(...readable.filter(setAside));
+    const near = anchored(s, anchor, notInputs).sort((a, b) => a.start - b.start);
     // A bare reply ("Two.") carries no anchor: an answer's first statement holding a single figure
     // of the unit is its headline.
-    if (index === 0 && near.length === 0 && readable.length === 1) near.push(readable[0]!);
+    if (index === 0 && near.length === 0 && notInputs.length === 1) near.push(notInputs[0]!);
     candidates.push(...near);
     approx.push(
       ...anchored(
@@ -352,7 +423,14 @@ export function gradeAnswer(
   if (candidates.length === 0) {
     if (approx.length > 0)
       return { verdict: "APPROX", detail: approx.map((t) => t.text).join(", ") };
-    return { verdict: declined ? "DECLINED" : "NO_FIGURE", detail: "no anchored figure" };
+    if (declined) return { verdict: "DECLINED", detail: "no anchored figure" };
+    if (inputsSeen.length > 0) {
+      return {
+        verdict: "WRONG",
+        detail: `stated only the inputs ${inputsSeen.map((t) => t.text).join(", ")}`,
+      };
+    }
+    return { verdict: "NO_FIGURE", detail: "no anchored figure" };
   }
   const asTruthUnit = (t: Token) => (t.kind === "zec" ? t.value * 1e8 : t.value);
   const slip = (t: Token) =>
@@ -362,8 +440,8 @@ export function gradeAnswer(
     if (equals.length > 0) return `${t.text} = ${equals.join("/")}`;
     return slip(t) ? `${t.text} misquote` : t.text;
   };
-  const [headline, ...rest] = candidates as [Token, ...Token[]];
   const hit = (t: Token) => matches(unit, t, expected);
+  const [headline, ...rest] = candidates as [Token, ...Token[]];
   if (hit(headline)) {
     const competing = rest.filter((t) => !hit(t) && slip(t));
     if (competing.length > 0) {
