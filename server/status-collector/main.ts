@@ -253,16 +253,35 @@ async function observe(
 ): Promise<Observation> {
   const started = Date.now();
   const t = new Date(started).toISOString();
-  try {
-    const data = await fn();
-    return { t, kind, id, ok: true, ms: Date.now() - started, data };
-  } catch (err) {
-    const e = err as Error;
-    const cause = (e.cause as { code?: string } | undefined)?.code;
-    const error =
-      e.name === "TimeoutError" ? "timeout" : [e.message, cause].filter(Boolean).join(": ");
-    return { t, kind, id, ok: false, ms: Date.now() - started, error };
+  const attempt = async (): Promise<{ data: unknown } | { error: string }> => {
+    try {
+      return { data: await fn() };
+    } catch (err) {
+      const e = err as Error;
+      const cause = (e.cause as { code?: string } | undefined)?.code;
+      return {
+        error:
+          e.name === "TimeoutError" ? "timeout" : [e.message, cause].filter(Boolean).join(": "),
+      };
+    }
+  };
+  let result = await attempt();
+  // A network error from the server is retried once, ten seconds later; an answer that came back
+  // wrong (bad shape, a venue error, an HTTP status) is recorded as it is.
+  if ("error" in result && isNetworkError(result.error)) {
+    await pause(10_000);
+    const second = await attempt();
+    result = "error" in second ? { error: `${second.error} (after retry)` } : second;
   }
+  const ms = Date.now() - started;
+  return "error" in result
+    ? { t, kind, id, ok: false, ms, error: result.error }
+    : { t, kind, id, ok: true, ms, data: result.data };
+}
+
+/** Errors that say the request never got an answer, not that the answer was wrong. */
+export function isNetworkError(error: string): boolean {
+  return /^timeout$|^fetch failed|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|UND_ERR/.test(error);
 }
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
