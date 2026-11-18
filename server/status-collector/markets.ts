@@ -28,7 +28,10 @@ const arr = (b: unknown, what: string): Row[] => {
   return b.filter((x): x is Row => x !== null && typeof x === "object");
 };
 
-/** Listed ZEC tokens whose pools GeckoTerminal indexes: [token id, GeckoTerminal network, address]. */
+/**
+ * Listed ZEC tokens whose pools GeckoTerminal indexes: [token id, GeckoTerminal network, address].
+ * Aptos's Omni ZEC is not indexed there (404), so it is not asked.
+ */
 export const DEX_TOKENS: readonly [string, string, string][] = [
   ["solana-omni", "solana", "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS"],
   ["solana-zenzec", "solana", "JDt9rRGaieF6aN1cJkXFeUmsy7ZE4yY3CZb8tVMXVroS"],
@@ -43,7 +46,6 @@ export const DEX_TOKENS: readonly [string, string, string][] = [
     "0x05ce53b9b68fb8e9ecab9283a96d97948914733fd6ed8d9a53a276a419497841",
   ],
   ["ethereum-renzec", "eth", "0x1c5db575e2ff833e46a2e9864c22f4b22e0b37c2"],
-  ["aptos-omni", "aptos", "0x261c85bc1bb5acc3ffcf769530c732d4182c3bbd84936d427125fcd4732e9879"],
 ];
 
 /** GET once, and once more after a 429, waiting what the venue asks (at most 60 s). */

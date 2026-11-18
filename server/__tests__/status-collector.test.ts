@@ -193,3 +193,24 @@ describe("daily candles", () => {
     expect(closedCandles(rows, now).map((r) => r[5])).toEqual(["5", "6"]);
   });
 });
+
+describe("retries", () => {
+  it("retries only errors where no answer came back", async () => {
+    const { isNetworkError } = await import("../status-collector/main");
+    for (const e of [
+      "timeout",
+      "fetch failed: ETIMEDOUT",
+      "fetch failed: EAI_AGAIN",
+      "fetch failed: UND_ERR_CONNECT_TIMEOUT",
+    ])
+      expect(isNetworkError(e), e).toBe(true);
+    for (const e of [
+      "http 404",
+      "http 429",
+      "venue error: x",
+      "unexpected shape: data",
+      "decimals: contract says 8, list says 18",
+    ])
+      expect(isNetworkError(e), e).toBe(false);
+  });
+});
