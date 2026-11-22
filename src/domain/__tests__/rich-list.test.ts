@@ -56,7 +56,8 @@ describe("address labels", () => {
     );
     expect(addressLabel("t3hdTwzcVVGEqDdNKJTBfWvWyaFYNJv7KkA")?.name).toBe("Gemini Custody");
     expect(addressLabel("t1XP8Pjju5eMYVfXiFNNjkjY8kt5ZLL4maJ")?.name).toBe("Binance");
-    expect(Object.keys(ADDRESS_LABELS)).toHaveLength(45);
+    expect(addressLabel("t1SzbuFRuPa5upV6c9ZgKb9V7fxn2b8NAKg")?.name).toBe("Binance Hot Wallet");
+    expect(Object.keys(ADDRESS_LABELS)).toHaveLength(46);
   });
 
   it("labels the Bitget exploit addresses the owner supplied", () => {
