@@ -135,3 +135,44 @@ describe("HomeLivePanels block ordering", () => {
     expect(renderedHeights()).toHaveLength(server.length);
   });
 });
+
+describe("HomeLivePanels after a render that could not read a list", () => {
+  // The homepage render is shared from the edge cache, so one that hit a slow moment upstream is
+  // served to every reader until it is replaced. The feed must fill the panel meanwhile.
+  it("says unavailable until a poll lands, then shows the newest rows at the panel's size", async () => {
+    const polled = newestFirst.slice(0, 10);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => payloadWith(polled) } as Response),
+    );
+
+    render(
+      <HomeLivePanels
+        latestBlocks={null}
+        latestTxs={[]}
+        latestTransfers={[]}
+        now={polled[0]!.timestamp}
+      />,
+    );
+
+    expect(screen.getByText(/The latest blocks could not be read just now/)).toBeDefined();
+    await waitFor(() => expect(renderedHeights()).toEqual(polled.slice(0, 8).map((b) => b.height)));
+    expect(screen.queryByText(/The latest blocks could not be read just now/)).toBeNull();
+  });
+
+  it("stays unavailable while the feed has nothing either", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() => new Promise(() => {})),
+    );
+    render(
+      <HomeLivePanels
+        latestBlocks={null}
+        latestTxs={[]}
+        latestTransfers={[]}
+        now={newestFirst[0]!.timestamp}
+      />,
+    );
+    expect(screen.getByText(/The latest blocks could not be read just now/)).toBeDefined();
+  });
+});
