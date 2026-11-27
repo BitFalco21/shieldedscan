@@ -617,4 +617,29 @@ describeDb("label flows", () => {
       400 - REORG_DEPTH,
     );
   });
+
+  it("reclassifies everything after a writer that does not classify stored a transaction", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    await tx(10, [{ io: "out", address: "xB", value: 5 }]);
+    await flowTracker(["xB"], g).refresh();
+    const done = async () =>
+      (await pool.query<{ done: boolean }>("SELECT done FROM label_flow_derive")).rows[0]!.done;
+    expect(await done()).toBe(true);
+    // The tracker's own writes leave it alone.
+    await tx(20, [{ io: "out", address: "xB", value: 7 }]);
+    await chain2(401, 450);
+    await flowTracker(["xB"], g).refresh();
+    expect(await done()).toBe(true);
+    // An older image after a rollback writes rows and no flows.
+    await pool.query(
+      `INSERT INTO label_flow_tx (txid, block_height, timestamp, unlabelled_in_zat, unlabelled_out_zat)
+       VALUES ('old-writer', 30, 0, 0, 0)`,
+    );
+    expect(await done()).toBe(false);
+    expect((await labelFlowReadiness(pool, ["xB"], g, "1"))?.caps.get("binance")).toBe(-1);
+    await pool.query("DELETE FROM label_flow_tx WHERE txid = 'old-writer'");
+    await flowTracker(["xB"], g).refresh();
+    expect(await done()).toBe(true);
+  });
 });

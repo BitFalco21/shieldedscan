@@ -355,7 +355,9 @@ describe("every private route Zeno reads is published, or says why not", () => {
         if (!result.content.startsWith("invalid arguments")) accepted.push({ tool, args });
       }
     }
-  });
+    // Every tool and every enum value, in process: ~5 s alone, well past 10 s under a full
+    // parallel run, where the default bound failed it while every dispatch succeeded.
+  }, 60_000);
 
   it("dispatches every tool, and every value of each required enum, at least once", () => {
     const missed: string[] = [];
