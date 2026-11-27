@@ -30,6 +30,11 @@ interface Case {
   status: 200 | 500;
   /** What the section shows once the read works again. */
   recovered?: (page: Page) => Promise<void>;
+  /**
+   * The section fills itself from the live feed, so in the browser the unavailable panel is
+   * replaced without a retry; the server's HTML still carries it (`answers 200`).
+   */
+  liveFills?: (page: Page) => Promise<void>;
 }
 
 const CASES: Case[] = [
@@ -112,6 +117,9 @@ const CASES: Case[] = [
     kept: async (page) => {
       await expect(page.getByText("LATEST TRANSACTIONS")).toBeVisible();
     },
+    liveFills: async (page) => {
+      await expect(page.locator('a[href^="/block/"]').first()).toBeVisible();
+    },
   },
   {
     name: "miners-nsm",
@@ -158,6 +166,22 @@ for (const c of CASES) {
       // A degraded section is in the server's HTML, not only in what the browser builds.
       if (c.status === 200) expect(await res.text()).toContain("could not be read just now");
     });
+
+    if (c.liveFills) {
+      const liveFills = c.liveFills;
+      for (const size of WIDTHS) {
+        test(`fills the section from the live feed at ${size.name} width`, async ({ page }) => {
+          await page.setViewportSize({ width: size.width, height: size.height });
+          await page.goto(c.url);
+          await settleLayout(page);
+          await liveFills(page);
+          await expect(page.getByText(c.unavailable)).toHaveCount(0);
+          await c.kept(page);
+          expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+        });
+      }
+      return;
+    }
 
     for (const size of WIDTHS) {
       test(`renders the rest of the page at ${size.name} width, with a reachable retry`, async ({
