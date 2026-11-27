@@ -23,16 +23,17 @@ describe("AddressLink", () => {
     expect(screen.queryByText(/t1gsBr/)).toBeNull();
   });
 
-  it("marks a name with the tag icon, and an elided address without one", () => {
+  it("marks an exchange's name with its logo, and an elided address with nothing", () => {
     const { container, unmount } = render(<AddressLink address={LABELLED} />);
-    const icon = container.querySelector("[data-label-icon]");
-    expect(icon).not.toBeNull();
+    const icon = container.querySelector("img[data-label-logo]");
+    expect(icon?.getAttribute("src")).toBe("/ecosystem/logos/binance.png");
+    expect(container.querySelector("[data-label-icon]")).toBeNull();
     // Decorative: the link's accessible name stays the name alone.
     expect(icon?.getAttribute("aria-hidden")).toBe("true");
     expect(screen.getByRole("link", { name: "Binance Cold Wallet" })).toBeDefined();
     unmount();
     const bare = render(<AddressLink address={UNLABELLED} />);
-    expect(bare.container.querySelector("[data-label-icon]")).toBeNull();
+    expect(bare.container.querySelector("img, [data-label-icon]")).toBeNull();
   });
 
   it("keeps the full address reachable as the link's title", () => {

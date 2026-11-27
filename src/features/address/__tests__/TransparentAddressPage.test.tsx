@@ -91,10 +91,10 @@ describe("the name-tag chip", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(named.address);
   });
 
-  it("puts the tag icon before the name", () => {
+  it("puts the exchange's logo before the name", () => {
     const { container } = renderNamed();
     const chip = container.querySelector("[data-name-tag]");
-    expect(chip?.firstElementChild?.hasAttribute("data-label-icon")).toBe(true);
+    expect(chip?.firstElementChild?.getAttribute("src")).toBe("/ecosystem/logos/binance.png");
     expect(chip?.textContent).toBe("Binance Cold Wallet");
   });
 

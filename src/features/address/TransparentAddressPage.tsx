@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { DIRECTION_COLUMN, TxDirectionCell } from "@/components/TxDirectionCell";
 import { KindPill } from "@/components/KindPill";
-import { LabelIcon } from "@/components/LabelIcon";
+import { AddressLabelMark } from "@/components/AddressLabelMark";
 import { MiningPoolMark } from "@/components/MiningPoolMark";
 import { StatCard } from "@/components/StatCard";
 import { StatGrid } from "@/components/StatGrid";
@@ -172,7 +172,11 @@ export function TransparentAddressPage({
               mark={<MiningPoolMark miningPool={miningPool} />}
             />
           ) : label ? (
-            <AddressNotes name={label.name} mark={<LabelIcon />} flag={label.flag} />
+            <AddressNotes
+              name={label.name}
+              mark={<AddressLabelMark label={label} />}
+              flag={label.flag}
+            />
           ) : undefined
         }
         lede="Transparent addresses are fully public — balances and history below are visible to everyone, exactly like Bitcoin. For privacy, Zcash offers shielded addresses."

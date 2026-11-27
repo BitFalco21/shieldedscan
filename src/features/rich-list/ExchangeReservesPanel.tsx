@@ -1,5 +1,6 @@
 import Link from "@/components/Link";
 import { EXCHANGE_NAMES, type ExchangeReserveSummary } from "@/domain";
+import { EcosystemLogo } from "@/components/EcosystemLogo";
 import { DataUnavailable } from "@/components/DataUnavailable";
 import { FlushEnd } from "@/components/FlushEnd";
 import { Panel } from "@/components/Panel";
@@ -65,7 +66,10 @@ export function ExchangeReservesPanel({ summary }: ExchangeReservesPanelProps) {
             {summary.rows.map((r) => (
               <tr key={r.exchange} className="hairline-b last:border-0">
                 <td className="text-ink-dim max-sm:pe-0">
-                  {EXCHANGE_NAMES[r.exchange]}
+                  <span className="inline-flex items-center gap-1.5 align-top">
+                    <EcosystemLogo logo={r.exchange} />
+                    {EXCHANGE_NAMES[r.exchange]}
+                  </span>
                   {/* The address count, which the hidden column carries from `sm`. */}
                   <span className="block text-xs text-ink-faint sm:hidden">
                     {` ${formatCount(r.addresses)} addresses`}

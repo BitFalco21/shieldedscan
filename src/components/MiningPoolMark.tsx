@@ -1,4 +1,5 @@
 import type { MiningPool } from "@/domain";
+import { EcosystemLogo } from "@/components/EcosystemLogo";
 import { LabelIcon } from "@/components/LabelIcon";
 
 export interface MiningPoolMarkProps {
@@ -17,18 +18,5 @@ export function MiningPoolMark({ miningPool, className = "" }: MiningPoolMarkPro
   if (miningPool.logo === null) {
     return <LabelIcon className={`text-green-dim ${className}`.trim()} />;
   }
-  return (
-    // A committed 64 px icon from our own origin: next/image would add a loader round trip for
-    // a file that is already small.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`/ecosystem/logos/${miningPool.logo}.png`}
-      alt=""
-      aria-hidden
-      width={16}
-      height={16}
-      data-mining-pool-logo
-      className={`h-4 w-4 shrink-0 rounded-sm ${className}`.trim()}
-    />
-  );
+  return <EcosystemLogo logo={miningPool.logo} data-mining-pool-logo className={className} />;
 }
