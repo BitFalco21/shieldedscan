@@ -2,7 +2,7 @@ import Link from "@/components/Link";
 import { addressLabel, miningPoolOf } from "@/domain";
 import { CopyButton } from "@/components/CopyButton";
 import { HashLink } from "@/components/HashLink";
-import { LabelIcon } from "@/components/LabelIcon";
+import { AddressLabelMark } from "@/components/AddressLabelMark";
 import { MiningPoolMark } from "@/components/MiningPoolMark";
 
 export interface AddressLinkProps {
@@ -44,7 +44,8 @@ export function AddressLink({
   asMiner = false,
 }: AddressLinkProps) {
   const miningPool = asMiner ? miningPoolOf(address) : null;
-  const name = miningPool?.name ?? addressLabel(address)?.name;
+  const label = miningPool ? null : addressLabel(address);
+  const name = miningPool?.name ?? label?.name;
   if (name === undefined) {
     return (
       <HashLink
@@ -59,12 +60,12 @@ export function AddressLink({
   // Mirrors HashLink's wrapper: as two siblings under a `justify-between` parent, the link and
   // its copy button would spread to opposite ends of the row.
   return (
-    <span className="inline-flex min-w-0 items-center">
+    <span className="inline-flex min-w-0 items-center align-top">
       {miningPool ? (
         <MiningPoolMark miningPool={miningPool} className="mr-1.5" />
-      ) : (
-        <LabelIcon className="mr-1 text-green-dim" />
-      )}
+      ) : label ? (
+        <AddressLabelMark label={label} className="mr-1.5 text-green-dim" />
+      ) : null}
       <Link
         href={`/address/${address}`}
         title={address}

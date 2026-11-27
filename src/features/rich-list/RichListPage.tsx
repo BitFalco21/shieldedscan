@@ -22,7 +22,7 @@ import {
   shortHash,
 } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
-import { LabelIcon } from "@/components/LabelIcon";
+import { AddressLabelMark } from "@/components/AddressLabelMark";
 
 export interface RichListPageProps {
   entries: RichListEntry[];
@@ -286,8 +286,8 @@ function NameTag({ address }: { address: string }) {
   const label = addressLabel(address);
   if (!label) return null;
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <LabelIcon />
+    <span className="inline-flex items-center gap-1.5 align-top">
+      <AddressLabelMark label={label} />
       {label.name}
     </span>
   );

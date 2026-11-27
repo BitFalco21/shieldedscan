@@ -371,3 +371,39 @@ export const ADDRESS_LABELS: Readonly<Record<string, AddressLabel>> = {
 export function addressLabel(address: string): AddressLabel | null {
   return ADDRESS_LABELS[address] ?? null;
 }
+
+/**
+ * The logo drawn before each label name: the id of a committed icon under
+ * `public/ecosystem/logos/` (the reviewed files `/ecosystem` serves), or null for the neutral tag
+ * glyph. Decided by hand for every name in `ADDRESS_LABELS`; a test fails on a name missing here.
+ * Null where no single organisation's mark fits: a multisig of three, or a firm with no reviewed
+ * icon.
+ */
+export const LABEL_LOGOS: Readonly<Record<string, string | null>> = {
+  Binance: "binance",
+  "Binance Cold Wallet": "binance",
+  "Binance Hot Wallet": "binance",
+  Coinbase: "coinbase",
+  "Coinbase Cold Wallet": "coinbase",
+  "Coinbase Prime Custody": "coinbase",
+  "Gemini Cold Wallet": "gemini",
+  "Gemini Custody": "gemini",
+  "Kraken Cold Wallet": "kraken",
+  "Kraken Deposit": "kraken",
+  "Kraken Hot Wallet": "kraken",
+  "Grayscale Zcash Trust": "grayscale-zcash-etf",
+  "NEAR Intents Bridge Hot Wallet": "near-intents",
+  "Hyperunit Hot Wallet": null,
+  "ZIP-271 Disbursement Multisig": null,
+  "BitGet Exploit Sept 2026": null,
+  "DPRK attackers": null,
+};
+
+/**
+ * The logo for a label, or null for the tag glyph. A theft-flagged address never takes one:
+ * Bitget's mark beside "BitGet Exploit" would read as Bitget's own wallet.
+ */
+export function addressLabelLogo(label: AddressLabel): string | null {
+  if (label.flag !== undefined) return null;
+  return LABEL_LOGOS[label.name] ?? null;
+}

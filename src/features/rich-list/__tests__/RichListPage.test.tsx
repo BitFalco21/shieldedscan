@@ -117,17 +117,16 @@ describe("the NAME TAG column", () => {
     expect(nameTagCell(container, unlabelled).querySelector("[data-label-icon]")).toBeNull();
   });
 
-  it("puts the tag icon before every name", () => {
+  it("puts a mark before every name: the organisation's logo, or the tag icon", () => {
     const { container } = renderAt();
     const named = bodyRows(container)
       .map((r) => nameTagCell(container, r))
       .filter((cell) => cell.textContent?.trim());
     expect(named.length).toBeGreaterThan(0);
     for (const cell of named) {
-      const tag = cell.firstElementChild;
-      expect(tag?.firstElementChild?.hasAttribute("data-label-icon"), cell.textContent ?? "").toBe(
-        true,
-      );
+      const mark = cell.firstElementChild?.firstElementChild;
+      const isMark = !!mark?.matches("[data-label-icon], img[data-label-logo]");
+      expect(isMark, cell.textContent ?? "").toBe(true);
     }
   });
 
