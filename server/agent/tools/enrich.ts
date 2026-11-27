@@ -1117,3 +1117,27 @@ export function withLastReservePoint(payload: unknown): unknown {
     ...(unknowns === null ? {} : { unknowns: remapped }),
   };
 }
+
+/**
+ * An ungrouped exchange-flows read: the window's totals alone. The per-period points are what a
+ * grouped read asks for; their `unknowns` keys go with them, so no reason names a missing point.
+ */
+export function withoutFlowPoints(payload: unknown): unknown {
+  const body = asRecord(payload);
+  const data = asRecord(body?.data);
+  if (body === null || data === null) return payload;
+  const { points: _points, ...rest } = data;
+  void _points;
+  const unknowns = asRecord(body.unknowns);
+  return {
+    ...body,
+    data: rest,
+    ...(unknowns === null
+      ? {}
+      : {
+          unknowns: Object.fromEntries(
+            Object.entries(unknowns).filter(([key]) => !key.startsWith("data.points.")),
+          ),
+        }),
+  };
+}

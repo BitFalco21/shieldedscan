@@ -17,6 +17,7 @@ import {
 import { MAX_DAY_BUCKETS } from "../../v1/params";
 import { V1_TRANSPARENT_PATH } from "../../v1/transparent-series";
 import { V1_COIN_AGE_PATH } from "../../v1/coin-age";
+import { V1_EXCHANGE_FLOWS_PATH, V1_EXCHANGE_MOVEMENTS_PATH } from "../../v1/exchange-flows";
 import { V1_EXCHANGE_RESERVES_PATH } from "../../v1/exchange-reserves";
 import { type ToolArgs, windowDays } from "./args";
 import {
@@ -32,6 +33,7 @@ import {
   withRanking,
   withThroughput,
   withLastReservePoint,
+  withoutFlowPoints,
 } from "./enrich";
 import { isOneOf, orList } from "./json";
 import {
@@ -41,6 +43,7 @@ import {
   CHAIN_WINDOW_NOTE,
   CHAIN_WINDOW_RANKED_NOTE,
   BLOCK_ARRIVAL_NOTE,
+  EXCHANGE_FLOWS_NOTE,
   EXCHANGE_RESERVES_NOTE,
   MINERS_NOTE,
   MINING_POOLS_NOTE,
@@ -77,6 +80,7 @@ import {
   verifyCoinAgeEcho,
   verifyMinersEcho,
   verifyMiningEcho,
+  verifyExchangeMovementsEcho,
   verifyExchangeReservesEcho,
   verifySeriesEcho,
   verifyTransparentEcho,
@@ -519,6 +523,48 @@ export function chainActivityCalls(
             emptyIsAnAnswer: true,
             ...(groupBy === "none" ? { enrich: withLastReservePoint } : {}),
             verify: (payload) => verifyExchangeReservesEcho(payload, days, interval, exchange),
+          },
+        },
+      ];
+    }
+    case "exchange-flows": {
+      // The public `/v1/labels/exchanges/flows` and `/movements` in one call: the window's totals
+      // (per period with groupBy) and its largest single movements beside them.
+      const days = windowDays(args, nowMs);
+      if (typeof days === "string") return days;
+      const groupBy = str("groupBy") ?? "none";
+      if (!isOneOf(WINDOW_GROUP_BY, groupBy)) return `groupBy must be ${orList(WINDOW_GROUP_BY)}`;
+      const exchange = str("exchange");
+      if (exchange !== null && !isOneOf(EXCHANGES, exchange)) {
+        return `exchange must be ${orList(EXCHANGES)}`;
+      }
+      const interval = groupBy === "day" ? "day" : "month";
+      const window = new URLSearchParams();
+      if (days.from !== null) window.set("from", days.from);
+      if (days.to !== null) window.set("to", days.to);
+      if (exchange !== null) window.set("exchange", exchange);
+      const flows = new URLSearchParams(window);
+      flows.set("interval", interval);
+      const movements = new URLSearchParams(window);
+      movements.set("limit", "5");
+      return [
+        {
+          path: `${V1_EXCHANGE_FLOWS_PATH}?${flows.toString()}`,
+          surface: "v1",
+          aggregate: {
+            note: EXCHANGE_FLOWS_NOTE,
+            emptyIsAnAnswer: true,
+            ...(groupBy === "none" ? { enrich: withoutFlowPoints } : {}),
+            verify: (payload) => verifyExchangeReservesEcho(payload, days, interval, exchange),
+          },
+        },
+        {
+          path: `${V1_EXCHANGE_MOVEMENTS_PATH}?${movements.toString()}`,
+          surface: "v1",
+          aggregate: {
+            note: EXCHANGE_FLOWS_NOTE,
+            emptyIsAnAnswer: true,
+            verify: (payload) => verifyExchangeMovementsEcho(payload, days, exchange),
           },
         },
       ];

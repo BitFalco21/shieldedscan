@@ -165,6 +165,11 @@ const CALLS: { tool: ToolName; args: Record<string, unknown> }[] = [
   { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "kucoin" } },
   { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "bitget" } },
   { tool: "chain_activity", args: { mode: "exchange-reserves", exchange: "gate" } },
+  { tool: "chain_activity", args: { mode: "exchange-flows", lastDays: 30 } },
+  {
+    tool: "chain_activity",
+    args: { mode: "exchange-flows", exchange: "binance", lastDays: 30, groupBy: "day" },
+  },
   {
     tool: "chain_activity",
     args: { mode: "transparent", from: "2026-07-01", to: "2026-08-01", groupBy: "day" },

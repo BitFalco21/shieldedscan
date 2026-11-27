@@ -39,6 +39,8 @@ const REACHED_BY: Readonly<Record<string, Reach>> = {
   // The same names, sources, balances and ranks, read from the private route beside the label table.
   labels: { tool: "site_guide", via: "labels" },
   "exchange-reserves": { tool: "chain_activity", via: "exchange-reserves" },
+  "exchange-flows": { tool: "chain_activity", via: "exchange-flows" },
+  "exchange-movements": { tool: "chain_activity", via: "exchange-flows" },
   descriptor: { tool: "site_guide", via: "api" },
   status: { tool: "chain_status", via: "status" },
   // The same committed corpus, served from the same module.
