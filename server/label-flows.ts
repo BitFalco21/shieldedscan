@@ -48,6 +48,8 @@ export async function rewriteTransactions(
   groupOf: GroupOf = labelGroupOf,
 ): Promise<void> {
   if (txids.length === 0) return;
+  // This writer classifies what it writes (see the label_flow_tx_written trigger).
+  await client.query("SET LOCAL label_flow.flows = 'on'");
   await client.query("DELETE FROM label_flow_io WHERE txid = ANY($1::text[])", [txids]);
   await client.query("DELETE FROM label_flow_tx WHERE txid = ANY($1::text[])", [txids]);
   await client.query(

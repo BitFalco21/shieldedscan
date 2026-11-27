@@ -527,6 +527,19 @@ CREATE TABLE IF NOT EXISTS label_flow_derive (
 -- changes before it is done restarts it, so it never ends with heights classified two ways.
 ALTER TABLE label_flow_derive ADD COLUMN IF NOT EXISTS groups TEXT;
 
+-- A transaction written without its flows (by an image older than `label_flow_flow`, after a
+-- rollback) would read as classified. Every writer that classifies sets `label_flow.flows` for its
+-- transaction; any other insert sends the next pass back to reclassify everything.
+CREATE OR REPLACE FUNCTION label_flow_tx_written() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF coalesce(current_setting('label_flow.flows', true), '') <> 'on' THEN
+    UPDATE label_flow_derive SET through_height = -1, done = FALSE;
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE OR REPLACE TRIGGER label_flow_tx_written AFTER INSERT ON label_flow_tx
+  FOR EACH STATEMENT EXECUTE FUNCTION label_flow_tx_written();
+
 -- Transparent coin age, kept by `CoinAgeTracker` in `server/coin-age.ts`: every transparent output
 -- ever made, summed by the UTC day of the block that created it and the UTC day of the block that
 -- spent it (NULL while unspent). Any day's age distribution is the rows created on or before it
