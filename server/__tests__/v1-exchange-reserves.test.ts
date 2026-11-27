@@ -87,6 +87,10 @@ describe("/v1/labels/exchanges", () => {
       { id: "coinbase", name: "Coinbase", addresses: 0 },
       { id: "gemini", name: "Gemini", addresses: 0 },
       { id: "kraken", name: "Kraken", addresses: 1 },
+      { id: "okx", name: "OKX", addresses: 0 },
+      { id: "kucoin", name: "KuCoin", addresses: 0 },
+      { id: "bitget", name: "Bitget", addresses: 0 },
+      { id: "gate", name: "Gate", addresses: 0 },
     ]);
     const oct = body.data.points[0]!;
     expect(oct.closing).toEqual({ day: "2026-10-03", height: 105 });
@@ -152,7 +156,7 @@ describe("/v1/labels/exchanges", () => {
   });
 
   it("rejects what it does not understand rather than widening the answer", async () => {
-    expect((await get("?exchange=bitget")).status).toBe(400);
+    expect((await get("?exchange=bybit")).status).toBe(400);
     expect((await get("?addresses=yes")).status).toBe(400);
     expect((await get("?pool=orchard")).status).toBe(400);
     expect((await get("?interval=day")).status).toBe(400);

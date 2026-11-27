@@ -159,7 +159,7 @@ export const RICH_LIST_GROUP: ApiGroup = {
         {
           name: "exchange",
           kind: "query",
-          type: "binance | coinbase | gemini | kraken",
+          type: "binance | coinbase | gemini | kraken | okx | kucoin | bitget | gate",
           required: false,
           description: "One exchange.",
         },

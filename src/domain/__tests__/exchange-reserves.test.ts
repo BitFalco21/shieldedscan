@@ -23,7 +23,16 @@ describe("which labelled addresses count as an exchange's", () => {
   });
 
   it("merges each exchange's wallets and counts nothing else", () => {
-    expect(exchangeAddressCounts()).toEqual({ binance: 11, coinbase: 34, gemini: 6, kraken: 3 });
+    expect(exchangeAddressCounts()).toEqual({
+      binance: 11,
+      coinbase: 34,
+      gemini: 6,
+      kraken: 3,
+      okx: 1,
+      kucoin: 2,
+      bitget: 1,
+      gate: 1,
+    });
     const names = EXCHANGE_MEMBERS.map((m) => ADDRESS_LABELS[m.address]!.name);
     expect(names).not.toContain("Grayscale Zcash Trust");
     expect(names).not.toContain("NEAR Intents Bridge Hot Wallet");
@@ -145,12 +154,30 @@ describe("exchangeReserveDays", () => {
       {
         timestamp: DAY,
         closeHeight: 100,
-        zat: { binance: 10, coinbase: 0, gemini: 0, kraken: 3 },
+        zat: {
+          binance: 10,
+          coinbase: 0,
+          gemini: 0,
+          kraken: 3,
+          okx: 0,
+          kucoin: 0,
+          bitget: 0,
+          gate: 0,
+        },
       },
       {
         timestamp: 2 * DAY,
         closeHeight: 200,
-        zat: { binance: 17, coinbase: 0, gemini: 0, kraken: 3 },
+        zat: {
+          binance: 17,
+          coinbase: 0,
+          gemini: 0,
+          kraken: 3,
+          okx: 0,
+          kucoin: 0,
+          bitget: 0,
+          gate: 0,
+        },
       },
     ]);
   });
@@ -174,7 +201,7 @@ describe("exchangeReserveSummary", () => {
   const day = (n: number, binance: number | null, kraken: number) => ({
     timestamp: n * DAY,
     closeHeight: n * 100,
-    zat: { binance, coinbase: 0, gemini: 0, kraken },
+    zat: { binance, coinbase: 0, gemini: 0, kraken, okx: 0, kucoin: 0, bitget: 0, gate: 0 },
   });
 
   it("states the newest day and the change from thirty days before it", () => {
@@ -207,7 +234,18 @@ describe("exchangeReserveSummary", () => {
 });
 
 describe("exchangeReserveTotal", () => {
-  const day = { zat: { binance: 1, coinbase: 2, gemini: 3, kraken: null } };
+  const day = {
+    zat: {
+      binance: 1,
+      coinbase: 2,
+      gemini: 3,
+      kraken: null,
+      okx: 0,
+      kucoin: 0,
+      bitget: 0,
+      gate: 0,
+    },
+  };
 
   it("sums the exchanges asked for", () => {
     expect(exchangeReserveTotal(day, ["binance", "coinbase", "gemini"])).toBe(6);

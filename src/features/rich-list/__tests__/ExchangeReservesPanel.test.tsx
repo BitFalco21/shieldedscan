@@ -19,12 +19,20 @@ describe("ExchangeReservesPanel", () => {
       "Coinbase 34 addresses",
       "Gemini 6 addresses",
       "Kraken 3 addresses",
+      "OKX 1 addresses",
+      "KuCoin 2 addresses",
+      "Bitget 1 addresses",
+      "Gate 1 addresses",
     ]);
     expect(rows.map((r) => within(r).getAllByRole("cell")[1]!.textContent)).toEqual([
       "11",
       "34",
       "6",
       "3",
+      "1",
+      "2",
+      "1",
+      "1",
     ]);
     expect(screen.getByText(/Labelled addresses only, grouped by exchange by us/)).toBeDefined();
   });

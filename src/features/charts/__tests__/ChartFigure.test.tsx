@@ -425,7 +425,16 @@ describe("exchange-reserves total", () => {
   const day = (timestamp: number, kraken: number | null) => ({
     timestamp,
     closeHeight: 3_000_000,
-    zat: { binance: 100e8, coinbase: 200e8, gemini: 300e8, kraken },
+    zat: {
+      binance: 100e8,
+      coinbase: 200e8,
+      gemini: 300e8,
+      kraken,
+      okx: 0,
+      kucoin: 0,
+      bitget: 0,
+      gate: 0,
+    },
   });
 
   it("adds the four exchanges at a point", () => {
