@@ -491,7 +491,7 @@ export const CHARTS: ChartEntry[] = [
     api: { docsId: "exchange-reserves", path: "/v1/labels/exchanges" },
     blurb: "Transparent ZEC on each exchange's labelled addresses, daily.",
     description: [
-      "The transparent balance of the addresses this explorer labels for Binance, Coinbase, Gemini and Kraken, summed per exchange at each day's highest block. The grouping is ours, and unlabelled exchange wallets are not counted, so a line is not an exchange's holdings.",
+      "The transparent balance of the addresses this explorer labels for Binance, Coinbase, Gemini, Kraken, OKX, KuCoin, Bitget and Gate, summed per exchange at each day's highest block. The grouping is ours, and unlabelled exchange wallets are not counted, so a line is not an exchange's holdings.",
       "A fall means ZEC left those addresses: to customers, to the exchange's other wallets or into a shielded pool. The chain does not say which.",
     ],
   },

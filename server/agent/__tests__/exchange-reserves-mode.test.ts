@@ -31,7 +31,7 @@ describe("chain_activity 'exchange-reserves'", () => {
   it("refuses an exchange it does not know rather than answering for all of them", async () => {
     const result = await tools().dispatch(
       "chain_activity",
-      JSON.stringify({ mode: "exchange-reserves", exchange: "bitget" }),
+      JSON.stringify({ mode: "exchange-reserves", exchange: "bybit" }),
     );
     expect(result.content).toMatch(/exchange must be/);
     expect(result.endpoints).toEqual([]);

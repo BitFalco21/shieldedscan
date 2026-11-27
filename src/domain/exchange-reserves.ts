@@ -9,7 +9,16 @@
 
 import { ADDRESS_LABELS, type AddressLabel } from "./address-label";
 
-export const EXCHANGES = ["binance", "coinbase", "gemini", "kraken"] as const;
+export const EXCHANGES = [
+  "binance",
+  "coinbase",
+  "gemini",
+  "kraken",
+  "okx",
+  "kucoin",
+  "bitget",
+  "gate",
+] as const;
 export type ExchangeId = (typeof EXCHANGES)[number];
 
 export const EXCHANGE_NAMES: Readonly<Record<ExchangeId, string>> = {
@@ -17,6 +26,10 @@ export const EXCHANGE_NAMES: Readonly<Record<ExchangeId, string>> = {
   coinbase: "Coinbase",
   gemini: "Gemini",
   kraken: "Kraken",
+  okx: "OKX",
+  kucoin: "KuCoin",
+  bitget: "Bitget",
+  gate: "Gate",
 };
 
 /** Why a label is not counted under any exchange. */
@@ -45,11 +58,11 @@ export const LABEL_EXCHANGE: Readonly<Record<string, ExchangeId | ExcludedLabel>
   "NEAR Intents Bridge Hot Wallet": { excluded: "a bridge's hot wallet" },
   "Hyperunit Hot Wallet": { excluded: "a bridge's hot wallet" },
   "Hyperunit Deposit": { excluded: "a bridge's deposit address" },
-  OKX: { excluded: "an exchange the reserves do not track yet" },
-  "KuCoin Cold Wallet": { excluded: "an exchange the reserves do not track yet" },
-  "KuCoin Deposit": { excluded: "an exchange the reserves do not track yet" },
-  "Bitget Deposit": { excluded: "an exchange the reserves do not track yet" },
-  "Gate Cold Wallet": { excluded: "an exchange the reserves do not track yet" },
+  OKX: "okx",
+  "KuCoin Cold Wallet": "kucoin",
+  "KuCoin Deposit": "kucoin",
+  "Bitget Deposit": "bitget",
+  "Gate Cold Wallet": "gate",
   "ZIP-271 Disbursement Multisig": { excluded: "the dev fund lockbox disbursement multisig" },
   "BitGet Exploit Sept 2026": { excluded: "flagged as part of a theft" },
   "DPRK attackers": { excluded: "flagged as part of a theft" },
