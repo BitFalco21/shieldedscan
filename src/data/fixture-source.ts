@@ -3,6 +3,7 @@ import { getCoinAge } from "@/fixtures/coin-age";
 import * as fixtures from "@/fixtures";
 import * as chartSeries from "@/fixtures/chart-series";
 import { getBlockArrival } from "@/fixtures/block-arrival";
+import { getExchangeFlows, getExchangeMovements } from "@/fixtures/exchange-flows";
 import { getExchangeReserves } from "@/fixtures/exchange-reserves";
 import type { ExplorerDataSource } from "./source";
 
@@ -163,6 +164,12 @@ export const fixtureDataSource: ExplorerDataSource = {
   },
   async getExchangeReserves() {
     return getExchangeReserves();
+  },
+  async getExchangeFlows(windowDays) {
+    return getExchangeFlows(windowDays);
+  },
+  async getExchangeMovements(windowDays, exchange, through) {
+    return getExchangeMovements(windowDays, exchange, through);
   },
   async getChainOutflow() {
     return chartSeries.getChainOutflow();

@@ -64,6 +64,8 @@ const MUST_BE_FRESH = [
   // Same `?range=` as flows. Its adapter memoises for one minute per instance, which is
   // bounded; the durable Data Cache is not.
   "/cross-chain/protocols",
+  // Whole-day windows ending at the last counted day; the adapter's minute memo stands in.
+  "/exchanges",
   "/mempool",
   // The node map's dynamic tab: a filter and a cursor over figures recomputed every crawl.
   "/network/nodes",

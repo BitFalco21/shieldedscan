@@ -71,6 +71,9 @@ export const SITE_PAGES: Readonly<Record<string, PageEntry>> = {
   "/miners": {
     what: "Who mined Zcash over the last 7, 30, 90 or 365 days, or all of history, by reviewed mining pool: blocks, share, ZEC paid and its USD value at each day's close, each pool's payout addresses, and monthly pool shares.",
   },
+  "/exchanges": {
+    what: "ZEC moving into and out of the exchange addresses this explorer labels — Binance, Coinbase, Gemini, Kraken, OKX, KuCoin, Bitget and Gate — over the last 7, 30 or 90 days, a year or all of history: totals, where it came from or went, a daily or monthly chart, each exchange's figures and the largest movements. Labelled transparent addresses only; Gemini's shielded side is not seen.",
+  },
   "/txs": {
     what: "The most recent transactions, newest first, filterable by privacy kind — transparent, shielded, shielding, unshielding, coinbase.",
   },

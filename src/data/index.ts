@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { readApiConfig } from "./api-request";
 import { createChainApiSource } from "./chain-api-source";
 import { createCrossChainApiSource } from "./crosschain-api-source";
+import { createExchangeFlowsSource } from "./exchange-flows-source";
 import { fixtureDataSource } from "./fixture-source";
 import type { ExplorerDataSource } from "./source";
 import { FAULT_HEADER, injectFaults, tagTransientFailures } from "./source-wrappers";
@@ -70,6 +71,7 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     revalidateSeconds: tipRevalidateSeconds,
   });
   const chain = createChainApiSource({ ...config, tipRevalidateSeconds });
+  const flows = createExchangeFlowsSource(config);
   return {
     listCrossChainTransfers: (query, filters) => crossChain.listCrossChainTransfers(query, filters),
     getCrossChainTransfer: (id) => crossChain.getCrossChainTransfer(id),
@@ -120,6 +122,9 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getBlocksDaily: () => chain.getBlocksDaily(),
     getSupplyDays: () => chain.getSupplyDays(),
     getExchangeReserves: () => chain.getExchangeReserves(),
+    getExchangeFlows: (windowDays) => flows.getExchangeFlows(windowDays),
+    getExchangeMovements: (windowDays, exchange, through) =>
+      flows.getExchangeMovements(windowDays, exchange, through),
     getMinersOverview: (window) => chain.getMinersOverview(window),
     getMinerSeries: (interval) => chain.getMinerSeries(interval),
     getMiningPoolBlocks: (id) => chain.getMiningPoolBlocks(id),

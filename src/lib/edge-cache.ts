@@ -55,6 +55,8 @@ export const EDGE_CACHE_POLICIES: readonly EdgeCachePolicy[] = [
   // Rolling windows of a day or more: half a minute moves no figure that matters.
   { source: "/miners", freshSeconds: 10, staleSeconds: 30, query: ["window"] },
   { source: "/miners/:pool", freshSeconds: 10, staleSeconds: 30, query: ["window"] },
+  // Whole days only, counted through the last one: a minute-old copy states nothing stale.
+  { source: "/exchanges", freshSeconds: 60, staleSeconds: 300, query: ["window", "exchange"] },
   // No stale copies: these pages print no height, a balance a reader waits on must be current,
   // and a name page is a payment destination. Ten seconds absorbs a burst on one link.
   { source: "/address/:addr", freshSeconds: 10, staleSeconds: 0, query: ["name", ...CURSOR] },

@@ -69,6 +69,9 @@ import type {
   InflowKindMonthPoint,
   DestinationWindows,
   SupplyDayPoint,
+  ExchangeFlowWindow,
+  ExchangeId,
+  ExchangeMovement,
   ExchangeReserveDay,
   VenueMonthPoint,
   MinerShareMonth,
@@ -331,6 +334,20 @@ export interface ExplorerDataSource {
   getSupplyDays(): Promise<SupplyDayPoint[]>;
   /** The labelled exchange addresses' balances per complete UTC day, summed by exchange. */
   getExchangeReserves(): Promise<ExchangeReserveDay[]>;
+  /**
+   * ZEC into and out of each exchange's labelled addresses over the last `windowDays` whole days
+   * (all of history when null): totals with where it came from or went, and a day or month series.
+   */
+  getExchangeFlows(windowDays: number | null): Promise<ExchangeFlowWindow>;
+  /**
+   * The largest single movements in the same window, for one exchange or all of them, through
+   * `through` (unix seconds, the last day the flows counted).
+   */
+  getExchangeMovements(
+    windowDays: number | null,
+    exchange: ExchangeId | null,
+    through: number,
+  ): Promise<ExchangeMovement[]>;
   /** Each shielded pool's note commitment tree size at every day's close. */
   getNoteTrees(): Promise<NoteTreeDayPoint[]>;
   /** Transparent active addresses per complete day, with gaps where not computed. */

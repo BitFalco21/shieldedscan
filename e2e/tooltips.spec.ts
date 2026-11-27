@@ -8,7 +8,8 @@ import { SHIELDED_TXID, TIP_HEIGHT, VIEWPORTS } from "./surface";
  * nothing to layout, so a panel that escapes the viewport the moment it opens passes every
  * other check. Every tip on the two detail pages is opened and measured, at both widths.
  */
-const ROUTES = [`/tx/${SHIELDED_TXID}`, `/block/${TIP_HEIGHT}`];
+// `/exchanges`: its tip sits in a table row, the shape a scroll box once clipped.
+const ROUTES = [`/tx/${SHIELDED_TXID}`, `/block/${TIP_HEIGHT}`, "/exchanges"];
 
 for (const [name, size] of Object.entries(VIEWPORTS)) {
   test(`${name} — every open tooltip stays inside the viewport`, async ({ page }) => {

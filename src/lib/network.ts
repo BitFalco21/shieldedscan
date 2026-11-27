@@ -60,6 +60,8 @@ const MAINNET_ONLY_PREFIXES = [
   "/mining-cost",
   // The payout rollup, the price and the reviewed pools are mainnet-only.
   "/miners",
+  // The exchange labels and their flows are mainnet's.
+  "/exchanges",
   "/mining",
   // Mainnet value pools and cross-chain crossings; no venue bridges testnet ZEC.
   "/pulse",
