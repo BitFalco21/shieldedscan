@@ -42,7 +42,8 @@ describe("ExchangeReservesPanel", () => {
     render(<ExchangeReservesPanel summary={summary} />);
     const coinbase = screen.getAllByRole("row").find((r) => r.textContent?.startsWith("Coinbase"))!;
     const cells = within(coinbase).getAllByRole("cell");
-    expect(cells[2]!.textContent).toBe("unavailable");
+    // The balance, and on a phone the change under it; the change's own column from `sm`.
+    expect(cells[2]!.textContent).toBe("unavailableunavailable");
     expect(cells[3]!.textContent).toBe("unavailable");
   });
 
@@ -52,10 +53,14 @@ describe("ExchangeReservesPanel", () => {
       rows: summary.rows.map((r) => ({ ...r, zat: 1e12, changeZat: -2e10 })),
     };
     render(<ExchangeReservesPanel summary={fallen} />);
-    const cell = within(screen.getAllByRole("row")[1]!).getAllByRole("cell")[3]!;
-    // Compact on a phone, whole coins from `sm`.
-    expect(cell.textContent).toBe("−200.00 ZEC−200 ZEC");
-    expect(cell.className).toContain("text-red");
+    const cells = within(screen.getAllByRole("row")[1]!).getAllByRole("cell");
+    // From `sm` the change has its own column, in whole coins.
+    expect(cells[3]!.textContent).toBe("−200.00 ZEC−200 ZEC");
+    expect(cells[3]!.className).toContain("text-red");
+    // On a phone it sits under the balance: two decimals and no ticker, so the row fits.
+    const underBalance = cells[2]!.querySelector("span.block")!;
+    expect(underBalance.textContent).toBe("−200.00");
+    expect(underBalance.className).toContain("text-red");
   });
 
   it("says it could not be read, and states nothing else", () => {
