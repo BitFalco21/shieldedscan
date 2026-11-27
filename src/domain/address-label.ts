@@ -47,6 +47,7 @@ export interface AddressLabel {
 const ARKHAM = "Arkham entity labels (intel.arkm.com), read 2026-08-21";
 /** A later Arkham read, kept apart so each entry states the day it was read. */
 const ARKHAM_2026_11_22 = "Arkham entity labels (intel.arkm.com), read 2026-11-22";
+const ARKHAM_2026_11_27 = "Arkham entity labels (intel.arkm.com), read 2026-11-27";
 
 /**
  * The Bitget hot-wallet theft of 2026-09-24, attributed by ZachXBT on 2026-09-30.
@@ -336,6 +337,12 @@ export const ADDRESS_LABELS: Readonly<Record<string, AddressLabel>> = {
     name: "Binance Hot Wallet",
     basis: "external",
     source: ARKHAM_2026_11_22,
+  },
+  // #97 on the rich list when this was read
+  t1TQDWckzPtJYxYJq8vYZ2hGDVxjTPhNbjL: {
+    name: "Grayscale Zcash Trust",
+    basis: "external",
+    source: ARKHAM_2026_11_27,
   },
   // Received the 18,916.72 ZEC swept out of Bitget's hot wallet
   t1WgMdtND8NF7NDUuYmq8MpMj1NTCXkMDVG: {
