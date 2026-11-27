@@ -1,5 +1,6 @@
 import { getCachedDataSource } from "@/data";
 import { HomePage } from "@/features/home/HomePage";
+import { HOME_LIMITS } from "@/features/home/home-limits";
 import { isTestnet } from "@/lib/network";
 import { nullIfTransient } from "@/lib/transient-upstream";
 
@@ -19,11 +20,13 @@ export default async function Page() {
   const [chain, pools, latestBlocks, latestTxs, transfers] = await Promise.all([
     data.getChainInfo(),
     nullIfTransient(() => data.getPools()),
-    nullIfTransient(() => data.listLatestBlocks(8)),
-    nullIfTransient(() => data.listLatestTransactions(8)),
+    nullIfTransient(() => data.listLatestBlocks(HOME_LIMITS.blocks)),
+    nullIfTransient(() => data.listLatestTransactions(HOME_LIMITS.transactions)),
     // Testnet never renders the cross-chain panel, so it never pays for the query either, and
     // the testnet API legitimately has no cross-chain store to answer from.
-    isTestnet ? null : nullIfTransient(() => data.listCrossChainTransfers({ limit: 4 })),
+    isTestnet
+      ? null
+      : nullIfTransient(() => data.listCrossChainTransfers({ limit: HOME_LIMITS.transfers })),
   ]);
   return (
     <HomePage

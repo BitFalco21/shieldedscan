@@ -10,6 +10,7 @@ import { useLiveFeed } from "@/lib/use-live-feed";
 import { LatestBlocksPanel } from "./LatestBlocksPanel";
 import { LatestCrossChainPanel } from "./LatestCrossChainPanel";
 import { LatestTxsPanel } from "./LatestTxsPanel";
+import { HOME_LIMITS } from "./home-limits";
 
 /**
  * The homepage's three latest-activity panels, kept current.
@@ -37,20 +38,27 @@ const MAX_PANEL_ROWS = 8;
  * 8 blocks, 8 transactions and only 4 transfers; the panels follow the route's limits instead
  * of restating them. The order comes from `displayRows`, which sorts rather than trusting the
  * merge.
+ *
+ * A panel whose rows did not load takes its size from `HOME_LIMITS` and fills from the feed. The
+ * render that failed is shared from the edge cache, so without this one slow moment upstream left
+ * the panel empty for every reader until a reload, while the feed beside it was answering.
  */
 function panelRows<T>(
   live: readonly T[],
   server: readonly T[] | null,
+  size: number,
   idOf: (row: T) => string,
   sortKeyOf: (row: T) => number,
 ): T[] | null {
-  // A panel whose rows did not load stays unavailable: the feed alone cannot say how many rows
-  // the panel should hold.
-  if (server === null) return null;
+  if (server === null) {
+    // Still unavailable until a poll brings rows: an empty list would read as "none yet".
+    if (live.length === 0) return null;
+    return displayRows(live, [], { idOf, sortKeyOf, size });
+  }
   return displayRows(live, server, { idOf, sortKeyOf, size: server.length });
 }
 
-/** Each list is null when it could not be read: its panel says so and the feed leaves it alone. */
+/** Each list is null when it could not be read: its panel says so until the feed brings rows. */
 export interface HomeLivePanelsProps {
   latestBlocks: BlockSummary[] | null;
   latestTxs: Transaction[] | null;
@@ -86,18 +94,21 @@ export function HomeLivePanels({
   const blocks = panelRows(
     feed.blocks.rows,
     latestBlocks,
+    HOME_LIMITS.blocks,
     (b) => b.hash,
     (b) => b.height,
   );
   const txs = panelRows(
     feed.transactions.rows,
     latestTxs,
+    HOME_LIMITS.transactions,
     (t) => t.txid,
     (t) => t.timestamp,
   );
   const transfers = panelRows(
     feed.transfers.rows,
     latestTransfers,
+    HOME_LIMITS.transfers,
     (t) => t.id,
     (t) => t.timestamp,
   );
