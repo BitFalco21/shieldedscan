@@ -555,8 +555,8 @@ export interface V1RichListPage extends V1Page<V1RichListEntry> {
 }
 
 /**
- * One labelled address. The name never travels without whose claim it is: `source` names the
- * attribution, and `flag` the investigator behind a theft label.
+ * One labelled address. `flag` names the investigator behind a theft label; no other label states
+ * where it came from.
  */
 export interface V1Label {
   address: string;
@@ -572,8 +572,6 @@ export interface V1Label {
   category: "entity" | "mining-pool";
   /** The pool a `mining-pool` label names; null on every other label. */
   miningPool: { id: string; name: string } | null;
-  /** Whose attribution the name is, and when it was read, e.g. Arkham's entity labels. */
-  source: string;
   /** Present on an address a named investigator flagged in a theft; null otherwise. */
   flag: { by: string; url: string } | null;
   /** Current transparent balance. Zero is a measurement: the address holds nothing. */

@@ -76,10 +76,10 @@ export const RICH_LIST_GROUP: ApiGroup = {
       path: "/v1/labels",
       title: "The addresses this explorer names",
       description:
-        "Every labelled transparent address: its name, whose claim it is (`source`: Arkham's entity labels, or a theft investigator), balance and rank.",
+        "Every labelled transparent address: its name, balance and rank, and for a theft label the investigator who flagged it.",
       params: [],
       exampleResponse: `{
-  "notice": "An \`entity\` name is a third-party attribution, repeated as its source states it and not verified by this explorer; …",
+  "notice": "An \`entity\` name is a third-party attribution, repeated and not verified by this explorer; …",
   "count": 64,
   "labels": [
     {
@@ -88,7 +88,6 @@ export const RICH_LIST_GROUP: ApiGroup = {
       "basis": "external",
       "category": "entity",
       "miningPool": null,
-      "source": "Arkham entity labels (intel.arkm.com), read 2026-08-21",
       "flag": null,
       "balanceZat": 43892090013445,
       "rank": 1
@@ -99,7 +98,6 @@ export const RICH_LIST_GROUP: ApiGroup = {
       "basis": "external",
       "category": "entity",
       "miningPool": null,
-      "source": "ZachXBT on X, 2026-09-30 (Bitget exploit; flows checked against /v1)",
       "flag": { "by": "ZachXBT", "url": "https://t.me/investigations/364" },
       "balanceZat": 0,
       "rank": null,
@@ -111,7 +109,6 @@ export const RICH_LIST_GROUP: ApiGroup = {
       "basis": "pool-published",
       "category": "mining-pool",
       "miningPool": { "id": "viabtc", "name": "ViaBTC" },
-      "source": "reviewed by this explorer",
       "flag": null,
       "balanceZat": 0,
       "rank": null,

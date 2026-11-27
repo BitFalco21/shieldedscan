@@ -6,6 +6,7 @@ import { STATIC_PATHS } from "@/app/sitemap";
 import { API_GROUPS } from "@/api-catalogue";
 import { apiBaseUrl } from "@/lib/site";
 import {
+  MAX_LISTED_PER_NAME,
   SITE_PAGES,
   apiEndpoints,
   findApiEndpoint,
@@ -354,7 +355,16 @@ describe("the labels section", () => {
 
   it("lists every labelled address under the name the pages print, in both modes", () => {
     for (const text of [withBalances, withoutBalances]) {
+      const perName = new Map<string, number>();
+      for (const label of Object.values(ADDRESS_LABELS))
+        perName.set(label.name, (perName.get(label.name) ?? 0) + 1);
       for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
+        // A name on more addresses than the guide lists is stated as a count instead.
+        const count = perName.get(label.name)!;
+        if (count > MAX_LISTED_PER_NAME) {
+          expect(text).toContain(`- "${label.name}": ${count} addresses`);
+          continue;
+        }
         // The address sits on its name's line, or on a line below it before the next name.
         const at = text.indexOf(address);
         expect(at, address).toBeGreaterThan(-1);
@@ -369,6 +379,8 @@ describe("the labels section", () => {
   it("prints each address's balance and rank beside it, with the height ranks are as of", () => {
     for (const item of LABELLED_BALANCES_FIXTURE.items) {
       const line = withBalances.split("\n").find((l) => l.includes(item.address));
+      if (line === undefined && ADDRESS_LABELS[item.address]?.name === "Hyperunit Deposit")
+        continue;
       expect(line, item.address).toContain(formatZec(item.balanceZat));
       if (item.rank === null) expect(line, item.address).not.toContain("rank");
       else expect(line, item.address).toContain(`rank ${item.rank} on the transparent rich list`);

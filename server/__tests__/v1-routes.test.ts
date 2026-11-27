@@ -2334,12 +2334,11 @@ describe("/v1/labels", () => {
     expect(body.count).toBe(entities.length + pools.length);
     for (const label of body.labels.slice(0, entities.length)) {
       expect(label.name).toBe(ADDRESS_LABELS[label.address]!.name);
-      expect(label.source).toBe(ADDRESS_LABELS[label.address]!.source);
+      expect(label).not.toHaveProperty("source");
       expect(label.basis).toBe("external");
       expect(label.category).toBe("entity");
       expect(label.miningPool).toBeNull();
     }
-    expect(body.labels[0]!.source).toMatch(/Arkham/);
   });
 
   it("names pool payout addresses after their pool, in their own category, with no evidence", async () => {
@@ -2354,7 +2353,7 @@ describe("/v1/labels", () => {
       });
       expect(label.name).toBe(MINING_POOLS[reviewed.miningPool].name);
       expect(label.basis).toBe(reviewed.basis);
-      expect(label.source).toBe("reviewed by this explorer");
+      expect(label).not.toHaveProperty("source");
       expect(label.flag).toBeNull();
     }
   });

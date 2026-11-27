@@ -817,10 +817,7 @@ export function toHalving(
  * without it: a name is someone's claim about a real company or person, not a chain fact.
  */
 export const LABELS_NOTICE =
-  "An `entity` name is a third-party attribution, repeated as its source states it and not verified by this explorer; `source` says whose claim it is. A `mining-pool` name marks a pool's payout address, reviewed by this explorer against the pool's own data or its own coinbase marker (`basis`); it names the pool, never the miners it pays. A label covers exactly its address: never extend it to addresses that transact with it. Balances are transparent only, and one address can hold many people's coins, so a balance is a wallet's total, not one holder's. Anything held in shielded addresses cannot be enumerated by anyone.";
-
-/** What a pool label's `source` says: who reviewed it, never the evidence itself. */
-const POOL_LABEL_SOURCE = "reviewed by this explorer";
+  "An `entity` name is a third-party attribution, repeated and not verified by this explorer. A `mining-pool` name marks a pool's payout address, reviewed by this explorer against the pool's own data or its own coinbase marker (`basis`); it names the pool, never the miners it pays. A label covers exactly its address: never extend it to addresses that transact with it. Balances are transparent only, and one address can hold many people's coins, so a balance is a wallet's total, not one holder's. Anything held in shielded addresses cannot be enumerated by anyone.";
 
 /**
  * The labelled addresses, domain → wire, in the label table's order.
@@ -850,7 +847,6 @@ export function toLabels(
             basis: label.basis,
             category: "entity",
             miningPool: null,
-            source: label.source,
             flag: label.flag ? { by: label.flag.by, url: label.flag.href } : null,
             ...held,
           } satisfies V1Label,
@@ -868,7 +864,6 @@ export function toLabels(
           basis: poolLabel.basis,
           category: "mining-pool",
           miningPool: { id: pool.id, name: pool.name },
-          source: POOL_LABEL_SOURCE,
           flag: null,
           ...held,
         } satisfies V1Label,

@@ -15,14 +15,14 @@ describe("ExchangeReservesPanel", () => {
     render(<ExchangeReservesPanel summary={summary} />);
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows.map((r) => within(r).getAllByRole("cell")[0]!.textContent)).toEqual([
-      "Binance 6 addresses",
-      "Coinbase 21 addresses",
+      "Binance 11 addresses",
+      "Coinbase 34 addresses",
       "Gemini 6 addresses",
       "Kraken 3 addresses",
     ]);
     expect(rows.map((r) => within(r).getAllByRole("cell")[1]!.textContent)).toEqual([
-      "6",
-      "21",
+      "11",
+      "34",
       "6",
       "3",
     ]);

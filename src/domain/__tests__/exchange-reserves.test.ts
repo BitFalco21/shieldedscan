@@ -23,7 +23,7 @@ describe("which labelled addresses count as an exchange's", () => {
   });
 
   it("merges each exchange's wallets and counts nothing else", () => {
-    expect(exchangeAddressCounts()).toEqual({ binance: 6, coinbase: 21, gemini: 6, kraken: 3 });
+    expect(exchangeAddressCounts()).toEqual({ binance: 11, coinbase: 34, gemini: 6, kraken: 3 });
     const names = EXCHANGE_MEMBERS.map((m) => ADDRESS_LABELS[m.address]!.name);
     expect(names).not.toContain("Grayscale Zcash Trust");
     expect(names).not.toContain("NEAR Intents Bridge Hot Wallet");
@@ -39,11 +39,10 @@ describe("which labelled addresses count as an exchange's", () => {
       t1flagged: {
         name: "Binance Hot Wallet",
         basis: "external",
-        source: "test",
         flag: { by: "someone", href: "https://example.com" },
       },
-      t1plain: { name: "Binance Hot Wallet", basis: "external", source: "test" },
-      t1unknown: { name: "A New Exchange", basis: "external", source: "test" },
+      t1plain: { name: "Binance Hot Wallet", basis: "external" },
+      t1unknown: { name: "A New Exchange", basis: "external" },
     };
     expect(exchangeMembers(labels)).toEqual([{ address: "t1plain", exchange: "binance" }]);
   });
