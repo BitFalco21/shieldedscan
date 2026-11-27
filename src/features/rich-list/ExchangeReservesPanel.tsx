@@ -5,7 +5,13 @@ import { DataUnavailable } from "@/components/DataUnavailable";
 import { FlushEnd } from "@/components/FlushEnd";
 import { Panel } from "@/components/Panel";
 import { Unmeasured } from "@/components/Unmeasured";
-import { formatCount, formatZecBalance, formatZecCompact, formatZecWhole } from "@/lib/format";
+import {
+  formatCount,
+  formatZecBalance,
+  formatZecCompact,
+  formatZecVolumeCompact,
+  formatZecWhole,
+} from "@/lib/format";
 import { utcDayFromSeconds } from "@/domain/time";
 
 export interface ExchangeReservesPanelProps {
@@ -19,7 +25,11 @@ function signed(zat: number, format: (zat: number) => string): string {
   return `${zat > 0 ? "+" : "−"}${format(Math.abs(zat))}`;
 }
 
-/** Whole coins from `sm`, compact on a phone, where four columns of full figures do not fit. */
+/**
+ * Whole coins from `sm`, compact on a phone, where four columns of full figures do not fit. On a
+ * phone the change sits under the balance instead (two decimals below 10,000 ZEC, no ticker):
+ * as its own column it pushed the table past the panel. The exact amount is in the `title`.
+ */
 function Figure({ zat, change = false }: { zat: number; change?: boolean }) {
   return (
     <>
@@ -54,10 +64,12 @@ export function ExchangeReservesPanel({ summary }: ExchangeReservesPanelProps) {
               <th className="hidden border-b border-edge-faint pb-2 text-right font-normal whitespace-nowrap sm:table-cell">
                 <FlushEnd>ADDRESSES</FlushEnd>
               </th>
-              <th className="border-b border-edge-faint pb-2 text-right font-normal max-sm:pe-1">
-                <FlushEnd>HELD</FlushEnd>
+              <th className="border-b border-edge-faint pb-2 text-right font-normal whitespace-nowrap max-sm:pe-1">
+                <FlushEnd>
+                  HELD<span className="sm:hidden">{` · ${summary.changeDays}D`}</span>
+                </FlushEnd>
               </th>
-              <th className="border-b border-edge-faint pb-2 text-right font-normal whitespace-nowrap">
+              <th className="hidden border-b border-edge-faint pb-2 text-right font-normal whitespace-nowrap sm:table-cell">
                 <FlushEnd>{`${summary.changeDays}D`}</FlushEnd>
               </th>
             </tr>
@@ -83,12 +95,27 @@ export function ExchangeReservesPanel({ summary }: ExchangeReservesPanelProps) {
                   title={r.zat === null ? undefined : `${formatCount(r.zat)} zatoshi`}
                 >
                   {r.zat === null ? <Unmeasured /> : <Figure zat={r.zat} />}
+                  {/* The change, which the hidden column carries from `sm`: a fourth column of
+                      figures does not fit a phone. */}
+                  <span
+                    className={[
+                      "block text-xs sm:hidden",
+                      r.changeZat !== null && r.changeZat < 0 ? "text-red" : "text-ink-dim",
+                    ].join(" ")}
+                  >
+                    {r.changeZat === null ? (
+                      <Unmeasured />
+                    ) : (
+                      signed(r.changeZat, formatZecVolumeCompact)
+                    )}
+                  </span>
                 </td>
                 <td
                   className={[
-                    "text-right font-mono whitespace-nowrap",
+                    "hidden text-right font-mono whitespace-nowrap sm:table-cell",
                     r.changeZat !== null && r.changeZat < 0 ? "text-red" : "text-ink-dim",
                   ].join(" ")}
+                  title={r.changeZat === null ? undefined : `${formatCount(r.changeZat)} zatoshi`}
                 >
                   {r.changeZat === null ? <Unmeasured /> : <Figure zat={r.changeZat} change />}
                 </td>
