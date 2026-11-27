@@ -42,7 +42,13 @@ import { fixtureMinersReader, MINERS_FIXTURE_NOW_MS } from "./miners-reader";
 import type { MinerWindow } from "../../mining-daily";
 import type { TransparentSeries } from "../../transparent-daily";
 import { V1_TRANSPARENT_PATH, v1TransparentRoutes } from "../../v1/transparent-series";
+import {
+  V1_EXCHANGE_FLOWS_PATH,
+  V1_EXCHANGE_MOVEMENTS_PATH,
+  v1ExchangeFlowsRoutes,
+} from "../../v1/exchange-flows";
 import { V1_EXCHANGE_RESERVES_PATH, v1ExchangeReservesRoutes } from "../../v1/exchange-reserves";
+import { flowFixture } from "./flow-fixture";
 import { reserveFixture } from "@/fixtures/exchange-reserves";
 import { V1_COIN_AGE_PATH, v1CoinAgeRoutes } from "../../v1/coin-age";
 import { getCoinAge } from "@/fixtures/coin-age";
@@ -552,6 +558,16 @@ export function makeV1(
           }),
         }),
         endpoints: [V1_EXCHANGE_RESERVES_PATH],
+      },
+      // And the flows its 'exchange-flows' mode reads: thirty days to now.
+      {
+        routes: v1ExchangeFlowsRoutes({
+          pool: {} as Pool,
+          now: () => FIXTURE_NOW_MS,
+          load: async () => flowFixture(Math.floor(FIXTURE_NOW_MS / 1000)).aggregates,
+          largest: async () => flowFixture(Math.floor(FIXTURE_NOW_MS / 1000)).largest,
+        }),
+        endpoints: [V1_EXCHANGE_FLOWS_PATH, V1_EXCHANGE_MOVEMENTS_PATH],
       },
       // And the one its 'coin-age' mode reads.
       {

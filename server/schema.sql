@@ -475,6 +475,10 @@ CREATE TABLE IF NOT EXISTS label_flow_state (
   through_height INTEGER NOT NULL,
   updated_at     BIGINT  NOT NULL
 );
+-- The group (`labelGroupOf`) the stored flows count this address under: an exchange id, 'bridge'
+-- or 'other'; 'pending' while its transactions are being reclassified, NULL before the first
+-- classification. A reader whose build groups it differently does not count the groups involved.
+ALTER TABLE label_flow_state ADD COLUMN IF NOT EXISTS grp TEXT;
 
 -- The highest block any row was stored through, and its hash. Checked at the start of every pass:
 -- a block that changed below it means a reorg deeper than the reorg depth (or a repaired chain),
@@ -484,6 +488,44 @@ CREATE TABLE IF NOT EXISTS label_flow_meta (
   height INTEGER NOT NULL,
   hash   TEXT    NOT NULL
 );
+
+-- An input whose value this index could not resolve, or a Sprout bundle whose public value was not
+-- derived: the transaction's flows may be wrong, so readers count such transactions apart.
+ALTER TABLE label_flow_tx ADD COLUMN IF NOT EXISTS unresolved BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Each stored transaction's exchange flows, classified by `exchangeFlowsOf` when its rows are
+-- written, in the same transaction: one row per exchange whose addresses gained or lost in it.
+-- `internal` is a move between one exchange's own wallets; its `zat` is the fee. Deleted with the
+-- transaction's rows, so a rebuild of the tables clears these too.
+CREATE TABLE IF NOT EXISTS label_flow_flow (
+  txid         TEXT    NOT NULL REFERENCES label_flow_tx (txid) ON DELETE CASCADE,
+  exchange     TEXT    NOT NULL,
+  direction    TEXT    NOT NULL CHECK (direction IN ('in', 'out', 'internal')),
+  zat          BIGINT  NOT NULL CHECK (zat > 0),
+  block_height INTEGER NOT NULL,
+  timestamp    BIGINT  NOT NULL,
+    -- [{kind, exchange?, zat}], adding up to `zat`; empty on an internal move.
+  parts        JSONB   NOT NULL,
+  PRIMARY KEY (txid, exchange)
+);
+CREATE INDEX IF NOT EXISTS label_flow_flow_time_idx ON label_flow_flow (timestamp);
+CREATE INDEX IF NOT EXISTS label_flow_flow_largest_idx
+  ON label_flow_flow (exchange, zat DESC, txid DESC);
+CREATE INDEX IF NOT EXISTS label_flow_flow_zat_idx ON label_flow_flow (zat DESC, txid DESC, exchange DESC);
+
+-- The classifier the stored flows were made by: `version` is the build's `LABEL_FLOW_CLASSIFIER`.
+-- When it differs, the tracker reclassifies every stored transaction in height order, moving
+-- `through_height`; `done` once it has passed them all. Readers built with another version do not
+-- answer; with this one, they count heights at or below `through_height` until `done`.
+CREATE TABLE IF NOT EXISTS label_flow_derive (
+  id             BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  version        TEXT    NOT NULL,
+  through_height INTEGER NOT NULL,
+  done           BOOLEAN NOT NULL
+);
+-- The grouping a reclassification in progress uses (a digest of every address's group): one that
+-- changes before it is done restarts it, so it never ends with heights classified two ways.
+ALTER TABLE label_flow_derive ADD COLUMN IF NOT EXISTS groups TEXT;
 
 -- Transparent coin age, kept by `CoinAgeTracker` in `server/coin-age.ts`: every transparent output
 -- ever made, summed by the UTC day of the block that created it and the UTC day of the block that

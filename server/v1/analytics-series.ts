@@ -49,7 +49,7 @@ const STALE_MS = 30 * 60 * 1000;
 
 type Interval = "day" | "month";
 
-interface SeriesWindow {
+export interface SeriesWindow {
   from: string | null;
   to: string | null;
   interval: Interval;

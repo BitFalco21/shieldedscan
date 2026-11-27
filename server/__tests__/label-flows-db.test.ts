@@ -3,9 +3,14 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { REORG_DEPTH } from "../follow";
 import type { Pacer } from "../job-pacer";
+import type { LabelGroup } from "@/domain";
 import {
   LabelFlowTracker,
   applyLabelFlowChunk,
+  labelFlowReadiness,
+  loadLabelFlowAggregates,
+  loadLargestLabelFlows,
+  regroupLabelFlowAddress,
   labelFlowChainIntact,
   pruneLabelFlowAddresses,
   labelFlowCompleteThrough,
@@ -126,7 +131,7 @@ describeDb("label flows", () => {
 
   beforeEach(async () => {
     await pool.query(
-      "TRUNCATE label_flow_io, label_flow_tx, label_flow_state, label_flow_meta, tx_transparent_io, tx, block CASCADE",
+      "TRUNCATE label_flow_io, label_flow_tx, label_flow_flow, label_flow_state, label_flow_meta, label_flow_derive, mining_day, tx_transparent_io, tx, block CASCADE",
     );
   });
 
@@ -302,5 +307,314 @@ describeDb("label flows", () => {
     await chain(400);
     await tracker(["tA"]).refresh();
     expect(await labelFlowCompleteThrough(pool, ["tA", "tNew"])).toBeNull();
+  });
+
+  // ---------------------------------------------------------------- classified flows
+
+  const EX = (exchange: "binance" | "kraken"): LabelGroup => ({ kind: "exchange", exchange });
+  const groupsBy =
+    (map: Record<string, LabelGroup>) =>
+    (a: string): LabelGroup | null =>
+      map[a] ?? null;
+  const flowTracker = (
+    addresses: string[],
+    groupOf: (a: string) => LabelGroup | null,
+    over: { version?: string; chunkBlocks?: number; abortAfter?: number } = {},
+  ) => {
+    let units = 0;
+    return new LabelFlowTracker({
+      pool,
+      network: "mainnet",
+      addresses,
+      log: () => {},
+      chunkBlocks: over.chunkBlocks ?? 50,
+      groupOf,
+      version: over.version ?? "1",
+      pacer: () => ({
+        ...pacer(),
+        afterUnit: async () =>
+          over.abortAfter !== undefined && (units += 1) >= over.abortAfter ? "abort" : "continue",
+      }),
+    });
+  };
+  const flows = async () =>
+    (
+      await pool.query<{
+        txid: string;
+        exchange: string;
+        direction: string;
+        zat: number;
+        parts: unknown;
+      }>(
+        "SELECT txid, exchange, direction, zat, parts FROM label_flow_flow ORDER BY block_height, txid, exchange",
+      )
+    ).rows;
+
+  it("classifies each transaction's flows beside its rows, internal moves included", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance"), xB2: EX("binance"), xK: EX("kraken") });
+    const deposit = await tx(10, [
+      { io: "in", address: "tU1", value: 1_000 },
+      { io: "out", address: "xB", value: 990 },
+    ]);
+    const batch = await tx(20, [
+      { io: "in", address: "xB", value: 990 },
+      { io: "out", address: "tU2", value: 500 },
+      { io: "out", address: "xK", value: 480 },
+    ]);
+    const sweep = await tx(30, [
+      { io: "in", address: "xB", value: 400 },
+      { io: "out", address: "xB2", value: 399 },
+    ]);
+    await flowTracker(["xB", "xB2", "xK"], g).refresh();
+    expect(await flows()).toEqual([
+      {
+        txid: deposit,
+        exchange: "binance",
+        direction: "in",
+        zat: 990,
+        parts: [{ kind: "transparent", zat: 990 }],
+      },
+      {
+        txid: batch,
+        exchange: "binance",
+        direction: "out",
+        zat: 990,
+        parts: [
+          { kind: "transparent", zat: 500 },
+          { kind: "exchange", exchange: "kraken", zat: 480 },
+          { kind: "fee", zat: 10 },
+        ],
+      },
+      {
+        txid: batch,
+        exchange: "kraken",
+        direction: "in",
+        zat: 480,
+        parts: [{ kind: "exchange", exchange: "binance", zat: 480 }],
+      },
+      { txid: sweep, exchange: "binance", direction: "internal", zat: 1, parts: [] },
+    ]);
+  });
+
+  it("reclassifies every stored transaction when the classifier changes, and only the new one reads", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    for (let h = 10; h <= 250; h += 40) {
+      await tx(h, [
+        { io: "in", address: "tU", value: 100 },
+        { io: "out", address: "xB", value: 90 },
+      ]);
+    }
+    await flowTracker(["xB"], g, { version: "1" }).refresh();
+    const before = await flows();
+    expect(before.length).toBe(7);
+    expect((await labelFlowReadiness(pool, ["xB"], g, "1"))?.caps.get("binance")).toBe(
+      400 - REORG_DEPTH,
+    );
+
+    // A new classifier: reset first, then reclassified in height chunks; paused after one.
+    await flowTracker(["xB"], g, { version: "2", chunkBlocks: 50, abortAfter: 1 }).refresh();
+    expect(await labelFlowReadiness(pool, ["xB"], g, "1")).toBeNull();
+    // Counted only as far as reclassified.
+    expect((await labelFlowReadiness(pool, ["xB"], g, "2"))?.caps.get("binance")).toBe(49);
+
+    await flowTracker(["xB"], g, { version: "2" }).refresh();
+    expect((await labelFlowReadiness(pool, ["xB"], g, "2"))?.caps.get("binance")).toBe(
+      400 - REORG_DEPTH,
+    );
+    expect(await flows()).toEqual(before);
+    expect((await pool.query("SELECT grp FROM label_flow_state")).rows).toEqual([
+      { grp: "binance" },
+    ]);
+  });
+
+  it("reclassifies only an address whose group changed, and counts neither group meanwhile", async () => {
+    await chain(400);
+    const old = groupsBy({ xA: EX("binance"), xB: EX("binance"), xK: EX("kraken") });
+    const moved = await tx(10, [
+      { io: "in", address: "tU", value: 100 },
+      { io: "out", address: "xA", value: 90 },
+    ]);
+    const moved2 = await tx(11, [
+      { io: "in", address: "tU", value: 60 },
+      { io: "out", address: "xA", value: 50 },
+    ]);
+    const untouched = await tx(12, [
+      { io: "in", address: "tU", value: 10 },
+      { io: "out", address: "xB", value: 9 },
+    ]);
+    await flowTracker(["xA", "xB", "xK"], old).refresh();
+    // xA turns out to be Kraken's.
+    const now = groupsBy({ xA: EX("kraken"), xB: EX("binance"), xK: EX("kraken") });
+    // Cut short after one transaction: marked pending, so neither Binance nor Kraken is counted.
+    expect(await regroupLabelFlowAddress(pool, "xA", "kraken", now, async () => "abort", 1)).toBe(
+      false,
+    );
+    for (const g of [old, now]) {
+      const r = await labelFlowReadiness(pool, ["xA", "xB", "xK"], g, "1");
+      expect(r?.caps.get("binance")).toBeNull();
+      expect(r?.caps.get("kraken")).toBeNull();
+    }
+    await flowTracker(["xA", "xB", "xK"], now).refresh();
+    expect((await flows()).map((f) => [f.txid, f.exchange])).toEqual([
+      [moved, "kraken"],
+      [moved2, "kraken"],
+      [untouched, "binance"],
+    ]);
+    const r = await labelFlowReadiness(pool, ["xA", "xB", "xK"], now, "1");
+    expect(r?.caps.get("kraken")).toBe(400 - REORG_DEPTH);
+    expect(r?.caps.get("binance")).toBe(400 - REORG_DEPTH);
+    // A reader still built with the old grouping does not count either group.
+    expect(
+      (await labelFlowReadiness(pool, ["xA", "xB", "xK"], old, "1"))?.caps.get("kraken"),
+    ).toBeNull();
+  });
+
+  it("leaves uncounted only the group of an address not yet walked or being removed", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance"), xK: EX("kraken"), xK2: EX("kraken") });
+    await tx(10, [{ io: "out", address: "xB", value: 5 }]);
+    await flowTracker(["xB", "xK"], g).refresh();
+    // xK2 newly listed, not walked yet.
+    let r = await labelFlowReadiness(pool, ["xB", "xK", "xK2"], g, "1");
+    expect(r?.caps.get("binance")).toBe(400 - REORG_DEPTH);
+    expect(r?.caps.get("kraken")).toBeNull();
+    // xK delisted while its rows remain: Kraken is uncounted until they are gone.
+    r = await labelFlowReadiness(pool, ["xB"], g, "1");
+    expect(r?.caps.get("binance")).toBe(400 - REORG_DEPTH);
+    expect(r?.caps.get("kraken")).toBeNull();
+  });
+
+  it("reads nothing once the chain changed below the stored rows", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    await tx(10, [{ io: "out", address: "xB", value: 5 }]);
+    await flowTracker(["xB"], g).refresh();
+    await pool.query("UPDATE block SET hash = lpad('x', 64, 'x') WHERE height = $1", [
+      400 - REORG_DEPTH,
+    ]);
+    expect(await labelFlowReadiness(pool, ["xB"], g, "1")).toBeNull();
+  });
+
+  it("flags a transaction with an input it could not resolve", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    await tx(10, [
+      { io: "in", address: null, value: null },
+      { io: "out", address: "xB", value: 5 },
+    ]);
+    await flowTracker(["xB"], g).refresh();
+    expect((await pool.query("SELECT unresolved FROM label_flow_tx")).rows).toEqual([
+      { unresolved: true },
+    ]);
+  });
+
+  it("sums the flows by day and ranks the largest, in one snapshot with the caps", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance"), xB2: EX("binance"), xK: EX("kraken") });
+    await tx(10, [
+      { io: "in", address: "tU1", value: 1_000 },
+      { io: "out", address: "xB", value: 990 },
+    ]);
+    const batch = await tx(20, [
+      { io: "in", address: "xB", value: 990 },
+      { io: "out", address: "tU2", value: 500 },
+      { io: "out", address: "xK", value: 480 },
+    ]);
+    await tx(30, [
+      { io: "in", address: "xB", value: 400 },
+      { io: "out", address: "xB2", value: 399 },
+    ]);
+    const addrs = ["xB", "xB2", "xK"];
+    await flowTracker(addrs, g).refresh();
+    const later = BASE + 10 * 86_400;
+    const a = (await loadLabelFlowAggregates(pool, addrs, later, g, "1"))!;
+    const day = Math.floor(BASE / 86_400);
+    expect(a.caps.get("binance")).toBe(400 - REORG_DEPTH);
+    expect(a.dayLastHeight.get(day)).toBe(400);
+    const byKey = (r: { exchange: string; direction: string }) => `${r.exchange}:${r.direction}`;
+    expect(Object.fromEntries(a.days.map((r) => [byKey(r), [r.txs, r.zat]]))).toEqual({
+      "binance:in": [1, 990],
+      "binance:out": [1, 990],
+      "binance:internal": [1, 1],
+      "kraken:in": [1, 480],
+    });
+    expect(
+      a.parts
+        .filter((r) => r.exchange === "binance" && r.direction === "out")
+        .map((r) => [r.kind, r.counterpart, r.zat])
+        .sort(),
+    ).toEqual([
+      ["exchange", "kraken", 480],
+      ["fee", null, 10],
+      ["transparent", null, 500],
+    ]);
+    // Today has not ended: its last block is not known yet.
+    const same = (await loadLabelFlowAggregates(pool, addrs, BASE + 3_600, g, "1"))!;
+    expect(same.dayLastHeight.has(day)).toBe(false);
+
+    const top = (await loadLargestLabelFlows(
+      pool,
+      addrs,
+      { exchange: null, direction: null, fromTs: 0, toTs: Infinity, limit: 2 },
+      g,
+      "1",
+    ))!;
+    expect(top.rows.map((r) => [r.exchange, r.direction, r.zat])).toEqual([
+      ["binance", "out", 990],
+      ["binance", "in", 990],
+    ]);
+    expect(top.rows[0]!.txid).toBe(batch);
+    const kraken = (await loadLargestLabelFlows(
+      pool,
+      addrs,
+      { exchange: "kraken", direction: "in", fromTs: 0, toTs: Infinity, limit: 5 },
+      g,
+      "1",
+    ))!;
+    expect(kraken.rows.map((r) => r.zat)).toEqual([480]);
+    // Another classifier version reads nothing.
+    expect(await loadLabelFlowAggregates(pool, addrs, later, g, "2")).toBeNull();
+  });
+
+  it("never counts today as a day that has ended, though mining_day holds it", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    await tx(10, [{ io: "out", address: "xB", value: 5 }]);
+    await flowTracker(["xB"], g).refresh();
+    const day = Math.floor(BASE / 86_400);
+    await pool.query(
+      `INSERT INTO mining_day (day, blocks, unrecorded_blocks, computed_at, first_height, last_height)
+       VALUES (to_timestamp($1)::date, 10, 0, 0, 0, 5)`,
+      [day * 86_400],
+    );
+    // Read during that day: its row is there, its end is not.
+    const a = (await loadLabelFlowAggregates(pool, ["xB"], BASE + 3_600, g, "1"))!;
+    expect(a.dayLastHeight.has(day)).toBe(false);
+    const later = (await loadLabelFlowAggregates(pool, ["xB"], BASE + 3 * 86_400, g, "1"))!;
+    expect(later.dayLastHeight.get(day)).toBe(400);
+  });
+
+  it("restarts a reclassification whose grouping changed before it finished", async () => {
+    await chain(400);
+    const before = groupsBy({ xA: EX("binance") });
+    const after = groupsBy({ xA: EX("kraken") });
+    for (let h = 10; h <= 250; h += 40) {
+      await tx(h, [
+        { io: "in", address: "tU", value: 100 },
+        { io: "out", address: "xA", value: 90 },
+      ]);
+    }
+    await flowTracker(["xA"], before, { version: "1" }).refresh();
+    // A new classifier starts under the old grouping and is cut short...
+    await flowTracker(["xA"], before, { version: "2", abortAfter: 1 }).refresh();
+    // ...then a build that also regroups xA takes over: the heights already passed were
+    // classified as Binance's, so it starts again.
+    await flowTracker(["xA"], after, { version: "2" }).refresh();
+    expect(new Set((await flows()).map((f) => f.exchange))).toEqual(new Set(["kraken"]));
+    expect((await labelFlowReadiness(pool, ["xA"], after, "2"))?.caps.get("kraken")).toBe(
+      400 - REORG_DEPTH,
+    );
   });
 });

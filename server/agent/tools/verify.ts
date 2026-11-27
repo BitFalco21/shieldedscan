@@ -307,3 +307,18 @@ export function verifyExchangeReservesEcho(
   if ((q.exchange ?? null) !== exchange) return refuse;
   return null;
 }
+
+/** Why a movements payload cannot be used, or null: it echoes its window and exchange. */
+export function verifyExchangeMovementsEcho(
+  payload: unknown,
+  days: Record<"from" | "to", string | null>,
+  exchange: string | null,
+): string | null {
+  const refuse = `THIS READ CANNOT BE USED: the API did not apply the window or exchange that was asked for, so these movements answer a different question. Say they could not be read and name none.`;
+  if (typeof payload !== "object" || payload === null) return refuse;
+  const q = (payload as { query?: Record<string, unknown> }).query;
+  if (typeof q !== "object" || q === null) return refuse;
+  if ((q.from ?? null) !== days.from || (q.to ?? null) !== days.to) return refuse;
+  if ((q.exchange ?? null) !== exchange) return refuse;
+  return null;
+}

@@ -45,6 +45,19 @@ export const BRIDGE_LABELS: ReadonlySet<string> = new Set([
 export type LabelGroup =
   { kind: "exchange"; exchange: ExchangeId } | { kind: "bridge" } | { kind: "other" };
 
+/**
+ * The version of the classification below. Stored flows were made by one version, and a build with
+ * another reclassifies them all before answering, so this changes with ANY change to how a
+ * transaction's flows come out; a test pins the outputs to it.
+ */
+export const LABEL_FLOW_CLASSIFIER = "1";
+
+/** A group as stored beside each address: its exchange id, `bridge` or `other`. */
+export function labelGroupKey(group: LabelGroup | null): string {
+  if (group === null) return "other";
+  return group.kind === "exchange" ? group.exchange : group.kind;
+}
+
 /** The group a labelled address belongs to, or null for an address with no label. */
 export function labelGroupOf(address: string): LabelGroup | null {
   const label = ADDRESS_LABELS[address];
