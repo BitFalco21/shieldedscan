@@ -20,6 +20,7 @@ export const STATIC_PATHS = [
   "/reorgs",
   "/analytics",
   "/miners",
+  "/exchanges",
   "/api-docs",
   // The MCP server's how-to, for AI assistants.
   "/mcp",

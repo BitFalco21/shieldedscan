@@ -67,6 +67,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
       // `/analytics` is labelled by what it shows; under a parent called analytics the route
       // name would say nothing.
       { href: "/analytics", label: "network activity" },
+      // The labelled exchange addresses' flows: mainnet's labels, absent on testnet.
+      ...(isTestnet ? [] : [{ href: "/exchanges", label: "exchange flows" }]),
       ...(isTestnet ? [] : [{ href: "/compare", label: "compare" }]),
       ...(isTestnet ? [] : [{ href: "/halving", label: "halving" }]),
       // A demonstration page: every pull draws a real Bitcoin key against the genesis address.

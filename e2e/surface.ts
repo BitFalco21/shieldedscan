@@ -105,6 +105,9 @@ export const ROUTES: readonly string[] = [
   // every route here is walked sequentially by several sweeps.
   "/miners",
   "/miners/foundry",
+  // The exchange flows, default window and one exchange (Gemini carries the page's one tip).
+  "/exchanges",
+  "/exchanges?exchange=gemini&window=90d",
   "/mempool",
   "/reorgs",
   "/donate",

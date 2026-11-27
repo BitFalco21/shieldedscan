@@ -1,0 +1,91 @@
+{
+  "query": {
+    "from": "2026-10-28",
+    "to": "2026-11-28",
+    "exchange": null,
+    "direction": null,
+    "limit": 3
+  },
+  "coverage": {
+    "status": "complete",
+    "notes": []
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/rich-list"
+  },
+  "basis": "ZEC paid to each exchange's labelled transparent addresses m\u2026",
+  "items": [
+    {
+      "txid": "177ee7025a2e7ff41962d68b4c30a1fc5f602ad7e29436809708b64c60227542",
+      "exchange": "gemini",
+      "direction": "out",
+      "value": {
+        "zat": 10000000000000,
+        "zec": "100000.00000000"
+      },
+      "height": 3539537,
+      "timestamp": 1793641001,
+      "day": "2026-11-02",
+      "parts": [
+        {
+          "kind": "transparent",
+          "value": {
+            "zat": 10000000000000,
+            "zec": "100000.00000000"
+          }
+        }
+      ]
+    },
+    {
+      "txid": "b451954a5bc74c77d79c91eb40acb87d89fc47f302cc1aca908f71c12c9caf9f",
+      "exchange": "okx",
+      "direction": "in",
+      "value": {
+        "zat": 8000000000000,
+        "zec": "80000.00000000"
+      },
+      "height": 3541693,
+      "timestamp": 1793804306,
+      "day": "2026-11-04",
+      "parts": [
+        {
+          "kind": "transparent",
+          "value": {
+            "zat": 8000000000000,
+            "zec": "80000.00000000"
+          }
+        }
+      ]
+    },
+    {
+      "txid": "490e4a4a298d32238b05387bb4647c89baa8593ecf54311d7b41301867bc515f",
+      "exchange": "coinbase",
+      "direction": "out",
+      "value": {
+        "zat": 6052047179971,
+        "zec": "60520.47179971"
+      },
+      "height": 3569490,
+      "timestamp": 1794589990,
+      "day": "2026-11-13",
+      "parts": [
+        {
+          "kind": "transparent",
+          "value": {
+            "zat": 6052046859971,
+            "zec": "60520.46859971"
+          }
+        },
+        {
+          "kind": "fee",
+          "value": {
+            "zat": 320000,
+            "zec": "0.00320000"
+          }
+        }
+      ]
+    }
+  ],
+  "asOf": 1795819708
+}

@@ -1,0 +1,880 @@
+{
+  "query": {
+    "from": "2026-10-28",
+    "to": "2026-11-28",
+    "interval": "day",
+    "exchange": null
+  },
+  "coverage": {
+    "status": "partial",
+    "notes": [
+      "Counted through 2026-11-26: a day counts once every block in it is at least 100 blocks deep."
+    ]
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/rich-list"
+  },
+  "basis": "ZEC paid to each exchange's labelled transparent addresses m\u2026",
+  "exchanges": [
+    {
+      "id": "binance",
+      "name": "Binance"
+    },
+    {
+      "id": "coinbase",
+      "name": "Coinbase"
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini"
+    },
+    {
+      "id": "kraken",
+      "name": "Kraken"
+    },
+    {
+      "id": "okx",
+      "name": "OKX"
+    },
+    {
+      "id": "kucoin",
+      "name": "KuCoin"
+    },
+    {
+      "id": "bitget",
+      "name": "Bitget"
+    },
+    {
+      "id": "gate",
+      "name": "Gate"
+    }
+  ],
+  "data": {
+    "interval": "day",
+    "counted": {
+      "from": "2026-10-28",
+      "to": "2026-11-26"
+    },
+    "totals": {
+      "exchanges": {
+        "binance": {
+          "in": {
+            "txs": 540,
+            "value": {
+              "zat": 45190540783250,
+              "zec": "451905.40783250"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 45190540783250,
+                  "zec": "451905.40783250"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 6557,
+            "value": {
+              "zat": 44145250174859,
+              "zec": "441452.50174859"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 40678118672969,
+                  "zec": "406781.18672969"
+                }
+              },
+              {
+                "kind": "bridge",
+                "value": {
+                  "zat": 3467032834925,
+                  "zec": "34670.32834925"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 98666965,
+                  "zec": "0.98666965"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 68,
+            "fee": {
+              "zat": 4388081,
+              "zec": "0.04388081"
+            }
+          }
+        },
+        "coinbase": {
+          "in": {
+            "txs": 520,
+            "value": {
+              "zat": 34534339370010,
+              "zec": "345343.39370010"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 34534339370010,
+                  "zec": "345343.39370010"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 109,
+            "value": {
+              "zat": 25544374724384,
+              "zec": "255443.74724384"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 25544334284384,
+                  "zec": "255443.34284384"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 40440000,
+                  "zec": "0.40440000"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 8,
+            "fee": {
+              "zat": 4000000,
+              "zec": "0.04000000"
+            }
+          }
+        },
+        "gemini": {
+          "in": {
+            "txs": 4,
+            "value": {
+              "zat": 2216692254020,
+              "zec": "22166.92254020"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 2000000000000,
+                  "zec": "20000.00000000"
+                }
+              },
+              {
+                "kind": "shielded",
+                "value": {
+                  "zat": 216692254020,
+                  "zec": "2166.92254020"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 6,
+            "value": {
+              "zat": 23001050590000,
+              "zec": "230010.50590000"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 23001050590000,
+                  "zec": "230010.50590000"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 0,
+            "fee": {
+              "zat": 0,
+              "zec": "0.00000000"
+            }
+          }
+        },
+        "kraken": {
+          "in": {
+            "txs": 1596,
+            "value": {
+              "zat": 29118360009927,
+              "zec": "291183.60009927"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 29118360009927,
+                  "zec": "291183.60009927"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 3141,
+            "value": {
+              "zat": 28378565257304,
+              "zec": "283785.65257304"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 27716186946322,
+                  "zec": "277161.86946322"
+                }
+              },
+              {
+                "kind": "bridge",
+                "value": {
+                  "zat": 662298600000,
+                  "zec": "6622.98600000"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 79710982,
+                  "zec": "0.79710982"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 30,
+            "fee": {
+              "zat": 609336,
+              "zec": "0.00609336"
+            }
+          }
+        },
+        "okx": {
+          "in": {
+            "txs": 33,
+            "value": {
+              "zat": 29307333300000,
+              "zec": "293073.33300000"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 29307333300000,
+                  "zec": "293073.33300000"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 35,
+            "value": {
+              "zat": 19478858352711,
+              "zec": "194788.58352711"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 19478857732711,
+                  "zec": "194788.57732711"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 620000,
+                  "zec": "0.00620000"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 0,
+            "fee": {
+              "zat": 0,
+              "zec": "0.00000000"
+            }
+          }
+        },
+        "kucoin": {
+          "in": {
+            "txs": 14,
+            "value": {
+              "zat": 2270000000000,
+              "zec": "22700.00000000"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 2270000000000,
+                  "zec": "22700.00000000"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 7,
+            "value": {
+              "zat": 2787000355000,
+              "zec": "27870.00355000"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 2787000100000,
+                  "zec": "27870.00100000"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 255000,
+                  "zec": "0.00255000"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 0,
+            "fee": {
+              "zat": 0,
+              "zec": "0.00000000"
+            }
+          }
+        },
+        "bitget": {
+          "in": {
+            "txs": 47,
+            "value": {
+              "zat": 3907356361310,
+              "zec": "39073.56361310"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 3907356361310,
+                  "zec": "39073.56361310"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 2,
+            "value": {
+              "zat": 130000055000,
+              "zec": "1300.00055000"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 130000010000,
+                  "zec": "1300.00010000"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 45000,
+                  "zec": "0.00045000"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 0,
+            "fee": {
+              "zat": 0,
+              "zec": "0.00000000"
+            }
+          }
+        },
+        "gate": {
+          "in": {
+            "txs": 14,
+            "value": {
+              "zat": 2825547485740,
+              "zec": "28255.47485740"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 2825547485740,
+                  "zec": "28255.47485740"
+                }
+              }
+            ]
+          },
+          "out": {
+            "txs": 15,
+            "value": {
+              "zat": 2760098817816,
+              "zec": "27600.98817816"
+            },
+            "parts": [
+              {
+                "kind": "transparent",
+                "value": {
+                  "zat": 2760098467180,
+                  "zec": "27600.98467180"
+                }
+              },
+              {
+                "kind": "fee",
+                "value": {
+                  "zat": 350636,
+                  "zec": "0.00350636"
+                }
+              }
+            ]
+          },
+          "internal": {
+            "txs": 0,
+            "fee": {
+              "zat": 0,
+              "zec": "0.00000000"
+            }
+          }
+        }
+      },
+      "allExchanges": {
+        "in": {
+          "value": {
+            "zat": 149370169564257,
+            "zec": "1493701.69564257"
+          },
+          "parts": [
+            {
+              "kind": "transparent",
+              "value": {
+                "zat": 149153477310237,
+                "zec": "1491534.77310237"
+              }
+            },
+            {
+              "kind": "shielded",
+              "value": {
+                "zat": 216692254020,
+                "zec": "2166.92254020"
+              }
+            }
+          ]
+        },
+        "out": {
+          "value": {
+            "zat": 146225198327074,
+            "zec": "1462251.98327074"
+          },
+          "parts": [
+            {
+              "kind": "transparent",
+              "value": {
+                "zat": 142095646803566,
+                "zec": "1420956.46803566"
+              }
+            },
+            {
+              "kind": "bridge",
+              "value": {
+                "zat": 4129331434925,
+                "zec": "41293.31434925"
+              }
+            },
+            {
+              "kind": "fee",
+              "value": {
+                "zat": 220088583,
+                "zec": "2.20088583"
+              }
+            }
+          ]
+        },
+        "betweenExchanges": {
+          "zat": 0,
+          "zec": "0.00000000"
+        }
+      }
+    },
+    "points": [
+      {
+        "periodStart": "2026-10-28",
+        "exchanges": {
+          "binance": {
+            "in": {
+              "zat": 501028949665,
+              "zec": "5010.28949665"
+            },
+            "out": {
+              "zat": 1830279565362,
+              "zec": "18302.79565362"
+            },
+            "inTxs": 20,
+            "outTxs": 302
+          },
+          "coinbase": {
+            "in": {
+              "zat": 480000,
+              "zec": "0.00480000"
+            },
+            "out": {
+              "zat": 47732233036,
+              "zec": "477.32233036"
+            },
+            "inTxs": 2,
+            "outTxs": 2
+          },
+          "gemini": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "kraken": {
+            "in": {
+              "zat": 364850887644,
+              "zec": "3648.50887644"
+            },
+            "out": {
+              "zat": 153035519122,
+              "zec": "1530.35519122"
+            },
+            "inTxs": 50,
+            "outTxs": 67
+          },
+          "okx": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "kucoin": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "bitget": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "gate": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          }
+        },
+        "allExchanges": {
+          "in": {
+            "value": {
+              "zat": 865880317309,
+              "zec": "8658.80317309"
+            }
+          },
+          "out": {
+            "value": {
+              "zat": 2031047317520,
+              "zec": "20310.47317520"
+            }
+          },
+          "betweenExchanges": {
+            "zat": 0,
+            "zec": "0.00000000"
+          }
+        }
+      },
+      {
+        "periodStart": "2026-10-29",
+        "exchanges": {
+          "binance": {
+            "in": {
+              "zat": 1586990655262,
+              "zec": "15869.90655262"
+            },
+            "out": {
+              "zat": 2777180495321,
+              "zec": "27771.80495321"
+            },
+            "inTxs": 36,
+            "outTxs": 315
+          },
+          "coinbase": {
+            "in": {
+              "zat": 466296905074,
+              "zec": "4662.96905074"
+            },
+            "out": {
+              "zat": 44403015083,
+              "zec": "444.03015083"
+            },
+            "inTxs": 16,
+            "outTxs": 6
+          },
+          "gemini": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "kraken": {
+            "in": {
+              "zat": 460985617769,
+              "zec": "4609.85617769"
+            },
+            "out": {
+              "zat": 431343155675,
+              "zec": "4313.43155675"
+            },
+            "inTxs": 57,
+            "outTxs": 105
+          },
+          "okx": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "kucoin": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "bitget": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "gate": {
+            "in": {
+              "zat": 205120117745,
+              "zec": "2051.20117745"
+            },
+            "out": {
+              "zat": 89687790292,
+              "zec": "896.87790292"
+            },
+            "inTxs": 1,
+            "outTxs": 1
+          }
+        },
+        "allExchanges": {
+          "in": {
+            "value": {
+              "zat": 2719393295850,
+              "zec": "27193.93295850"
+            }
+          },
+          "out": {
+            "value": {
+              "zat": 3342614456371,
+              "zec": "33426.14456371"
+            }
+          },
+          "betweenExchanges": {
+            "zat": 0,
+            "zec": "0.00000000"
+          }
+        }
+      },
+      {
+        "periodStart": "2026-10-30",
+        "exchanges": {
+          "binance": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "coinbase": {
+            "in": {
+              "zat": 1895324987982,
+              "zec": "18953.24987982"
+            },
+            "out": {
+              "zat": 1784229573379,
+              "zec": "17842.29573379"
+            },
+            "inTxs": 42,
+            "outTxs": 15
+          },
+          "gemini": {
+            "in": {
+              "zat": 1000000000000,
+              "zec": "10000.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 1,
+            "outTxs": 0
+          },
+          "kraken": {
+            "in": {
+              "zat": 351393270067,
+              "zec": "3513.93270067"
+            },
+            "out": {
+              "zat": 654446566442,
+              "zec": "6544.46566442"
+            },
+            "inTxs": 55,
+            "outTxs": 141
+          },
+          "okx": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "kucoin": {
+            "in": {
+              "zat": 100000000000,
+              "zec": "1000.00000000"
+            },
+            "out": {
+              "zat": 276200020000,
+              "zec": "2762.00020000"
+            },
+            "inTxs": 1,
+            "outTxs": 1
+          },
+          "bitget": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "inTxs": 0,
+            "outTxs": 0
+          },
+          "gate": {
+            "in": {
+              "zat": 0,
+              "zec": "0.00000000"
+            },
+            "out": {
+              "zat": 78019551699,
+              "zec": "780.19551699"
+            },
+            "inTxs": 0,
+            "outTxs": 1
+          }
+        },
+        "allExchanges": {
+          "in": {
+            "value": {
+              "zat": 3346718258049,
+              "zec": "33467.18258049"
+            }
+          },
+          "out": {
+            "value": {
+              "zat": 2792895711520,
+              "zec": "27928.95711520"
+            }
+          },
+          "betweenExchanges": {
+            "zat": 0,
+            "zec": "0.00000000"
+          }
+        }
+      }
+    ]
+  },
+  "unknowns": {},
+  "asOf": 1795819707
+}

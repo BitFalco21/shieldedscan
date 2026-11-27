@@ -1,12 +1,11 @@
 import { ChartHover } from "@/components/ChartHover";
 import {
   CHART_GUTTER_GAP,
-  CHART_H,
   CHART_PAD_B,
   CHART_PAD_R,
   CHART_PAD_T,
   CHART_W,
-  TICK_FONT,
+  chartSize,
   tickCharW,
   XAxis,
   YAxis,
@@ -31,6 +30,12 @@ export interface FlowBalanceChartProps {
   formatTick?: (value: number) => string;
   /** Unambiguous labels for the readout; falls back to each point's axis label. */
   readoutLabels?: string[];
+  /**
+   * The chart's drawn width in CSS px, where the caller measures it: the ticks are then sized to
+   * render at the base size whatever the width, and the frame grows taller in step (see
+   * `chartSize`). Without it the chart is drawn for a full-width page.
+   */
+  renderedWidth?: number;
 }
 
 /**
@@ -54,6 +59,7 @@ export function FlowBalanceChart({
   formatValue = String,
   formatTick = formatValue,
   readoutLabels,
+  renderedWidth,
 }: FlowBalanceChartProps) {
   if (points.length === 0) return null;
 
@@ -71,7 +77,7 @@ export function FlowBalanceChart({
   // The readout's net is a stated amount and keeps full precision; the axis ticks need less.
   const signed = signedWith(formatValue);
   const signedTick = signedWith(formatTick);
-  const tickFont = TICK_FONT;
+  const { tickFont, height: chartH } = chartSize(false, renderedWidth);
   const { max: reach, ticks } = niceAxis(-maxAbs, maxAbs, { symmetric: true, label: signedTick });
   const padL =
     Math.max(...ticks.map((t) => signedTick(t).length)) * tickCharW(tickFont) + CHART_GUTTER_GAP;
@@ -79,7 +85,7 @@ export function FlowBalanceChart({
   // The gap shrinks with the slot: a fixed 2-unit gap would erase the bars at a 365-day range
   // (~2.5 units/slot). A fifth of the slot keeps bars dominant at any count.
   const gap = Math.min(2, (plotW / points.length) * 0.2);
-  const plotH = CHART_H - CHART_PAD_T - CHART_PAD_B;
+  const plotH = chartH - CHART_PAD_T - CHART_PAD_B;
   const mid = CHART_PAD_T + plotH / 2;
   const barWidth = plotW / points.length - gap;
   const frame = {
@@ -90,7 +96,7 @@ export function FlowBalanceChart({
     plotStart: padL / CHART_W,
     plotEnd: (CHART_W - CHART_PAD_R) / CHART_W,
 
-    height: CHART_H,
+    height: chartH,
   };
 
   return (
@@ -108,7 +114,7 @@ export function FlowBalanceChart({
       plotEnd={frame.plotEnd}
     >
       <svg
-        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+        viewBox={`0 0 ${CHART_W} ${chartH}`}
         className="h-auto w-full"
         preserveAspectRatio="none"
         role="img"
