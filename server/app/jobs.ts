@@ -2,7 +2,8 @@ import type { Pool } from "pg";
 import { AddressCountTracker } from "../address-counts";
 import { BlockArrivalTracker } from "../block-arrival";
 import { ReserveTracker } from "../exchange-reserves";
-import { EXCHANGE_MEMBERS } from "@/domain";
+import { LabelFlowTracker } from "../label-flows";
+import { ADDRESS_LABELS, EXCHANGE_MEMBERS } from "@/domain";
 import { CoinAgeTracker } from "../coin-age";
 import { backfillFxRates, refreshRecentFxRates } from "../fx-history";
 import { hostPacer } from "../job-pacer";
@@ -139,6 +140,23 @@ export function startChainTrackers(databaseUrl: string | undefined, nodeRpcUrl: 
     },
   }).start();
   log("exchange reserve tracker started");
+
+  // Every transaction touching a labelled address, for the exchange flows: after the transparent
+  // backfill like the reserves, and on mainnet only for the same reason.
+  const labelFlowPool = createPool(databaseUrl, { max: 2, statement_timeout: 60_000 });
+  new LabelFlowTracker({
+    pool: labelFlowPool,
+    network: NETWORK,
+    addresses: Object.keys(ADDRESS_LABELS),
+    pacer: pacerFor(labelFlowPool),
+    log,
+    ready: async () => {
+      const extent = await chainDayExtent(labelFlowPool, Math.floor(Date.now() / 1000));
+      if (extent === null) return true;
+      return (await transparentDaysToCompute(labelFlowPool, extent.first, extent.last)).length <= 3;
+    },
+  }).start();
+  log("label flow tracker started");
 
   // Coin age keeps a seeded matrix current, one probe per input: it does nothing until seeded.
   const coinAgePool = createPool(databaseUrl, { max: 2, statement_timeout: 60_000 });

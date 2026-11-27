@@ -441,6 +441,50 @@ CREATE TABLE IF NOT EXISTS address_balance_daily_state (
   updated_at     BIGINT  NOT NULL
 );
 
+-- Every transaction that touches a labelled address, kept by `LabelFlowTracker` in
+-- `server/label-flows.ts` for the exchange flows: what each labelled address gained or lost in it,
+-- and the transparent value on its unlabelled side. Which exchange an address belongs to is not
+-- stored: it is applied when read, so regrouping needs no recompute.
+--
+-- A transaction is always stored WHOLE for the current label set (its rows deleted and rewritten
+-- together), so reaching it from two addresses gives one answer. Only heights at least the reorg
+-- depth below the tip are stored, so a row never needs taking back.
+CREATE TABLE IF NOT EXISTS label_flow_io (
+  txid         TEXT    NOT NULL,
+  address      TEXT    NOT NULL,
+  block_height INTEGER NOT NULL,
+    -- Outputs paying the address minus inputs spending from it, in this transaction.
+  delta_zat    BIGINT  NOT NULL,
+  PRIMARY KEY (address, txid)
+);
+CREATE INDEX IF NOT EXISTS label_flow_io_txid_idx ON label_flow_io (txid);
+
+CREATE TABLE IF NOT EXISTS label_flow_tx (
+  txid               TEXT    PRIMARY KEY,
+  block_height       INTEGER NOT NULL,
+  timestamp          BIGINT  NOT NULL,
+    -- Transparent inputs and outputs naming no labelled address.
+  unlabelled_in_zat  BIGINT  NOT NULL,
+  unlabelled_out_zat BIGINT  NOT NULL
+);
+CREATE INDEX IF NOT EXISTS label_flow_tx_height_idx ON label_flow_tx (block_height);
+
+CREATE TABLE IF NOT EXISTS label_flow_state (
+  address        TEXT    PRIMARY KEY,
+    -- The highest block walked for this address, or -1 before the first.
+  through_height INTEGER NOT NULL,
+  updated_at     BIGINT  NOT NULL
+);
+
+-- The highest block any row was stored through, and its hash. Checked at the start of every pass:
+-- a block that changed below it means a reorg deeper than the reorg depth (or a repaired chain),
+-- and the tracker stops rather than keep rows from a dead fork.
+CREATE TABLE IF NOT EXISTS label_flow_meta (
+  id     BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  height INTEGER NOT NULL,
+  hash   TEXT    NOT NULL
+);
+
 -- Transparent coin age, kept by `CoinAgeTracker` in `server/coin-age.ts`: every transparent output
 -- ever made, summed by the UTC day of the block that created it and the UTC day of the block that
 -- spent it (NULL while unspent). Any day's age distribution is the rows created on or before it
