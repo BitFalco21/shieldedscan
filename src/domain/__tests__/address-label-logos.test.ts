@@ -36,7 +36,6 @@ describe("label logos", () => {
       addressLabelLogo({
         name: "Binance",
         basis: "external",
-        source: "test",
         flag: { by: "test", href: "https://example.org", note: "test" },
       } as never),
     ).toBeNull();

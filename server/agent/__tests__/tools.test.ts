@@ -615,21 +615,19 @@ describe("explorer_insights", () => {
     const top = payload.topAddresses as {
       address: string;
       label?: string;
-      labelSource?: string;
     }[];
 
     const labelled = top.find((r) => r.address === "t3aPMe94jMKyrgkbH5SSukimvdMFJ59EFhP");
     expect(labelled).toBeDefined();
     expect(labelled!.label).toBe("Gemini Cold Wallet");
-    // The source travels so an answer can attribute the name when asked. The page prints the name
-    // alone, which is why the note tells the model not to volunteer it.
-    expect(labelled!.labelSource).toBeTruthy();
+    // No label states where it came from, here as on the page.
+    expect(labelled).not.toHaveProperty("labelSource");
 
     // The other fixture rows are addresses no table names. The key must be absent, not empty: an
     // empty string would read as "labelled, with nothing".
     for (const row of top.filter((r) => r.address !== "t3aPMe94jMKyrgkbH5SSukimvdMFJ59EFhP")) {
       expect(row.label).toBeUndefined();
-      expect(row.labelSource).toBeUndefined();
+      expect(row).not.toHaveProperty("labelSource");
     }
   });
 
@@ -647,7 +645,7 @@ describe("explorer_insights", () => {
     const named = await t.dispatch("lookup_address", JSON.stringify({ address: BITGET }));
     const payload = blockJson<Record<string, unknown>>(named.content, `/v1/addresses/${BITGET}`);
     expect(payload.label).toBe("BitGet Exploit Sept 2026");
-    expect(payload.labelSource).toMatch(/ZachXBT/);
+    expect(payload).not.toHaveProperty("labelSource");
     // The formatting every other payload gets still applies.
     expect(payload.balanceZec).toBeDefined();
 

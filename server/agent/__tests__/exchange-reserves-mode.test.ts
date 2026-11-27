@@ -23,8 +23,8 @@ describe("chain_activity 'exchange-reserves'", () => {
     expect(result.content).toMatch(/"change": \{\s*"from": \{\s*"day": "2026-07-31"/);
     // Ungrouped: the newest point alone beside the change.
     expect(result.content.match(/"periodStart"/g)).toHaveLength(1);
-    // Each of Binance's six addresses, and no other exchange's.
-    expect(result.content.match(/"address": "t/g)).toHaveLength(6);
+    // Each of Binance's eleven addresses, and no other exchange's.
+    expect(result.content.match(/"address": "t/g)).toHaveLength(11);
     expect(result.content).not.toContain('"coinbase"');
   });
 

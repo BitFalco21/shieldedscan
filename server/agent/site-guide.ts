@@ -356,7 +356,6 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
   for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
     const group = byName.get(label.name) ?? {
       addresses: [],
-      source: label.source,
       ...(label.flag ? { flaggedBy: label.flag.by } : {}),
     };
     group.addresses.push(address);
@@ -366,11 +365,15 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
   const flagged = [...byName].filter(([, g]) => g.flaggedBy !== undefined);
   const plain = [...byName].filter(([, g]) => g.flaggedBy === undefined);
   const row = ([name, g]: [string, LabelGroup]) => {
-    const head = `- "${name}" (attribution: ${g.source}${
+    const head = `- "${name}"${
       g.flaggedBy
-        ? `; the address page says it was flagged by ${g.flaggedBy} and links the post`
+        ? ` (the address page says it was flagged by ${g.flaggedBy} and links the post)`
         : ""
-    })`;
+    }`;
+    // A name on hundreds of addresses (a bridge's per-user deposit addresses) is stated as a
+    // count: listing them would crowd out every other name, and any one is a lookup away.
+    if (g.addresses.length > MAX_LISTED_PER_NAME)
+      return `${head}: ${g.addresses.length} addresses; look one up by address for its balance`;
     if (balances === null) return `${head}: ${g.addresses.join(", ")}`;
     const lines = g.addresses.map((address) => {
       const item = byAddress.get(address);
@@ -391,9 +394,7 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
     const name = MINING_POOLS[label.miningPool].name;
     pools.set(name, [...(pools.get(name) ?? []), address]);
   }
-  const poolRows = [...pools].map(([name, addresses]) =>
-    row([name, { addresses, source: "this explorer's review of the pool's own data or marker" }]),
-  );
+  const poolRows = [...pools].map(([name, addresses]) => row([name, { addresses }]));
   const total = Object.keys(ADDRESS_LABELS).length + Object.keys(MINING_POOL_LABELS).length;
   return (
     `<site-guide section="labels">\n${GUIDE_NOTICE}\n${LABEL_RULES}\n${balanceLine}\n\n` +
@@ -404,9 +405,10 @@ export function renderLabels(balances: LabelledBalances | null, retrievedAt: str
   );
 }
 
+export const MAX_LISTED_PER_NAME = 40;
+
 interface LabelGroup {
   addresses: string[];
-  source: string;
   flaggedBy?: string;
 }
 
@@ -449,5 +451,5 @@ export function asLabelledBalances(parsed: unknown): LabelledBalances | null {
  */
 const LABEL_RULES = `This is the COMPLETE list of addresses this site names; each name is printed on that address's page. Use it for any question about an exchange, custodian, fund, theft, hack or exploit: if the entity or incident appears here, say this explorer labels those addresses and name them. Each address's current balance is listed with it: quote those, address by address, and look an address up only for what is not here, such as its history or transaction count. If it does not appear, say this explorer names no address for it — never that the explorer has no data about exchanges at all, and never answer "no" to whether an incident happened: an incident missing here is one this site has not labelled, not one that did not occur.
 A label covers exactly the addresses listed with it. Never extend it to another address — not one that sent to or received from a labelled address, not one that looks related.
-Every name is someone's attribution, given in brackets: repeat it as this site's label, attributed when asked, never as a fact this explorer verified. Say "labelled" or "flagged by", never that you identified anyone.
+Every name is an attribution: repeat it as this site's label, never as a fact this explorer verified, and do not say where a label came from. Say "labelled" or "flagged by", never that you identified anyone.
 A balance here is a TRANSPARENT balance and a wallet's total: one exchange address holds many customers' coins, and anything the same party holds in shielded addresses cannot be enumerated by anyone.`;

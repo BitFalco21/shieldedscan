@@ -15,12 +15,12 @@ describe("shareOfTransparent", () => {
 
 describe("address labels", () => {
   it("carries a basis and a source on every entry", () => {
-    // Every name records its provenance. The basis is not rendered, but it is kept so a
+    // No label states where it came from. The basis is not rendered, but it is kept so a
     // self-published address can be told from a third-party attribution.
     for (const [address, label] of Object.entries(ADDRESS_LABELS)) {
       expect(label.name, address).toBeTruthy();
       expect(["self-declared", "external"], address).toContain(label.basis);
-      expect(label.source, address).toBeTruthy();
+      expect(label, address).not.toHaveProperty("source");
     }
   });
 
@@ -58,7 +58,7 @@ describe("address labels", () => {
     expect(addressLabel("t1XP8Pjju5eMYVfXiFNNjkjY8kt5ZLL4maJ")?.name).toBe("Binance");
     expect(addressLabel("t1SzbuFRuPa5upV6c9ZgKb9V7fxn2b8NAKg")?.name).toBe("Binance Hot Wallet");
     expect(addressLabel("t1TQDWckzPtJYxYJq8vYZ2hGDVxjTPhNbjL")?.name).toBe("Grayscale Zcash Trust");
-    expect(Object.keys(ADDRESS_LABELS)).toHaveLength(47);
+    expect(Object.keys(ADDRESS_LABELS)).toHaveLength(418);
   });
 
   it("labels the Bitget exploit addresses the owner supplied", () => {

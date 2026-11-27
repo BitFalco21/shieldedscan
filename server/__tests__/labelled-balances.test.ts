@@ -110,7 +110,7 @@ describeDb("labelled-address balances", () => {
       balanceZat: 0,
       unknowns: { rank: "nonexistent" },
     });
-    expect(byAddress.get(ranked)!.source).toBe(ADDRESS_LABELS[ranked]!.source);
+    expect(byAddress.get(ranked)).not.toHaveProperty("source");
     expect(body.rankHeight).toBe(RANK_HEIGHT);
   });
 });

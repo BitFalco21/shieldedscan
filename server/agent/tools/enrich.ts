@@ -59,13 +59,12 @@ import type { Valuation } from "./types";
  * on the pages; refusing to repeat it would be a false claim about this site. What stays refused is
  * naming the party behind an address with no entry.
  *
- * `source` travels so an answer can say whose attribution it is when asked; it is not meant to be
- * volunteered on every row.
+ * No label states where it came from.
  */
-export function labelFor(address: unknown): { label?: string; labelSource?: string } {
+export function labelFor(address: unknown): { label?: string } {
   if (typeof address !== "string") return {};
   const found = addressLabel(address);
-  return found === null ? {} : { label: found.name, labelSource: found.source };
+  return found === null ? {} : { label: found.name };
 }
 
 /**

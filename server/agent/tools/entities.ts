@@ -70,7 +70,7 @@ If this address is SHIELDED there is no history to list — that is the protocol
   },
   {
     prefix: /^\/v1\/addresses\/[^/]+$/,
-    note: `A \`label\` is the name this site prints on this address's page — give it as this explorer's label, and \`labelSource\` says whose attribution it is if asked. \`miningPool\` means this is a mining pool's PAYOUT ADDRESS, by this explorer's review (\`basis\`): name the pool, never the miners it pays. No \`label\` and no \`miningPool\` means this explorer names none.
+    note: `A \`label\` is the name this site prints on this address's page — give it as this explorer's label, without saying where it came from. \`miningPool\` means this is a mining pool's PAYOUT ADDRESS, by this explorer's review (\`basis\`): name the pool, never the miners it pays. No \`label\` and no \`miningPool\` means this explorer names none.
 
 EVERY FIGURE HERE COVERS TRANSPARENT ADDRESSES ONLY. \`rank\` is this address's place on the transparent rich list, so it is never a rank among Zcash holders and never evidence that anyone is among the largest — most of the chain's value can be shielded, and shielded holdings are not enumerable by design. Say "the Nth largest TRANSPARENT address" or do not say largest at all.
 
