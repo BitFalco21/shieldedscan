@@ -3,19 +3,18 @@ import { EXCHANGE_NAMES, type CombinedFlowSide, type ExchangeId, type FlowKind }
 import { EcosystemLogo } from "@/components/EcosystemLogo";
 import { Panel } from "@/components/Panel";
 import { ShareBar } from "@/components/ShareBar";
-import {
-  formatCount,
-  formatSharePct,
-  formatZecBalance,
-  formatZecVolumeCompact,
-  formatZecWhole,
-} from "@/lib/format";
-import { FLOW_KIND_LABELS, FLOW_KIND_ORDER, FLOW_KIND_SHORT } from "./flow-copy";
+import { formatCount, formatSharePct, formatZecBalance, formatZecWhole } from "@/lib/format";
+import { FLOW_KIND_LABELS, FLOW_KIND_ORDER, FLOW_KIND_SHORT, phoneZec } from "./flow-copy";
 
 export interface FlowBreakdownPanelProps {
   title: string;
   /** The side's figures: its total and its parts. */
   side: CombinedFlowSide;
+  /**
+   * Whether to state the transaction count: true for one exchange. Summed over several, a
+   * transaction touching two of them would count twice.
+   */
+  showTxs: boolean;
 }
 
 /** A row's amount: whole coins from `sm`, compact on a phone; the exact figure in the title. */
@@ -25,7 +24,7 @@ function Amount({ zat }: { zat: number }) {
       className="font-mono whitespace-nowrap text-ink-bright"
       title={`${formatCount(zat)} zatoshi`}
     >
-      <span className="sm:hidden">{`${formatZecVolumeCompact(zat)} ZEC`}</span>
+      <span className="sm:hidden">{`${phoneZec(zat)} ZEC`}</span>
       <span className="hidden sm:inline">{formatZecBalance(zat)}</span>
     </span>
   );
@@ -73,21 +72,25 @@ function Row({
  * a phone can read. Each row's share is of the side's total; a move between two of the exchanges
  * shown is not in it (the page states that figure apart), so the rows add up to the total.
  */
-export function FlowBreakdownPanel({ title, side }: FlowBreakdownPanelProps) {
+export function FlowBreakdownPanel({ title, side, showTxs }: FlowBreakdownPanelProps) {
   const byKind = new Map<FlowKind, number>();
-  const exchanges = new Map<ExchangeId, number>();
+  // An exchange this build cannot name yet is "other".
+  const exchanges = new Map<ExchangeId | "other", number>();
   for (const p of side.parts) {
     byKind.set(p.kind, (byKind.get(p.kind) ?? 0) + p.zat);
-    if (p.kind === "exchange" && p.exchange !== null) {
-      exchanges.set(p.exchange, (exchanges.get(p.exchange) ?? 0) + p.zat);
+    if (p.kind === "exchange") {
+      const key = p.exchange ?? "other";
+      exchanges.set(key, (exchanges.get(key) ?? 0) + p.zat);
     }
   }
   const kinds = FLOW_KIND_ORDER.filter((k) => (byKind.get(k) ?? 0) > 0);
   return (
     <Panel title={title}>
       <p className="font-mono text-lg text-ink-bright">
-        {formatZecWhole(side.zat)}
-        <span className="ms-2 text-xs text-ink-faint">{`${formatCount(side.txs)} transactions`}</span>
+        {side.zat >= 100_000_000 ? formatZecWhole(side.zat) : formatZecBalance(side.zat)}
+        {showTxs ? (
+          <span className="ms-2 text-xs text-ink-faint">{`${formatCount(side.txs)} transactions`}</span>
+        ) : null}
       </p>
       {kinds.length === 0 ? (
         <p className="mt-3 text-sm text-ink-faint">None in this window.</p>
@@ -114,10 +117,10 @@ export function FlowBreakdownPanel({ title, side }: FlowBreakdownPanelProps) {
                     .map(([e, zat]) => (
                       <Row
                         key={e}
-                        label={EXCHANGE_NAMES[e]}
+                        label={e === "other" ? "Another exchange" : EXCHANGE_NAMES[e]}
                         zat={zat}
                         total={side.zat}
-                        mark={<EcosystemLogo logo={e} />}
+                        mark={e === "other" ? undefined : <EcosystemLogo logo={e} />}
                       />
                     ))}
                 </div>

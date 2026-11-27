@@ -9,7 +9,6 @@ import {
   type ExchangeId,
 } from "@/domain";
 import { getDataSource } from "@/data";
-import { DataUnavailable } from "@/components/DataUnavailable";
 import { ExchangeFlowsPage } from "@/features/exchanges/ExchangeFlowsPage";
 import { isTestnet } from "@/lib/network";
 import { isTransientUpstream, nullIfTransient } from "@/lib/transient-upstream";
@@ -50,16 +49,19 @@ export default async function Page({
 
   const data = getDataSource();
   const days = exchangeFlowWindowDays(range);
-  // The page's subject: an outage is named, any other failure throws (a wrong shape is loud).
-  let flows;
+  // The page's subject: an outage keeps the page and its controls and says so; any other failure
+  // throws (a wrong shape is loud).
+  let flows = null;
   try {
     flows = await data.getExchangeFlows(days);
   } catch (error) {
     if (!isTransientUpstream(error)) throw error;
-    return <DataUnavailable what="The exchange flows" />;
   }
+  const through = flows?.counted?.to ?? null;
   const [movements, reserveDays] = await Promise.all([
-    nullIfTransient(() => data.getExchangeMovements(days, exchange)),
+    through === null
+      ? Promise.resolve([])
+      : nullIfTransient(() => data.getExchangeMovements(days, exchange, through)),
     nullIfTransient(() => data.getExchangeReserves()),
   ]);
   return (

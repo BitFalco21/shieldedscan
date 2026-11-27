@@ -123,8 +123,8 @@ function buildUntagged(tipRevalidateSeconds?: number): ExplorerDataSource {
     getSupplyDays: () => chain.getSupplyDays(),
     getExchangeReserves: () => chain.getExchangeReserves(),
     getExchangeFlows: (windowDays) => flows.getExchangeFlows(windowDays),
-    getExchangeMovements: (windowDays, exchange) =>
-      flows.getExchangeMovements(windowDays, exchange),
+    getExchangeMovements: (windowDays, exchange, through) =>
+      flows.getExchangeMovements(windowDays, exchange, through),
     getMinersOverview: (window) => chain.getMinersOverview(window),
     getMinerSeries: (interval) => chain.getMinerSeries(interval),
     getMiningPoolBlocks: (id) => chain.getMiningPoolBlocks(id),

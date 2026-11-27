@@ -40,6 +40,8 @@ const VALID_ROUTES: readonly RegExp[] = [
   // The window is enumerated rather than matched as `.+`: an unrecognised value parses to the
   // default (`parseMinersWindow`), so a typo would render the 30d page under a URL promising 90d.
   /^\/miners(\/[a-z0-9-]+)?(\?window=(7d|90d))?$/,
+  // Enumerated for the same reason: an unrecognised window or exchange parses to the default.
+  /^\/exchanges(\?(window=(7d|90d|1y|all)(&exchange=[a-z]+)?|exchange=[a-z]+))?$/,
   // `?vs=` is not enumerated: an unrecognised value renders a stated "NOT FOUND" rather than the
   // default page. `compare.spec.ts` asserts every option in the picker resolves to its asset.
   /^\/compare$/,

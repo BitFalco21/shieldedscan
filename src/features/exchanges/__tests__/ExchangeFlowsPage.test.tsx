@@ -12,7 +12,7 @@ function page(flows: ExchangeFlowWindow = getExchangeFlows(30), exchange: "gemin
   return render(
     <ExchangeFlowsPage
       flows={flows}
-      movements={getExchangeMovements(30, exchange)}
+      movements={getExchangeMovements(30, exchange, flows.counted!.to)}
       reserves={null}
       range="30d"
       exchange={exchange}
@@ -31,6 +31,31 @@ describe("ExchangeFlowsPage", () => {
     expect(within(between as HTMLElement).getByText(formatZecWhole(all.betweenZat))).toBeTruthy();
     const inCard = screen.getByText("IN").closest(".stat-card")!;
     expect(within(inCard as HTMLElement).getByText(formatZecWhole(all.in.zat))).toBeTruthy();
+  });
+
+  it("gives no transaction count for every exchange together, which would count a move twice", () => {
+    page();
+    const inCard = screen.getByText("IN").closest(".stat-card")!;
+    expect(inCard.textContent).not.toMatch(/transactions/);
+    expect(screen.getByText("WHERE IT CAME FROM").closest("section")!.textContent).not.toMatch(
+      /transactions/,
+    );
+  });
+
+  it("keeps the page and its controls when the flows cannot be read", () => {
+    render(
+      <ExchangeFlowsPage
+        flows={null}
+        movements={null}
+        reserves={null}
+        range="30d"
+        exchange={null}
+        href={href}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Exchange flows" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Window" })).toBeTruthy();
+    expect(screen.getByText(/The exchange flows/)).toBeTruthy();
   });
 
   it("states net as in − out − own-wallet fees, the change in what they hold", () => {

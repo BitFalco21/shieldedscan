@@ -52,6 +52,20 @@ describe("the exchange flows adapter", () => {
     expect(() => parseExchangeFlows(body, ASKED, 30)).toThrow(/gate is missing/);
   });
 
+  it("reads an exchange this build does not know yet as an unnamed exchange, never an error", () => {
+    const body = flows();
+    const binance = (
+      body.data as { totals: { exchanges: Record<string, { out: { parts: unknown[] } }> } }
+    ).totals.exchanges.binance!;
+    binance.out.parts.push({
+      kind: "exchange",
+      exchange: "bybit",
+      value: { zat: 5, zec: "0.00000005" },
+    });
+    const part = parseExchangeFlows(body, ASKED, 30).totals.binance!.out.parts.at(-1);
+    expect(part).toEqual({ kind: "exchange", exchange: null, zat: 5 });
+  });
+
   it("keeps an exchange the API could not count as null", () => {
     const body = flows();
     (body.data as { totals: { exchanges: Record<string, unknown> } }).totals.exchanges.okx = null;
@@ -74,6 +88,12 @@ describe("the exchange flows adapter", () => {
         exchange: "gate",
       }),
     ).toThrow(/different window or exchange/);
+    // A movement of an exchange this build does not know is left out, not the whole list.
+    const body = movements();
+    (body.items as { exchange: string }[])[0]!.exchange = "bybit";
+    expect(
+      parseExchangeMovements(body, { from: "2026-10-28", to: "2026-11-28", exchange: null }),
+    ).toHaveLength(2);
   });
 
   it("asks a window with both edges, the end exclusive and covering today", () => {

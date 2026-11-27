@@ -49,5 +49,9 @@ export function phoneZec(zat: number): string {
   const zec = Math.abs(zat) / 100_000_000;
   if (zec >= 1_000_000) return `${(zec / 1_000_000).toFixed(2)}M`;
   if (zec >= 1_000) return `${(zec / 1_000).toFixed(1)}K`;
-  return zec.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (zec >= 1 || zec === 0) {
+    return zec.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // Below a coin, three significant digits: a real fee never reads as 0.00.
+  return zec.toLocaleString("en-US", { maximumSignificantDigits: 3 });
 }

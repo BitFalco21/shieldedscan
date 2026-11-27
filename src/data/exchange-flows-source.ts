@@ -60,12 +60,15 @@ function partOf(v: unknown): ExchangeFlowPart {
     throw new Error("exchange flows: a part has no known kind");
   }
   const exchange = v.exchange ?? null;
-  if (exchange !== null && !(EXCHANGES as readonly unknown[]).includes(exchange)) {
-    throw new Error("exchange flows: a part names an unknown exchange");
+  if (exchange !== null && typeof exchange !== "string") {
+    throw new Error("exchange flows: a part's exchange is not a name");
   }
   return {
     kind: v.kind as FlowKind,
-    exchange: exchange as ExchangeId | null,
+    // An exchange this build does not know yet (the API ships first): still an exchange, unnamed.
+    exchange: (EXCHANGES as readonly unknown[]).includes(exchange)
+      ? (exchange as ExchangeId)
+      : null,
     zat: zatOf(v.value, "a part"),
   };
 }
@@ -171,6 +174,7 @@ export function parseExchangeFlows(
       if (!isRecord(p)) throw new Error(`exchange flows: point ${i}`);
       return {
         timestamp: dayOf(p.periodStart, `point ${i}`),
+        from: p.from === undefined ? null : dayOf(p.from, `point ${i} from`),
         through: p.through === undefined ? null : dayOf(p.through, `point ${i} through`),
         exchanges: perExchange(p.exchanges, figuresOf),
         all: allOf(p.allExchanges, i),
@@ -184,6 +188,7 @@ export function parseExchangeMovements(
   body: unknown,
   asked: { from: string | null; to: string | null; exchange: ExchangeId | null },
 ): ExchangeMovement[] {
+  const known = (e: unknown): e is ExchangeId => (EXCHANGES as readonly unknown[]).includes(e);
   if (!isRecord(body) || !isRecord(body.query) || !Array.isArray(body.items)) {
     throw new Error("exchange movements: unrecognised shape");
   }
@@ -194,11 +199,12 @@ export function parseExchangeMovements(
   ) {
     throw new Error("exchange movements: the API answered a different window or exchange");
   }
-  return body.items.map((v, i) => {
+  // A movement of an exchange this build does not know yet is left out, never the page.
+  const items = body.items.filter((v) => !isRecord(v) || known(v.exchange));
+  return items.map((v, i) => {
     if (
       !isRecord(v) ||
       typeof v.txid !== "string" ||
-      !(EXCHANGES as readonly unknown[]).includes(v.exchange) ||
       (v.direction !== "in" && v.direction !== "out") ||
       !Array.isArray(v.parts)
     ) {
@@ -268,11 +274,14 @@ export function createExchangeFlowsSource(config: ApiRequestConfig) {
     getExchangeMovements(
       windowDays: number | null,
       exchange: ExchangeId | null,
+      through: number,
     ): Promise<ExchangeMovement[]> {
-      const { from, to } = flowsQuery(windowDays, Math.floor(Date.now() / 1000));
+      const { from } = flowsQuery(windowDays, Math.floor(Date.now() / 1000));
+      // Ends with the last day the totals count, so the list never holds a day they do not.
+      const to = utcDayFromSeconds(through + 86_400);
       const q = new URLSearchParams();
       if (from !== null) q.set("from", from);
-      if (to !== null) q.set("to", to);
+      q.set("to", to);
       if (exchange !== null) q.set("exchange", exchange);
       q.set("limit", String(MOVEMENTS_SHOWN));
       return remembered(`movements:${q}`, async () =>

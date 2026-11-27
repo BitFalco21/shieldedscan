@@ -9,7 +9,7 @@ import {
   type ExchangeId,
   type ExchangeMovement,
 } from "@/domain";
-import { TIP_TIME } from "./ids";
+import { TIP_TIME, hex64 } from "./ids";
 
 /**
  * Two years of exchange flows, deterministic, carrying every case the page draws: inflows from
@@ -150,6 +150,7 @@ export function getExchangeFlows(windowDays: number | null): ExchangeFlowWindow 
       const sumOf = (k: "inZat" | "outZat") => EXCHANGES.reduce((s, e) => s + exchanges[e][k], 0);
       return {
         timestamp,
+        from: first !== null && timestamp < first ? first : null,
         through:
           interval === "month" && last !== null && monthStart(last) === timestamp ? last : null,
         exchanges,
@@ -164,9 +165,10 @@ export function getExchangeFlows(windowDays: number | null): ExchangeFlowWindow 
   };
 }
 
+/** Real fixture transactions, so every row links to a page; the pair at −9 days shares one. */
 const MOVEMENTS: ExchangeMovement[] = [
   {
-    txid: "e1".repeat(32),
+    txid: hex64("a3f29c4e"),
     exchange: "gemini",
     direction: "out",
     zat: 100_000 * ZEC,
@@ -174,7 +176,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     parts: [{ kind: "transparent", exchange: null, zat: 100_000 * ZEC }],
   },
   {
-    txid: "e2".repeat(32),
+    txid: hex64("22d8e411"),
     exchange: "binance",
     direction: "in",
     zat: 42_500 * ZEC,
@@ -182,7 +184,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     parts: [{ kind: "transparent", exchange: null, zat: 42_500 * ZEC }],
   },
   {
-    txid: "e3".repeat(32),
+    txid: hex64("ea0a65f6"),
     exchange: "binance",
     direction: "out",
     zat: 20_000 * ZEC + 12_000,
@@ -193,7 +195,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     ],
   },
   {
-    txid: "e3".repeat(32),
+    txid: hex64("ea0a65f6"),
     exchange: "kraken",
     direction: "in",
     zat: 20_000 * ZEC,
@@ -201,7 +203,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     parts: [{ kind: "exchange", exchange: "binance", zat: 20_000 * ZEC }],
   },
   {
-    txid: "e4".repeat(32),
+    txid: hex64("77d10b12"),
     exchange: "coinbase",
     direction: "in",
     zat: 15_300 * ZEC,
@@ -209,7 +211,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     parts: [{ kind: "mixed", exchange: null, zat: 15_300 * ZEC }],
   },
   {
-    txid: "e5".repeat(32),
+    txid: hex64("d9051ce7"),
     exchange: "gemini",
     direction: "in",
     zat: 4_000 * ZEC,
@@ -217,7 +219,7 @@ const MOVEMENTS: ExchangeMovement[] = [
     parts: [{ kind: "shielded", exchange: null, zat: 4_000 * ZEC }],
   },
   {
-    txid: "e6".repeat(32),
+    txid: hex64("bb61d803"),
     exchange: "okx",
     direction: "out",
     zat: 2_000 * ZEC + 5_000,
@@ -232,10 +234,13 @@ const MOVEMENTS: ExchangeMovement[] = [
 export function getExchangeMovements(
   windowDays: number | null,
   exchange: ExchangeId | null,
+  through: number,
 ): ExchangeMovement[] {
   const start = exchangeFlowWindowStart(windowDays, TIP_TIME);
   return MOVEMENTS.filter(
     (m) =>
-      (start === null || m.timestamp >= start) && (exchange === null || m.exchange === exchange),
+      (start === null || m.timestamp >= start) &&
+      m.timestamp < through + DAY &&
+      (exchange === null || m.exchange === exchange),
   ).sort((a, b) => b.zat - a.zat);
 }

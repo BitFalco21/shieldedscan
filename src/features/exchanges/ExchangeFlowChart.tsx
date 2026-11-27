@@ -17,6 +17,15 @@ export interface ExchangeFlowChartProps {
  * ZEC into and out of the exchanges per day or month, both directions on one scale, so a quiet
  * net never hides the volume that moved. Periods an exchange is not counted for are left out.
  */
+/** A period the window or the count cuts, said in its readout: its bar covers part of it. */
+function cut(p: ExchangeFlowPeriod): string {
+  const parts = [
+    p.from === null ? null : `from ${utcDayFromSeconds(p.from)}`,
+    p.through === null ? null : `to ${utcDayFromSeconds(p.through)}`,
+  ].filter((x) => x !== null);
+  return parts.length === 0 ? "" : `, ${parts.join(" ")}`;
+}
+
 export function ExchangeFlowChart({ points, interval, exchange }: ExchangeFlowChartProps) {
   // Measured, so the ticks stay readable on a phone instead of shrinking with the frame.
   const [ref, width] = useElementWidth<HTMLDivElement>();
@@ -27,7 +36,7 @@ export function ExchangeFlowChart({ points, interval, exchange }: ExchangeFlowCh
     return [
       {
         label: interval === "month" ? day.slice(0, 7) : day.slice(5),
-        readout: interval === "month" ? day.slice(0, 7) : day,
+        readout: `${interval === "month" ? day.slice(0, 7) : day}${cut(p)}`,
         inValue: f.inZat,
         outValue: f.outZat,
       },

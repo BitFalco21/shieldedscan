@@ -12,6 +12,8 @@ import { FLOW_KIND_LABELS, phoneZec } from "./flow-copy";
 export interface ExchangeMovementsTableProps {
   /** Largest first; null when they could not be read. */
   movements: ExchangeMovement[] | null;
+  /** Dates with their year: a window longer than three months reaches past this year's days. */
+  fullDates: boolean;
 }
 
 /** Where a movement came from or went: its one counterparty, or how many it split across. */
@@ -19,17 +21,18 @@ function where(m: ExchangeMovement): string {
   const real = m.parts.filter((p) => p.kind !== "fee");
   if (real.length === 1) {
     const p = real[0]!;
-    return p.kind === "exchange" && p.exchange !== null
-      ? EXCHANGE_NAMES[p.exchange]
-      : FLOW_KIND_LABELS[p.kind];
+    if (p.kind !== "exchange") return FLOW_KIND_LABELS[p.kind];
+    return p.exchange === null ? "Another exchange" : EXCHANGE_NAMES[p.exchange];
   }
-  return `${real.length} kinds`;
+  return real.every((p) => p.kind === "exchange")
+    ? `${real.length} exchanges`
+    : `${real.length} counterparties`;
 }
 
 const TH = "border-b border-edge-faint pb-2 font-normal whitespace-nowrap";
 
 /** The window's largest single flows into or out of a labelled exchange address. */
-export function ExchangeMovementsTable({ movements }: ExchangeMovementsTableProps) {
+export function ExchangeMovementsTable({ movements, fullDates }: ExchangeMovementsTableProps) {
   if (movements === null) return <DataUnavailable what="The largest movements" />;
   return (
     <Panel title="LARGEST MOVEMENTS">
@@ -56,7 +59,9 @@ export function ExchangeMovementsTable({ movements }: ExchangeMovementsTableProp
               {movements.map((m) => (
                 <tr key={`${m.txid}:${m.exchange}`} className="hairline-b last:border-0">
                   <td className="font-mono whitespace-nowrap text-ink-dim">
-                    {utcDayFromSeconds(m.timestamp).slice(5)}
+                    {fullDates
+                      ? utcDayFromSeconds(m.timestamp)
+                      : utcDayFromSeconds(m.timestamp).slice(5)}
                   </td>
                   <td className="text-ink-dim">
                     <span className="inline-flex items-center gap-1.5">

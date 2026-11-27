@@ -39,6 +39,8 @@ export interface ExchangeFlowPeriodFigures {
 export interface ExchangeFlowPeriod {
   /** The period's first UTC day, unix seconds. */
   timestamp: number;
+  /** The first day counted, when the window starts inside the period. */
+  from: number | null;
   /** The last day counted, when the count stops inside the period. */
   through: number | null;
   /** Null for an exchange not counted yet. */
@@ -102,11 +104,18 @@ export function exchangeFlowInterval(windowDays: number | null): "day" | "month"
   return windowDays !== null && windowDays <= 90 ? "day" : "month";
 }
 
-/** A window's first UTC day, `windowDays` back from today; null for all of history. */
+/**
+ * A window's first UTC day, `windowDays` back from today; null for all of history. A window drawn
+ * by month starts on the first of its month, so its first bar is a whole month, never a few days
+ * standing beside full ones.
+ */
 export function exchangeFlowWindowStart(windowDays: number | null, nowSec: number): number | null {
   if (windowDays === null) return null;
   const today = Math.floor(nowSec / 86_400) * 86_400;
-  return today - windowDays * 86_400;
+  const start = today - windowDays * 86_400;
+  if (exchangeFlowInterval(windowDays) === "day") return start;
+  const d = new Date(start * 1000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
 }
 
 export interface CombinedFlowSide {
@@ -122,6 +131,12 @@ export interface CombinedFlows {
   internalFeeZat: number;
   /** Sent from one of the exchanges to another of them: in neither `in` nor `out`. */
   betweenZat: number;
+  /**
+   * The change in what they hold: each exchange's in − out − own-wallet fees, summed. Exact,
+   * where `in − out` of the combination is not: a move between two of them is left out at the
+   * amount sent on one side and the amount received on the other, which differ by its fee.
+   */
+  netZat: number;
 }
 
 /**
@@ -168,5 +183,9 @@ export function combineFlows(
     internalTxs: (picked as ExchangeFlowTotal[]).reduce((s, t) => s + t.internalTxs, 0),
     internalFeeZat: (picked as ExchangeFlowTotal[]).reduce((s, t) => s + t.internalFeeZat, 0),
     betweenZat,
+    netZat: (picked as ExchangeFlowTotal[]).reduce(
+      (s, t) => s + t.in.zat - t.out.zat - t.internalFeeZat,
+      0,
+    ),
   };
 }

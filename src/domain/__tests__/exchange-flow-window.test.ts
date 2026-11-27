@@ -58,6 +58,8 @@ describe("combineFlows", () => {
     expect(all.betweenZat).toBe(400);
     expect(all.in.parts.map((p) => p.kind).sort()).toEqual(["shielded", "transparent"]);
     expect(all.internalFeeZat).toBe(7);
+    // Each exchange's own change, summed: exact even where the move's two sides differ by a fee.
+    expect(all.netZat).toBe(1_000 - 610 - 7 + 500);
   });
 
   it("keeps a move to an exchange outside the combination as an exchange part", () => {
@@ -86,6 +88,8 @@ describe("the window helpers", () => {
     const now = Date.UTC(2026, 10, 27, 15) / 1000;
     expect(exchangeFlowWindowStart(30, now)).toBe(Date.UTC(2026, 9, 28) / 1000);
     expect(exchangeFlowWindowStart(null, now)).toBeNull();
+    // Drawn by month: the first of the month a year back, so the first bar is a whole month.
+    expect(exchangeFlowWindowStart(365, now)).toBe(Date.UTC(2025, 10, 1) / 1000);
     expect(exchangeFlowInterval(90)).toBe("day");
     expect(exchangeFlowInterval(365)).toBe("month");
     expect(exchangeFlowInterval(null)).toBe("month");

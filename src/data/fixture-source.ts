@@ -168,8 +168,8 @@ export const fixtureDataSource: ExplorerDataSource = {
   async getExchangeFlows(windowDays) {
     return getExchangeFlows(windowDays);
   },
-  async getExchangeMovements(windowDays, exchange) {
-    return getExchangeMovements(windowDays, exchange);
+  async getExchangeMovements(windowDays, exchange, through) {
+    return getExchangeMovements(windowDays, exchange, through);
   },
   async getChainOutflow() {
     return chartSeries.getChainOutflow();

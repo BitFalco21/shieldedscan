@@ -49,7 +49,9 @@ export function ExchangeFlowTable({ totals, reserves, selected, hrefFor }: Excha
   );
   return (
     <Panel title="BY EXCHANGE, ZEC">
-      <div className="overflow-x-auto">
+      {/* No scroll box: the table fits a 360 px screen (the e2e sweeps hold it to that), and one
+          would clip the tip below Gemini's name. */}
+      <div>
         <table className="data-table w-full min-w-[17rem] text-sm max-sm:text-xs">
           <caption className="sr-only">ZEC into and out of each exchange in the window</caption>
           <thead>
@@ -77,15 +79,19 @@ export function ExchangeFlowTable({ totals, reserves, selected, hrefFor }: Excha
               return (
                 <tr
                   key={e}
-                  className={[
-                    "hairline-b last:border-0",
-                    selected !== null && selected !== e ? "opacity-50" : "",
-                  ].join(" ")}
+                  className="hairline-b last:border-0"
+                  aria-current={selected === e || undefined}
                 >
                   <td className="text-ink-dim max-sm:pe-0">
                     <span className="relative inline-flex items-center gap-1.5 align-top">
                       <EcosystemLogo logo={e} />
-                      <Link href={hrefFor(e)} className="hover:text-green hover:underline">
+                      <Link
+                        href={hrefFor(e)}
+                        className={[
+                          "hover:text-green hover:underline",
+                          selected === e ? "text-green" : "",
+                        ].join(" ")}
+                      >
                         {EXCHANGE_NAMES[e]}
                       </Link>
                       {tip === undefined ? null : (
