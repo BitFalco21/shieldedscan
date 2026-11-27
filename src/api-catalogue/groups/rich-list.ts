@@ -246,7 +246,78 @@ export const RICH_LIST_GROUP: ApiGroup = {
           description: "One exchange.",
         },
       ],
-      exampleResponse: `EXAMPLE_FLOWS`,
+      exampleResponse: `{
+  "query": {
+    "from": "2026-10-01",
+    "to": "2026-11-01",
+    "interval": "month",
+    "exchange": "binance"
+  },
+  "coverage": {
+    "status": "complete",
+    "notes": []
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/rich-list"
+  },
+  "basis": "ZEC paid to each exchange's labelled transparent addresses minus ZEC spent from them, per transaction, …",
+  "exchanges": [
+    {
+      "id": "binance",
+      "name": "Binance"
+    }
+  ],
+  "data": {
+    "interval": "month",
+    "counted": {
+      "from": "2026-10-01",
+      "to": "2026-10-31"
+    },
+    "totals": {
+      "exchanges": {
+        "binance": {
+          "in": {
+            "txs": 954,
+            "value": { "zat": 48987598756834, "zec": "489875.98756834" },
+            "parts": [
+              { "kind": "transparent", "value": { "zat": 48987598756834, "zec": "489875.98756834" } }
+            ]
+          },
+          "out": {
+            "txs": 6073,
+            "value": { "zat": 43994702168312, "zec": "439947.02168312" },
+            "parts": [
+              { "kind": "transparent", "value": { "zat": 40236188946685, "zec": "402361.88946685" } },
+              { "kind": "exchange", "exchange": "kraken", "value": { "zat": 19686528, "zec": "0.19686528" } },
+              { "kind": "bridge", "value": { "zat": 3758407000000, "zec": "37584.07000000" } },
+              { "kind": "fee", "value": { "zat": 86535099, "zec": "0.86535099" } }
+            ]
+          },
+          "internal": {
+            "txs": 19,
+            "fee": { "zat": 7470140, "zec": "0.07470140" }
+          }
+        }
+      }
+    },
+    "points": [
+      {
+        "periodStart": "2026-10-01",
+        "exchanges": {
+          "binance": {
+            "in": { "zat": 48987598756834, "zec": "489875.98756834" },
+            "out": { "zat": 43994702168312, "zec": "439947.02168312" },
+            "inTxs": 954,
+            "outTxs": 6073
+          }
+        }
+      }
+    ]
+  },
+  "unknowns": {},
+  "asOf": 1795818024
+}`,
       notes: [
         "A flow is what one transaction paid an exchange's labelled addresses minus what it spent from them, so change returned to the exchange cancels out. Its shielded wallets and unlabelled deposit addresses are not seen: a deposit to an unlabelled deposit address shows when it is swept into a labelled wallet.",
         "`parts` say where value came from (`in`) or went (`out`): `transparent` (unlabelled addresses), `shielded` (a shielded pool), `mined`, `exchange` (another exchange, named), `bridge`, `other-labelled`, and on an outflow the exchange paid alone, `fee`. Where parties on both sides make the split unknowable it is `mixed`, so every other kind is a floor.",
@@ -301,7 +372,52 @@ export const RICH_LIST_GROUP: ApiGroup = {
           description: "Default 10.",
         },
       ],
-      exampleResponse: `EXAMPLE_MOVEMENTS`,
+      exampleResponse: `{
+  "query": {
+    "from": "2026-10-01",
+    "to": "2026-11-01",
+    "exchange": null,
+    "direction": null,
+    "limit": 2
+  },
+  "coverage": {
+    "status": "complete",
+    "notes": []
+  },
+  "source": {
+    "name": "ShieldedScan",
+    "url": "https://shieldedscan.xyz/rich-list"
+  },
+  "basis": "ZEC paid to each exchange's labelled transparent addresses minus ZEC spent from them, per transaction, …",
+  "items": [
+    {
+      "txid": "cb96ca59d1b6919664205ead7ad869e0b129d0d9509f78340a161ae7c452756b",
+      "exchange": "kraken",
+      "direction": "in",
+      "value": { "zat": 2004552566721, "zec": "20045.52566721" },
+      "height": 3510758,
+      "timestamp": 1791472886,
+      "day": "2026-10-08",
+      "parts": [
+        { "kind": "transparent", "value": { "zat": 2004552566721, "zec": "20045.52566721" } }
+      ]
+    },
+    {
+      "txid": "962e1e2485ffd1a675810f205152c1739075be5e7f3ac5ad21bc6e5ce0f0dfd1",
+      "exchange": "coinbase",
+      "direction": "out",
+      "value": { "zat": 1485802568575, "zec": "14858.02568575" },
+      "height": 3509677,
+      "timestamp": 1791391793,
+      "day": "2026-10-07",
+      "parts": [
+        { "kind": "transparent", "value": { "zat": 1485801568575, "zec": "14858.01568575" } },
+        { "kind": "fee", "value": { "zat": 1000000, "zec": "0.01000000" } }
+      ]
+    }
+  ],
+  "asOf": 1795818016
+}`,
       notes: [
         "A ranking, bounded rather than paged. A move between two exchanges is listed once for each.",
       ],
