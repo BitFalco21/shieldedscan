@@ -4,6 +4,7 @@ import {
   V1_EXCHANGE_FLOWS_PATH,
   V1_EXCHANGE_MOVEMENTS_PATH,
   buildExchangeFlows,
+  indexFlows,
   v1ExchangeFlowsRoutes,
 } from "../v1/exchange-flows";
 import { parseSeriesWindow } from "../v1/analytics-series";
@@ -99,9 +100,13 @@ const win = (q: Record<string, string>) => parseSeriesWindow(q);
 describe("buildExchangeFlows", () => {
   it("counts whole days only, each once every block in it is below every counted cap", () => {
     // The lowest cap is 350: days ending at 100, 200 and 300 count, the one ending at 400 does not.
-    const r = buildExchangeFlows(agg(), win({ from: day(0), to: day(10), interval: "day" }), {
-      exchange: null,
-    });
+    const r = buildExchangeFlows(
+      indexFlows(agg()),
+      win({ from: day(0), to: day(10), interval: "day" }),
+      {
+        exchange: null,
+      },
+    );
     expect(r.data.counted).toEqual({ from: day(0), to: day(2) });
     expect(r.data.points.map((p) => p.periodStart)).toEqual([day(0), day(1), day(2)]);
     expect(r.data.totals.exchanges.binance!.in.value.zat).toBe(1_050);
@@ -109,7 +114,7 @@ describe("buildExchangeFlows", () => {
   });
 
   it("marks the period the count stops inside, and states nothing past it", () => {
-    const r = buildExchangeFlows(agg(), win({ from: day(0), interval: "month" }), {
+    const r = buildExchangeFlows(indexFlows(agg()), win({ from: day(0), interval: "month" }), {
       exchange: null,
     });
     expect(r.data.points).toHaveLength(1);
@@ -117,18 +122,22 @@ describe("buildExchangeFlows", () => {
   });
 
   it("leaves a move between two exchanges out of allExchanges, and states it apart", () => {
-    const r = buildExchangeFlows(agg(), win({ from: day(0), to: day(1), interval: "day" }), {
-      exchange: null,
-    });
+    const r = buildExchangeFlows(
+      indexFlows(agg()),
+      win({ from: day(0), to: day(1), interval: "day" }),
+      {
+        exchange: null,
+      },
+    );
     const all = r.data.totals.allExchanges!;
     // In: Binance 1,000 + Kraken 400, less Kraken's 400 from Binance.
     expect(all.in.value.zat).toBe(1_000);
     // Out: Binance's 600 less the 400 it sent Kraken; the fee left the exchanges and stays.
     expect(all.out.value.zat).toBe(200);
     expect(all.betweenExchanges.zat).toBe(400);
-    expect(all.out.parts.map((p) => p.kind)).toEqual(["transparent", "fee"]);
+    expect(all.out.parts!.map((p) => p.kind)).toEqual(["transparent", "fee"]);
     // Each exchange still shows its own side of it.
-    expect(r.data.totals.exchanges.binance!.out.parts).toContainEqual({
+    expect(r.data.totals.exchanges.binance!.out.parts!).toContainEqual({
       kind: "exchange",
       exchange: "kraken",
       value: { zat: 400, zec: "0.00000400" },
@@ -136,9 +145,13 @@ describe("buildExchangeFlows", () => {
   });
 
   it("reports internal moves apart, so in − out − their fee is the change in reserves", () => {
-    const r = buildExchangeFlows(agg(), win({ from: day(0), to: day(1), interval: "day" }), {
-      exchange: "binance",
-    });
+    const r = buildExchangeFlows(
+      indexFlows(agg()),
+      win({ from: day(0), to: day(1), interval: "day" }),
+      {
+        exchange: "binance",
+      },
+    );
     const b = r.data.totals.exchanges.binance!;
     expect(b.internal).toEqual({ txs: 2, fee: { zat: 7, zec: "0.00000007" } });
     expect(b.in.value.zat - b.out.value.zat - b.internal.fee.zat).toBe(393);
@@ -149,7 +162,7 @@ describe("buildExchangeFlows", () => {
     const caps = agg().caps;
     caps.set("okx", null);
     const r = buildExchangeFlows(
-      agg({ caps }),
+      indexFlows(agg({ caps })),
       win({ from: day(0), to: day(10), interval: "day" }),
       {
         exchange: null,
@@ -166,7 +179,7 @@ describe("buildExchangeFlows", () => {
     const caps = agg().caps;
     caps.set("gate", 350 - LABEL_FLOW_LAG_BLOCKS - 1);
     const r = buildExchangeFlows(
-      agg({ caps }),
+      indexFlows(agg({ caps })),
       win({ from: day(0), to: day(10), interval: "day" }),
       {
         exchange: null,
@@ -178,12 +191,73 @@ describe("buildExchangeFlows", () => {
 
   it("names unresolved transactions in the window", () => {
     const r = buildExchangeFlows(
-      agg({ unresolved: new Map([[D, 2]]) }),
+      indexFlows(agg({ unresolved: new Map([[D, 2]]) })),
       win({ from: day(0), to: day(10), interval: "day" }),
       { exchange: null },
     );
     expect(r.coverage.status).toBe("partial");
     expect(r.coverage.notes.join(" ")).toContain("2 transaction(s)");
+  });
+});
+
+describe("buildExchangeFlows, shape", () => {
+  it("states parts on the window's totals only, never per period", () => {
+    const r = buildExchangeFlows(
+      indexFlows(agg()),
+      win({ from: day(0), to: day(10), interval: "day" }),
+      {
+        exchange: null,
+      },
+    );
+    const point = r.data.points[0]!;
+    expect(point.exchanges.binance).toEqual({
+      in: { zat: 1_000, zec: "0.00001000" },
+      out: { zat: 600, zec: "0.00000600" },
+      inTxs: 3,
+      outTxs: 1,
+    });
+    expect(point.allExchanges).not.toHaveProperty("in.parts");
+    expect(r.data.totals.exchanges.binance!.in.parts!.map((p) => p.kind)).toEqual([
+      "transparent",
+      "shielded",
+      "mixed",
+    ]);
+  });
+
+  it("marks a period the window starts inside", () => {
+    const r = buildExchangeFlows(indexFlows(agg()), win({ from: day(1), interval: "month" }), {
+      exchange: null,
+    });
+    expect(r.data.points[0]).toMatchObject({ periodStart: day(0), from: day(1), through: day(2) });
+  });
+
+  it("fails loudly on a sum a JS number would round", () => {
+    const big = agg({
+      days: [
+        { day: D, exchange: "binance", direction: "in", txs: 1, zat: 2 ** 53 },
+        { day: D + 1, exchange: "binance", direction: "in", txs: 1, zat: 2 ** 53 },
+      ],
+      parts: [],
+    });
+    expect(() =>
+      buildExchangeFlows(indexFlows(big), win({ from: day(0), to: day(10), interval: "day" }), {
+        exchange: null,
+      }),
+    ).toThrow(/2\^53/);
+  });
+
+  it("notes another group still walking even when one exchange is asked for", () => {
+    const caps = agg().caps;
+    caps.set("kraken", null);
+    const r = buildExchangeFlows(
+      indexFlows(agg({ caps })),
+      win({ from: day(0), to: day(10), interval: "day" }),
+      {
+        exchange: "binance",
+      },
+    );
+    expect(r.coverage.notes.join(" ")).toContain("still being walked");
+    expect(r.data.totals.exchanges.binance).not.toBeNull();
   });
 });
 

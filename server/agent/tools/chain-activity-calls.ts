@@ -538,6 +538,10 @@ export function chainActivityCalls(
       if (exchange !== null && !isOneOf(EXCHANGES, exchange)) {
         return `exchange must be ${orList(EXCHANGES)}`;
       }
+      // A series for every exchange is many times the size a turn should carry.
+      if (groupBy !== "none" && exchange === null) {
+        return "groupBy day or month needs one exchange; without groupBy every exchange's totals come back in one call";
+      }
       const interval = groupBy === "day" ? "day" : "month";
       const window = new URLSearchParams();
       if (days.from !== null) window.set("from", days.from);

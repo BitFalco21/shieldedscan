@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { ZcashNetwork } from "@/lib/network";
 import {
+  EXCHANGES,
   LABEL_FLOW_CLASSIFIER,
   exchangeFlowsOf,
   labelGroupKey,
@@ -260,21 +262,40 @@ export async function applyLabelFlowChunk(
 /**
  * Makes `version` the classifier of record, under the lock and before anything else in a pass
  * writes. A different stored version is reset to "nothing reclassified yet", so a reader still
- * built with the old one stops answering before any row of the new one is written. True when it
- * reset.
+ * built with the old one stops answering before any row of the new one is written. A
+ * reclassification still running under another grouping restarts too: heights it already passed
+ * were classified with that grouping, and finishing would record them as this one's. True when
+ * it reset.
  */
-export async function claimClassifierVersion(pool: Pool, version: string): Promise<boolean> {
+export async function claimClassifierVersion(
+  pool: Pool,
+  version: string,
+  groups: string,
+): Promise<boolean> {
   return withLock(pool, async (client) => {
-    const row = (await client.query<{ version: string }>("SELECT version FROM label_flow_derive"))
-      .rows[0];
-    if (row?.version === version) return false;
+    const row = (
+      await client.query<{ version: string; done: boolean; groups: string | null }>(
+        "SELECT version, done, groups FROM label_flow_derive",
+      )
+    ).rows[0];
+    if (row?.version === version && (row.done || row.groups === groups)) return false;
     await client.query(
-      `INSERT INTO label_flow_derive (id, version, through_height, done) VALUES (TRUE, $1, -1, FALSE)
-       ON CONFLICT (id) DO UPDATE SET version = $1, through_height = -1, done = FALSE`,
-      [version],
+      `INSERT INTO label_flow_derive (id, version, through_height, done, groups)
+       VALUES (TRUE, $1, -1, FALSE, $2)
+       ON CONFLICT (id) DO UPDATE SET version = $1, through_height = -1, done = FALSE, groups = $2`,
+      [version, groups],
     );
     return true;
   });
+}
+
+/** A digest of every address's group, to tell one grouping from another. */
+export function groupsDigest(groups: ReadonlyArray<{ address: string; grp: string }>): string {
+  const h = createHash("sha256");
+  for (const g of [...groups].sort((a, b) => a.address.localeCompare(b.address))) {
+    h.update(`${g.address}=${g.grp};`);
+  }
+  return h.digest("hex");
 }
 
 /** Runs `fn` in one transaction holding the flow tables' write lock. */
@@ -570,8 +591,12 @@ export class LabelFlowTracker {
       }
       const groupOf = this.deps.groupOf ?? labelGroupOf;
       const version = this.deps.version ?? LABEL_FLOW_CLASSIFIER;
+      const groups = addresses.map((address) => ({
+        address,
+        grp: labelGroupKey(groupOf(address)),
+      }));
       // First write of the pass, before anything is classified with this build.
-      if (await claimClassifierVersion(pool, version)) {
+      if (await claimClassifierVersion(pool, version, groupsDigest(groups))) {
         this.deps.log(
           `label flows: classifier ${version} is new; reclassifying every stored transaction`,
         );
@@ -607,10 +632,6 @@ export class LabelFlowTracker {
           this.deps.log(`label flows: dropped ${dropped} address(es) no longer listed`);
         }
       }
-      const groups = addresses.map((address) => ({
-        address,
-        grp: labelGroupKey(groupOf(address)),
-      }));
       // A new address is classified as it is walked, so it starts under its own group.
       await pool.query(
         `INSERT INTO label_flow_state (address, through_height, updated_at, grp)
@@ -926,8 +947,9 @@ export async function loadLabelFlowAggregates(
            FROM mining_day WHERE last_height IS NOT NULL ORDER BY day`,
       )
     ).rows) {
-      dayLastHeight.set(r.day, r.last_height);
       above = Math.max(above, r.last_height);
+      // mining_day also holds today, recomputed as blocks arrive: never a day that has ended.
+      if (r.day < today) dayLastHeight.set(r.day, r.last_height);
     }
     for (const r of (
       await client.query<{ day: number; last_height: number }>(
@@ -973,9 +995,15 @@ export async function loadLargestLabelFlows(
   return inSnapshot(pool, async (client) => {
     const readiness = await labelFlowReadiness(client, addresses, groupOf, version);
     if (readiness === null) return null;
-    const counted = [...countedCaps(readiness.caps)].filter(
-      ([g]) => q.exchange === null || g === q.exchange,
-    );
+    const counted = [...countedCaps(readiness.caps)]
+      .filter(([g]) =>
+        q.exchange === null ? (EXCHANGES as readonly string[]).includes(g) : g === q.exchange,
+      )
+      .map(([g, cap]) => ({ g, cap }));
+    if (counted.length === 0) return { caps: readiness.caps, rows: [] };
+    // One cap for all of them (they sit within the lag of each other), and an equality on one
+    // exchange: both keep the ranking on an index rather than a join.
+    const cap = Math.min(...counted.map((c) => c.cap));
     const { rows } = await client.query<{
       txid: string;
       exchange: string;
@@ -987,16 +1015,16 @@ export async function loadLargestLabelFlows(
     }>(
       `SELECT f.txid, f.exchange, f.direction, f.zat, f.block_height, f.timestamp, f.parts
          FROM label_flow_flow f
-         JOIN unnest($1::text[], $2::int[]) AS c(grp, cap)
-           ON c.grp = f.exchange AND f.block_height <= c.cap
-        WHERE f.direction <> 'internal'
+        WHERE ${q.exchange === null ? "f.exchange = ANY($1::text[])" : "f.exchange = ($1::text[])[1]"}
+          AND f.block_height <= $2
+          AND f.direction <> 'internal'
           AND ($3::text IS NULL OR f.direction = $3)
           AND f.timestamp >= $4 AND f.timestamp < $5
         ORDER BY f.zat DESC, f.txid DESC, f.exchange DESC
         LIMIT $6`,
       [
-        counted.map(([g]) => g),
-        counted.map(([, c]) => c),
+        counted.map((c) => c.g),
+        cap,
         q.direction,
         q.fromTs,
         Number.isFinite(q.toTs) ? q.toTs : Number.MAX_SAFE_INTEGER,

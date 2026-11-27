@@ -131,7 +131,7 @@ describeDb("label flows", () => {
 
   beforeEach(async () => {
     await pool.query(
-      "TRUNCATE label_flow_io, label_flow_tx, label_flow_flow, label_flow_state, label_flow_meta, label_flow_derive, tx_transparent_io, tx, block CASCADE",
+      "TRUNCATE label_flow_io, label_flow_tx, label_flow_flow, label_flow_state, label_flow_meta, label_flow_derive, mining_day, tx_transparent_io, tx, block CASCADE",
     );
   });
 
@@ -576,5 +576,45 @@ describeDb("label flows", () => {
     expect(kraken.rows.map((r) => r.zat)).toEqual([480]);
     // Another classifier version reads nothing.
     expect(await loadLabelFlowAggregates(pool, addrs, later, g, "2")).toBeNull();
+  });
+
+  it("never counts today as a day that has ended, though mining_day holds it", async () => {
+    await chain(400);
+    const g = groupsBy({ xB: EX("binance") });
+    await tx(10, [{ io: "out", address: "xB", value: 5 }]);
+    await flowTracker(["xB"], g).refresh();
+    const day = Math.floor(BASE / 86_400);
+    await pool.query(
+      `INSERT INTO mining_day (day, blocks, unrecorded_blocks, computed_at, first_height, last_height)
+       VALUES (to_timestamp($1)::date, 10, 0, 0, 0, 5)`,
+      [day * 86_400],
+    );
+    // Read during that day: its row is there, its end is not.
+    const a = (await loadLabelFlowAggregates(pool, ["xB"], BASE + 3_600, g, "1"))!;
+    expect(a.dayLastHeight.has(day)).toBe(false);
+    const later = (await loadLabelFlowAggregates(pool, ["xB"], BASE + 3 * 86_400, g, "1"))!;
+    expect(later.dayLastHeight.get(day)).toBe(400);
+  });
+
+  it("restarts a reclassification whose grouping changed before it finished", async () => {
+    await chain(400);
+    const before = groupsBy({ xA: EX("binance") });
+    const after = groupsBy({ xA: EX("kraken") });
+    for (let h = 10; h <= 250; h += 40) {
+      await tx(h, [
+        { io: "in", address: "tU", value: 100 },
+        { io: "out", address: "xA", value: 90 },
+      ]);
+    }
+    await flowTracker(["xA"], before, { version: "1" }).refresh();
+    // A new classifier starts under the old grouping and is cut short...
+    await flowTracker(["xA"], before, { version: "2", abortAfter: 1 }).refresh();
+    // ...then a build that also regroups xA takes over: the heights already passed were
+    // classified as Binance's, so it starts again.
+    await flowTracker(["xA"], after, { version: "2" }).refresh();
+    expect(new Set((await flows()).map((f) => f.exchange))).toEqual(new Set(["kraken"]));
+    expect((await labelFlowReadiness(pool, ["xA"], after, "2"))?.caps.get("kraken")).toBe(
+      400 - REORG_DEPTH,
+    );
   });
 });

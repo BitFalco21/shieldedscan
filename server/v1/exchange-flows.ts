@@ -14,6 +14,7 @@ import {
 import { parseSeriesWindow, type SeriesWindow } from "./analytics-series";
 import { amount } from "./format";
 import { errorBody, routeGroupErrors, setCache } from "./http";
+import { createKeyedCache } from "./keyed-cache";
 import { ParamError, rejectUnknown } from "./params";
 
 /**
@@ -43,6 +44,12 @@ const PART_ORDER = [
 ] as const;
 
 type Amount = ReturnType<typeof amount>;
+
+/** A sum as an amount; past 2^53 zatoshi a JS number would round it, so that fails loudly. */
+function safeAmount(zat: number): Amount {
+  if (!Number.isSafeInteger(zat)) throw new Error("a flow sum passed 2^53 zatoshi");
+  return amount(zat);
+}
 type Part = { kind: string; exchange?: string; value: Amount };
 
 interface Side {
@@ -75,7 +82,7 @@ function partsOut(parts: Map<string, number>, skipExchanges = false): Part[] {
     out.push({
       kind,
       ...(counterpart === undefined ? {} : { exchange: counterpart }),
-      value: amount(zat),
+      value: safeAmount(zat),
     });
   }
   const rank = (k: string) => (PART_ORDER as readonly string[]).indexOf(k);
@@ -84,20 +91,34 @@ function partsOut(parts: Map<string, number>, skipExchanges = false): Part[] {
   );
 }
 
-function sideOut(s: Side) {
-  return { txs: s.txs, value: amount(s.zat), parts: partsOut(s.parts) };
+function sideOut(s: Side, withParts: boolean) {
+  return {
+    txs: s.txs,
+    value: safeAmount(s.zat),
+    ...(withParts ? { parts: partsOut(s.parts) } : {}),
+  };
 }
 
 function exchangeOut(e: ExchangeSums) {
   return {
-    in: sideOut(e.in),
-    out: sideOut(e.out),
-    internal: { txs: e.internal.txs, fee: amount(e.internal.zat) },
+    in: sideOut(e.in, true),
+    out: sideOut(e.out, true),
+    internal: { txs: e.internal.txs, fee: safeAmount(e.internal.zat) },
+  };
+}
+
+/** One period's figures for one exchange: what a series needs, a few dozen bytes. */
+function exchangePointOut(e: ExchangeSums) {
+  return {
+    in: safeAmount(e.in.zat),
+    out: safeAmount(e.out.zat),
+    inTxs: e.in.txs,
+    outTxs: e.out.txs,
   };
 }
 
 /** Value into and out of the exchanges as a whole: a move between two of them left out. */
-function allOut(sums: readonly ExchangeSums[]) {
+function allOut(sums: readonly ExchangeSums[], withParts: boolean) {
   const side = (pick: (e: ExchangeSums) => Side) => {
     const parts = new Map<string, number>();
     let zat = 0;
@@ -115,10 +136,10 @@ function allOut(sums: readonly ExchangeSums[]) {
   const inn = side((e) => e.in);
   const out = side((e) => e.out);
   return {
-    in: { value: amount(inn.zat), parts: partsOut(inn.parts) },
-    out: { value: amount(out.zat), parts: partsOut(out.parts) },
+    in: { value: safeAmount(inn.zat), ...(withParts ? { parts: partsOut(inn.parts) } : {}) },
+    out: { value: safeAmount(out.zat), ...(withParts ? { parts: partsOut(out.parts) } : {}) },
     // As sent: the receiving side of the same move is less the fee where the senders paid it.
-    betweenExchanges: amount(out.between),
+    betweenExchanges: safeAmount(out.between),
   };
 }
 
@@ -127,15 +148,35 @@ function monthStart(day: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000 / DAY;
 }
 
+/** The aggregates with their rows filed by day, once per load, so a request reads its days only. */
+export interface IndexedFlows {
+  agg: LabelFlowAggregates;
+  byDay: Map<number, { days: LabelFlowAggregates["days"]; parts: LabelFlowAggregates["parts"] }>;
+  firstDay: number;
+}
+
+export function indexFlows(agg: LabelFlowAggregates): IndexedFlows {
+  const byDay: IndexedFlows["byDay"] = new Map();
+  const at = (day: number) => {
+    let e = byDay.get(day);
+    if (e === undefined) byDay.set(day, (e = { days: [], parts: [] }));
+    return e;
+  };
+  let firstDay = Infinity;
+  for (const r of agg.days) {
+    at(r.day).days.push(r);
+    firstDay = Math.min(firstDay, r.day);
+  }
+  for (const r of agg.parts) at(r.day).parts.push(r);
+  return { agg, byDay, firstDay };
+}
+
 export interface ExchangeFlowsQuery {
   exchange: ExchangeId | null;
 }
 
-export function buildExchangeFlows(
-  agg: LabelFlowAggregates,
-  w: SeriesWindow,
-  q: ExchangeFlowsQuery,
-) {
+export function buildExchangeFlows(indexed: IndexedFlows, w: SeriesWindow, q: ExchangeFlowsQuery) {
+  const agg = indexed.agg;
   const unknowns: Record<string, string> = {};
   const notes: string[] = [];
   const shown: readonly ExchangeId[] = q.exchange === null ? EXCHANGES : [q.exchange];
@@ -147,10 +188,12 @@ export function buildExchangeFlows(
       `Not counted yet: ${unmeasured.map((e) => EXCHANGE_NAMES[e]).join(", ")}. Labelled addresses of theirs are still being walked or reclassified.`,
     );
   }
-  const others = [...agg.caps.keys()].filter((g) => !(EXCHANGES as readonly string[]).includes(g));
+  // Any other group not counted (a bridge, another exchange) leaves value it moved looking like
+  // transparent addresses in the parts of the exchanges shown.
+  const others = [...agg.caps.keys()].filter((g) => !shown.includes(g as ExchangeId));
   if (others.some((g) => !counted.has(g))) {
     notes.push(
-      "Some labelled bridge or other addresses are still being walked: value they moved may show as transparent in `parts`.",
+      "Some other labelled addresses are still being walked: value they moved may show as transparent in `parts`.",
     );
   }
 
@@ -158,10 +201,7 @@ export function buildExchangeFlows(
   const h = measured.length === 0 ? -1 : Math.min(...measured.map((e) => counted.get(e)!));
   let through = -1;
   for (const [day, last] of agg.dayLastHeight) if (last <= h && day > through) through = day;
-  const firstDay = Math.max(
-    Math.floor(w.fromTs / DAY),
-    agg.days.reduce((m, r) => Math.min(m, r.day), Infinity),
-  );
+  const firstDay = Math.max(Math.floor(w.fromTs / DAY), indexed.firstDay);
   const lastDay = Math.min(through, Math.ceil(w.toTs / DAY) - 1);
   const windowLast = Number.isFinite(w.toTs) ? Math.ceil(w.toTs / DAY) - 1 : Infinity;
   if (lastDay < windowLast && measured.length > 0) {
@@ -186,8 +226,17 @@ export function buildExchangeFlows(
     const p = periodOf(d);
     if (!periods.has(p)) periods.set(p, new Map());
   }
-  for (const r of agg.days) {
-    if (!inWindow(r.day) || !measured.includes(r.exchange as ExchangeId)) continue;
+  const dayRows = [];
+  const partRows = [];
+  for (let d = firstDay; d <= lastDay && Number.isFinite(firstDay); d += 1) {
+    const e = indexed.byDay.get(d);
+    if (e !== undefined) {
+      dayRows.push(...e.days);
+      partRows.push(...e.parts);
+    }
+  }
+  for (const r of dayRows) {
+    if (!measured.includes(r.exchange as ExchangeId)) continue;
     for (const m of [
       sumsOf(periods.get(periodOf(r.day))!, r.exchange),
       sumsOf(total, r.exchange),
@@ -201,8 +250,8 @@ export function buildExchangeFlows(
       }
     }
   }
-  for (const r of agg.parts) {
-    if (!inWindow(r.day) || !measured.includes(r.exchange as ExchangeId)) continue;
+  for (const r of partRows) {
+    if (!measured.includes(r.exchange as ExchangeId)) continue;
     const k = partKey(r.kind, r.counterpart);
     for (const m of [
       sumsOf(periods.get(periodOf(r.day))!, r.exchange),
@@ -220,17 +269,29 @@ export function buildExchangeFlows(
     );
   }
 
-  const block = (m: Map<string, ExchangeSums>, key: string) => {
-    const exchanges: Record<string, ReturnType<typeof exchangeOut> | null> = {};
+  // Parts on the window's totals only: per period they would multiply the answer many times over.
+  const block = <T>(
+    m: Map<string, ExchangeSums>,
+    key: string,
+    withParts: boolean,
+    out: (e: ExchangeSums) => T,
+  ) => {
+    const exchanges: Record<string, T | null> = {};
     for (const e of shown) {
-      if (measured.includes(e)) exchanges[e] = exchangeOut(m.get(e) ?? newSums());
+      if (measured.includes(e)) exchanges[e] = out(m.get(e) ?? newSums());
       else {
         exchanges[e] = null;
         unknowns[`${key}.exchanges.${e}`] = "unmeasured";
       }
     }
     if (q.exchange !== null) return { exchanges };
-    const all = unmeasured.length === 0 ? allOut(shown.map((e) => m.get(e) ?? newSums())) : null;
+    const all =
+      unmeasured.length === 0
+        ? allOut(
+            shown.map((e) => m.get(e) ?? newSums()),
+            withParts,
+          )
+        : null;
     if (all === null) unknowns[`${key}.allExchanges`] = "unmeasured";
     return { exchanges, allExchanges: all };
   };
@@ -241,8 +302,10 @@ export function buildExchangeFlows(
       const end = w.interval === "month" ? monthStart(p + 32) - 1 : p;
       return {
         periodStart: utcDayFromSeconds(p * DAY),
+        // A period the window cuts: the days it counts.
+        ...(p < firstDay ? { from: utcDayFromSeconds(firstDay * DAY) } : {}),
         ...(end > lastDay ? { through: utcDayFromSeconds(lastDay * DAY) } : {}),
-        ...block(periods.get(p)!, `data.points.${i}`),
+        ...block(periods.get(p)!, `data.points.${i}`, false, exchangePointOut),
       };
     });
 
@@ -255,7 +318,7 @@ export function buildExchangeFlows(
         lastDay >= firstDay && Number.isFinite(firstDay)
           ? { from: utcDayFromSeconds(firstDay * DAY), to: utcDayFromSeconds(lastDay * DAY) }
           : null,
-      totals: block(total, "data.totals"),
+      totals: block(total, "data.totals", true, exchangeOut),
       points,
     },
     unknowns,
@@ -314,6 +377,11 @@ export class FlowsUnavailableError extends Error {}
 
 export interface V1ExchangeFlowsDeps {
   pool: Pool;
+  /**
+   * The movements ranking queries per request (cached briefly), so it runs on a pool of its own,
+   * never holding a connection the memo-backed series wait on. Defaults to `pool`.
+   */
+  movementsPool?: Pool;
   now?: () => number;
   /** Injectable so the HTTP contract is testable without a database. */
   load?: () => Promise<LabelFlowAggregates | null>;
@@ -327,7 +395,9 @@ export function v1ExchangeFlowsRoutes(deps: V1ExchangeFlowsDeps): Hono {
   const addresses = Object.keys(ADDRESS_LABELS);
   const load = deps.load ?? (() => loadLabelFlowAggregates(deps.pool, addresses, nowSec()));
   const largest = deps.largest ?? loadLargestLabelFlows;
-  const memo = new Cached<LabelFlowAggregates>(MEMO_MS, { staleMs: STALE_MS });
+  const memo = new Cached<IndexedFlows>(MEMO_MS, { staleMs: STALE_MS });
+  /** Each answer for a minute: building one walks its window's days, and the same is asked often. */
+  const answers = createKeyedCache({ now, max: 200 });
   const unavailable = "the exchange flows are being recomputed; retry shortly";
 
   app.onError((err, c) => {
@@ -345,24 +415,28 @@ export function v1ExchangeFlowsRoutes(deps: V1ExchangeFlowsDeps): Hono {
     rejectUnknown(q, ["from", "to", "interval", "exchange"]);
     const w = parseSeriesWindow(q);
     const query = parseExchangeFlowsQuery(q);
-    // A null load is never memoised: it throws, so the next request asks again.
-    const agg = await memo.get(async () => {
-      const a = await load();
-      if (a === null) throw new FlowsUnavailableError();
-      return a;
+    const echo = { from: w.from, to: w.to, interval: w.interval, exchange: query.exchange };
+    const body = await answers(JSON.stringify(echo), 60_000, async () => {
+      // A null load is never memoised: it throws, so the next request asks again.
+      const indexed = await memo.get(async () => {
+        const a = await load();
+        if (a === null) throw new FlowsUnavailableError();
+        return indexFlows(a);
+      });
+      const built = buildExchangeFlows(indexed, w, query);
+      return {
+        query: echo,
+        coverage: built.coverage,
+        source,
+        basis: EXCHANGE_FLOWS_BASIS,
+        exchanges: built.exchanges,
+        data: built.data,
+        unknowns: built.unknowns,
+        asOf: nowSec(),
+      };
     });
-    const built = buildExchangeFlows(agg, w, query);
     setCache(c, "series");
-    return c.json({
-      query: { from: w.from, to: w.to, interval: w.interval, exchange: query.exchange },
-      coverage: built.coverage,
-      source,
-      basis: EXCHANGE_FLOWS_BASIS,
-      exchanges: built.exchanges,
-      data: built.data,
-      unknowns: built.unknowns,
-      asOf: nowSec(),
-    });
+    return c.json(body);
   });
 
   app.get(V1_EXCHANGE_MOVEMENTS_PATH, async (c) => {
@@ -373,32 +447,40 @@ export function v1ExchangeFlowsRoutes(deps: V1ExchangeFlowsDeps): Hono {
       ...(q.to ? { to: q.to } : {}),
     });
     const m = parseMovementsQuery(q);
-    const got = await largest(deps.pool, addresses, { ...m, fromTs: w.fromTs, toTs: w.toTs });
-    if (got === null) throw new FlowsUnavailableError();
-    const counted = countedCaps(got.caps);
-    const shown: readonly string[] = m.exchange === null ? EXCHANGES : [m.exchange];
-    const missing = shown.filter((e) => !counted.has(e));
-    const notes =
-      missing.length === 0
-        ? []
-        : [
-            `Not counted yet: ${missing.map((e) => EXCHANGE_NAMES[e as ExchangeId]).join(", ")}. Labelled addresses of theirs are still being walked or reclassified.`,
-          ];
-    setCache(c, "aggregate");
-    return c.json({
-      query: {
-        from: w.from,
-        to: w.to,
-        exchange: m.exchange,
-        direction: m.direction,
-        limit: m.limit,
-      },
-      coverage: { status: notes.length === 0 ? "complete" : "partial", notes },
-      source,
-      basis: EXCHANGE_FLOWS_BASIS,
-      items: got.rows.map(movementOut),
-      asOf: nowSec(),
+    const echo = {
+      from: w.from,
+      to: w.to,
+      exchange: m.exchange,
+      direction: m.direction,
+      limit: m.limit,
+    };
+    const body = await answers(`movements:${JSON.stringify(echo)}`, 60_000, async () => {
+      const got = await largest(deps.movementsPool ?? deps.pool, addresses, {
+        ...m,
+        fromTs: w.fromTs,
+        toTs: w.toTs,
+      });
+      if (got === null) throw new FlowsUnavailableError();
+      const counted = countedCaps(got.caps);
+      const shown: readonly string[] = m.exchange === null ? EXCHANGES : [m.exchange];
+      const missing = shown.filter((e) => !counted.has(e));
+      const notes =
+        missing.length === 0
+          ? []
+          : [
+              `Not counted yet: ${missing.map((e) => EXCHANGE_NAMES[e as ExchangeId]).join(", ")}. Labelled addresses of theirs are still being walked or reclassified.`,
+            ];
+      return {
+        query: echo,
+        coverage: { status: notes.length === 0 ? "complete" : "partial", notes },
+        source,
+        basis: EXCHANGE_FLOWS_BASIS,
+        items: got.rows.map(movementOut),
+        asOf: nowSec(),
+      };
     });
+    setCache(c, "aggregate");
+    return c.json(body);
   });
 
   return app;

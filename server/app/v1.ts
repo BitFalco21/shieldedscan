@@ -134,7 +134,15 @@ function v1Extensions(
     // ZEC into and out of those addresses, from the flows the primary's label-flow tracker
     // classifies as it stores each transaction.
     out.push({
-      routes: v1ExchangeFlowsRoutes({ pool: seriesPool }),
+      routes: v1ExchangeFlowsRoutes({
+        pool: seriesPool,
+        // The ranking queries per request: two connections of its own, a short bound.
+        movementsPool: createPool(DATABASE_URL, {
+          max: 2,
+          statement_timeout: 10_000,
+          connectionTimeoutMillis: 10_000,
+        }),
+      }),
       endpoints: [V1_EXCHANGE_FLOWS_PATH, V1_EXCHANGE_MOVEMENTS_PATH],
     });
     // Coin age: memo-backed the same way, from the matrix the primary's coin-age tracker keeps.

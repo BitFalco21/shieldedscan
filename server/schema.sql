@@ -523,6 +523,9 @@ CREATE TABLE IF NOT EXISTS label_flow_derive (
   through_height INTEGER NOT NULL,
   done           BOOLEAN NOT NULL
 );
+-- The grouping a reclassification in progress uses (a digest of every address's group): one that
+-- changes before it is done restarts it, so it never ends with heights classified two ways.
+ALTER TABLE label_flow_derive ADD COLUMN IF NOT EXISTS groups TEXT;
 
 -- Transparent coin age, kept by `CoinAgeTracker` in `server/coin-age.ts`: every transparent output
 -- ever made, summed by the UTC day of the block that created it and the UTC day of the block that
