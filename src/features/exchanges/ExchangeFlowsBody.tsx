@@ -95,9 +95,9 @@ export function ExchangeFlowsBody({
           />
         ) : (
           <StatCard
-            label="BETWEEN EXCHANGES"
+            label="EXCHANGE TO EXCHANGE"
             value={combined === null ? <Unmeasured /> : zec(combined.betweenZat)}
-            sub="left out of in and out"
+            sub="sent directly; not in in or out"
           />
         )}
       </StatGrid>

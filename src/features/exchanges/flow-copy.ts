@@ -59,7 +59,9 @@ export const EXCHANGE_FLOW_TIPS: Partial<Readonly<Record<ExchangeId, string>>> =
 export function phoneZec(zat: number): string {
   const zec = Math.abs(zat) / 100_000_000;
   if (zec >= 1_000_000) return `${(zec / 1_000_000).toFixed(2)}M`;
-  if (zec >= 1_000) return `${(zec / 1_000).toFixed(1)}K`;
+  // Two decimals below 10K, so 2,166.92 reads 2.17K, never 2.2K; one above, where it costs width.
+  if (zec >= 10_000) return `${(zec / 1_000).toFixed(1)}K`;
+  if (zec >= 1_000) return `${(zec / 1_000).toFixed(2)}K`;
   if (zec >= 1 || zec === 0) {
     return zec.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
