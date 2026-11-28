@@ -27,7 +27,7 @@ describe("ExchangeFlowsPage", () => {
     const all = combineFlows(flows.totals, EXCHANGES)!;
     page(flows);
     expect(all.betweenZat).toBeGreaterThan(0);
-    const between = screen.getByText("BETWEEN EXCHANGES").closest(".stat-card")!;
+    const between = screen.getByText("EXCHANGE TO EXCHANGE").closest(".stat-card")!;
     expect(within(between as HTMLElement).getByText(formatZecWhole(all.betweenZat))).toBeTruthy();
     const inCard = screen.getByText("IN").closest(".stat-card")!;
     expect(within(inCard as HTMLElement).getByText(formatZecWhole(all.in.zat))).toBeTruthy();
