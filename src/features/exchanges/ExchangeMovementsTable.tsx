@@ -66,7 +66,7 @@ export function ExchangeMovementsTable({ movements, fullDates }: ExchangeMovemen
                   <td className="text-ink-dim">
                     <span className="inline-flex items-center gap-1.5">
                       <EcosystemLogo logo={m.exchange} />
-                      <span className="max-sm:sr-only">{EXCHANGE_NAMES[m.exchange]}</span>
+                      <span>{EXCHANGE_NAMES[m.exchange]}</span>
                     </span>
                   </td>
                   <td
