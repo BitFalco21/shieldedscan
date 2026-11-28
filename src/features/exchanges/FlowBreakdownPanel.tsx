@@ -1,10 +1,17 @@
 import type { ReactNode } from "react";
 import { EXCHANGE_NAMES, type CombinedFlowSide, type ExchangeId, type FlowKind } from "@/domain";
 import { EcosystemLogo } from "@/components/EcosystemLogo";
+import { InfoTip } from "@/components/InfoTip";
 import { Panel } from "@/components/Panel";
 import { ShareBar } from "@/components/ShareBar";
 import { formatCount, formatSharePct, formatZecBalance, formatZecWhole } from "@/lib/format";
-import { FLOW_KIND_LABELS, FLOW_KIND_ORDER, FLOW_KIND_SHORT, phoneZec } from "./flow-copy";
+import {
+  FLOW_KIND_LABELS,
+  FLOW_KIND_ORDER,
+  FLOW_KIND_SHORT,
+  FLOW_KIND_TIPS,
+  phoneZec,
+} from "./flow-copy";
 
 export interface FlowBreakdownPanelProps {
   title: string;
@@ -36,6 +43,7 @@ function Row({
   zat,
   total,
   mark,
+  tip,
 }: {
   label: string;
   /** The label on a phone, where the long form would be cut. */
@@ -43,10 +51,12 @@ function Row({
   zat: number;
   total: number;
   mark?: ReactNode;
+  /** Explains the row; `label` is its spoken name, unique on the page. */
+  tip?: { text: string; label: string };
 }) {
   const pct = total > 0 ? (100 * zat) / total : null;
   return (
-    <div className="py-2">
+    <div className="relative py-2">
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="inline-flex min-w-0 items-center gap-1.5 text-ink-dim">
           {mark}
@@ -54,6 +64,7 @@ function Row({
             <span className="sm:hidden">{short ?? label}</span>
             <span className="hidden sm:inline">{label}</span>
           </span>
+          {tip === undefined ? null : <InfoTip text={tip.text} label={tip.label} />}
         </span>
         <span className="flex shrink-0 items-baseline gap-2">
           <Amount zat={zat} />
@@ -132,6 +143,14 @@ export function FlowBreakdownPanel({ title, side, showTxs }: FlowBreakdownPanelP
                 short={FLOW_KIND_SHORT[k]}
                 zat={byKind.get(k)!}
                 total={side.zat}
+                tip={
+                  FLOW_KIND_TIPS[k] === undefined
+                    ? undefined
+                    : {
+                        text: FLOW_KIND_TIPS[k],
+                        label: `${FLOW_KIND_LABELS[k].toLowerCase()}, ${title.toLowerCase()}`,
+                      }
+                }
               />
             ),
           )}
