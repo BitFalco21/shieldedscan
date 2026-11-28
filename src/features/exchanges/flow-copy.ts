@@ -19,6 +19,17 @@ export const FLOW_KIND_SHORT: Readonly<Record<FlowKind, string>> = {
   "other-labelled": "Other labels",
 };
 
+/** One sentence on the kinds a reader cannot read off the name. */
+export const FLOW_KIND_TIPS: Partial<Readonly<Record<FlowKind, string>>> = {
+  mined: "A block reward paid straight into an exchange's wallet.",
+  bridge:
+    "Addresses this explorer labels as bridges, such as NEAR Intents and Unit: ZEC on its way to or from another chain.",
+  "other-labelled": "Other addresses this explorer labels, such as funds.",
+  fee: "The network fees the exchanges paid on these transactions, listed so the rows add up to the total.",
+  mixed:
+    "Several kinds of party on the other side of one transaction. Which one paid what is not on the chain, so it is not split.",
+};
+
 export const FLOW_KIND_ORDER: readonly FlowKind[] = [
   "transparent",
   "shielded",
